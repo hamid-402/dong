@@ -1,0 +1,28 @@
+{
+  "name": "@dang/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3005 --webpack",
+    "dev:turbo": "next dev --port 3005 --turbopack",
+    "build": "next build",
+    "start": "next start --port 3005",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dang/contracts": "workspace:*",
+    "@dang/ui": "workspace:*",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "latest",
+    "typescript": "^6.0.3"
+  }
+}

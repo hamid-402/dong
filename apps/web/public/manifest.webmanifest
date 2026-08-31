@@ -1,0 +1,19 @@
+{
+  "name": "دنگ همکاری",
+  "short_name": "دنگ",
+  "description": "دفتر عملیات مشترک برای هزینه، خرید، تجهیزات و حساب شرکا",
+  "start_url": "/workspaces",
+  "display": "standalone",
+  "dir": "rtl",
+  "lang": "fa",
+  "background_color": "#090e0d",
+  "theme_color": "#090e0d",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "dang-hamkari",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @dang/web dev",
+    "dev:web": "pnpm --filter @dang/web dev",
+    "dev:api": "pnpm --filter @dang/api dev",
+    "dev:worker": "pnpm --filter @dang/worker dev",
+    "dev:all": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "check": "pnpm lint && pnpm typecheck && pnpm build",
+    "db:generate": "pnpm --filter @dang/db db:generate",
+    "db:migrate": "pnpm --filter @dang/db db:migrate",
+    "db:check": "pnpm --filter @dang/db db:check",
+    "test": "pnpm --filter @dang/contracts test && pnpm --filter @dang/db test"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "turbo": "latest",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "latest"
+  }
+}

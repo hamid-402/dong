@@ -1,0 +1,89 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+} from "@nestjs/common";
+import {
+  assertNoCustodyPayload,
+  type AuthActor,
+  type CreatePaymentLinkRequest,
+  type PaymentLinkSummary,
+} from "@dang/contracts";
+import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { MemoryPaymentStore, PAYMENT_STORE } from "./payment.store.js";
+
+@Injectable()
+export class PaymentsService {
+  constructor(
+    @Inject(PAYMENT_STORE) private readonly store: MemoryPaymentStore,
+    @Inject(IAM_STORE) private readonly iam: IamStore,
+  ) {}
+
+  async createLink(
+    actor: AuthActor,
+    workspaceId: string,
+    body: CreatePaymentLinkRequest,
+  ): Promise<PaymentLinkSummary> {
+    await this.requireMember(workspaceId, actor.userId);
+    assertNoCustodyPayload(body);
+
+    if (body.amount.currency !== "IRR" || BigInt(body.amount.amountMinor) <= 0n) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "Invalid payment amount",
+        status: 400,
+      });
+    }
+    if (!body.description?.trim() || body.description.trim().length > 200) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "Invalid payment description",
+        status: 400,
+      });
+    }
+    if (!body.returnUrl?.trim() || !/^https?:\/\//i.test(body.returnUrl)) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "returnUrl must be an absolute URL",
+        status: 400,
+      });
+    }
+    if (!body.idempotencyKey?.trim()) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "idempotencyKey required",
+        status: 400,
+      });
+    }
+
+    try {
+      return this.store.create("stub", { ...body, workspaceId });
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === "PAYMENT_CUSTODY_FORBIDDEN") {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/custody-forbidden",
+          title: "Card/PAN fields are not accepted — PSP redirect only",
+          status: 400,
+        });
+      }
+      throw error;
+    }
+  }
+
+  async listLinks(actor: AuthActor, workspaceId: string): Promise<PaymentLinkSummary[]> {
+    await this.requireMember(workspaceId, actor.userId);
+    return this.store.list(workspaceId);
+  }
+
+  private async requireMember(workspaceId: string, userId: string): Promise<void> {
+    const membership = await this.iam.getWorkspaceForUser(workspaceId, userId);
+    if (!membership) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "Not a workspace member",
+        status: 403,
+      });
+    }
+  }
+}
