@@ -16,3 +16,6 @@ Thumbs.db
 
 tsbuildinfo
 *.tsbuildinfo
+**/tests/*.js
+**/tests/*.d.ts
+**/tests/*.d.ts.map

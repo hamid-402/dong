@@ -25,7 +25,7 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.{ts,tsx}": ["eslint --fix --max-warnings=0"]
+    "*.{ts,tsx}": ["eslint --fix --max-warnings=0 --no-warn-ignored"]
   },
   "devDependencies": {
     "eslint": "^9.39.5",

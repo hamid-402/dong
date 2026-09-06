@@ -7,6 +7,10 @@ export default tseslint.config(
       "**/.next/**",
       "**/node_modules/**",
       "**/coverage/**",
+      "**/tests/**",
+      "**/*.{test,spec}.{ts,tsx}",
+      "**/*.e2e.test.ts",
+      "**/e2e/**",
     ],
   },
   ...tseslint.configs.recommendedTypeChecked,
@@ -31,14 +35,6 @@ export default tseslint.config(
           caughtErrorsIgnorePattern: "^_",
         },
       ],
-    },
-  },
-  {
-    files: ["**/*.{test,spec}.{ts,tsx}", "**/*.e2e.test.ts", "**/tests/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-floating-promises": "off",
-      "@typescript-eslint/unbound-method": "off",
-      "@typescript-eslint/no-base-to-string": "off",
     },
   },
 );

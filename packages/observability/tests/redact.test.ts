@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { redactForTest } from "../src/index.ts";
+import { redactForTest } from "../src/index.js";
 
 test("redact masks nested sensitive keys", () => {
   const out = redactForTest({
