@@ -22,7 +22,17 @@ import type {
   UpdateProfileRequest,
   UserProfile,
 } from "@dang/contracts";
+import {
+  changePasswordRequestSchema,
+  forgotPasswordRequestSchema,
+  loginRequestSchema,
+  registerRequestSchema,
+  resetPasswordRequestSchema,
+  updateProfileRequestSchema,
+  verifyEmailRequestSchema,
+} from "@dang/contracts";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { AuthGuard, CurrentActor } from "./auth.guard.js";
 import { AccountService } from "./account.service.js";
 import { SESSION_COOKIE } from "./account.types.js";
@@ -35,7 +45,7 @@ export class AccountController {
   @Post("register")
   @ApiOperation({ summary: "Register with email/password and start session cookie" })
   register(
-    @Body() body: RegisterRequest,
+    @Body(new ZodValidationPipe(registerRequestSchema)) body: RegisterRequest,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<AuthActionResponse> {
@@ -48,7 +58,7 @@ export class AccountController {
   @Post("login")
   @ApiOperation({ summary: "Login with email/password" })
   login(
-    @Body() body: LoginRequest,
+    @Body(new ZodValidationPipe(loginRequestSchema)) body: LoginRequest,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<AuthActionResponse> {
@@ -69,14 +79,16 @@ export class AccountController {
 
   @Post("forgot-password")
   @ApiOperation({ summary: "Request password reset (anti-enumeration)" })
-  forgot(@Body() body: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
+  forgot(
+    @Body(new ZodValidationPipe(forgotPasswordRequestSchema)) body: ForgotPasswordRequest,
+  ): Promise<ForgotPasswordResponse> {
     return this.accounts.forgotPassword(body);
   }
 
   @Post("reset-password")
   @ApiOperation({ summary: "Reset password with one-time token" })
   reset(
-    @Body() body: ResetPasswordRequest,
+    @Body(new ZodValidationPipe(resetPasswordRequestSchema)) body: ResetPasswordRequest,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<AuthActionResponse> {
@@ -98,7 +110,7 @@ export class AccountController {
   @ApiOperation({ summary: "Update display name / locale / timezone" })
   updateProfile(
     @CurrentActor() actor: AuthActor,
-    @Body() body: UpdateProfileRequest,
+    @Body(new ZodValidationPipe(updateProfileRequestSchema)) body: UpdateProfileRequest,
   ): Promise<UserProfile> {
     return this.accounts.updateProfile(actor, body);
   }
@@ -108,7 +120,7 @@ export class AccountController {
   @ApiOperation({ summary: "Change password and revoke other sessions" })
   changePassword(
     @CurrentActor() actor: AuthActor,
-    @Body() body: ChangePasswordRequest,
+    @Body(new ZodValidationPipe(changePasswordRequestSchema)) body: ChangePasswordRequest,
   ): Promise<{ ok: true }> {
     return this.accounts.changePassword(actor, body);
   }
@@ -122,7 +134,9 @@ export class AccountController {
 
   @Post("verify-email")
   @ApiOperation({ summary: "Confirm email with one-time token" })
-  verifyEmail(@Body() body: { token: string }) {
+  verifyEmail(
+    @Body(new ZodValidationPipe(verifyEmailRequestSchema)) body: { token: string },
+  ) {
     return this.accounts.verifyEmail(body.token);
   }
 

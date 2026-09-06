@@ -13,7 +13,9 @@ import type {
   CreateSettlementClaimRequest,
   SettlementSummary,
 } from "@dang/contracts";
+import { createSettlementClaimRequestSchema } from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { SettlementsService } from "./settlements.service.js";
 
 @ApiTags("settlements")
@@ -33,7 +35,8 @@ export class SettlementsController {
   create(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateSettlementClaimRequest,
+    @Body(new ZodValidationPipe(createSettlementClaimRequestSchema))
+    body: CreateSettlementClaimRequest,
   ): Promise<SettlementSummary> {
     return this.settlements.createClaim(actor, workspaceId, body);
   }

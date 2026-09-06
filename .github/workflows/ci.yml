@@ -51,7 +51,6 @@ jobs:
 
       - name: dependency audit (high+)
         run: pnpm audit --audit-level=high
-        continue-on-error: true
 
       - name: migrate schema
         run: pnpm --filter @dang/db db:migrate

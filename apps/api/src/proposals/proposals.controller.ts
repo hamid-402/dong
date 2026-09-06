@@ -18,8 +18,14 @@ import type {
   ProposalSummary,
   UpdateProposalSettingsRequest,
 } from "@dang/contracts";
+import {
+  castProposalVoteRequestSchema,
+  createProposalRequestSchema,
+  updateProposalSettingsRequestSchema,
+} from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
 import { IdempotencyService } from "../common/idempotency.service.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { ProposalsService } from "./proposals.service.js";
 
 @ApiTags("proposals")
@@ -46,7 +52,8 @@ export class ProposalsController {
   updateSettings(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: UpdateProposalSettingsRequest,
+    @Body(new ZodValidationPipe(updateProposalSettingsRequestSchema))
+    body: UpdateProposalSettingsRequest,
   ): Promise<ProposalSettingsSummary> {
     return this.proposals.updateSettings(actor, workspaceId, body);
   }
@@ -68,7 +75,7 @@ export class ProposalsController {
   create(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateProposalRequest,
+    @Body(new ZodValidationPipe(createProposalRequestSchema)) body: CreateProposalRequest,
     @Headers("idempotency-key") idempotencyKey?: string,
   ): Promise<ProposalSummary> {
     const key = idempotencyKey ?? body.idempotencyKey;
@@ -87,7 +94,8 @@ export class ProposalsController {
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
     @Param("proposalId") proposalId: string,
-    @Body() body: CastProposalVoteRequest,
+    @Body(new ZodValidationPipe(castProposalVoteRequestSchema))
+    body: CastProposalVoteRequest,
   ): Promise<ProposalSummary> {
     return this.proposals.vote(actor, workspaceId, proposalId, body);
   }

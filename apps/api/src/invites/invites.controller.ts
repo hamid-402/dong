@@ -2,13 +2,19 @@ import { Body, Controller, Get, Headers, Inject, Param, Post, UseGuards } from "
 import { ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type {
   AuthActor,
+  AcceptInviteRequest,
   CreateInviteRequest,
   CreateInviteResponse,
   InviteSummary,
   WorkspaceSummary,
 } from "@dang/contracts";
+import {
+  acceptInviteRequestSchema,
+  createInviteRequestSchema,
+} from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
 import { IdempotencyService } from "../common/idempotency.service.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { InvitesService } from "./invites.service.js";
 
 @ApiTags("invites")
@@ -27,7 +33,7 @@ export class InvitesController {
   create(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateInviteRequest,
+    @Body(new ZodValidationPipe(createInviteRequestSchema)) body: CreateInviteRequest,
     @Headers("idempotency-key") idempotencyKey?: string,
   ): Promise<CreateInviteResponse> {
     return this.idempotency.run(
@@ -53,8 +59,8 @@ export class InvitesController {
   @ApiOperation({ summary: "Accept an invite token and join the workspace" })
   accept(
     @CurrentActor() actor: AuthActor,
-    @Body() body: { token?: string },
+    @Body(new ZodValidationPipe(acceptInviteRequestSchema)) body: AcceptInviteRequest,
   ): Promise<WorkspaceSummary> {
-    return this.invites.accept(actor, body.token ?? "");
+    return this.invites.accept(actor, body.token);
   }
 }

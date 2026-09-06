@@ -24,8 +24,14 @@ import type {
   ReportGroupBy,
   WorkspaceReportResponse,
 } from "@dang/contracts";
+import {
+  createExpenseCategoryRequestSchema,
+  createRecurringRuleRequestSchema,
+  createReportExportRequestSchema,
+} from "@dang/contracts";
 import type { FastifyReply } from "fastify";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { EXPENSE_STORE, type ExpenseStore } from "../expenses/expense.types.js";
 import { REPORTS_STORE, type ReportsStore } from "./reports.store.js";
@@ -66,7 +72,8 @@ export class ReportsController {
   async createExport(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateReportExportRequest,
+    @Body(new ZodValidationPipe(createReportExportRequestSchema))
+    body: CreateReportExportRequest,
   ): Promise<ReportExportSummary> {
     await this.requireMember(workspaceId, actor.userId);
     this.assertRange(body.from, body.to);
@@ -129,7 +136,8 @@ export class ReportsController {
   async createCategory(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateExpenseCategoryRequest,
+    @Body(new ZodValidationPipe(createExpenseCategoryRequestSchema))
+    body: CreateExpenseCategoryRequest,
   ): Promise<ExpenseCategorySummary> {
     await this.requireMember(workspaceId, actor.userId);
     if (!body.name?.trim()) throw new BadRequestException({ detail: "نام دسته لازم است" });
@@ -151,7 +159,8 @@ export class ReportsController {
   async createRecurring(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateRecurringRuleRequest,
+    @Body(new ZodValidationPipe(createRecurringRuleRequestSchema))
+    body: CreateRecurringRuleRequest,
   ): Promise<RecurringRuleSummary> {
     await this.requireMember(workspaceId, actor.userId);
     if (!body.title?.trim()) throw new BadRequestException({ detail: "عنوان لازم است" });

@@ -4,11 +4,19 @@ import type {
   AuthActor,
   CloseExpensePeriodRequest,
   CreateExpensePeriodRequest,
+  DisputeInvoiceRequestInput,
   ExpensePeriodSummary,
   GeneratePeriodInvoicesRequest,
   MemberInvoiceSummary,
 } from "@dang/contracts";
+import {
+  closeExpensePeriodRequestSchema,
+  createExpensePeriodRequestSchema,
+  disputeInvoiceRequestSchema,
+  generatePeriodInvoicesRequestSchema,
+} from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { BillingService } from "./billing.service.js";
 
 @ApiTags("billing")
@@ -23,7 +31,8 @@ export class BillingController {
   createPeriod(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateExpensePeriodRequest,
+    @Body(new ZodValidationPipe(createExpensePeriodRequestSchema))
+    body: CreateExpensePeriodRequest,
   ): Promise<ExpensePeriodSummary> {
     return this.billing.createPeriod(actor, workspaceId, body);
   }
@@ -47,7 +56,8 @@ export class BillingController {
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
     @Param("periodId") periodId: string,
-    @Body() body: GeneratePeriodInvoicesRequest,
+    @Body(new ZodValidationPipe(generatePeriodInvoicesRequestSchema))
+    body: GeneratePeriodInvoicesRequest,
   ): Promise<MemberInvoiceSummary[]> {
     return this.billing.generateInvoices(actor, workspaceId, periodId, body ?? {});
   }
@@ -81,7 +91,8 @@ export class BillingController {
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
     @Param("invoiceId") invoiceId: string,
-    @Body() body: { note?: string },
+    @Body(new ZodValidationPipe(disputeInvoiceRequestSchema))
+    body: DisputeInvoiceRequestInput,
   ): Promise<MemberInvoiceSummary> {
     return this.billing.disputeInvoice(actor, workspaceId, invoiceId, body?.note);
   }
@@ -115,7 +126,8 @@ export class BillingController {
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
     @Param("periodId") periodId: string,
-    @Body() body: CloseExpensePeriodRequest,
+    @Body(new ZodValidationPipe(closeExpensePeriodRequestSchema))
+    body: CloseExpensePeriodRequest,
   ): Promise<ExpensePeriodSummary> {
     return this.billing.closePeriod(actor, workspaceId, periodId, body ?? {});
   }

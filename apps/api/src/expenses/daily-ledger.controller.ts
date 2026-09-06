@@ -19,13 +19,22 @@ import type {
   CreateDailyLedgerEntryRequest,
   CreateWorkspaceRangeLockRequest,
   DailyLedgerResponse,
+  ImportDailyLedgerCsvRequestInput,
   UpdateDailyLedgerEntryRequest,
   UpsertWorkspaceDayRequest,
   UpsertWorkspaceDayResponse,
   WorkspaceRangeLockSummary,
 } from "@dang/contracts";
+import {
+  createDailyLedgerEntryRequestSchema,
+  createWorkspaceRangeLockRequestSchema,
+  importDailyLedgerCsvRequestSchema,
+  updateDailyLedgerEntryRequestSchema,
+  upsertWorkspaceDayRequestSchema,
+} from "@dang/contracts";
 import type { FastifyReply } from "fastify";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { DailyLedgerService } from "./daily-ledger.service.js";
 
 @ApiTags("daily-ledger")
@@ -81,7 +90,8 @@ export class DailyLedgerController {
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
     @Param("date") date: string,
-    @Body() body: UpsertWorkspaceDayRequest,
+    @Body(new ZodValidationPipe(upsertWorkspaceDayRequestSchema))
+    body: UpsertWorkspaceDayRequest,
   ): Promise<UpsertWorkspaceDayResponse> {
     return this.dailyLedger.upsertDay(actor, workspaceId, date, body);
   }
@@ -103,7 +113,8 @@ export class DailyLedgerController {
   async createLock(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateWorkspaceRangeLockRequest,
+    @Body(new ZodValidationPipe(createWorkspaceRangeLockRequestSchema))
+    body: CreateWorkspaceRangeLockRequest,
   ): Promise<WorkspaceRangeLockSummary> {
     return this.dailyLedger.createLock(actor, workspaceId, body);
   }
@@ -127,7 +138,8 @@ export class DailyLedgerController {
   async addEntry(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateDailyLedgerEntryRequest,
+    @Body(new ZodValidationPipe(createDailyLedgerEntryRequestSchema))
+    body: CreateDailyLedgerEntryRequest,
   ): Promise<DailyLedgerResponse> {
     return this.dailyLedger.addEntry(actor, workspaceId, body);
   }
@@ -140,7 +152,8 @@ export class DailyLedgerController {
   async importCsv(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: { csv: string; idempotencyKey?: string },
+    @Body(new ZodValidationPipe(importDailyLedgerCsvRequestSchema))
+    body: ImportDailyLedgerCsvRequestInput,
   ): Promise<{ imported: number; skipped: number; ledger: DailyLedgerResponse }> {
     return this.dailyLedger.importCsv(actor, workspaceId, body);
   }
@@ -152,7 +165,8 @@ export class DailyLedgerController {
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
     @Param("expenseId") expenseId: string,
-    @Body() body: UpdateDailyLedgerEntryRequest,
+    @Body(new ZodValidationPipe(updateDailyLedgerEntryRequestSchema))
+    body: UpdateDailyLedgerEntryRequest,
   ): Promise<DailyLedgerResponse> {
     return this.dailyLedger.updateEntry(actor, workspaceId, expenseId, body);
   }

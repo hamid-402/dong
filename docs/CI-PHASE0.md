@@ -9,7 +9,15 @@
 
 ## تنظیم Branch Protection (۰.۲)
 
-با `gh` (پس از `gh auth login`):
+اعمال‌شده روی `main` برای `hamid-402/dong`:
+
+- Require status checks: **`check`** (strict)
+- Enforce admins: on
+- Force push / delete: off
+
+تأیید در UI: Settings → Branches → Branch protection rule برای `main`.
+
+با `gh` (پس از `gh auth login`) یا توکن با دسترسی admin:
 
 ```bash
 gh api repos/hamid-402/dong/branches/main/protection \
@@ -28,14 +36,6 @@ gh api repos/hamid-402/dong/branches/main/protection \
 }
 EOF
 ```
-
-یا در UI: Settings → Branches → Branch protection rule برای `main`:
-
-1. Require a pull request before merging (اختیاری ولی توصیه‌شده)
-2. **Require status checks to pass** → وضعیت job با نام `check` را required کنید
-3. بدون سبز شدن CI، merge ممکن نباشد
-
-بدون این تنظیم، فاز ۰ کامل نیست حتی اگر workflow درست باشد.
 
 ## E2E محلی
 

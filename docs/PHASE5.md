@@ -6,7 +6,7 @@
 |------|--------|
 | MFA/TOTP برای Owner/Admin/Finance/Support | **برنامه‌ریزی‌شده** — در `docs/SECURITY.md` به‌عنوان فاز ۵ علامت خورده؛ پیاده‌سازی کامل بعد از baseline امن |
 | axe/a11y خودکار در CI | بک‌لاگ |
-| تست fail-closed ClamAV/OCR | فقط همزمان با `CLAMAV_ENABLED=1` / `OCR_ENABLED=1` |
+| تست یکپارچه ClamAV/OCR با سرویس واقعی | فقط همزمان با `CLAMAV_ENABLED=1` / `OCR_ENABLED=1` |
 | Dead-letter queue برای Redis jobs | مستند در `docs/PHASE2-REDIS.md` (الگو)؛ پیاده‌سازی هنگام اسکیل worker |
 | بودجه bundle-size | بک‌لاگ |
 | Storybook برای `@dang/ui` | بک‌لاگ (Modal/Skeleton آمادهٔ شروع) |
@@ -17,8 +17,9 @@
 ## آماده لانچ با پول واقعی (چک‌لیست)
 
 - [x] CI با Postgres + migrate + dang_runtime + cross-tenant + gitleaks
-- [ ] Branch protection required check `check` (دستی در GitHub — `docs/CI-PHASE0.md`)
-- [x] Zod روی expenses (+ pipe عمومی)؛ migration تدریجی بقیه endpointها ادامه دارد
+- [x] Branch protection required check `check` (اعمال‌شده — `docs/CI-PHASE0.md`)
+- [x] Zod روی همه `@Body()` با `ZodValidationPipe` + schemas از `@dang/contracts`
+- [x] Fail-closed AV (policy + unit tests؛ stub وقتی ClamAV خاموش است)
 - [x] Zero-sum ledger در اپ + DB trigger
 - [x] Argon2id + ارتقای scrypt در لاگین
 - [x] زرین‌پال: amount سمت سرور

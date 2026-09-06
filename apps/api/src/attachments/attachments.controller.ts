@@ -8,8 +8,13 @@ import type {
   QuarantineScanResult,
   UploadAttachmentContentRequest,
 } from "@dang/contracts";
+import {
+  createAttachmentRequestSchema,
+  uploadAttachmentContentRequestSchema,
+} from "@dang/contracts";
 import type { FastifyReply } from "fastify";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { AttachmentsService } from "./attachments.service.js";
 
 @ApiTags("attachments")
@@ -23,7 +28,7 @@ export class AttachmentsController {
   create(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateAttachmentRequest,
+    @Body(new ZodValidationPipe(createAttachmentRequestSchema)) body: CreateAttachmentRequest,
   ): Promise<AttachmentSummary> {
     return this.attachments.create(actor, workspaceId, body);
   }
@@ -69,7 +74,8 @@ export class AttachmentsController {
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
     @Param("attachmentId") attachmentId: string,
-    @Body() body: UploadAttachmentContentRequest,
+    @Body(new ZodValidationPipe(uploadAttachmentContentRequestSchema))
+    body: UploadAttachmentContentRequest,
   ): Promise<AttachmentSummary> {
     return this.attachments.uploadContent(actor, workspaceId, attachmentId, body);
   }
