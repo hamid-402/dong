@@ -1,10 +1,30 @@
-import { Injectable } from "@nestjs/common";
-import type { QueuedWorkerJob, WorkerJobName } from "@dang/contracts";
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  ServiceUnavailableException,
+} from "@nestjs/common";
+import type {
+  AuthActor,
+  DeadLetterJob,
+  MembershipRole,
+  QueuedWorkerJob,
+  WorkerJobName,
+} from "@dang/contracts";
 import { isRedisConfigured, loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
-import { enqueueWorkerJob, isWorkerHeartbeatAlive } from "./redis-queue.js";
+import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import {
+  enqueueWorkerJob,
+  getDlqLength,
+  isWorkerHeartbeatAlive,
+  listDlqItems,
+  replayDlqJob,
+} from "./redis-queue.js";
 
 const logger = createLogger("dang-api-jobs");
+
+const DLQ_ROLES = new Set<MembershipRole>(["owner", "admin"]);
 
 export type JobExecutionMode = "inline_stub" | "redis_queue";
 
@@ -18,6 +38,12 @@ export type JobRunResult = {
   createdAt: string;
 };
 
+export type DlqListResult = {
+  length: number;
+  items: DeadLetterJob[];
+  redis: true;
+};
+
 /**
  * - No Redis: inline stub (provider-bound jobs stay accepted).
  * - Redis: RPUSH to dang:jobs:v1 for worker consumer.
@@ -26,6 +52,8 @@ export type JobRunResult = {
 export class JobsService {
   private readonly runs: JobRunResult[] = [];
   private readonly pending: QueuedWorkerJob[] = [];
+
+  constructor(@Inject(IAM_STORE) private readonly iam: IamStore) {}
 
   executionMode(): JobExecutionMode {
     return isRedisConfigured(loadAppEnv()) ? "redis_queue" : "inline_stub";
@@ -141,5 +169,65 @@ export class JobsService {
 
   pendingCount(): number {
     return this.pending.length;
+  }
+
+  private async requireOwnerOrAdmin(
+    actor: AuthActor,
+    workspaceId: string,
+  ): Promise<void> {
+    const members = await this.iam.listMembers(workspaceId, actor.userId);
+    if (!members) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "Not a workspace member",
+        status: 403,
+      });
+    }
+    const self = members.find((m) => m.userId === actor.userId);
+    if (!self || !DLQ_ROLES.has(self.role)) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "Only owner/admin can manage the job DLQ",
+        status: 403,
+      });
+    }
+  }
+
+  async listDlq(actor: AuthActor, workspaceId: string, limit = 50): Promise<DlqListResult> {
+    await this.requireOwnerOrAdmin(actor, workspaceId);
+    if (this.executionMode() !== "redis_queue") {
+      throw new ServiceUnavailableException({
+        type: "https://dang.local/problems/redis-unavailable",
+        title: "Redis job queue not configured",
+        status: 503,
+        detail: "DLQ requires REDIS_URL and redis_queue execution mode.",
+      });
+    }
+    const [length, items] = await Promise.all([getDlqLength(), listDlqItems(limit)]);
+    if (length === null || items === null) {
+      throw new ServiceUnavailableException({
+        type: "https://dang.local/problems/redis-unavailable",
+        title: "Redis unavailable",
+        status: 503,
+      });
+    }
+    return { length, items, redis: true };
+  }
+
+  async replayDlq(
+    actor: AuthActor,
+    workspaceId: string,
+  ): Promise<{ replayed: DeadLetterJob | null; remaining: number | null }> {
+    await this.requireOwnerOrAdmin(actor, workspaceId);
+    if (this.executionMode() !== "redis_queue") {
+      throw new ServiceUnavailableException({
+        type: "https://dang.local/problems/redis-unavailable",
+        title: "Redis job queue not configured",
+        status: 503,
+      });
+    }
+    const replayed = await replayDlqJob();
+    const remaining = await getDlqLength();
+    return { replayed, remaining };
   }
 }

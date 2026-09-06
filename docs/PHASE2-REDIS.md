@@ -22,13 +22,20 @@
 ## Worker
 
 - روی `SIGTERM`/`SIGINT` حلقه BLPOP متوقف می‌شود؛ job در حال اجرا تا پایان ادامه می‌یابد.
+- مصرف‌کننده: تا **۳ تلاش** با backoff؛ در صورت شکست نهایی → RPUSH به DLQ.
 
-## Dead-letter (فاز ۵ — اسکیل)
+## Dead-letter queue (پیاده‌سازی‌شده)
 
-الگوی پیشنهادی وقتی worker fail می‌کند بعد از N تلاش:
+کلید: `dang:jobs:dlq:v1` (`DANG_JOB_DLQ_KEY` در `@dang/contracts`).
 
-1. RPUSH به `dang:jobs:dlq:v1` با `{ job, error, attempts, failedAt }`
-2. متریک/آلارم روی طول DLQ
-3. ابزار replay دستی برای اپراتور
+الگوی runtime:
 
-فعلاً jobهای ناموفق فقط لاگ می‌شوند؛ DLQ قبل از ترافیک بالا اضافه شود.
+1. Worker پس از اتمام retries، `buildDeadLetterJob` را می‌سازد و RPUSH می‌کند:
+   `{ job, error, attempts, failedAt }`
+2. API (owner/admin، AuthGuard):
+   - `GET /workspaces/:workspaceId/jobs/dlq` — `length` + `items`
+   - `POST /workspaces/:workspaceId/jobs/dlq/replay` — RPOP از DLQ، سپس LPUSH job به `dang:jobs:v1`
+3. بدون Redis → ۵۰۳ با problem type `redis-unavailable` (نه دادهٔ جعلی).
+
+تست شکل payload بدون Redis: `packages/contracts/tests/jobs-dlq.test.ts` و
+`apps/worker/src/jobs/consumer-dlq.test.ts`.

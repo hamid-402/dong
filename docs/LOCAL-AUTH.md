@@ -11,17 +11,21 @@
 | مسیر | توضیح |
 |---|---|
 | `POST /auth/register` | ثبت‌نام؛ کوکی `dang_session` |
-| `POST /auth/login` | ورود (rate-limit) |
+| `POST /auth/login` | ورود (rate-limit)؛ اگر MFA فعال باشد `{ mfaRequired, challengeId }` بدون کوکی |
+| `POST /auth/mfa/verify` | تکمیل چالش MFA با کد TOTP یا recovery؛ تنظیم کوکی |
+| `POST /auth/mfa/setup` | شروع ثبت TOTP (AuthGuard)؛ secret + recovery codes |
+| `POST /auth/mfa/confirm` | تأیید کد و فعال‌سازی MFA |
+| `POST /auth/mfa/disable` | غیرفعال‌سازی با رمز + کد |
 | `POST /auth/logout` | ابطال نشست |
 | `POST /auth/forgot-password` | درخواست بازیابی (ضد enumeration، rate-limit) |
 | `POST /auth/reset-password` | تنظیم رمز با توکن یک‌بارمصرف |
-| `GET/PATCH /auth/profile` | پروفایل شخصی |
+| `GET/PATCH /auth/profile` | پروفایل شخصی (`mfaEnabled` / `mfaEnrollmentRequired`) |
 | `POST /auth/change-password` | تغییر رمز + ابطال همه نشست‌ها |
 | `POST /auth/revoke-sessions` | ابطال همه نشست‌ها (همه دستگاه‌ها) |
 | `GET /auth/session` | خلاصه نشست فعلی |
 | `GET /auth/me` | Actor + فضاهای کاری |
 
-رمز با **Argon2id** هش می‌شود؛ هش‌های قدیمی scrypt در لاگین موفق ارتقا می‌یابند. توکن نشست و بازیابی فقط به‌صورت SHA-256 در DB ذخیره می‌شوند.
+رمز با **Argon2id** هش می‌شود؛ هش‌های قدیمی scrypt در لاگین موفق ارتقا می‌یابند. توکن نشست و بازیابی فقط به‌صورت SHA-256 در DB ذخیره می‌شوند. Secret TOTP به‌صورت base32 در ستون `totp_secret` (مناسب local).
 
 ## صفحات وب
 
@@ -45,6 +49,6 @@ $env:DATABASE_URL="postgresql://dang_migrator:<PASSWORD>@127.0.0.1:5432/dang"
 pnpm --filter @dang/db db:migrate
 ```
 
-شامل `0013_local_auth_profile` (فیلدهای پروفایل، `auth_session`، `auth_password_reset`).
+شامل `0013_local_auth_profile` (فیلدهای پروفایل، `auth_session`، `auth_password_reset`) و `0033_mfa_totp` (TOTP + recovery).
 
 `SESSION_SECRET` را در production تنظیم کنید.

@@ -33,13 +33,13 @@ Production Data وارد Development نمی‌شود. داده Test مصنوعی
 - OIDC استاندارد؛ Token سفارشی ممنوع
 - Passkey/WebAuthn ترجیحی و TOTP جایگزین
 - SMS فقط OTP/Recovery کم‌اعتماد
-- **MFA (TOTP) برای Owner/Admin/Finance/Support:** در نقشه راه فاز ۵ برنامه‌ریزی شده؛ فعلاً اجباری نیست (تا پیاده‌سازی کامل، سند با کد هم‌خوان است)
+- **MFA (TOTP) برای Owner/Admin/Finance:** پیاده‌سازی شده — لاگین با رمز سپس چالش MFA قبل از کوکی نشست؛ کدهای بازیابی یک‌بارمصرف و Hash‌شده (SHA-256). نقش‌های حساس بدون MFA همچنان نشست می‌گیرند ولی `profile.mfaEnrollmentRequired=true` برمی‌گردد (مسدودسازی عملیات حساس می‌تواند در مراحل بعد روی همین پرچم بنا شود). `totp_secret` فعلاً base32 در DB (مناسب local؛ در production ترجیح KMS/AEAD)
 - **Argon2id** برای پسوردهای جدید؛ هش‌های قدیمی scrypt در لاگین موفق به‌صورت transparent به Argon2id ارتقا می‌یابند
 - Cookie با Secure، HttpOnly و SameSite
 - CSRF Protection
 - Rotation Session پس از Login یا تغییر Privilege
-- Re-auth برای MFA، Export، Role Change و عملیات مالی حساس (پس از فعال‌سازی MFA)
-- Recovery Code یک‌بارمصرف و Hash‌شده (با MFA در فاز ۵)
+- Re-auth برای MFA، Export، Role Change و عملیات مالی حساس (چالش MFA در لاگین؛ گسترش re-auth برای export/role در بک‌لاگ)
+- Recovery Code یک‌بارمصرف و Hash‌شده (فعال با MFA)
 - Rate Limit و Anti-enumeration
 
 ## 4. Authorization

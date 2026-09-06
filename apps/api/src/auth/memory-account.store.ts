@@ -3,6 +3,7 @@ import type {
   AccountRecord,
   AccountStore,
   EmailVerifyRecord,
+  MfaRecoveryRecord,
   PasswordResetRecord,
   SessionRecord,
 } from "./account.types.js";
@@ -21,6 +22,7 @@ export class MemoryAccountStore implements AccountStore {
   private readonly sessions = new Map<string, MemorySession>();
   private readonly resets = new Map<string, PasswordResetRecord>();
   private readonly verifications = new Map<string, EmailVerifyRecord>();
+  private readonly mfaRecovery = new Map<string, MfaRecoveryRecord>();
 
   findByEmail(email: string): Promise<AccountRecord | null> {
     const id = this.byEmail.get(email.toLowerCase());
@@ -54,6 +56,8 @@ export class MemoryAccountStore implements AccountStore {
       avatarUrl: null,
       locale: "fa-IR",
       timezone: "Asia/Tehran",
+      totpSecret: null,
+      totpEnabledAt: null,
       createdAt: new Date(),
     };
     this.users.set(userId, row);
@@ -89,6 +93,8 @@ export class MemoryAccountStore implements AccountStore {
       avatarUrl: null,
       locale: "fa-IR",
       timezone: "Asia/Tehran",
+      totpSecret: null,
+      totpEnabledAt: null,
       createdAt: new Date(),
     };
     this.users.set(userId, row);
@@ -219,6 +225,64 @@ export class MemoryAccountStore implements AccountStore {
     for (const row of this.verifications.values()) {
       if (row.id === id) row.usedAt = new Date();
     }
+    return Promise.resolve();
+  }
+
+  setTotpSecret(userId: string, secret: string): Promise<AccountRecord> {
+    const row = this.users.get(userId);
+    if (!row) throw new Error("USER_NOT_FOUND");
+    row.totpSecret = secret;
+    row.totpEnabledAt = null;
+    return Promise.resolve(row);
+  }
+
+  enableTotp(userId: string): Promise<AccountRecord> {
+    const row = this.users.get(userId);
+    if (!row) throw new Error("USER_NOT_FOUND");
+    if (!row.totpSecret) throw new Error("MFA_NOT_SETUP");
+    row.totpEnabledAt = new Date();
+    return Promise.resolve(row);
+  }
+
+  disableTotp(userId: string): Promise<AccountRecord> {
+    const row = this.users.get(userId);
+    if (!row) throw new Error("USER_NOT_FOUND");
+    row.totpSecret = null;
+    row.totpEnabledAt = null;
+    for (const [key, rec] of this.mfaRecovery) {
+      if (rec.userId === userId) this.mfaRecovery.delete(key);
+    }
+    return Promise.resolve(row);
+  }
+
+  replaceMfaRecoveryCodes(userId: string, codeHashes: string[]): Promise<void> {
+    for (const [key, rec] of this.mfaRecovery) {
+      if (rec.userId === userId) this.mfaRecovery.delete(key);
+    }
+    for (const codeHash of codeHashes) {
+      const row: MfaRecoveryRecord = {
+        id: crypto.randomUUID(),
+        userId,
+        codeHash,
+        usedAt: null,
+        createdAt: new Date(),
+      };
+      this.mfaRecovery.set(row.id, row);
+    }
+    return Promise.resolve();
+  }
+
+  listUnusedMfaRecovery(userId: string): Promise<MfaRecoveryRecord[]> {
+    const rows: MfaRecoveryRecord[] = [];
+    for (const rec of this.mfaRecovery.values()) {
+      if (rec.userId === userId && !rec.usedAt) rows.push(rec);
+    }
+    return Promise.resolve(rows);
+  }
+
+  markMfaRecoveryUsed(id: string): Promise<void> {
+    const row = this.mfaRecovery.get(id);
+    if (row) row.usedAt = new Date();
     return Promise.resolve();
   }
 }

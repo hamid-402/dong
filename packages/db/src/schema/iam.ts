@@ -43,6 +43,9 @@ export const userAccount = iam.table(
     avatarUrl: text("avatar_url"),
     locale: text("locale").default("fa-IR"),
     timezone: text("timezone").default("Asia/Tehran"),
+    /** Base32 TOTP secret (plaintext at rest for local; encrypt in production). */
+    totpSecret: text("totp_secret"),
+    totpEnabledAt: timestamp("totp_enabled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -114,6 +117,26 @@ export const authEmailVerify = iam.table(
   (table) => [
     uniqueIndex("auth_email_verify_token_hash_uq").on(table.tokenHash),
     index("auth_email_verify_user_idx").on(table.userId),
+  ],
+);
+
+/** One-time MFA recovery codes (hashed). */
+export const authMfaRecovery = iam.table(
+  "auth_mfa_recovery",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userAccount.id, { onDelete: "cascade" }),
+    codeHash: text("code_hash").notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("auth_mfa_recovery_code_hash_uq").on(table.codeHash),
+    index("auth_mfa_recovery_user_idx").on(table.userId),
   ],
 );
 

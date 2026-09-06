@@ -232,6 +232,13 @@
       "when": 1788701000000,
       "tag": "0032_pending_zarinpal_payment",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1788702000000,
+      "tag": "0033_mfa_totp",
+      "breakpoints": true
     }
   ]
 }

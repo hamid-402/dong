@@ -1,8 +1,19 @@
 import { createLogger } from "@dang/observability";
-import type { QueuedWorkerJob } from "@dang/contracts";
-import { blpopJob, touchHeartbeat } from "../queue/redis-queue.js";
+import { buildDeadLetterJob, type QueuedWorkerJob } from "@dang/contracts";
+import { blpopJob, pushDeadLetter, touchHeartbeat } from "../queue/redis-queue.js";
 
 const logger = createLogger("dang-worker-consumer");
+
+/** Retries before DLQ (backoff between attempts). */
+export const JOB_MAX_ATTEMPTS = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function backoffMs(attempt: number): number {
+  return Math.min(250 * 2 ** (attempt - 1), 2000);
+}
 
 export async function processQueuedJob(job: QueuedWorkerJob): Promise<void> {
   switch (job.name) {
@@ -51,6 +62,61 @@ export async function processQueuedJob(job: QueuedWorkerJob): Promise<void> {
   }
 }
 
+/**
+ * Run `processQueuedJob` up to JOB_MAX_ATTEMPTS with backoff; on final failure RPUSH DLQ.
+ * Exported for unit tests of retry/DLQ wiring without Redis (mock pushDeadLetter via injection in tests).
+ */
+export async function processQueuedJobWithRetries(
+  job: QueuedWorkerJob,
+  opts?: {
+    maxAttempts?: number;
+    process?: (j: QueuedWorkerJob) => Promise<void>;
+    pushDlq?: (entry: ReturnType<typeof buildDeadLetterJob>) => Promise<boolean>;
+  },
+): Promise<"ok" | "dlq" | "dlq_push_failed"> {
+  const maxAttempts = opts?.maxAttempts ?? JOB_MAX_ATTEMPTS;
+  const run = opts?.process ?? processQueuedJob;
+  const pushDlq = opts?.pushDlq ?? pushDeadLetter;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await run(job);
+      return "ok";
+    } catch (err: unknown) {
+      lastError = err;
+      logger.warn("Job attempt failed", {
+        jobId: job.jobId,
+        name: job.name,
+        attempt,
+        maxAttempts,
+        detail: err instanceof Error ? err.message || err.name : String(err),
+      });
+      if (attempt < maxAttempts) {
+        await sleep(backoffMs(attempt));
+      }
+    }
+  }
+
+  const entry = buildDeadLetterJob(job, lastError, maxAttempts);
+  const pushed = await pushDlq(entry);
+  if (!pushed) {
+    logger.error("Failed to RPUSH dead-letter after retries", {
+      jobId: job.jobId,
+      name: job.name,
+      error: entry.error,
+    });
+    return "dlq_push_failed";
+  }
+  logger.error("Job moved to DLQ after retries", {
+    jobId: job.jobId,
+    name: job.name,
+    attempts: maxAttempts,
+    error: entry.error,
+  });
+  return "dlq";
+}
+
 export type ConsumerSignal = {
   stopped: boolean;
   inFlight: boolean;
@@ -76,7 +142,7 @@ export async function runConsumerLoop(signal: ConsumerSignal): Promise<void> {
       // Finish this job even if stop arrived during BLPOP — work was already claimed.
       signal.inFlight = true;
       try {
-        await processQueuedJob(job);
+        await processQueuedJobWithRetries(job);
       } finally {
         signal.inFlight = false;
       }

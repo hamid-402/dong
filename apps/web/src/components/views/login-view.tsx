@@ -9,6 +9,7 @@ import { FormStack } from "@/components/ui-blocks";
 import { validateEmail } from "@/lib/auth-validation";
 import { authErrorMessage } from "@/lib/api-errors";
 import { api, setDevIdentity, markClientSession, api as apiClient } from "@/lib/api";
+import { t } from "@/lib/i18n";
 
 export function LoginView() {
   const router = useRouter();
@@ -16,11 +17,18 @@ export function LoginView() {
   const nextPath = searchParams.get("next") ?? "/hub";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [challengeId, setChallengeId] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [mfaError, setMfaError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [oidcReady, setOidcReady] = useState(false);
+  const loginTitle = t("login.title");
+  const loginDescription = challengeId
+    ? "کد تأیید دو مرحله‌ای را وارد کنید"
+    : t("login.description");
 
   useEffect(() => {
     void api
@@ -31,6 +39,29 @@ export function LoginView() {
 
   function onSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (challengeId) {
+      const code = mfaCode.trim();
+      if (!/^\d{6}$/.test(code)) {
+        setMfaError("کد ۶ رقمی را وارد کنید");
+        return;
+      }
+      setMfaError(null);
+      startTransition(() => {
+        void (async () => {
+          try {
+            const result = await api.mfaVerify({ challengeId, code });
+            markClientSession("password");
+            setDevIdentity(result.actor.externalSubject, result.actor.displayName);
+            setFormError(null);
+            router.push(nextPath);
+          } catch (err: unknown) {
+            setFormError(authErrorMessage(err, "تأیید MFA ناموفق بود"));
+          }
+        })();
+      });
+      return;
+    }
+
     const nextEmailError = validateEmail(email);
     const nextPasswordError = !password ? "رمز عبور را وارد کنید" : null;
     setEmailError(nextEmailError);
@@ -43,6 +74,15 @@ export function LoginView() {
       void (async () => {
         try {
           const result = await api.login({ email, password });
+          if ("mfaRequired" in result && result.mfaRequired) {
+            setChallengeId(result.challengeId);
+            setFormError(null);
+            return;
+          }
+          if (!("ok" in result) || !result.ok) {
+            setFormError("ورود ناموفق بود");
+            return;
+          }
           markClientSession("password");
           setDevIdentity(result.actor.externalSubject, result.actor.displayName);
           setFormError(null);
@@ -56,8 +96,8 @@ export function LoginView() {
 
   return (
     <AuthShell
-      title="ورود به حساب"
-      description="با ایمیل و رمز وارد شوید."
+      title={loginTitle}
+      description={loginDescription}
       footer={
         <AuthLinkRow>
           <Link href="/forgot-password">فراموشی رمز</Link>
@@ -70,48 +110,89 @@ export function LoginView() {
       {formError ? <AuthAlert tone="error">{formError}</AuthAlert> : null}
       <form onSubmit={onSubmit} className="authLayout__form">
         <FormStack>
-          <TextField
-            id="login-email"
-            label="ایمیل"
-            type="email"
-            autoComplete="email"
-            inputMode="email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setEmailError(null);
-              setFormError(null);
-            }}
-            hint={emailError ?? undefined}
-            aria-invalid={emailError ? true : undefined}
-            required
-          />
-          <div className="authLayout__passwordRow">
+          {challengeId ? (
             <TextField
-              id="login-password"
-              label="رمز عبور"
-              type="password"
-              autoComplete="current-password"
-              value={password}
+              id="login-mfa"
+              label="کد تأیید"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={mfaCode}
               onChange={(e) => {
-                setPassword(e.target.value);
-                setPasswordError(null);
+                setMfaCode(e.target.value);
+                setMfaError(null);
                 setFormError(null);
               }}
-              hint={passwordError ?? undefined}
-              aria-invalid={passwordError ? true : undefined}
+              hint={mfaError ?? undefined}
+              aria-invalid={mfaError ? true : undefined}
               required
             />
-            <Link href="/forgot-password" className="authLayout__inlineLink">
-              فراموش کردید؟
-            </Link>
-          </div>
+          ) : (
+            <>
+              <TextField
+                id="login-email"
+                label="ایمیل"
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailError(null);
+                  setFormError(null);
+                }}
+                hint={emailError ?? undefined}
+                aria-invalid={emailError ? true : undefined}
+                required
+              />
+              <div className="authLayout__passwordRow">
+                <TextField
+                  id="login-password"
+                  label="رمز عبور"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setPasswordError(null);
+                    setFormError(null);
+                  }}
+                  hint={passwordError ?? undefined}
+                  aria-invalid={passwordError ? true : undefined}
+                  required
+                />
+                <Link href="/forgot-password" className="authLayout__inlineLink">
+                  فراموش کردید؟
+                </Link>
+              </div>
+            </>
+          )}
           <Button type="submit" disabled={pending} className="authLayout__submit">
-            {pending ? "در حال ورود…" : "ورود"}
+            {pending
+              ? challengeId
+                ? "در حال تأیید…"
+                : "در حال ورود…"
+              : challengeId
+                ? "تأیید و ورود"
+                : "ورود"}
           </Button>
+          {challengeId ? (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={pending}
+              onClick={() => {
+                setChallengeId(null);
+                setMfaCode("");
+                setMfaError(null);
+                setFormError(null);
+              }}
+            >
+              بازگشت به ورود
+            </Button>
+          ) : null}
         </FormStack>
       </form>
-      {oidcReady ? (
+      {!challengeId && oidcReady ? (
         <>
           <AuthDivider />
           <Button

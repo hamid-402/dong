@@ -1,7 +1,9 @@
 import Redis from "ioredis";
 import {
+  DANG_JOB_DLQ_KEY,
   DANG_JOB_QUEUE_KEY,
   DANG_WORKER_HEARTBEAT_KEY,
+  type DeadLetterJob,
   type QueuedWorkerJob,
 } from "@dang/contracts";
 import { isRedisConfigured, loadAppEnv } from "@dang/config";
@@ -72,5 +74,19 @@ export async function blpopJob(timeoutSeconds = 5): Promise<QueuedWorkerJob | nu
     lastFailAt = Date.now();
     shared = null;
     return null;
+  }
+}
+
+/** After exhausted retries: RPUSH `{ job, error, attempts, failedAt }` to DLQ. */
+export async function pushDeadLetter(entry: DeadLetterJob): Promise<boolean> {
+  const client = await getWorkerRedis();
+  if (!client) return false;
+  try {
+    await client.rpush(DANG_JOB_DLQ_KEY, JSON.stringify(entry));
+    return true;
+  } catch {
+    lastFailAt = Date.now();
+    shared = null;
+    return false;
   }
 }

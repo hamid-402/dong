@@ -15,6 +15,7 @@ import type {
   AuthActor,
   CreateInviteResponse,
   InviteSummary,
+  MembershipRole,
   MembershipSummary,
   WorkspaceSummary,
   WorkspaceTemplate,
@@ -596,5 +597,13 @@ export class PostgresIamStore implements IamStore {
         return mapWorkspace(row);
       },
     );
+  }
+
+  async listActiveRolesForUser(userId: string): Promise<MembershipRole[]> {
+    const rows = await this.db
+      .select({ role: membership.role })
+      .from(membership)
+      .where(and(eq(membership.userId, userId), isNull(membership.disabledAt)));
+    return rows.map((r) => r.role);
   }
 }

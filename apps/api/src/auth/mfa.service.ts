@@ -1,0 +1,308 @@
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { loadAppEnv } from "@dang/config";
+import type {
+  AuthActionResponse,
+  AuthActor,
+  MfaConfirmRequest,
+  MfaConfirmResponse,
+  MfaDisableRequest,
+  MfaSetupResponse,
+  MfaVerifyRequest,
+  MembershipRole,
+} from "@dang/contracts";
+import * as OTPAuth from "otpauth";
+import { randomBytes } from "node:crypto";
+import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import {
+  ACCOUNT_STORE,
+  MFA_CHALLENGE_TTL_MS,
+  SESSION_COOKIE,
+  SESSION_TTL_MS,
+  authModeForUser,
+  toActor,
+  toProfile,
+  type AccountStore,
+} from "./account.types.js";
+import { hashToken, newOpaqueToken, verifyPassword } from "./password.js";
+
+const SENSITIVE_ROLES: ReadonlySet<MembershipRole> = new Set([
+  "owner",
+  "admin",
+  "finance",
+]);
+
+const RECOVERY_CODE_COUNT = 10;
+const ISSUER = "دنگ";
+
+type MfaChallenge = {
+  userId: string;
+  expiresAt: number;
+};
+
+type CookieReply = {
+  setCookie: (
+    name: string,
+    value: string,
+    options: Record<string, unknown>,
+  ) => void;
+};
+
+@Injectable()
+export class MfaService {
+  private readonly challenges = new Map<string, MfaChallenge>();
+
+  constructor(
+    @Inject(ACCOUNT_STORE) private readonly accounts: AccountStore,
+    @Inject(IAM_STORE) private readonly iam: IamStore,
+  ) {}
+
+  generateSecret(): string {
+    return new OTPAuth.Secret({ size: 20 }).base32;
+  }
+
+  verifyToken(secret: string, token: string, window = 1): boolean {
+    const totp = new OTPAuth.TOTP({
+      issuer: ISSUER,
+      algorithm: "SHA1",
+      digits: 6,
+      period: 30,
+      secret: OTPAuth.Secret.fromBase32(secret),
+    });
+    const delta = totp.validate({ token: token.trim(), window });
+    return delta !== null;
+  }
+
+  async userNeedsMfaEnrollment(userId: string): Promise<boolean> {
+    const user = await this.accounts.findById(userId);
+    if (!user || user.totpEnabledAt) return false;
+    const roles = await this.iam.listActiveRolesForUser(userId);
+    return roles.some((role) => SENSITIVE_ROLES.has(role));
+  }
+
+  createChallenge(userId: string): string {
+    this.pruneChallenges();
+    const challengeId = newOpaqueToken();
+    this.challenges.set(challengeId, {
+      userId,
+      expiresAt: Date.now() + MFA_CHALLENGE_TTL_MS,
+    });
+    return challengeId;
+  }
+
+  async setup(actor: AuthActor): Promise<MfaSetupResponse> {
+    const user = await this.accounts.findById(actor.userId);
+    if (!user) throw this.authRequired();
+    if (user.totpEnabledAt) throw this.bad("MFA_ALREADY_ENABLED");
+
+    const secret = this.generateSecret();
+    await this.accounts.setTotpSecret(user.userId, secret);
+
+    const recoveryCodes = this.generateRecoveryCodes();
+    await this.accounts.replaceMfaRecoveryCodes(
+      user.userId,
+      recoveryCodes.map((code) => hashToken(this.normalizeRecovery(code))),
+    );
+
+    const label = user.email ?? user.displayName;
+    const totp = new OTPAuth.TOTP({
+      issuer: ISSUER,
+      label,
+      algorithm: "SHA1",
+      digits: 6,
+      period: 30,
+      secret: OTPAuth.Secret.fromBase32(secret),
+    });
+
+    return {
+      secret,
+      otpauthUrl: totp.toString(),
+      recoveryCodes,
+    };
+  }
+
+  async confirm(actor: AuthActor, body: MfaConfirmRequest): Promise<MfaConfirmResponse> {
+    const user = await this.accounts.findById(actor.userId);
+    if (!user) throw this.authRequired();
+    if (!user.totpSecret) throw this.bad("MFA_NOT_SETUP");
+    if (user.totpEnabledAt) throw this.bad("MFA_ALREADY_ENABLED");
+    if (!this.verifyToken(user.totpSecret, body.code)) {
+      throw this.bad("MFA_INVALID_CODE");
+    }
+    const enabled = await this.accounts.enableTotp(user.userId);
+    return {
+      ok: true,
+      profile: toProfile(enabled, authModeForUser(enabled)),
+    };
+  }
+
+  async disable(actor: AuthActor, body: MfaDisableRequest): Promise<{ ok: true }> {
+    const user = await this.accounts.findById(actor.userId);
+    if (!user?.passwordHash) throw this.bad("NO_PASSWORD");
+    if (!user.totpEnabledAt || !user.totpSecret) throw this.bad("MFA_NOT_ENABLED");
+    const verified = await verifyPassword(body.password, user.passwordHash);
+    if (!verified.valid) throw this.unauthorized("AUTH_INVALID");
+    if (!this.verifyToken(user.totpSecret, body.code)) {
+      throw this.bad("MFA_INVALID_CODE");
+    }
+    await this.accounts.disableTotp(user.userId);
+    await this.accounts.revokeAllSessions(user.userId);
+    return { ok: true };
+  }
+
+  async verifyChallenge(
+    body: MfaVerifyRequest,
+    reply: CookieReply,
+    meta?: { ip?: string; userAgent?: string },
+  ): Promise<AuthActionResponse> {
+    this.pruneChallenges();
+    const challengeId = body.challengeId.trim();
+    const challenge = this.challenges.get(challengeId);
+    if (!challenge || challenge.expiresAt <= Date.now()) {
+      this.challenges.delete(challengeId);
+      throw this.unauthorized("MFA_CHALLENGE_INVALID");
+    }
+    const user = await this.accounts.findById(challenge.userId);
+    if (!user?.totpSecret || !user.totpEnabledAt) {
+      throw this.unauthorized("MFA_CHALLENGE_INVALID");
+    }
+
+    let ok = false;
+    if (body.code) {
+      ok = this.verifyToken(user.totpSecret, body.code);
+    } else if (body.recoveryCode) {
+      ok = await this.consumeRecoveryCode(user.userId, body.recoveryCode);
+    }
+    if (!ok) throw this.unauthorized("MFA_INVALID_CODE");
+
+    this.challenges.delete(challengeId);
+    await this.issueSession(user.userId, reply, meta);
+    await this.iam.ensurePersonalWorkspace(user.userId).catch(() => undefined);
+    return {
+      ok: true,
+      profile: toProfile(user, authModeForUser(user)),
+      actor: toActor(user, authModeForUser(user)),
+    };
+  }
+
+  private async issueSession(
+    userId: string,
+    reply: CookieReply,
+    meta?: { ip?: string; userAgent?: string },
+  ): Promise<void> {
+    const env = loadAppEnv();
+    const raw = newOpaqueToken();
+    await this.accounts.createSession({
+      userId,
+      tokenHash: hashToken(raw),
+      expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+      ip: meta?.ip,
+      userAgent: meta?.userAgent,
+    });
+    reply.setCookie(SESSION_COOKIE, raw, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: env.nodeEnv === "production",
+      maxAge: Math.floor(SESSION_TTL_MS / 1000),
+    });
+  }
+
+  private async consumeRecoveryCode(userId: string, raw: string): Promise<boolean> {
+    const normalized = this.normalizeRecovery(raw);
+    const hash = hashToken(normalized);
+    const unused = await this.accounts.listUnusedMfaRecovery(userId);
+    const match = unused.find((row) => row.codeHash === hash);
+    if (!match) return false;
+    await this.accounts.markMfaRecoveryUsed(match.id);
+    return true;
+  }
+
+  private generateRecoveryCodes(): string[] {
+    const codes: string[] = [];
+    for (let i = 0; i < RECOVERY_CODE_COUNT; i += 1) {
+      const hex = randomBytes(5).toString("hex");
+      codes.push(`${hex.slice(0, 5)}-${hex.slice(5)}`);
+    }
+    return codes;
+  }
+
+  private normalizeRecovery(code: string): string {
+    return code.trim().toLowerCase().replace(/\s+/g, "");
+  }
+
+  private pruneChallenges(): void {
+    const now = Date.now();
+    for (const [id, challenge] of this.challenges) {
+      if (challenge.expiresAt <= now) this.challenges.delete(id);
+    }
+  }
+
+  private authRequired(): UnauthorizedException {
+    return new UnauthorizedException({
+      type: "https://dang.local/problems/auth-required",
+      title: "Authentication required",
+      status: 401,
+    });
+  }
+
+  private unauthorized(code: string): UnauthorizedException {
+    const map: Record<string, { title: string; detail: string }> = {
+      AUTH_INVALID: {
+        title: "Invalid credentials",
+        detail: "ایمیل یا رمز عبور نادرست است",
+      },
+      MFA_CHALLENGE_INVALID: {
+        title: "Invalid MFA challenge",
+        detail: "چالش MFA نامعتبر یا منقضی است",
+      },
+      MFA_INVALID_CODE: {
+        title: "Invalid MFA code",
+        detail: "کد تأیید نادرست است",
+      },
+    };
+    const mapped = map[code] ?? { title: "Unauthorized", detail: code };
+    return new UnauthorizedException({
+      type: "https://dang.local/problems/auth",
+      title: mapped.title,
+      status: 401,
+      detail: mapped.detail,
+    });
+  }
+
+  private bad(code: string): BadRequestException {
+    const map: Record<string, { title: string; detail: string }> = {
+      MFA_ALREADY_ENABLED: {
+        title: "MFA already enabled",
+        detail: "احراز هویت دو مرحله‌ای از قبل فعال است",
+      },
+      MFA_NOT_SETUP: {
+        title: "MFA not set up",
+        detail: "ابتدا راه‌اندازی MFA را انجام دهید",
+      },
+      MFA_NOT_ENABLED: {
+        title: "MFA not enabled",
+        detail: "احراز هویت دو مرحله‌ای فعال نیست",
+      },
+      MFA_INVALID_CODE: {
+        title: "Invalid MFA code",
+        detail: "کد تأیید نادرست است",
+      },
+      NO_PASSWORD: {
+        title: "No password",
+        detail: "این حساب رمز محلی ندارد",
+      },
+    };
+    const mapped = map[code] ?? { title: "Bad request", detail: code };
+    return new BadRequestException({
+      type: "https://dang.local/problems/validation",
+      title: mapped.title,
+      status: 400,
+      detail: mapped.detail,
+    });
+  }
+}

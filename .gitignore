@@ -5,6 +5,7 @@ dist/
 coverage/
 test-results/
 playwright-report/
+storybook-static/
 .cursor/
 .env
 .env.*

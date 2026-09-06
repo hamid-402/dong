@@ -15,6 +15,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/api", () => ({
   api: {
     login: vi.fn(),
+    mfaVerify: vi.fn(),
     oidcStatus: vi.fn().mockResolvedValue({ configured: false }),
   },
   markClientSession: vi.fn(),

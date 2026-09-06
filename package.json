@@ -19,7 +19,10 @@
     "db:generate": "pnpm --filter @dang/db db:generate",
     "db:migrate": "pnpm --filter @dang/db db:migrate",
     "db:check": "pnpm --filter @dang/db db:check",
-    "test": "pnpm --filter @dang/contracts test && pnpm --filter @dang/db test && pnpm --filter @dang/api test && pnpm --filter @dang/observability test && pnpm --filter @dang/web test",
+    "test": "pnpm --filter @dang/contracts test && pnpm --filter @dang/db test && pnpm --filter @dang/api test && pnpm --filter @dang/worker test && pnpm --filter @dang/observability test && pnpm --filter @dang/web test",
+    "test:a11y": "pnpm --filter @dang/web test:a11y",
+    "bundle:check": "node scripts/check-bundle-budget.mjs",
+    "license:check": "node scripts/license-check.mjs",
     "test:coverage": "pnpm --filter @dang/contracts test:coverage-check",
     "test:e2e": "pnpm --filter @dang/web test:e2e",
     "prepare": "husky"

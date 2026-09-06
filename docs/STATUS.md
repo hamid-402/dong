@@ -1,24 +1,22 @@
 # وضعیت اجرای پروژه
 
-آخرین به‌روزرسانی: ۶ سپتامبر ۲۰۲۶ — baseline لانچ + نقشه فنی ۰–۴
+آخرین به‌روزرسانی: ۶ سپتامبر ۲۰۲۶ — نقشه فنی ۰–۵ (به‌جز متریک کسب‌وکار و کلیدهای زنده)
 
 ## جواب
 
-**نقشه فنی / محصولی ۰–۴ و baseline لانچ (چک‌لیست `docs/PHASE5.md`) تکمیل شد.**
+**نقشه فنی ۰–۵ در کد بسته شد** (داشبورد متریک کسب‌وکار عمداً بک‌لاگ است تا آمار جعلی نباشد).
 
-فاز ۵ بک‌لاگ بلندمدت است (MFA، a11y، i18n، DLQ، …) و مانع لانچ احتیاطی نیست.
+فاز ۴ محصولی (کلید واقعی PSP/SMTP/AV/OCR) فقط با پیکربندی شما فعال می‌شود.
 
 ### تکمیل‌شده (فنی)
-- ZodValidationPipe روی همه `@Body()` در API
-- CI + branch protection + fail-closed AV policy
-- Zero-sum ledger، Argon2id، rate-limit/idempotency Redis-ready
-- مسیر مشتری / IA (خانه · زمینه · خرج‌ها · بیشتر) — `docs/IA.md`
+- Zod روی همه `@Body()` · CI + branch protection · fail-closed AV
+- Zero-sum ledger · Argon2id · Redis rate-limit/idempotency/DLQ
+- MFA/TOTP + recovery · a11y smoke · bundle budget · license check · Storybook · i18n scaffold
+- مسیر مشتری / IA — `docs/IA.md`
 
 ### عمداً باز (کلید / عملیات شما)
 - `ZARINPAL_ENABLED` / `CLAMAV_ENABLED` / `EMAIL_TRANSPORT=smtp` / `OCR_ENABLED`
-- Push واقعی، تست نفوذ، پایلوت میدانی
+- Push واقعی، تست نفوذ، پایلوت میدانی، داشبورد متریک واقعی
 
 ## Runtime
 - Web `:3005` · API `:3006` · Redis worker · Postgres
-
-آدرس LAN: `http://192.168.140.105:3005`

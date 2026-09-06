@@ -137,6 +137,8 @@ export type SystemCapabilities = {
   allowDevAuth: boolean;
   oidcConfigured: boolean;
   databaseConfigured: boolean;
+  /** Present when TOTP MFA API is available. */
+  mfa?: boolean;
   readiness: "ready" | "degraded";
   persistence: {
     iam: "memory" | "postgres";

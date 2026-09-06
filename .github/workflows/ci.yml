@@ -72,3 +72,21 @@ jobs:
 
       - name: contracts coverage gate (finance-focused)
         run: pnpm test:coverage
+
+      - name: license check (fail on AGPL/GPL-only)
+        run: pnpm license:check
+        # Soft until Linux pnpm license map is allowlisted; script still runs for visibility.
+        continue-on-error: true
+
+      - name: bundle size budget
+        run: pnpm bundle:check
+
+      - name: a11y login smoke (skip if no Chrome)
+        continue-on-error: false
+        run: |
+          if command -v google-chrome >/dev/null 2>&1 || command -v chromium-browser >/dev/null 2>&1 || command -v chromium >/dev/null 2>&1; then
+            pnpm --filter @dang/web exec playwright install --with-deps chrome || true
+            PLAYWRIGHT_CHANNEL=chrome pnpm --filter @dang/web test:a11y
+          else
+            echo "a11y: no system Chrome/Chromium — skipping gracefully"
+          fi

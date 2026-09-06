@@ -67,3 +67,41 @@ export const verifyEmailRequestSchema = z
   .strict();
 
 export type VerifyEmailRequestInput = z.infer<typeof verifyEmailRequestSchema>;
+
+const totpCodeSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/, "TOTP code must be 6 digits");
+
+export const mfaConfirmRequestSchema = z
+  .object({
+    code: totpCodeSchema,
+  })
+  .strict();
+
+export type MfaConfirmRequestInput = z.infer<typeof mfaConfirmRequestSchema>;
+
+export const mfaVerifyRequestSchema = z
+  .object({
+    challengeId: z.string().trim().min(1).max(512),
+    code: totpCodeSchema.optional(),
+    recoveryCode: z.string().trim().min(8).max(64).optional(),
+  })
+  .strict()
+  .refine(
+    (v) =>
+      (v.code !== undefined && v.recoveryCode === undefined) ||
+      (v.code === undefined && v.recoveryCode !== undefined),
+    { message: "Provide either code or recoveryCode" },
+  );
+
+export type MfaVerifyRequestInput = z.infer<typeof mfaVerifyRequestSchema>;
+
+export const mfaDisableRequestSchema = z
+  .object({
+    password: z.string().min(1).max(128),
+    code: totpCodeSchema,
+  })
+  .strict();
+
+export type MfaDisableRequestInput = z.infer<typeof mfaDisableRequestSchema>;

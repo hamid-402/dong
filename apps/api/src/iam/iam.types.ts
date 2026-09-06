@@ -54,6 +54,8 @@ export type IamStore = {
     actorUserId: string,
   ): Promise<InviteSummary[] | undefined>;
   acceptInvite(token: string, actor: AuthActor): Promise<WorkspaceSummary>;
+  /** Active membership roles across all workspaces for MFA enrollment checks. */
+  listActiveRolesForUser(userId: string): Promise<MembershipRole[]>;
 };
 
 export const IAM_STORE = Symbol("IAM_STORE");
