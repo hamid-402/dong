@@ -12,7 +12,7 @@
 | Storybook برای `@dang/ui` | **done** — Button / Modal / Field؛ `pnpm --filter @dang/ui storybook` |
 | i18n آماده‌سازی | **done** — `apps/web/src/messages/{fa,en}.json` + `lib/i18n.ts` (پیش‌فرض fa)؛ عنوان لاگین از catalog |
 | license review | **done** — `pnpm license:check` (`scripts/license-check.mjs`؛ fail روی GPL-only) |
-| داشبورد متریک کسب‌وکار | **بک‌لاگ** — نیاز به product metrics + aggregate واقعی از DB؛ تا قبل از آن UI آمار جعلی اضافه نشود |
+| داشبورد متریک کسب‌وکار | **done** — `GET /workspaces/:id/dashboard` و `GET /me/dashboard`؛ aggregate واقعی از store/DB؛ UI بدون آمار جعلی |
 
 ## نحوهٔ اجرای چک‌ها
 

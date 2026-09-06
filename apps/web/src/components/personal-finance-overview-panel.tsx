@@ -47,6 +47,7 @@ export function PersonalFinanceOverviewPanel() {
   const [focus, setFocus] = useState<PersonalFinanceMetricFocus>("paid");
   const [groupBy, setGroupBy] = useState<PersonalFinanceTrendGroupBy>("day");
   const [overview, setOverview] = useState<PersonalFinanceOverviewResponse | null>(null);
+  const [workspaceCount, setWorkspaceCount] = useState<number | null>(null);
   const [trends, setTrends] = useState<PersonalFinanceTrendsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -55,11 +56,12 @@ export function PersonalFinanceOverviewPanel() {
     startTransition(() => {
       void (async () => {
         try {
-          const [ov, tr] = await Promise.all([
-            api.personalFinanceOverview({ from, to }),
+          const [dash, tr] = await Promise.all([
+            api.personalDashboard(from, to),
             api.personalFinanceTrends({ from, to, groupBy }),
           ]);
-          setOverview(ov);
+          setOverview(dash.finance);
+          setWorkspaceCount(dash.workspaceCount);
           setTrends(tr);
           setError(null);
         } catch (err: unknown) {
@@ -170,6 +172,7 @@ export function PersonalFinanceOverviewPanel() {
               </div>
             </div>
             <StatusLine>
+              {workspaceCount != null ? `${workspaceCount} فضا · ` : null}
               منبع: خرج {overview.source.expense === "postgres" ? "Postgres" : "حافظه"} · دفترکل{" "}
               {overview.source.ledger === "postgres" ? "Postgres" : "حافظه"} ·{" "}
               {overview.from} تا {overview.to}
