@@ -61,6 +61,8 @@ type CapabilitiesResponse = {
   allowDevAuth: boolean;
   oidcConfigured: boolean;
   databaseConfigured: boolean;
+  /** TOTP MFA endpoints are implemented in this build. */
+  mfa: true;
   readiness: "ready" | "degraded";
   persistence: {
     iam: Persistence;
@@ -158,6 +160,7 @@ export class SystemController {
       allowDevAuth: env.allowDevAuth,
       oidcConfigured: isOidcConfigured(env),
       databaseConfigured,
+      mfa: true,
       readiness: degraded ? "degraded" : "ready",
       persistence: {
         iam: this.iam.persistence,

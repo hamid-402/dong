@@ -9,6 +9,7 @@ import { AuthOidcController } from "./auth-oidc.controller.js";
 import { SessionAuthGuard } from "./auth.guard.js";
 import { MailerService } from "./mailer.service.js";
 import { MemoryAccountStore } from "./memory-account.store.js";
+import { MfaService } from "./mfa.service.js";
 import { OidcService } from "./oidc.service.js";
 import { PostgresAccountStore } from "./postgres-account.store.js";
 
@@ -36,6 +37,7 @@ function createAccountStore(): AccountStore {
   controllers: [AuthController, AuthOidcController, AccountController],
   providers: [
     AccountService,
+    MfaService,
     MailerService,
     OidcService,
     SessionAuthGuard,
@@ -44,6 +46,13 @@ function createAccountStore(): AccountStore {
       useFactory: createAccountStore,
     },
   ],
-  exports: [SessionAuthGuard, AccountService, ACCOUNT_STORE, OidcService, MailerService],
+  exports: [
+    SessionAuthGuard,
+    AccountService,
+    MfaService,
+    ACCOUNT_STORE,
+    OidcService,
+    MailerService,
+  ],
 })
 export class AuthModule {}

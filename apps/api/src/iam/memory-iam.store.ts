@@ -396,6 +396,14 @@ export class MemoryIamStore implements IamStore {
       displayUnit: workspace.displayUnit,
     });
   }
+
+  listActiveRolesForUser(userId: string): Promise<MembershipRole[]> {
+    const roles: MembershipRole[] = [];
+    for (const membership of this.memberships.values()) {
+      if (membership.userId === userId) roles.push(membership.role);
+    }
+    return Promise.resolve(roles);
+  }
 }
 
 export const memoryIamStore = new MemoryIamStore();

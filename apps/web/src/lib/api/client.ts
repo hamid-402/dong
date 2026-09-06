@@ -4,6 +4,8 @@ import type {
   ChangePasswordRequest,
   ForgotPasswordResponse,
   LoginRequest,
+  LoginResponse,
+  MfaVerifyRequest,
   RegisterRequest,
   SessionSummary,
   UpdateProfileRequest,
@@ -135,7 +137,12 @@ export const authApi = {
       body: JSON.stringify(body),
     }),
   login: (body: LoginRequest) =>
-    apiFetch<AuthActionResponse>("/auth/login", {
+    apiFetch<LoginResponse>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  mfaVerify: (body: MfaVerifyRequest) =>
+    apiFetch<AuthActionResponse>("/auth/mfa/verify", {
       method: "POST",
       body: JSON.stringify(body),
     }),

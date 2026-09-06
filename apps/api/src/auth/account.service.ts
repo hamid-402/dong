@@ -11,6 +11,7 @@ import type {
   ChangePasswordRequest,
   ForgotPasswordResponse,
   LoginRequest,
+  LoginResponse,
   RegisterRequest,
   ResetPasswordRequest,
   UpdateProfileRequest,
@@ -18,6 +19,7 @@ import type {
 } from "@dang/contracts";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { MailerService } from "./mailer.service.js";
+import { MfaService } from "./mfa.service.js";
 import {
   ACCOUNT_STORE,
   RESET_TTL_MS,
@@ -57,6 +59,7 @@ export class AccountService {
     @Inject(ACCOUNT_STORE) private readonly accounts: AccountStore,
     @Inject(IAM_STORE) private readonly iam: IamStore,
     @Inject(MailerService) private readonly mailer: MailerService,
+    @Inject(MfaService) private readonly mfa: MfaService,
   ) {}
 
   async resolveSessionActor(rawToken: string | undefined): Promise<AuthActor | null> {
@@ -75,6 +78,11 @@ export class AccountService {
   ): Promise<void> {
     await this.issueSession(userId, reply, meta);
     await this.iam.ensurePersonalWorkspace(userId).catch(() => undefined);
+  }
+
+  private async profileOpts(userId: string): Promise<{ mfaEnrollmentRequired?: boolean }> {
+    const needed = await this.mfa.userNeedsMfaEnrollment(userId);
+    return needed ? { mfaEnrollmentRequired: true } : {};
   }
 
   async register(
@@ -103,7 +111,7 @@ export class AccountService {
       await this.iam.ensurePersonalWorkspace(user.userId).catch(() => undefined);
       return {
         ok: true,
-        profile: toProfile(user, "password"),
+        profile: toProfile(user, "password", await this.profileOpts(user.userId)),
         actor: toActor(user, "password"),
         debugVerifyUrl,
       };
@@ -116,7 +124,7 @@ export class AccountService {
     body: LoginRequest,
     reply: CookieReply,
     meta?: { ip?: string; userAgent?: string },
-  ): Promise<AuthActionResponse> {
+  ): Promise<LoginResponse> {
     const rateKey = `login:${meta?.ip ?? "unknown"}:${(body.email ?? "").toLowerCase()}`;
     if (!(await loginRate.allow(rateKey))) {
       throw new BadRequestException({
@@ -138,11 +146,17 @@ export class AccountService {
           await hashPassword(body.password),
         );
       }
+
+      if (user.totpEnabledAt) {
+        const challengeId = this.mfa.createChallenge(user.userId);
+        return { mfaRequired: true, challengeId };
+      }
+
       await this.issueSession(user.userId, reply, meta);
       await this.iam.ensurePersonalWorkspace(user.userId).catch(() => undefined);
       return {
         ok: true,
-        profile: toProfile(user, "password"),
+        profile: toProfile(user, "password", await this.profileOpts(user.userId)),
         actor: toActor(user, "password"),
       };
     } catch (error: unknown) {
@@ -168,7 +182,7 @@ export class AccountService {
         status: 401,
       });
     }
-    return toProfile(user, actor.authMode);
+    return toProfile(user, actor.authMode, await this.profileOpts(user.userId));
   }
 
   async updateProfile(actor: AuthActor, body: UpdateProfileRequest): Promise<UserProfile> {
@@ -178,7 +192,7 @@ export class AccountService {
         if (!name || name.length > 80) throw new Error("DISPLAY_NAME");
       }
       const user = await this.accounts.updateProfile(actor.userId, body);
-      return toProfile(user, actor.authMode);
+      return toProfile(user, actor.authMode, await this.profileOpts(user.userId));
     } catch (error: unknown) {
       this.rethrow(error);
     }
@@ -268,7 +282,7 @@ export class AccountService {
       await this.issueSession(user.userId, reply, meta);
       return {
         ok: true,
-        profile: toProfile(user, "password"),
+        profile: toProfile(user, "password", await this.profileOpts(user.userId)),
         actor: toActor(user, "password"),
       };
     } catch (error: unknown) {
@@ -284,7 +298,7 @@ export class AccountService {
       if (!row) throw new Error("VERIFY_INVALID");
       const user = await this.accounts.markEmailVerified(row.userId);
       await this.accounts.markEmailVerificationUsed(row.id);
-      return toProfile(user, authModeForUser(user));
+      return toProfile(user, authModeForUser(user), await this.profileOpts(user.userId));
     } catch (error: unknown) {
       this.rethrow(error);
     }

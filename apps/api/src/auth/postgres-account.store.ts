@@ -1,12 +1,13 @@
 import {
   and,
+  authEmailVerify,
+  authMfaRecovery,
+  authPasswordReset,
+  authSession,
   createDatabase,
   eq,
   isNull,
   sql,
-  authPasswordReset,
-  authEmailVerify,
-  authSession,
   userAccount,
   type AppDatabase,
 } from "@dang/db";
@@ -15,6 +16,7 @@ import type {
   AccountRecord,
   AccountStore,
   EmailVerifyRecord,
+  MfaRecoveryRecord,
   PasswordResetRecord,
   SessionRecord,
 } from "./account.types.js";
@@ -30,6 +32,8 @@ function mapUser(row: typeof userAccount.$inferSelect): AccountRecord {
     avatarUrl: row.avatarUrl ?? null,
     locale: row.locale ?? "fa-IR",
     timezone: row.timezone ?? "Asia/Tehran",
+    totpSecret: row.totpSecret ?? null,
+    totpEnabledAt: row.totpEnabledAt ?? null,
     createdAt: row.createdAt,
   };
 }
@@ -341,5 +345,82 @@ export class PostgresAccountStore implements AccountStore {
       .update(authEmailVerify)
       .set({ usedAt: new Date() })
       .where(eq(authEmailVerify.id, id));
+  }
+
+  async setTotpSecret(userId: string, secret: string): Promise<AccountRecord> {
+    const updated = await this.db
+      .update(userAccount)
+      .set({
+        totpSecret: secret,
+        totpEnabledAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(userAccount.id, userId))
+      .returning();
+    const row = updated[0];
+    if (!row) throw new Error("USER_NOT_FOUND");
+    return mapUser(row);
+  }
+
+  async enableTotp(userId: string): Promise<AccountRecord> {
+    const updated = await this.db
+      .update(userAccount)
+      .set({
+        totpEnabledAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(userAccount.id, userId), sql`${userAccount.totpSecret} is not null`))
+      .returning();
+    const row = updated[0];
+    if (!row) throw new Error("MFA_NOT_SETUP");
+    return mapUser(row);
+  }
+
+  async disableTotp(userId: string): Promise<AccountRecord> {
+    await this.db.delete(authMfaRecovery).where(eq(authMfaRecovery.userId, userId));
+    const updated = await this.db
+      .update(userAccount)
+      .set({
+        totpSecret: null,
+        totpEnabledAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(userAccount.id, userId))
+      .returning();
+    const row = updated[0];
+    if (!row) throw new Error("USER_NOT_FOUND");
+    return mapUser(row);
+  }
+
+  async replaceMfaRecoveryCodes(userId: string, codeHashes: string[]): Promise<void> {
+    await this.db.delete(authMfaRecovery).where(eq(authMfaRecovery.userId, userId));
+    if (codeHashes.length === 0) return;
+    await this.db.insert(authMfaRecovery).values(
+      codeHashes.map((codeHash) => ({
+        userId,
+        codeHash,
+      })),
+    );
+  }
+
+  async listUnusedMfaRecovery(userId: string): Promise<MfaRecoveryRecord[]> {
+    const rows = await this.db
+      .select()
+      .from(authMfaRecovery)
+      .where(and(eq(authMfaRecovery.userId, userId), isNull(authMfaRecovery.usedAt)));
+    return rows.map((row) => ({
+      id: row.id,
+      userId: row.userId,
+      codeHash: row.codeHash,
+      usedAt: row.usedAt ?? null,
+      createdAt: row.createdAt,
+    }));
+  }
+
+  async markMfaRecoveryUsed(id: string): Promise<void> {
+    await this.db
+      .update(authMfaRecovery)
+      .set({ usedAt: new Date() })
+      .where(eq(authMfaRecovery.id, id));
   }
 }

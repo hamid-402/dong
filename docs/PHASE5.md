@@ -4,7 +4,7 @@
 
 | آیتم | وضعیت |
 |------|--------|
-| MFA/TOTP برای Owner/Admin/Finance/Support | **برنامه‌ریزی‌شده** — جدا (baseline امن اول)؛ برچسب در `docs/SECURITY.md` |
+| MFA/TOTP برای Owner/Admin/Finance | **done** — migration `0033_mfa_totp`؛ `POST /auth/mfa/*`؛ چالش لاگین؛ `capabilities.mfa` |
 | axe/a11y خودکار | **done** — `apps/web/e2e/a11y-login.spec.ts` + `pnpm test:a11y`؛ CI فقط وقتی Chrome/browser در دسترس باشد وگرنه skip |
 | تست یکپارچه ClamAV/OCR با سرویس واقعی | فقط همزمان با `CLAMAV_ENABLED=1` / `OCR_ENABLED=1` |
 | Dead-letter queue برای Redis jobs | **done** — `docs/PHASE2-REDIS.md`؛ worker retries→DLQ؛ API list/replay (owner/admin) |
@@ -57,6 +57,6 @@ pnpm --filter @dang/ui build-storybook
 - [x] زرین‌پال: amount سمت سرور
 - [x] Rate-limit / idempotency Redis-ready
 - [x] Dev-auth در production قفل‌شده با تست
-- [x] `docs/SECURITY.md` با واقعیت هم‌خوان (MFA برچسب برنامه‌ریزی)
+- [x] `docs/SECURITY.md` با واقعیت هم‌خوان (MFA پیاده‌سازی‌شده)
 - [x] Redis DLQ + owner/admin replay API
 - [x] a11y smoke (login) + bundle budget + license check scaffolding

@@ -30,6 +30,9 @@ export {
   changePasswordRequestSchema,
   updateProfileRequestSchema,
   verifyEmailRequestSchema,
+  mfaConfirmRequestSchema,
+  mfaVerifyRequestSchema,
+  mfaDisableRequestSchema,
   type RegisterRequestInput,
   type LoginRequestInput,
   type ForgotPasswordRequestInput,
@@ -37,6 +40,9 @@ export {
   type ChangePasswordRequestInput,
   type UpdateProfileRequestInput,
   type VerifyEmailRequestInput,
+  type MfaConfirmRequestInput,
+  type MfaVerifyRequestInput,
+  type MfaDisableRequestInput,
 } from "./account.js";
 
 export {
