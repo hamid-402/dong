@@ -19,7 +19,6 @@ import { hubPathFor } from "@/lib/hub-links";
 import {
   expenseStatusLabel,
   needStatusLabel,
-  persistenceLabelFa,
 } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 
@@ -147,7 +146,9 @@ type DashboardState = {
   workspaceName: string;
   userName: string;
   balanceToman: number;
-  expenseCount: number;
+  postedCount: number;
+  postedSpendToman: number;
+  openSettlementCount: number;
   needCount: number;
   notificationCount: number;
   persistence: string;
@@ -156,6 +157,7 @@ type DashboardState = {
   memberNames: string[];
   previewExpenseTitle: string;
   previewExpenseToman: string;
+  rangeLabel: string;
 };
 
 export function OverviewView() {
@@ -174,9 +176,8 @@ export function OverviewView() {
         try {
           const identity = getDevIdentity();
           setDevIdentity(identity.subject, identity.displayName);
-          const [session, caps, workspaces] = await Promise.all([
+          const [session, workspaces] = await Promise.all([
             api.session(),
-            api.capabilities(),
             api.listWorkspaces(),
           ]);
           const list = workspaces;
@@ -192,26 +193,40 @@ export function OverviewView() {
             setError("برای شروع، فضای کاری بسازید یا وارد شوید.");
             return;
           }
-          const [balances, expenses, needs, notifications, members] = await Promise.all([
-            api.getBalances(workspace.id),
-            api.listExpenses(workspace.id),
+          const [dashboard, needs, members] = await Promise.all([
+            api.workspaceDashboard(workspace.id),
             api.listNeeds(workspace.id).catch(() => []),
-            api.listNotifications(workspace.id).catch(() => []),
             api.listMembers(workspace.id).catch(() => []),
           ]);
-          const myBalance = balances.lines.find((b) => b.userId === actor.userId);
-          const netMinor = Number(myBalance?.net.amountMinor ?? "0");
-          const firstExpense = expenses[0];
+          const netMinor = Number(dashboard.actorNet.amountMinor);
+          const firstExpense = dashboard.activity.recentExpenses[0];
+          const sourceBits = [
+            dashboard.source.expense,
+            dashboard.source.ledger,
+            dashboard.source.settlement,
+            dashboard.source.notification,
+          ];
+          const allPostgres = sourceBits.every((s) => s === "postgres");
+          const allMemory = sourceBits.every((s) => s === "memory");
+          const persistence = allPostgres
+            ? "Postgres"
+            : allMemory
+              ? "حافظه"
+              : `مختلط (${sourceBits.filter((s) => s === "postgres").length}/4 Postgres)`;
           setData({
-            workspaceId: workspace.id,
-            workspaceName: workspace.name,
+            workspaceId: dashboard.workspaceId,
+            workspaceName: dashboard.workspaceName,
             userName: actor.displayName,
             balanceToman: Math.round(netMinor / 10),
-            expenseCount: expenses.length,
+            postedCount: dashboard.spend.postedCount,
+            postedSpendToman: Math.round(
+              Number(dashboard.spend.postedTotal.amountMinor) / 10,
+            ),
+            openSettlementCount: dashboard.settlements.openCount,
             needCount: needs.length,
-            notificationCount: notifications.filter((n) => !n.readAt).length,
-            persistence: persistenceLabelFa(caps.persistence, caps.databaseConfigured),
-            recentExpenses: expenses.slice(0, 3).map((e) => ({
+            notificationCount: dashboard.activity.unreadNotifications,
+            persistence,
+            recentExpenses: dashboard.activity.recentExpenses.slice(0, 5).map((e) => ({
               id: e.id,
               title: e.title,
               toman: Math.round(Number(e.total.amountMinor) / 10),
@@ -225,8 +240,12 @@ export function OverviewView() {
             memberNames: members.map((m) => m.displayName).filter(Boolean),
             previewExpenseTitle: firstExpense?.title ?? "—",
             previewExpenseToman: firstExpense
-              ? formatToman(Math.round(Number(firstExpense.total.amountMinor) / 10)).replace(" تومان", "")
+              ? formatToman(Math.round(Number(firstExpense.total.amountMinor) / 10)).replace(
+                  " تومان",
+                  "",
+                )
               : "—",
+            rangeLabel: `${dashboard.from} تا ${dashboard.to}`,
           });
           setError(null);
         } catch (err: unknown) {
@@ -276,7 +295,7 @@ export function OverviewView() {
         title={`صبح بخیر${data?.userName ? `، ${data.userName.split(" ")[0]}` : ""}`}
         description={
           data
-            ? `${data.expenseCount} هزینه · ${data.needCount} نیاز خرید · ${data.notificationCount} اعلان`
+            ? `${formatToman(data.postedSpendToman)} خرج ثبت‌شده (${data.postedCount}) · ${data.openSettlementCount} تسویه باز · ${data.notificationCount} اعلان · بازه ${data.rangeLabel}`
             : "در حال همگام‌سازی…"
         }
         actions={
@@ -381,7 +400,7 @@ export function OverviewView() {
           badge={
             spaceKind === "org"
               ? Math.max(data?.recentNeeds.length ?? 0, data?.needCount ?? 0)
-              : data?.expenseCount ?? 0
+              : data?.postedCount ?? 0
           }
           delayClass="delay3"
           footer={
@@ -445,7 +464,7 @@ export function OverviewView() {
                 <p>{data?.workspaceName ?? "فضای فعال"}</p>
                 <small>
                   {data
-                    ? `${data.expenseCount} هزینه · ${data.notificationCount} اعلان`
+                    ? `${data.postedCount} خرج ثبت‌شده · ${data.notificationCount} اعلان`
                     : "—"}
                 </small>
               </div>

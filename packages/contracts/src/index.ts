@@ -205,6 +205,7 @@ export * from "./account.js";
 export * from "./assets.js";
 export * from "./billing.js";
 export * from "./collaboration.js";
+export * from "./dashboard.js";
 export * from "./files.js";
 export * from "./finance.js";
 export * from "./jobs.js";

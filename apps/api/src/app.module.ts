@@ -26,6 +26,7 @@ import { WorkspacesModule } from "./workspaces/workspaces.module.js";
 import { ReportsModule } from "./reports/reports.module.js";
 import { ProposalsModule } from "./proposals/proposals.module.js";
 import { PersonalFinanceModule } from "./personal-finance/personal-finance.module.js";
+import { DashboardModule } from "./dashboard/dashboard.module.js";
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { PersonalFinanceModule } from "./personal-finance/personal-finance.modul
     BillingModule,
     ReportsModule,
     PersonalFinanceModule,
+    DashboardModule,
     DemoModule,
   ],
   controllers: [HealthController, SystemController],

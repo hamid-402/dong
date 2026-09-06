@@ -9,5 +9,6 @@ import { BalancesService } from "./balances.service.js";
   imports: [AuthModule, LedgerModule, NotificationsModule],
   controllers: [BalancesController],
   providers: [BalancesService],
+  exports: [BalancesService],
 })
 export class BalancesModule {}

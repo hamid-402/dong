@@ -63,8 +63,10 @@ import type {
   CreateRecurringRuleRequest,
   CreateReportExportRequest,
   ReportGroupBy,
+  PersonalDashboardResponse,
   PersonalFinanceOverviewResponse,
   PersonalFinanceTrendsResponse,
+  WorkspaceDashboardResponse,
   DailyLedgerResponse,
   UpsertWorkspaceDayRequest,
   UpsertWorkspaceDayResponse,
@@ -200,6 +202,24 @@ export type HealthReadyResponse = {
 export const api = {
   ...authApi,
   ...expensesApi,
+  workspaceDashboard: (workspaceId: string, from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const q = params.toString();
+    return apiFetch<WorkspaceDashboardResponse>(
+      `/workspaces/${workspaceId}/dashboard${q ? `?${q}` : ""}`,
+    );
+  },
+  personalDashboard: (from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const q = params.toString();
+    return apiFetch<PersonalDashboardResponse>(
+      `/me/dashboard${q ? `?${q}` : ""}`,
+    );
+  },
   personalFinanceOverview: (query: { from: string; to: string }) => {
     const params = new URLSearchParams({ from: query.from, to: query.to });
     return apiFetch<PersonalFinanceOverviewResponse>(
