@@ -1,48 +1,46 @@
 #!/usr/bin/env node
 /**
- * Lightweight license gate: `pnpm licenses list --json` and fail on GPL-only
- * (or AGPL/LGPL-only) packages. Dual-licensed packages that also offer MIT/Apache
- * etc. are allowed.
+ * Lightweight license gate: `pnpm licenses list --json` and fail on AGPL / GPL-only
+ * (not LGPL — linking LGPL is generally acceptable for app dependencies).
+ * Dual-licensed packages that also offer MIT/Apache/etc. are allowed.
  *
  * Documented in docs/PHASE5.md. Run: `pnpm license:check`
  */
 import { spawnSync } from "node:child_process";
 
-const FORBIDDEN_SOLO = [
-  /^gpl(\s|-|$)/i,
-  /^agpl(\s|-|$)/i,
-  /^lgpl(\s|-|$)/i,
-];
-
 const PERMISSIVE_HINT =
-  /\b(mit|apache|bsd|isc|0bsd|unlicense|cc0|mpl|blueoak|python|postgresql|zlib|boost|artistic|wtfpl)\b/i;
+  /\b(mit|apache|bsd|isc|0bsd|unlicense|cc0|mpl|blueoak|python|postgresql|zlib|boost|artistic|wtfpl|cc-by)\b/i;
+
+/** Only strong copyleft without a permissive alternative. */
+function isForbiddenSolo(licenseText) {
+  const text = normalizeLicense(licenseText).trim();
+  if (!text || text === "Unknown") return false;
+
+  // Dual / multi — if any permissive token appears, allow
+  if (PERMISSIVE_HINT.test(text) && /\bOR\b|\|/i.test(text)) return false;
+
+  const lower = text.toLowerCase().replace(/['"]/g, "");
+
+  // LGPL is OK for typical app use (dynamic linking)
+  if (/\blgpl\b/.test(lower)) return false;
+
+  // Classpath / linking exceptions on GPL
+  if (/\bgpl\b/.test(lower) && /exception|with\s+classpath|openjdk/i.test(text)) {
+    return false;
+  }
+
+  // AGPL always fail; GPL-2/3 only when no permissive dual
+  if (/\bagpl\b/.test(lower)) return true;
+  if (/\bgpl[- ]?[23]/.test(lower) || /^gpl(\s|$)/i.test(lower)) {
+    return !PERMISSIVE_HINT.test(text);
+  }
+  return false;
+}
 
 function normalizeLicense(raw) {
   if (!raw) return "";
   if (Array.isArray(raw)) return raw.map(String).join(" OR ");
   return String(raw);
-}
-
-function isForbiddenSolo(licenseText) {
-  const text = normalizeLicense(licenseText).trim();
-  if (!text || text === "Unknown") return false;
-  // Dual / OR with a permissive side → allow
-  if (/\sOR\s|\|/i.test(text) && PERMISSIVE_HINT.test(text)) {
-    return false;
-  }
-  // Explicit dual like "GPL-2.0 OR MIT"
-  if (PERMISSIVE_HINT.test(text) && !/^(l?gpl|agpl)/i.test(text.split(/\sOR\s|\|/i)[0] ?? "")) {
-    return false;
-  }
-  if (PERMISSIVE_HINT.test(text) && /OR/i.test(text)) return false;
-
-  const lower = text.toLowerCase();
-  // GPL-only (no permissive alternative mentioned)
-  if (FORBIDDEN_SOLO.some((re) => re.test(lower))) {
-    if (PERMISSIVE_HINT.test(text) && /or/i.test(text)) return false;
-    return true;
-  }
-  return false;
 }
 
 function collectPackages(node, out = []) {
@@ -55,7 +53,6 @@ function collectPackages(node, out = []) {
       path: node.path ?? "",
     });
   }
-  // pnpm licenses list --json shapes vary by version
   if (Array.isArray(node)) {
     for (const item of node) collectPackages(item, out);
     return out;
@@ -69,7 +66,7 @@ function collectPackages(node, out = []) {
   return out;
 }
 
-/** Alternate pnpm shape: { "MIT": [ {name,versions,...} ], ... } */
+/** pnpm shape: { "MIT": [ {name,versions,...} ], ... } */
 function collectFromLicenseMap(data) {
   const out = [];
   if (!data || typeof data !== "object" || Array.isArray(data)) return out;
@@ -94,7 +91,6 @@ const result = spawnSync(
   ["licenses", "list", "--json"],
   {
     encoding: "utf8",
-    // Windows needs a shell to resolve pnpm.cmd; Unix can use shell:false.
     shell: process.platform === "win32",
     maxBuffer: 32 * 1024 * 1024,
   },
@@ -123,16 +119,16 @@ if (packages.length === 0) {
 const offenders = packages.filter((p) => isForbiddenSolo(p.license));
 
 if (offenders.length) {
-  console.error("license-check: FAIL — GPL/AGPL/LGPL-only packages found:");
+  console.error("license-check: FAIL — AGPL/GPL-only packages found:");
   for (const p of offenders.slice(0, 50)) {
     console.error(`  - ${p.name}@${p.version}: ${normalizeLicense(p.license)}`);
   }
   if (offenders.length > 50) {
-    console.error(`  … and ${offenders.length - 50} more`);
+    console.error(`  … and ${offenders.length > 50 ? offenders.length - 50 : 0} more`);
   }
   process.exit(1);
 }
 
 console.log(
-  `license-check: OK (${packages.length} license entries scanned; no GPL-only packages)`,
+  `license-check: OK (${packages.length} license entries scanned; no AGPL/GPL-only packages)`,
 );
