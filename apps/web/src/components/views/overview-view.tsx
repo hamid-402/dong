@@ -147,6 +147,7 @@ type DashboardState = {
   userName: string;
   balanceToman: number;
   postedCount: number;
+  postedSpendToman: number;
   openSettlementCount: number;
   needCount: number;
   notificationCount: number;
@@ -156,6 +157,7 @@ type DashboardState = {
   memberNames: string[];
   previewExpenseTitle: string;
   previewExpenseToman: string;
+  rangeLabel: string;
 };
 
 export function OverviewView() {
@@ -217,6 +219,9 @@ export function OverviewView() {
             userName: actor.displayName,
             balanceToman: Math.round(netMinor / 10),
             postedCount: dashboard.spend.postedCount,
+            postedSpendToman: Math.round(
+              Number(dashboard.spend.postedTotal.amountMinor) / 10,
+            ),
             openSettlementCount: dashboard.settlements.openCount,
             needCount: needs.length,
             notificationCount: dashboard.activity.unreadNotifications,
@@ -240,6 +245,7 @@ export function OverviewView() {
                   "",
                 )
               : "—",
+            rangeLabel: `${dashboard.from} تا ${dashboard.to}`,
           });
           setError(null);
         } catch (err: unknown) {
@@ -289,7 +295,7 @@ export function OverviewView() {
         title={`صبح بخیر${data?.userName ? `، ${data.userName.split(" ")[0]}` : ""}`}
         description={
           data
-            ? `${data.postedCount} خرج ثبت‌شده · ${data.openSettlementCount} تسویه باز · ${data.notificationCount} اعلان خوانده‌نشده`
+            ? `${formatToman(data.postedSpendToman)} خرج ثبت‌شده (${data.postedCount}) · ${data.openSettlementCount} تسویه باز · ${data.notificationCount} اعلان · بازه ${data.rangeLabel}`
             : "در حال همگام‌سازی…"
         }
         actions={
