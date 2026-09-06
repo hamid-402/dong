@@ -1,11 +1,11 @@
 import type { FinanceVerticalSliceStep, WorkerJobName } from "@dang/contracts";
 import { financeVerticalSliceSteps } from "@dang/contracts";
+import { isRedisConfigured, loadAppEnv } from "@dang/config";
 
 export type { WorkerJobName };
 export type WorkerJobDefinition = {
   name: WorkerJobName;
   descriptionFa: string;
-  /** Phase when the adapter becomes active. */
   phase: 2 | 3 | 4 | 5;
   requiresRedis: boolean;
 };
@@ -19,7 +19,7 @@ export const workerJobCatalog: WorkerJobDefinition[] = [
   },
   {
     name: "quarantine.scan",
-    descriptionFa: "اسکن قرنطینه فایل (AV stub)",
+    descriptionFa: "اسکن قرنطینه فایل (AV)",
     phase: 5,
     requiresRedis: true,
   },
@@ -57,17 +57,18 @@ export const workerJobCatalog: WorkerJobDefinition[] = [
 
 export type WorkerStatus = {
   service: "dang-worker";
-  status: "ready_idle";
-  queueAdapter: "none";
+  status: "ready_idle" | "consuming";
+  queueAdapter: "none" | "redis";
   jobs: WorkerJobDefinition[];
   financeVerticalSlice: readonly FinanceVerticalSliceStep[];
 };
 
 export function getWorkerStatus(): WorkerStatus {
+  const redis = isRedisConfigured(loadAppEnv());
   return {
     service: "dang-worker",
-    status: "ready_idle",
-    queueAdapter: "none",
+    status: redis ? "consuming" : "ready_idle",
+    queueAdapter: redis ? "redis" : "none",
     jobs: workerJobCatalog,
     financeVerticalSlice: financeVerticalSliceSteps,
   };

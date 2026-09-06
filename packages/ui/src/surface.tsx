@@ -14,11 +14,11 @@ export function Surface({
   ...rest
 }: SurfaceProps) {
   const surfaceStyle: CSSProperties = {
-    background: "var(--dang-surface, #101816)",
-    border: "1px solid var(--dang-line, rgba(220,229,225,.11))",
-    borderRadius: 24,
-    padding: padded ? 28 : 0,
-    boxShadow: "0 28px 90px rgba(0,0,0,.22)",
+    background: "var(--dang-surface)",
+    border: "1px solid var(--dang-line)",
+    borderRadius: "var(--dang-radius-lg, 16px)",
+    padding: padded ? "var(--dang-space-5, 24px)" : 0,
+    boxShadow: "var(--dang-elev-1, none)",
     ...style,
   };
 

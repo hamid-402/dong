@@ -5,6 +5,7 @@ import {
   invite,
   isNull,
   membership,
+  personalWorkspace,
   userAccount,
   withTenantContext,
   workspace,
@@ -140,6 +141,17 @@ export class PostgresIamStore implements IamStore {
         this.db,
         { workspaceId: id, userId: input.actorUserId },
         async (tx) => {
+          if (input.template === "personal") {
+            const mapped = await tx
+              .select()
+              .from(personalWorkspace)
+              .where(eq(personalWorkspace.userId, input.actorUserId))
+              .limit(1);
+            if (mapped[0]) {
+              throw new Error("PERSONAL_WORKSPACE_EXISTS");
+            }
+          }
+
           const inserted = await tx
             .insert(workspace)
             .values({
@@ -164,9 +176,110 @@ export class PostgresIamStore implements IamStore {
             role: "owner",
           });
 
+          if (input.template === "personal") {
+            await tx.insert(personalWorkspace).values({
+              userId: input.actorUserId,
+              workspaceId: id,
+            });
+          }
+
           return mapWorkspace(row);
         },
       );
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === "PERSONAL_WORKSPACE_EXISTS") {
+        throw error;
+      }
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error as { code?: string }).code === "23505"
+      ) {
+        if (input.template === "personal") {
+          const again = await this.findMappedPersonalWorkspace(input.actorUserId);
+          if (again) {
+            throw new Error("PERSONAL_WORKSPACE_EXISTS");
+          }
+        }
+        throw new Error("WORKSPACE_SLUG_TAKEN");
+      }
+      throw error;
+    }
+  }
+
+  async ensurePersonalWorkspace(userId: string): Promise<WorkspaceSummary> {
+    const mapped = await this.findMappedPersonalWorkspace(userId);
+    if (mapped) return mapped;
+
+    const legacy = (await this.listWorkspacesForUser(userId)).find(
+      (w) => w.template === "personal",
+    );
+    if (legacy) {
+      await this.tryRegisterPersonalWorkspace(userId, legacy.id);
+      const after = await this.findMappedPersonalWorkspace(userId);
+      return after ?? legacy;
+    }
+
+    const slug = `me-${userId.replaceAll("-", "").slice(0, 12)}-${Date.now().toString(36).slice(-4)}`;
+    try {
+      return await this.createWorkspace({
+        actorUserId: userId,
+        name: "دفتر من",
+        slug,
+        template: "personal",
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        (error.message === "WORKSPACE_SLUG_TAKEN" ||
+          error.message === "PERSONAL_WORKSPACE_EXISTS")
+      ) {
+        const again = await this.findMappedPersonalWorkspace(userId);
+        if (again) return again;
+        const fallback = (await this.listWorkspacesForUser(userId)).find(
+          (w) => w.template === "personal",
+        );
+        if (fallback) return fallback;
+      }
+      throw error;
+    }
+  }
+
+  private async findMappedPersonalWorkspace(
+    userId: string,
+  ): Promise<WorkspaceSummary | undefined> {
+    const rows = await this.db
+      .select({
+        id: workspace.id,
+        name: workspace.name,
+        slug: workspace.slug,
+        template: workspace.template,
+        timezone: workspace.timezone,
+        displayUnit: workspace.displayUnit,
+      })
+      .from(personalWorkspace)
+      .innerJoin(workspace, eq(workspace.id, personalWorkspace.workspaceId))
+      .where(eq(personalWorkspace.userId, userId))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return undefined;
+    return {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      template: asTemplate(row.template),
+      timezone: row.timezone,
+      displayUnit: asDisplayUnit(row.displayUnit),
+    };
+  }
+
+  private async tryRegisterPersonalWorkspace(
+    userId: string,
+    workspaceId: string,
+  ): Promise<void> {
+    try {
+      await this.db.insert(personalWorkspace).values({ userId, workspaceId });
     } catch (error: unknown) {
       if (
         typeof error === "object" &&
@@ -174,7 +287,7 @@ export class PostgresIamStore implements IamStore {
         "code" in error &&
         (error as { code?: string }).code === "23505"
       ) {
-        throw new Error("WORKSPACE_SLUG_TAKEN");
+        return;
       }
       throw error;
     }
@@ -238,6 +351,7 @@ export class PostgresIamStore implements IamStore {
             workspaceId: membership.workspaceId,
             userId: membership.userId,
             role: membership.role,
+            defaultShares: membership.defaultShares,
             joinedAt: membership.joinedAt,
             displayName: userAccount.displayName,
           })
@@ -255,8 +369,67 @@ export class PostgresIamStore implements IamStore {
           userId: row.userId,
           displayName: row.displayName,
           role: row.role,
+          defaultShares: row.defaultShares ?? 1,
           joinedAt: row.joinedAt.toISOString(),
         }));
+      },
+    );
+  }
+
+  async setMemberDefaultShares(
+    workspaceId: string,
+    actorUserId: string,
+    targetUserId: string,
+    defaultShares: number,
+  ): Promise<MembershipSummary | undefined> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const actorMembership = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, actorUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        const actor = actorMembership[0];
+        if (!actor || (actor.role !== "owner" && actor.role !== "admin")) {
+          return undefined;
+        }
+
+        const updated = await tx
+          .update(membership)
+          .set({ defaultShares })
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, targetUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .returning();
+        const row = updated[0];
+        if (!row) return undefined;
+        const users = await tx
+          .select()
+          .from(userAccount)
+          .where(eq(userAccount.id, targetUserId))
+          .limit(1);
+        const user = users[0];
+        if (!user) return undefined;
+        return {
+          workspaceId,
+          userId: targetUserId,
+          displayName: user.displayName,
+          role: row.role,
+          defaultShares: row.defaultShares ?? 1,
+          joinedAt: row.joinedAt.toISOString(),
+        };
       },
     );
   }

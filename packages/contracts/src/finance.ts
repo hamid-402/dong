@@ -1,6 +1,6 @@
 import type { Money } from "./money.js";
 
-export type SplitMethod = "equal" | "amount" | "percent" | "shares";
+export type SplitMethod = "equal" | "amount" | "percent" | "shares" | "itemized";
 
 export type ExpenseStatus =
   | "draft"
@@ -20,6 +20,23 @@ export type ExpensePaymentLine = {
   amount: Money;
 };
 
+/** Line on an itemized bill (lunch receipt). */
+export type ExpenseItemInput = {
+  title: string;
+  /** IRR minor for this line. */
+  amount: Money;
+  /** Who consumes this item (shared appetizer = multiple). */
+  assigneeUserIds: string[];
+  /** Optional relative shares among assignees; default 1 each. */
+  sharesByUserId?: Record<string, number>;
+  notes?: string;
+};
+
+export type ExpenseItemSummary = ExpenseItemInput & {
+  id?: string;
+  lineNo?: number;
+};
+
 /** Phase 2 draft payload. */
 export type CreateExpenseDraftRequest = {
   workspaceId: string;
@@ -36,8 +53,28 @@ export type CreateExpenseDraftRequest = {
   participantUserIds: string[];
   /** Required for amount / percent / shares methods. */
   splitLines?: ExpenseSplitLine[];
+  /** Required for itemized method (lunch receipt). */
+  items?: ExpenseItemInput[];
+  tip?: Money;
+  tax?: Money;
+  discount?: Money;
   occurredOn: string;
   idempotencyKey: string;
+  /** Optional link to a day/week/month expense period. */
+  periodId?: string;
+  /** Optional multi-expense outing container. */
+  outingId?: string;
+  categoryId?: string;
+  budgetId?: string;
+  /** When true (company default), post requires approver role. */
+  requiresApproval?: boolean;
+  /** shared = جمعی؛ private = خصوصی من؛ company = خرج جاری شرکت/تیم. */
+  visibility?: "shared" | "private" | "company";
+  /**
+   * System provenance — set by daily ledger (and similar) creators.
+   * Omitted/null = classic expense UI.
+   */
+  source?: "daily_ledger" | null;
 };
 
 export type ExpenseSplitLine = {
@@ -229,6 +266,10 @@ export function allocateExpenseSplit(input: {
   splitMethod: SplitMethod;
   participantUserIds: string[];
   splitLines?: readonly ExpenseSplitLine[];
+  items?: readonly ExpenseItemInput[];
+  tip?: Money;
+  tax?: Money;
+  discount?: Money;
 }): ExpenseSplitLine[] {
   switch (input.splitMethod) {
     case "equal":
@@ -242,24 +283,173 @@ export function allocateExpenseSplit(input: {
     case "shares":
       if (!input.splitLines?.length) throw new Error("SPLIT_LINES");
       return allocateSharesSplit(input.total, input.splitLines);
+    case "itemized": {
+      if (!input.items?.length) throw new Error("SPLIT_ITEMS");
+      const result = allocateItemizedSplit({
+        items: input.items,
+        tip: input.tip,
+        tax: input.tax,
+        discount: input.discount,
+      });
+      if (result.total.amountMinor !== input.total.amountMinor) {
+        throw new Error("SPLIT_ITEM_TOTAL");
+      }
+      return result.splits;
+    }
     default:
       throw new Error("SPLIT_METHOD");
   }
 }
 
+/**
+ * Itemized bill: each line assigned to one or more people; tip/tax/discount
+ * distributed proportional to item subtotals.
+ */
+export function allocateItemizedSplit(input: {
+  items: readonly ExpenseItemInput[];
+  tip?: Money;
+  tax?: Money;
+  discount?: Money;
+}): { total: Money; splits: ExpenseSplitLine[]; itemsSubtotal: Money } {
+  if (!input.items.length) throw new Error("SPLIT_ITEMS");
+  const aggregates = new Map<string, bigint>();
+  let itemsSubtotal = 0n;
+
+  for (const item of input.items) {
+    if (!item.title?.trim()) throw new Error("SPLIT_ITEM_TITLE");
+    if (item.amount.currency !== "IRR" || !/^\d+$/.test(item.amount.amountMinor)) {
+      throw new Error("SPLIT_AMOUNT");
+    }
+    const amount = BigInt(item.amount.amountMinor);
+    if (amount <= 0n) throw new Error("SPLIT_AMOUNT");
+    const assignees = [...new Set(item.assigneeUserIds.map((id) => id.trim()).filter(Boolean))];
+    if (assignees.length === 0) throw new Error("SPLIT_ITEM_ASSIGNEES");
+    const weights = assignees.map((userId) => {
+      const share = item.sharesByUserId?.[userId] ?? 1;
+      if (!Number.isInteger(share) || share <= 0) throw new Error("SPLIT_SHARES");
+      return { userId, weight: BigInt(share) };
+    });
+    const lines = distributeRemainder(item.amount, weights);
+    for (const line of lines) {
+      const prev = aggregates.get(line.userId) ?? 0n;
+      aggregates.set(line.userId, prev + BigInt(line.amount.amountMinor));
+    }
+    itemsSubtotal += amount;
+  }
+
+  const tip = optionalMinor(input.tip);
+  const tax = optionalMinor(input.tax);
+  const discount = optionalMinor(input.discount);
+  if (discount > itemsSubtotal + tip + tax) throw new Error("SPLIT_DISCOUNT");
+
+  const extras = tip + tax - discount;
+  if (extras !== 0n && aggregates.size > 0) {
+    const entries = [...aggregates.entries()];
+    const weightSum = entries.reduce((acc, [, v]) => acc + v, 0n) || BigInt(entries.length);
+    let allocated = 0n;
+    const extrasParts = entries.map(([userId, base]) => {
+      const part =
+        extras >= 0n
+          ? (extras * base) / weightSum
+          : -((-extras * base) / weightSum);
+      allocated += part;
+      return { userId, part };
+    });
+    let rem = extras - allocated;
+    for (const row of extrasParts) {
+      if (rem === 0n) break;
+      const step = rem > 0n ? 1n : -1n;
+      row.part += step;
+      rem -= step;
+    }
+    for (const row of extrasParts) {
+      aggregates.set(row.userId, (aggregates.get(row.userId) ?? 0n) + row.part);
+    }
+  }
+
+  const totalMinor = itemsSubtotal + tip + tax - discount;
+  if (totalMinor <= 0n) throw new Error("SPLIT_AMOUNT");
+
+  const splits: ExpenseSplitLine[] = [...aggregates.entries()]
+    .filter(([, amount]) => amount > 0n)
+    .map(([userId, amountMinor]) => ({
+      userId,
+      amount: { amountMinor: amountMinor.toString(), currency: "IRR" as const },
+    }));
+
+  const sum = splits.reduce((acc, line) => acc + BigInt(line.amount.amountMinor), 0n);
+  if (sum !== totalMinor) {
+    // Fix rounding drift on first line
+    const first = splits[0];
+    if (!first) throw new Error("SPLIT_PARTICIPANTS");
+    const drift = totalMinor - sum;
+    first.amount = {
+      amountMinor: (BigInt(first.amount.amountMinor) + drift).toString(),
+      currency: "IRR",
+    };
+  }
+
+  return {
+    total: { amountMinor: totalMinor.toString(), currency: "IRR" },
+    itemsSubtotal: { amountMinor: itemsSubtotal.toString(), currency: "IRR" },
+    splits,
+  };
+}
+
+function optionalMinor(money: Money | undefined): bigint {
+  if (!money) return 0n;
+  if (money.currency !== "IRR" || !/^\d+$/.test(money.amountMinor)) {
+    throw new Error("SPLIT_AMOUNT");
+  }
+  return BigInt(money.amountMinor);
+}
+
 export type ExpenseSummary = {
   id: string;
   workspaceId: string;
+  periodId?: string;
+  outingId?: string;
   title: string;
   status: ExpenseStatus;
+  visibility: "shared" | "private" | "company";
   total: Money;
+  tip?: Money;
+  tax?: Money;
+  discount?: Money;
   paidByUserId: string;
   paymentLines: ExpensePaymentLine[];
   splitMethod: SplitMethod;
   participantUserIds: string[];
   splits: ExpenseSplitLine[];
+  items?: ExpenseItemSummary[];
+  categoryId?: string;
+  budgetId?: string;
+  requiresApproval?: boolean;
+  approvedByUserId?: string;
+  approvedAt?: string;
   occurredOn: string;
   createdAt: string;
+  /** Present when created via daily ledger (or similar). */
+  source?: "daily_ledger";
+};
+
+export type CreateOutingRequest = {
+  title: string;
+  occurredOn: string;
+  note?: string;
+  idempotencyKey: string;
+};
+
+export type OutingSummary = {
+  id: string;
+  workspaceId: string;
+  title: string;
+  note?: string;
+  occurredOn: string;
+  createdByUserId: string;
+  createdAt: string;
+  expenseIds: string[];
+  total: Money;
 };
 
 export type CreateSettlementClaimRequest = {
@@ -307,7 +497,7 @@ export type JournalEntrySummary = {
   workspaceId: string;
   sourceType: JournalSourceType;
   sourceId: string;
-  status: "posted";
+  status: "posted" | "reversed";
   currency: "IRR";
   lines: JournalLine[];
   idempotencyKey: string;
@@ -488,6 +678,48 @@ export function computeProvisionalBalances(
 export function isZeroSumBalances(lines: readonly BalanceLine[]): boolean {
   const sum = lines.reduce((acc, line) => acc + BigInt(line.net.amountMinor), 0n);
   return sum === 0n;
+}
+
+/** Minimal transfer suggestions: debtors pay creditors until nets clear. */
+export type SettlementSuggestion = {
+  fromUserId: string;
+  toUserId: string;
+  amount: Money;
+};
+
+export function suggestMinimalSettlements(
+  lines: readonly BalanceLine[],
+): SettlementSuggestion[] {
+  const debtors: Array<{ userId: string; amount: bigint }> = [];
+  const creditors: Array<{ userId: string; amount: bigint }> = [];
+  for (const line of lines) {
+    const net = BigInt(line.net.amountMinor);
+    if (net > 0n) creditors.push({ userId: line.userId, amount: net });
+    else if (net < 0n) debtors.push({ userId: line.userId, amount: -net });
+  }
+  debtors.sort((a, b) => (a.amount === b.amount ? 0 : a.amount > b.amount ? -1 : 1));
+  creditors.sort((a, b) => (a.amount === b.amount ? 0 : a.amount > b.amount ? -1 : 1));
+
+  const suggestions: SettlementSuggestion[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < debtors.length && j < creditors.length) {
+    const debtor = debtors[i]!;
+    const creditor = creditors[j]!;
+    const pay = debtor.amount < creditor.amount ? debtor.amount : creditor.amount;
+    if (pay > 0n) {
+      suggestions.push({
+        fromUserId: debtor.userId,
+        toUserId: creditor.userId,
+        amount: { amountMinor: pay.toString(), currency: "IRR" },
+      });
+    }
+    debtor.amount -= pay;
+    creditor.amount -= pay;
+    if (debtor.amount === 0n) i += 1;
+    if (creditor.amount === 0n) j += 1;
+  }
+  return suggestions;
 }
 
 export const financeVerticalSliceSteps = [

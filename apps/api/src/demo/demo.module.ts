@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AuditModule } from "../audit/audit.module.js";
 import { AuthModule } from "../auth/auth.module.js";
+import { BillingModule } from "../billing/billing.module.js";
 import { ExpensesModule } from "../expenses/expenses.module.js";
 import { IamModule } from "../iam/iam.module.js";
 import { LedgerModule } from "../ledger/ledger.module.js";
@@ -16,6 +17,7 @@ import { DemoSeedService } from "./demo-seed.service.js";
     ExpensesModule,
     LedgerModule,
     ProcurementModule,
+    BillingModule,
   ],
   controllers: [DemoController],
   providers: [DemoSeedService],

@@ -48,6 +48,13 @@ export type AttachmentSummary = {
   ocrJobId?: string;
   /** File quarantine status after stub AV scan. */
   quarantineStatus?: "pending" | "scanning" | "clean" | "blocked" | "error";
+  /** True when binary content is stored (local blob dir). */
+  hasBlob?: boolean;
+};
+
+export type UploadAttachmentContentRequest = {
+  /** Base64-encoded file bytes (must match registered contentHash). */
+  contentBase64: string;
 };
 
 export type NotificationChannel = "in_app" | "email" | "push";

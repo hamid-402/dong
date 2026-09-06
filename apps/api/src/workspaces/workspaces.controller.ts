@@ -23,6 +23,7 @@ export class WorkspacesController {
   constructor(
     @Inject(WorkspacesService)
     private readonly workspaces: WorkspacesService,
+    @Inject(IdempotencyService)
     private readonly idempotency: IdempotencyService,
   ) {}
 

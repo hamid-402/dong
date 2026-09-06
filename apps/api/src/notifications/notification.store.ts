@@ -5,7 +5,7 @@ import type {
 
 export type NotificationStore = {
   readonly persistence: "memory" | "postgres";
-  create(input: CreateNotificationInput): Promise<NotificationSummary>;
+  create(actorUserId: string, input: CreateNotificationInput): Promise<NotificationSummary>;
   listForUser(workspaceId: string, userId: string): Promise<NotificationSummary[]>;
   markRead(workspaceId: string, userId: string, notificationId: string): Promise<NotificationSummary>;
 };
@@ -16,7 +16,7 @@ export class MemoryNotificationStore implements NotificationStore {
   readonly persistence = "memory" as const;
   private readonly items = new Map<string, NotificationSummary>();
 
-  create(input: CreateNotificationInput): Promise<NotificationSummary> {
+  create(_actorUserId: string, input: CreateNotificationInput): Promise<NotificationSummary> {
     const notification: NotificationSummary = {
       id: crypto.randomUUID(),
       workspaceId: input.workspaceId,

@@ -28,7 +28,7 @@ function mapEntry(
     workspaceId: entry.workspaceId,
     sourceType: entry.sourceType,
     sourceId: entry.sourceId,
-    status: "posted",
+    status: entry.status === "reversed" ? "reversed" : "posted",
     currency: "IRR",
     idempotencyKey: entry.idempotencyKey,
     actorUserId: entry.actorUserId,
@@ -73,6 +73,29 @@ export class PostgresLedgerStore implements LedgerStore {
       idempotencyKey: `expense.post:${expense.id}`,
       lines: buildExpenseJournalLines(expense),
     });
+  }
+
+  async reverseExpense(
+    workspaceId: string,
+    actorUserId: string,
+    expenseId: string,
+  ): Promise<void> {
+    await withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        await tx
+          .update(journalEntry)
+          .set({ status: "reversed" })
+          .where(
+            and(
+              eq(journalEntry.workspaceId, workspaceId),
+              eq(journalEntry.sourceType, "expense"),
+              eq(journalEntry.sourceId, expenseId),
+            ),
+          );
+      },
+    );
   }
 
   async postSettlement(

@@ -78,6 +78,160 @@
       "when": 1788018600000,
       "tag": "0010_period_lock",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788020000000,
+      "tag": "0011_expense_periods_invoices",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788021000000,
+      "tag": "0012_billing_delete_grants",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788022000000,
+      "tag": "0013_local_auth_profile",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1788023000000,
+      "tag": "0014_email_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1788024000000,
+      "tag": "0015_payment_links_grants",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1788025000000,
+      "tag": "0016_attachment_quarantine",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788026000000,
+      "tag": "0017_attachment_blob_path",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788027000000,
+      "tag": "0018_expense_visibility_company",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788028000000,
+      "tag": "0019_personal_workspace_template",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1788029000000,
+      "tag": "0020_itemized_outings_default_shares",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788030000000,
+      "tag": "0021_reports_categories_recurring",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1788435000000,
+      "tag": "0022_proposals",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788436000000,
+      "tag": "0023_personal_resources",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788437000000,
+      "tag": "0024_personal_categories_exports",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1788438000000,
+      "tag": "0025_household_template",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788439000000,
+      "tag": "0026_personal_workspace_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1788440000000,
+      "tag": "0027_workspace_day_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1788441000000,
+      "tag": "0028_expense_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1788442000000,
+      "tag": "0029_workspace_day_lock",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1788621000000,
+      "tag": "0030_force_rls_daily_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1788700000000,
+      "tag": "0031_journal_balance_constraint",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1788701000000,
+      "tag": "0032_pending_zarinpal_payment",
+      "breakpoints": true
     }
   ]
 }

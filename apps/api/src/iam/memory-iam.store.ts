@@ -30,6 +30,7 @@ type StoredMembership = {
   workspaceId: string;
   userId: string;
   role: MembershipRole;
+  defaultShares: number;
   joinedAt: string;
 };
 
@@ -74,6 +75,8 @@ export class MemoryIamStore implements IamStore {
   private readonly workspaces = new Map<string, StoredWorkspace>();
   private readonly memberships = new Map<string, StoredMembership>();
   private readonly invites = new Map<string, StoredInvite>();
+  /** Canonical personal workspace id per user. */
+  private readonly personalByUser = new Map<string, string>();
 
   upsertDevActor(input: UpsertDevActorInput): Promise<AuthActor> {
     const existing = this.usersBySubject.get(input.externalSubject);
@@ -128,6 +131,10 @@ export class MemoryIamStore implements IamStore {
       }
     }
 
+    if (input.template === "personal" && this.personalByUser.has(input.actorUserId)) {
+      return Promise.reject(new Error("PERSONAL_WORKSPACE_EXISTS"));
+    }
+
     const id = newId();
     const createdAt = new Date().toISOString();
     const workspace: StoredWorkspace = {
@@ -145,8 +152,12 @@ export class MemoryIamStore implements IamStore {
       workspaceId: id,
       userId: input.actorUserId,
       role: "owner",
+      defaultShares: 1,
       joinedAt: createdAt,
     });
+    if (input.template === "personal") {
+      this.personalByUser.set(input.actorUserId, id);
+    }
 
     return Promise.resolve({
       id: workspace.id,
@@ -156,6 +167,63 @@ export class MemoryIamStore implements IamStore {
       timezone: workspace.timezone,
       displayUnit: workspace.displayUnit,
     });
+  }
+
+  async ensurePersonalWorkspace(userId: string): Promise<WorkspaceSummary> {
+    const mappedId = this.personalByUser.get(userId);
+    if (mappedId) {
+      const mapped = this.workspaces.get(mappedId);
+      if (mapped) {
+        return {
+          id: mapped.id,
+          name: mapped.name,
+          slug: mapped.slug,
+          template: mapped.template,
+          timezone: mapped.timezone,
+          displayUnit: mapped.displayUnit,
+        };
+      }
+    }
+
+    const legacy = (await this.listWorkspacesForUser(userId)).find(
+      (w) => w.template === "personal",
+    );
+    if (legacy) {
+      if (!this.personalByUser.has(userId)) {
+        this.personalByUser.set(userId, legacy.id);
+      }
+      return legacy;
+    }
+
+    const slug = `me-${userId.replaceAll("-", "").slice(0, 12)}-${Date.now().toString(36).slice(-4)}`;
+    try {
+      return await this.createWorkspace({
+        actorUserId: userId,
+        name: "دفتر من",
+        slug,
+        template: "personal",
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        (error.message === "PERSONAL_WORKSPACE_EXISTS" ||
+          error.message === "WORKSPACE_SLUG_TAKEN")
+      ) {
+        const againId = this.personalByUser.get(userId);
+        const again = againId ? this.workspaces.get(againId) : undefined;
+        if (again) {
+          return {
+            id: again.id,
+            name: again.name,
+            slug: again.slug,
+            template: again.template,
+            timezone: again.timezone,
+            displayUnit: again.displayUnit,
+          };
+        }
+      }
+      throw error;
+    }
   }
 
   getWorkspaceForUser(
@@ -194,10 +262,37 @@ export class MemoryIamStore implements IamStore {
         userId: membership.userId,
         displayName: user.displayName,
         role: membership.role,
+        defaultShares: membership.defaultShares ?? 1,
         joinedAt: membership.joinedAt,
       });
     }
     return Promise.resolve(members);
+  }
+
+  setMemberDefaultShares(
+    workspaceId: string,
+    actorUserId: string,
+    targetUserId: string,
+    defaultShares: number,
+  ): Promise<MembershipSummary | undefined> {
+    const actor = this.memberships.get(`${workspaceId}:${actorUserId}`);
+    if (!actor || (actor.role !== "owner" && actor.role !== "admin")) {
+      return Promise.resolve(undefined);
+    }
+    const target = this.memberships.get(`${workspaceId}:${targetUserId}`);
+    if (!target) return Promise.resolve(undefined);
+    const updated = { ...target, defaultShares };
+    this.memberships.set(`${workspaceId}:${targetUserId}`, updated);
+    const user = this.users.get(targetUserId);
+    if (!user) return Promise.resolve(undefined);
+    return Promise.resolve({
+      workspaceId,
+      userId: targetUserId,
+      displayName: user.displayName,
+      role: updated.role,
+      defaultShares,
+      joinedAt: updated.joinedAt,
+    });
   }
 
   createInvite(input: CreateInviteInput): Promise<CreateInviteResponse> {
@@ -284,6 +379,7 @@ export class MemoryIamStore implements IamStore {
         workspaceId: matched.workspaceId,
         userId: actor.userId,
         role: matched.role,
+        defaultShares: 1,
         joinedAt: new Date().toISOString(),
       });
     }

@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import {
   assertNoCustodyPayload,
@@ -10,13 +11,15 @@ import {
   type CreatePaymentLinkRequest,
   type PaymentLinkSummary,
 } from "@dang/contracts";
+import { isZarinpalLive, loadAppEnv } from "@dang/config";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
-import { MemoryPaymentStore, PAYMENT_STORE } from "./payment.store.js";
+import { PAYMENT_STORE, type PaymentStore } from "./payment.store.js";
+import { zarinpalRequestPayment } from "./zarinpal.client.js";
 
 @Injectable()
 export class PaymentsService {
   constructor(
-    @Inject(PAYMENT_STORE) private readonly store: MemoryPaymentStore,
+    @Inject(PAYMENT_STORE) private readonly store: PaymentStore,
     @Inject(IAM_STORE) private readonly iam: IamStore,
   ) {}
 
@@ -57,8 +60,46 @@ export class PaymentsService {
       });
     }
 
+    const env = loadAppEnv();
+    const live = isZarinpalLive(env.zarinpalMerchantId);
+
     try {
-      return this.store.create("stub", { ...body, workspaceId });
+      if (!live) {
+        return await this.store.create("stub", { ...body, workspaceId });
+      }
+
+      const callbackUrl =
+        process.env.ZARINPAL_CALLBACK_URL?.trim() ||
+        `${env.apiBaseUrl.replace(/\/api\/v1\/?$/, "")}/api/v1/payments/zarinpal/callback`;
+
+      const requested = await zarinpalRequestPayment({
+        amountMinor: body.amount.amountMinor,
+        description: body.description.trim(),
+        callbackUrl,
+        metadata: {
+          workspaceId,
+          settlementId: body.settlementId ?? "",
+          invoiceId: body.invoiceId ?? "",
+        },
+      });
+
+      const link = await this.store.create(
+        "zarinpal",
+        { ...body, workspaceId },
+        {
+          checkoutUrl: requested.checkoutUrl,
+          providerRef: requested.authority,
+        },
+      );
+
+      await this.store.savePendingZarinpal({
+        authority: requested.authority,
+        amountMinor: body.amount.amountMinor,
+        workspaceId,
+        paymentLinkId: link.id,
+      });
+
+      return link;
     } catch (error: unknown) {
       if (error instanceof Error && error.message === "PAYMENT_CUSTODY_FORBIDDEN") {
         throw new BadRequestException({
@@ -67,13 +108,21 @@ export class PaymentsService {
           status: 400,
         });
       }
+      if (error instanceof Error && error.message.startsWith("ZARINPAL_")) {
+        throw new ServiceUnavailableException({
+          type: "https://dang.local/problems/psp-unavailable",
+          title: "Zarinpal request failed",
+          status: 503,
+          detail: error.message,
+        });
+      }
       throw error;
     }
   }
 
   async listLinks(actor: AuthActor, workspaceId: string): Promise<PaymentLinkSummary[]> {
     await this.requireMember(workspaceId, actor.userId);
-    return this.store.list(workspaceId);
+    return await this.store.list(workspaceId);
   }
 
   private async requireMember(workspaceId: string, userId: string): Promise<void> {

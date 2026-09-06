@@ -1,0 +1,135 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Patch,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from "@nestjs/common";
+import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import type {
+  AuthActionResponse,
+  AuthActor,
+  ChangePasswordRequest,
+  ForgotPasswordRequest,
+  ForgotPasswordResponse,
+  LoginRequest,
+  RegisterRequest,
+  ResetPasswordRequest,
+  UpdateProfileRequest,
+  UserProfile,
+} from "@dang/contracts";
+import type { FastifyReply, FastifyRequest } from "fastify";
+import { AuthGuard, CurrentActor } from "./auth.guard.js";
+import { AccountService } from "./account.service.js";
+import { SESSION_COOKIE } from "./account.types.js";
+
+@ApiTags("account")
+@Controller("auth")
+export class AccountController {
+  constructor(@Inject(AccountService) private readonly accounts: AccountService) {}
+
+  @Post("register")
+  @ApiOperation({ summary: "Register with email/password and start session cookie" })
+  register(
+    @Body() body: RegisterRequest,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<AuthActionResponse> {
+    return this.accounts.register(body, reply, {
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+  }
+
+  @Post("login")
+  @ApiOperation({ summary: "Login with email/password" })
+  login(
+    @Body() body: LoginRequest,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<AuthActionResponse> {
+    return this.accounts.login(body, reply, {
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+  }
+
+  @Post("logout")
+  @ApiOperation({ summary: "Revoke session cookie" })
+  logout(
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<{ ok: true }> {
+    return this.accounts.logout(req.cookies?.[SESSION_COOKIE], reply);
+  }
+
+  @Post("forgot-password")
+  @ApiOperation({ summary: "Request password reset (anti-enumeration)" })
+  forgot(@Body() body: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
+    return this.accounts.forgotPassword(body);
+  }
+
+  @Post("reset-password")
+  @ApiOperation({ summary: "Reset password with one-time token" })
+  reset(
+    @Body() body: ResetPasswordRequest,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<AuthActionResponse> {
+    return this.accounts.resetPassword(body, reply, {
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+  }
+
+  @Get("profile")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Current user profile" })
+  profile(@CurrentActor() actor: AuthActor): Promise<UserProfile> {
+    return this.accounts.profile(actor);
+  }
+
+  @Patch("profile")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Update display name / locale / timezone" })
+  updateProfile(
+    @CurrentActor() actor: AuthActor,
+    @Body() body: UpdateProfileRequest,
+  ): Promise<UserProfile> {
+    return this.accounts.updateProfile(actor, body);
+  }
+
+  @Post("change-password")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Change password and revoke other sessions" })
+  changePassword(
+    @CurrentActor() actor: AuthActor,
+    @Body() body: ChangePasswordRequest,
+  ): Promise<{ ok: true }> {
+    return this.accounts.changePassword(actor, body);
+  }
+
+  @Post("revoke-sessions")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Revoke all sessions for current user (all devices)" })
+  revokeSessions(@CurrentActor() actor: AuthActor): Promise<{ ok: true }> {
+    return this.accounts.revokeAllSessions(actor);
+  }
+
+  @Post("verify-email")
+  @ApiOperation({ summary: "Confirm email with one-time token" })
+  verifyEmail(@Body() body: { token: string }) {
+    return this.accounts.verifyEmail(body.token);
+  }
+
+  @Post("resend-verification")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Resend email verification link" })
+  resendVerification(@CurrentActor() actor: AuthActor) {
+    return this.accounts.resendVerification(actor);
+  }
+}

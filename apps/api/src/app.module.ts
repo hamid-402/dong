@@ -18,10 +18,14 @@ import { LedgerModule } from "./ledger/ledger.module.js";
 import { NotificationsModule } from "./notifications/notifications.module.js";
 import { PartnershipModule } from "./partnership/partnership.module.js";
 import { PaymentsModule } from "./payments/payments.module.js";
+import { BillingModule } from "./billing/billing.module.js";
 import { ProcurementModule } from "./procurement/procurement.module.js";
 import { SettlementsModule } from "./settlements/settlements.module.js";
 import { SystemController } from "./system/system.controller.js";
 import { WorkspacesModule } from "./workspaces/workspaces.module.js";
+import { ReportsModule } from "./reports/reports.module.js";
+import { ProposalsModule } from "./proposals/proposals.module.js";
+import { PersonalFinanceModule } from "./personal-finance/personal-finance.module.js";
 
 @Module({
   imports: [
@@ -40,9 +44,13 @@ import { WorkspacesModule } from "./workspaces/workspaces.module.js";
     NotificationsModule,
     JobsModule,
     ProcurementModule,
+    ProposalsModule,
     AssetsModule,
     PartnershipModule,
     PaymentsModule,
+    BillingModule,
+    ReportsModule,
+    PersonalFinanceModule,
     DemoModule,
   ],
   controllers: [HealthController, SystemController],

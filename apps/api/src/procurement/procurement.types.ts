@@ -38,6 +38,12 @@ export type ProcurementStore = {
   ): Promise<PurchaseRequestSummary | undefined>;
   createBudget(input: CreateBudgetRequest): Promise<BudgetSummary>;
   listBudgets(workspaceId: string): Promise<BudgetSummary[]>;
+  /** Additive: debit open budget(s) when a company expense is posted. */
+  applyCompanyExpenseSpend(
+    workspaceId: string,
+    amountMinor: string,
+    budgetId?: string,
+  ): Promise<BudgetSummary | null>;
   createVendor(input: CreateVendorRequest): Promise<VendorSummary>;
   listVendors(workspaceId: string): Promise<VendorSummary[]>;
   getVendor(workspaceId: string, vendorId: string): Promise<VendorSummary | undefined>;

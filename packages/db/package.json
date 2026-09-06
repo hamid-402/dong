@@ -20,18 +20,20 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:check": "drizzle-kit check",
+    "db:bootstrap-runtime": "node ./scripts/ci-bootstrap-runtime.mjs",
     "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
-    "drizzle-orm": "latest",
-    "pg": "latest"
+    "@dang/config": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
-    "@types/node": "latest",
-    "@types/pg": "latest",
-    "drizzle-kit": "latest",
+    "@types/node": "^26.4.0",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.5",
-    "tsx": "latest",
+    "tsx": "^4.23.12",
     "typescript": "^6.0.3"
   }
 }

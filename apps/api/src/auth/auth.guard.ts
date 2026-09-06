@@ -10,11 +10,14 @@ import {
 import type { AuthActor } from "@dang/contracts";
 import { loadAppEnv } from "@dang/config";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { AccountService } from "./account.service.js";
+import { SESSION_COOKIE } from "./account.types.js";
 
 export const ACTOR_KEY = "dangActor";
 
 type FastifyRequestLike = {
   headers: Record<string, string | string[] | undefined>;
+  cookies?: Record<string, string | undefined>;
   [ACTOR_KEY]?: AuthActor;
 };
 
@@ -40,19 +43,34 @@ function decodeDevHeader(raw: string | undefined, fallback: string): string {
 }
 
 @Injectable()
-export class DevAuthGuard implements CanActivate {
-  constructor(@Inject(IAM_STORE) private readonly iam: IamStore) {}
+export class SessionAuthGuard implements CanActivate {
+  constructor(
+    @Inject(IAM_STORE) private readonly iam: IamStore,
+    @Inject(AccountService) private readonly accounts: AccountService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const env = loadAppEnv();
     const request = context.switchToHttp().getRequest<FastifyRequestLike>();
 
-    if (!env.allowDevAuth) {
+    try {
+      const sessionActor = await this.accounts.resolveSessionActor(
+        request.cookies?.[SESSION_COOKIE],
+      );
+      if (sessionActor) {
+        request[ACTOR_KEY] = sessionActor;
+        return true;
+      }
+    } catch {
+      // Bad/expired cookie or transient DB blip — fall through to dev auth or 401.
+    }
+
+    if (!(env.allowDevAuth && env.nodeEnv !== "production")) {
       throw new UnauthorizedException({
         type: "https://dang.local/problems/auth-required",
         title: "Authentication required",
         status: 401,
-        detail: "OIDC session is required in this environment.",
+        detail: "Login session or OIDC is required in this environment.",
       });
     }
 
@@ -91,4 +109,6 @@ export const CurrentActor = createParamDecorator(
   },
 );
 
-export const AuthGuard: Type<CanActivate> = DevAuthGuard;
+/** Prefer password/OIDC session cookie; fall back to trusted DevAuth headers when allowed. */
+export const AuthGuard: Type<CanActivate> = SessionAuthGuard;
+export const DevAuthGuard = SessionAuthGuard;

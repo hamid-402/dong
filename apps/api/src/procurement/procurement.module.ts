@@ -17,7 +17,7 @@ export function createProcurementStore(): ProcurementStore {
     return new MemoryProcurementStore();
   }
   try {
-    logger.info("Using PostgreSQL procurement store (Need/PR/Budget)");
+    logger.info("Using PostgreSQL procurement store");
     return PostgresProcurementStore.fromConnectionString(env.databaseUrl);
   } catch (error: unknown) {
     const detail = error instanceof Error ? error.message : "unknown";

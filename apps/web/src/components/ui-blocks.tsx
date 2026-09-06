@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useHubEmbed } from "@/components/mosaic/hub-embed";
 
 export function PageHeader({
   eyebrow,
@@ -13,6 +14,18 @@ export function PageHeader({
   description?: string;
   actions?: ReactNode;
 }) {
+  const embedded = useHubEmbed();
+
+  /* Inside hub the mosaic content-frame already owns the page title. */
+  if (embedded) {
+    return (
+      <div className="moduleChrome">
+        {description ? <p className="moduleChrome__desc">{description}</p> : null}
+        {actions ? <div className="moduleChrome__actions productHeaderActions">{actions}</div> : null}
+      </div>
+    );
+  }
+
   return (
     <div className="greeting animated productHeader">
       <div>
@@ -31,15 +44,20 @@ export function SectionCard({
   children,
   delayClass,
   className = "",
+  tone = "default",
 }: {
   title: string;
   badge?: ReactNode;
   children: ReactNode;
   delayClass?: string;
   className?: string;
+  /** quiet = secondary panels (reports) — lighter visual weight */
+  tone?: "default" | "quiet";
 }) {
   return (
-    <section className={`sectionCard card animated ${delayClass ?? ""} ${className}`.trim()}>
+    <section
+      className={`sectionCard card animated sectionCard--${tone} ${delayClass ?? ""} ${className}`.trim()}
+    >
       <div className="sectionCardHead">
         <b>{title}</b>
         {badge != null ? <span className="sectionBadge">{badge}</span> : null}
@@ -76,7 +94,13 @@ export function DataRow({
   );
 }
 
-export function StatusPill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "ok" | "warn" | "danger" | "gold" }) {
+export function StatusPill({
+  children,
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  tone?: "neutral" | "ok" | "warn" | "danger" | "gold";
+}) {
   return <span className={`statusPill tone-${tone}`}>{children}</span>;
 }
 
@@ -84,8 +108,19 @@ export function EmptyHint({ children }: { children: ReactNode }) {
   return <p className="emptyHint">{children}</p>;
 }
 
-export function FormStack({ children }: { children: ReactNode }) {
-  return <div className="formStack">{children}</div>;
+/** Short live status line — not a dashed empty state. */
+export function StatusLine({ children }: { children: ReactNode }) {
+  return <p className="statusLine">{children}</p>;
+}
+
+export function FormStack({
+  children,
+  density = "default",
+}: {
+  children: ReactNode;
+  density?: "default" | "compact" | "inline";
+}) {
+  return <div className={`formStack formStack--${density}`}>{children}</div>;
 }
 
 export function ProductGrid({ children, cols }: { children: ReactNode; cols?: 1 | 2 }) {
@@ -109,15 +144,15 @@ export function HeroBalance({
 }) {
   return (
     <article className="balanceCard card animated">
-      <span>{label}</span>
-      <strong>{amount}</strong>
-      <p>{subtitle}</p>
-      <div>
-        <button type="button" onClick={onAction}>
-          {actionLabel}
-        </button>
-        {hint ? <small>{hint}</small> : null}
+      <div className="balanceCard__top">
+        <span>{label}</span>
+        {hint ? <small className="balanceCard__hint">{hint}</small> : null}
       </div>
+      <strong className="balanceCard__amount">{amount}</strong>
+      <p className="balanceCard__sub">{subtitle}</p>
+      <button type="button" className="balanceCard__cta" onClick={onAction}>
+        {actionLabel}
+      </button>
     </article>
   );
 }
@@ -141,12 +176,16 @@ export function QuickAction({
       type="button"
       onClick={onClick}
     >
-      <span className="actionIcon">{icon ?? "←"}</span>
-      <span>
+      <span className="actionIcon" aria-hidden>
+        {icon ?? "←"}
+      </span>
+      <span className="actionCard__copy">
         <b>{title}</b>
         <small>{description}</small>
       </span>
-      <i>←</i>
+      <i className="actionCard__chev" aria-hidden>
+        ‹
+      </i>
     </button>
   );
 }

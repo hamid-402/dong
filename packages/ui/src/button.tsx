@@ -14,37 +14,38 @@ const base: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   gap: 8,
-  borderRadius: 999,
+  borderRadius: "var(--dang-radius-md, 12px)",
   border: "1px solid transparent",
   fontWeight: 700,
   cursor: "pointer",
-  transition: "transform 160ms cubic-bezier(.2,.8,.2,1), opacity 160ms ease",
+  minHeight: "var(--dang-control-h, 48px)",
+  transition: "transform var(--dang-dur, 160ms) var(--dang-ease, ease), opacity 160ms ease, border-color 160ms ease",
 };
 
 const sizes: Record<ButtonSize, CSSProperties> = {
   md: { padding: "12px 18px", fontSize: 14 },
-  sm: { padding: "8px 14px", fontSize: 13 },
+  sm: { padding: "8px 14px", fontSize: 13, minHeight: 36 },
 };
 
 const variants: Record<ButtonVariant, CSSProperties> = {
   primary: {
-    background: "linear-gradient(135deg, var(--dang-primary, #57d7c5), #3fb9aa)",
-    color: "var(--dang-primary-ink, #062f2b)",
+    background: "linear-gradient(135deg, var(--dang-primary), var(--dang-primary-deep))",
+    color: "var(--dang-primary-ink)",
   },
   secondary: {
-    background: "var(--dang-gold-soft, rgba(201,170,112,.13))",
-    color: "var(--dang-gold, #c9aa70)",
-    borderColor: "rgba(201,170,112,.28)",
+    background: "var(--dang-gold-soft)",
+    color: "var(--dang-gold)",
+    borderColor: "color-mix(in srgb, var(--dang-gold) 30%, transparent)",
   },
   ghost: {
     background: "transparent",
-    color: "var(--dang-text, #f3f1e9)",
-    borderColor: "var(--dang-line, rgba(220,229,225,.11))",
+    color: "var(--dang-text)",
+    borderColor: "var(--dang-line)",
   },
   danger: {
-    background: "rgba(237,124,120,.14)",
-    color: "var(--dang-danger, #ed7c78)",
-    borderColor: "rgba(237,124,120,.28)",
+    background: "color-mix(in srgb, var(--dang-danger) 14%, transparent)",
+    color: "var(--dang-danger)",
+    borderColor: "color-mix(in srgb, var(--dang-danger) 28%, transparent)",
   },
 };
 

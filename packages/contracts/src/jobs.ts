@@ -13,3 +13,17 @@ export type JobRunSummary = {
   status: "completed" | "failed";
   detail: string;
 };
+
+/** Redis list key — API RPUSH, worker BLPOP. */
+export const DANG_JOB_QUEUE_KEY = "dang:jobs:v1";
+
+/** Worker sets this with TTL while polling. */
+export const DANG_WORKER_HEARTBEAT_KEY = "dang:worker:heartbeat";
+
+export type QueuedWorkerJob = {
+  jobId: string;
+  name: WorkerJobName;
+  workspaceId: string;
+  meta?: Record<string, string>;
+  enqueuedAt: string;
+};

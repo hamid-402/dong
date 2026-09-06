@@ -14,7 +14,9 @@ import type {
   MembershipRole,
   WorkspaceSummary,
 } from "@dang/contracts";
+import { loadAppEnv } from "@dang/config";
 import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
+import { MailerService } from "../auth/mailer.service.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { MemoryAuditStore } from "../audit/memory-audit.store.js";
 
@@ -28,11 +30,16 @@ const ASSIGNABLE_ROLES: MembershipRole[] = [
   "auditor",
 ];
 
+function looksLikeEmail(value: string | undefined): value is string {
+  return Boolean(value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()));
+}
+
 @Injectable()
 export class InvitesService {
   constructor(
     @Inject(IAM_STORE) private readonly iam: IamStore,
     @Inject(AUDIT_STORE) private readonly audit: AuditStore,
+    @Inject(MailerService) private readonly mailer: MailerService,
   ) {}
 
   async create(
@@ -73,7 +80,27 @@ export class InvitesService {
         result: "success",
         metadata: { role: invite.role },
       });
-      return invite;
+
+      const env = loadAppEnv();
+      const acceptUrl = `${env.webOrigin}${invite.acceptPath.startsWith("/") ? "" : "/"}${invite.acceptPath}`;
+      let emailDelivered = false;
+      let debugInviteUrl: string | undefined;
+
+      if (looksLikeEmail(body.invitedSubject)) {
+        const workspace = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
+        const sent = this.mailer.send({
+          to: body.invitedSubject.trim(),
+          subject: `دعوت به ${workspace?.name ?? "گروه دنگ"}`,
+          text: `${actor.displayName} شما را به گروه دعوت کرده است. برای پیوستن لینک را باز کنید.`,
+          actionUrl: acceptUrl,
+        });
+        emailDelivered = sent.delivered;
+        debugInviteUrl = sent.debugUrl;
+      } else {
+        debugInviteUrl = acceptUrl;
+      }
+
+      return { ...invite, emailDelivered, debugInviteUrl };
     } catch (error: unknown) {
       this.rethrowInviteError(error);
     }
@@ -121,31 +148,26 @@ export class InvitesService {
 
   private rethrowInviteError(error: unknown): never {
     if (error instanceof Error) {
-      switch (error.message) {
-        case "INVITE_FORBIDDEN":
-          throw new ForbiddenException({
-            type: "https://dang.local/problems/forbidden",
-            title: "Invite not allowed",
-            status: 403,
-          });
-        case "INVITE_INVALID":
-          throw new NotFoundException({
-            type: "https://dang.local/problems/not-found",
-            title: "Invite not found",
-            status: 404,
-          });
-        case "INVITE_EXPIRED":
-          throw new GoneException({
-            type: "https://dang.local/problems/gone",
-            title: "Invite expired",
-            status: 410,
-          });
-        case "INVITE_ALREADY_USED":
-          throw new GoneException({
-            type: "https://dang.local/problems/gone",
-            title: "Invite already used",
-            status: 410,
-          });
+      if (error.message === "INVITE_FORBIDDEN") {
+        throw new ForbiddenException({
+          type: "https://dang.local/problems/forbidden",
+          title: "Not allowed to invite",
+          status: 403,
+        });
+      }
+      if (error.message === "INVITE_NOT_FOUND" || error.message === "INVITE_INVALID") {
+        throw new NotFoundException({
+          type: "https://dang.local/problems/not-found",
+          title: "Invite not found",
+          status: 404,
+        });
+      }
+      if (error.message === "INVITE_EXPIRED" || error.message === "INVITE_USED" || error.message === "INVITE_ALREADY_USED") {
+        throw new GoneException({
+          type: "https://dang.local/problems/gone",
+          title: "Invite no longer valid",
+          status: 410,
+        });
       }
     }
     throw error;

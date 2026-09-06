@@ -68,6 +68,8 @@ GRANT INSERT, SELECT ON audit.event TO dang_runtime;
 GRANT INSERT, SELECT ON accounting.journal_entry, accounting.journal_line TO dang_runtime;
 GRANT SELECT, INSERT, UPDATE ON finance.expense, finance.expense_split_line, finance.expense_payment_line, finance.settlement
 TO dang_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON finance.expense_period, finance.member_invoice, finance.member_invoice_line
+TO dang_runtime;
 GRANT SELECT, INSERT, UPDATE ON collab.comment, collab.attachment, collab.notification TO dang_runtime;
 GRANT SELECT, INSERT, UPDATE ON procurement.need, procurement.purchase_request, procurement.budget TO dang_runtime;
 GRANT SELECT, INSERT, UPDATE ON asset.vendor, asset.purchase_order, asset.delivery, asset.asset TO dang_runtime;
@@ -90,12 +92,15 @@ REVOKE UPDATE, DELETE ON accounting.journal_entry, accounting.journal_line FROM 
 
 ## 6. وضعیت Migration
 
-- `0000_same_nemesis.sql`: IAM، Workspace، Membership و Audit
-- `0001_tenant_rls.sql`: Context Function، RLS و Audit Append-only
-- `0002_membership_list_policies.sql`: سیاست‌های لیست عضویت
-- `0003_invites.sql`: جدول دعوت و RLS
-- `0004_accounting_journal.sql`: Journal Entry/Line + RLS (append-only)
-- `0005_finance_documents.sql`: Expense, Settlement + RLS
+- `0000` … `0010`: IAM تا period_lock شراکت
+- `0011_expense_periods_invoices.sql`: دوره خرج (روز/هفته/ماه)، visibility عمومی/خصوصی روی expense، صورتحساب عضو
+- `0012_billing_delete_grants.sql`: سیاست DELETE برای regenerate صورتحساب + Grant runtime
+- `0013_local_auth_profile.sql`: ایمیل/رمز، پروفایل، session و password reset
+- `0014_email_verification.sql`: توکن تأیید ایمیل (`auth_email_verify`)
 
-Migrationها با `drizzle-kit check` تأیید شده‌اند، اما تا ورود Credential محلی روی
-PostgreSQL اجرا نشده‌اند.
+Migrationها با `drizzle-kit check` تأیید شده‌اند. برای اعمال:
+
+```powershell
+$env:DATABASE_URL="postgresql://dang_migrator:<PASSWORD>@127.0.0.1:5432/dang"
+pnpm --filter @dang/db db:migrate
+```

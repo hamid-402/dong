@@ -28,8 +28,8 @@ export class SettlementsService {
     @Inject(LEDGER_STORE) private readonly ledger: LedgerStore,
     @Inject(IAM_STORE) private readonly iam: IamStore,
     @Inject(AUDIT_STORE) private readonly audit: AuditStore,
-    private readonly idempotency: IdempotencyService,
-    private readonly notifications: NotificationsService,
+    @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
+    @Inject(NotificationsService) private readonly notifications: NotificationsService,
   ) {}
 
   async createClaim(
@@ -102,6 +102,7 @@ export class SettlementsService {
       });
       await this.notifications.notifySettlementConfirmed(
         workspaceId,
+        actor.userId,
         confirmed.fromUserId,
         confirmed.toUserId,
         confirmed.amount.amountMinor,

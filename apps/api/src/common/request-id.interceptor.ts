@@ -5,7 +5,8 @@ import {
   type NestInterceptor,
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import type { Observable } from "rxjs";
+import { runWithRequestContext } from "@dang/observability";
+import { Observable } from "rxjs";
 import { tap } from "rxjs/operators";
 
 type RequestLike = {
@@ -36,6 +37,13 @@ export class RequestIdInterceptor implements NestInterceptor {
       reply.setHeader("x-request-id", requestId);
     }
 
-    return next.handle().pipe(tap(() => undefined));
+    return new Observable((subscriber) => {
+      runWithRequestContext({ requestId }, () => {
+        next
+          .handle()
+          .pipe(tap(() => undefined))
+          .subscribe(subscriber);
+      });
+    });
   }
 }

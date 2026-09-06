@@ -27,7 +27,8 @@ function stripAsset(row: StoredAsset): AssetSummary {
   };
 }
 
-export class MemoryAssetsStore {
+export class MemoryAssetsStore implements AssetsStore {
+  readonly persistence = "memory" as const;
   private readonly assets = new Map<string, StoredAsset>();
 
   async createFromDelivery(
@@ -123,5 +124,18 @@ export class MemoryAssetsStore {
     return Promise.resolve(stripAsset(updated));
   }
 }
+
+export type AssetsStore = {
+  readonly persistence: "memory" | "postgres";
+  createFromDelivery(
+    procurement: ProcurementStore,
+    input: CreateAssetFromDeliveryRequest,
+  ): Promise<AssetSummary>;
+  listAssets(workspaceId: string): Promise<AssetSummary[]>;
+  assign(workspaceId: string, input: AssignAssetRequest): Promise<AssetSummary>;
+  transfer(workspaceId: string, input: TransferAssetRequest): Promise<AssetSummary>;
+  markReturned(workspaceId: string, input: ReturnAssetRequest): Promise<AssetSummary>;
+  markDamaged(workspaceId: string, input: DamageAssetRequest): Promise<AssetSummary>;
+};
 
 export const ASSETS_STORE = Symbol("ASSETS_STORE");

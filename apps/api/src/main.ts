@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
 import { NestFactory } from "@nestjs/core";
 import {
@@ -18,19 +19,65 @@ async function bootstrap() {
   if (loadedEnv) {
     logger.info("Loaded local .env file");
   }
+  if (env.nodeEnv === "production" && !process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET is required in production");
+  }
 
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
       trustProxy: true,
-      bodyLimit: 1_048_576,
+      bodyLimit: 12 * 1024 * 1024,
     }),
   );
 
   await app.register(helmet);
+  await app.register(cookie, {
+    secret: env.sessionSecret,
+  });
   app.useGlobalFilters(new ProblemDetailsFilter());
+  const lanOrigins = (process.env.WEB_EXTRA_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  /** Allow same-LAN browser origins (http://192.168.x.x:3005) in development. */
+  const isPrivateLanHttpOrigin = (origin: string): boolean => {
+    try {
+      const url = new URL(origin);
+      if (url.protocol !== "http:") return false;
+      const port = url.port || "80";
+      if (port !== "3005") return false;
+      const host = url.hostname;
+      if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+      if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+      const m = /^172\.(\d{1,3})\./.exec(host);
+      if (m) {
+        const second = Number(m[1]);
+        return second >= 16 && second <= 31;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
   app.enableCors({
-    origin: [env.webOrigin, "http://127.0.0.1:3005"],
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      const allowed = new Set([
+        env.webOrigin,
+        "http://127.0.0.1:3005",
+        "http://localhost:3005",
+        ...lanOrigins,
+      ]);
+      if (allowed.has(origin) || isPrivateLanHttpOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(null, false);
+    },
     credentials: true,
   });
   app.setGlobalPrefix("api/v1");

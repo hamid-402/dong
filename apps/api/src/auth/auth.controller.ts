@@ -1,7 +1,6 @@
 import { Controller, Get, Inject, UseGuards } from "@nestjs/common";
 import { ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { AuthActor, AuthMeResponse, SessionSummary } from "@dang/contracts";
-import { loadAppEnv } from "@dang/config";
 import { AuthGuard, CurrentActor } from "./auth.guard.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 
@@ -17,10 +16,9 @@ export class AuthController {
   })
   @ApiHeader({ name: "x-dang-subject", required: false })
   session(@CurrentActor() actor: AuthActor): SessionSummary {
-    const env = loadAppEnv();
     return {
       authenticated: true,
-      mode: env.allowDevAuth ? "dev" : "oidc",
+      mode: actor.authMode,
       actor,
     };
   }

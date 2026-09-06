@@ -1,4 +1,12 @@
+import { resolve } from "node:path";
 import { defineConfig } from "drizzle-kit";
+import { loadEnvFile } from "@dang/config";
+
+loadEnvFile([
+  resolve(process.cwd(), ".env"),
+  resolve(process.cwd(), "../../.env"),
+  resolve(process.cwd(), "../.env"),
+]);
 
 const databaseUrl = process.env.DATABASE_URL;
 

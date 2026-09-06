@@ -19,12 +19,12 @@ import {
   PROCUREMENT_STORE,
   type ProcurementStore,
 } from "../procurement/procurement.types.js";
-import { ASSETS_STORE, MemoryAssetsStore } from "./assets.store.js";
+import { ASSETS_STORE, type AssetsStore } from "./assets.store.js";
 
 @Injectable()
 export class AssetsService {
   constructor(
-    @Inject(ASSETS_STORE) private readonly store: MemoryAssetsStore,
+    @Inject(ASSETS_STORE) private readonly store: AssetsStore,
     @Inject(PROCUREMENT_STORE) private readonly procurement: ProcurementStore,
     @Inject(IAM_STORE) private readonly iam: IamStore,
   ) {}

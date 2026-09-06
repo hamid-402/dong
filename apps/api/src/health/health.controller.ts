@@ -1,7 +1,9 @@
 import { Controller, Get, Inject, ServiceUnavailableException } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
-import { loadAppEnv } from "@dang/config";
+import { isRedisConfigured, loadAppEnv } from "@dang/config";
+import { createDatabase, sql } from "@dang/db";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { getRedisClient } from "../jobs/redis-queue.js";
 
 type LivenessResponse = {
   status: "ok";
@@ -15,13 +17,16 @@ type ReadinessResponse = {
   checks: {
     iam: "memory" | "postgres";
     databaseConfigured: boolean;
+    database: "ok" | "skip" | "fail";
+    redisConfigured: boolean;
+    redis: "ok" | "skip" | "fail";
     oidcConfigured: boolean;
     allowDevAuth: boolean;
   };
 };
 
 type HealthResponse = {
-  status: "ok";
+  status: "ok" | "degraded";
   service: "dang-api";
   version: string;
   iamPersistence: "memory" | "postgres";
@@ -45,10 +50,10 @@ export class HealthController {
       },
     },
   })
-  getHealth(): HealthResponse {
-    const ready = this.buildReadiness();
+  async getHealth(): Promise<HealthResponse> {
+    const ready = await this.buildReadiness();
     return {
-      status: "ok",
+      status: ready.status === "ready" ? "ok" : "degraded",
       service: "dang-api",
       version: "0.1.0",
       iamPersistence: this.iam.persistence,
@@ -64,24 +69,44 @@ export class HealthController {
 
   @Get("ready")
   @ApiOperation({ summary: "Readiness probe — safe to receive traffic" })
-  getReady(): ReadinessResponse {
-    const ready = this.buildReadiness();
-    if (ready.status === "degraded" && process.env.DANG_REQUIRE_POSTGRES === "1") {
+  async getReady(): Promise<ReadinessResponse> {
+    const ready = await this.buildReadiness();
+    const requirePg = process.env.DANG_REQUIRE_POSTGRES === "1";
+    const requireRedis = process.env.DANG_REQUIRE_REDIS === "1";
+    const hardFail =
+      (requirePg && ready.checks.database !== "ok") ||
+      (requireRedis && ready.checks.redis !== "ok");
+    if (hardFail || (ready.status === "degraded" && requirePg)) {
       throw new ServiceUnavailableException({
         type: "https://dang.local/problems/not-ready",
         title: "API not ready",
         status: 503,
-        detail: "Postgres required but DATABASE_URL unset",
+        detail: "Required dependency check failed",
+        checks: ready.checks,
       });
     }
     return ready;
   }
 
-  private buildReadiness(): ReadinessResponse {
+  private async buildReadiness(): Promise<ReadinessResponse> {
     const env = loadAppEnv();
     const databaseConfigured = Boolean(env.databaseUrl);
+    const redisConfigured = isRedisConfigured(env);
     const oidcConfigured = Boolean(env.oidcIssuerUrl && env.oidcClientId);
-    const degraded = Boolean(process.env.DANG_REQUIRE_POSTGRES === "1" && !databaseConfigured);
+
+    const [database, redis] = await Promise.all([
+      this.pingDatabase(env.databaseUrl),
+      this.pingRedis(redisConfigured),
+    ]);
+
+    const requirePg = process.env.DANG_REQUIRE_POSTGRES === "1";
+    const requireRedis = process.env.DANG_REQUIRE_REDIS === "1";
+    const degraded =
+      (requirePg && database !== "ok") ||
+      (requireRedis && redis !== "ok") ||
+      (databaseConfigured && database === "fail") ||
+      (redisConfigured && redis === "fail");
+
     return {
       status: degraded ? "degraded" : "ready",
       service: "dang-api",
@@ -89,9 +114,49 @@ export class HealthController {
       checks: {
         iam: this.iam.persistence,
         databaseConfigured,
+        database,
+        redisConfigured,
+        redis,
         oidcConfigured,
         allowDevAuth: env.allowDevAuth,
       },
     };
+  }
+
+  private dbPingCache: { at: number; result: "ok" | "fail" } | null = null;
+
+  private async pingDatabase(
+    databaseUrl: string | undefined,
+  ): Promise<"ok" | "skip" | "fail"> {
+    if (!databaseUrl) return "skip";
+    const now = Date.now();
+    if (this.dbPingCache && now - this.dbPingCache.at < 2000) {
+      return this.dbPingCache.result;
+    }
+    try {
+      const database = createDatabase(databaseUrl);
+      try {
+        await database.db.execute(sql`select 1`);
+        this.dbPingCache = { at: now, result: "ok" };
+        return "ok";
+      } finally {
+        await database.close();
+      }
+    } catch {
+      this.dbPingCache = { at: now, result: "fail" };
+      return "fail";
+    }
+  }
+
+  private async pingRedis(configured: boolean): Promise<"ok" | "skip" | "fail"> {
+    if (!configured) return "skip";
+    try {
+      const client = await getRedisClient();
+      if (!client) return "fail";
+      const pong = await client.ping();
+      return pong === "PONG" ? "ok" : "fail";
+    } catch {
+      return "fail";
+    }
   }
 }

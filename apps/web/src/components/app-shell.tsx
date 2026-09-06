@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { useHubEmbed } from "@/components/mosaic/hub-embed";
+import { NotificationBell } from "@/components/notification-bell";
+import { PageTrailBar } from "@/components/page-trail-bar";
+import { useOptionalAppChrome } from "@/lib/use-app-chrome";
+import { classicNavForTemplate, type HubTab } from "@/lib/workspace-modules";
+import { hubPathFor } from "@/lib/hub-links";
 
 export type ShellIcon =
   | "home"
@@ -15,13 +21,14 @@ export type ShellIcon =
   | "bell"
   | "receipt";
 
-const NAV: Array<{ href: string; label: string; icon: ShellIcon }> = [
-  { href: "/", label: "خانه", icon: "home" },
-  { href: "/workspaces", label: "مالی", icon: "wallet" },
-  { href: "/workspaces/procurement", label: "خرید", icon: "cart" },
-  { href: "/workspaces/assets", label: "تجهیزات", icon: "box" },
-  { href: "/workspaces/partnership", label: "شرکا", icon: "partners" },
-  { href: "/onboarding", label: "مدیریت", icon: "settings" },
+/** Fallback when AppChrome is absent — same tree roots as mosaic RAW_MENU_ITEMS. */
+const FALLBACK_NAV: HubTab[] = [
+  { key: "home", path: "/hub", label: "خانه", icon: "home" },
+  { key: "spaces", path: "/hub/spaces", label: "فضاها", icon: "home" },
+  { key: "finance", path: "/hub/finance", label: "خرج‌ها و تسویه", icon: "wallet" },
+  { key: "buy", path: "/hub/buy", label: "خرید", icon: "cart" },
+  { key: "partners", path: hubPathFor("/workspaces/partnership"), label: "شرکا", icon: "partners" },
+  { key: "manage", path: "/hub/manage", label: "مدیریت", icon: "settings" },
 ];
 
 export function ShellIconSvg({ name }: { name: ShellIcon }) {
@@ -106,35 +113,52 @@ export function ShellIconSvg({ name }: { name: ShellIcon }) {
   }
 }
 
+function useShellNav(): HubTab[] {
+  const chrome = useOptionalAppChrome();
+  if (!chrome) return FALLBACK_NAV;
+  const template = chrome.workspaces.find((w) => w.id === chrome.workspaceId)?.template;
+  const links = classicNavForTemplate(template);
+  return links.length > 0 ? links : FALLBACK_NAV;
+}
+
 /**
- * Single product chrome for every route (including home).
- * Optional `rail` mirrors the home phone column without forking the shell.
+ * Classic product chrome (non-hub mounts). Menu matches mosaic `buildNavForTemplate`.
+ * Inside hub embed this shell is a passthrough.
  */
 export function AppShell({
   children,
   workspaceName,
+  workspaceId,
   userName,
   persistenceLabel = "دفتر عملیات مشترک",
   rail,
   topBarActions,
   motionOff = false,
-  notificationCount = 0,
+  notificationUnreadCount = 0,
 }: {
   children: ReactNode;
   workspaceName?: string;
+  workspaceId?: string;
   userName?: string;
   persistenceLabel?: string;
   rail?: ReactNode;
   topBarActions?: ReactNode;
   motionOff?: boolean;
-  notificationCount?: number;
+  /** Used when AppChromeProvider is absent (e.g. overview). */
+  notificationUnreadCount?: number;
 }) {
+  const embedded = useHubEmbed();
   const pathname = usePathname();
   const router = useRouter();
+  const nav = useShellNav();
+
+  if (embedded) {
+    return <div className={motionOff ? "hub-embed motionOff" : "hub-embed"}>{children}</div>;
+  }
 
   function isActive(href: string) {
-    return href === "/"
-      ? pathname === "/"
+    return href === "/hub"
+      ? pathname === "/hub" || pathname === "/hub/"
       : pathname === href || pathname.startsWith(`${href}/`);
   }
 
@@ -145,11 +169,11 @@ export function AppShell({
         <section className="appShell">
           <div className="appMain">
             <nav className="mobileNavBar" aria-label="ناوبری موبایل">
-              {NAV.map((item) => (
+              {nav.map((item) => (
                 <Link
-                  className={isActive(item.href) ? "active" : ""}
-                  href={item.href}
-                  key={item.href}
+                  className={isActive(item.path) ? "active" : ""}
+                  href={item.path}
+                  key={item.key}
                 >
                   {item.label}
                 </Link>
@@ -161,22 +185,14 @@ export function AppShell({
               </div>
               <div className="topActions">
                 {topBarActions ?? (
-                  <>
-                    <button type="button" aria-label="جست‌وجو">
-                      <ShellIconSvg name="search" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="اعلان‌ها"
-                      onClick={() => router.push("/workspaces")}
-                    >
-                      <ShellIconSvg name="bell" />
-                      {notificationCount > 0 ? <span className="notifDot" aria-hidden="true" /> : null}
-                    </button>
-                  </>
+                  <NotificationBell
+                    workspaceId={workspaceId}
+                    initialUnreadCount={notificationUnreadCount}
+                  />
                 )}
               </div>
             </header>
+            <PageTrailBar />
             <div className="content">{children}</div>
           </div>
           <aside className="sidebar">
@@ -190,25 +206,37 @@ export function AppShell({
               </span>
             </div>
             <nav>
-              {NAV.map((item) => (
+              {nav.map((item) => (
                 <button
-                  className={isActive(item.href) ? "active" : ""}
-                  key={item.href}
+                  className={isActive(item.path) ? "active" : ""}
+                  key={item.key}
                   type="button"
-                  onClick={() => router.push(item.href)}
+                  onClick={() => router.push(item.path)}
                 >
                   <ShellIconSvg name={item.icon} />
                   {item.label}
                 </button>
               ))}
             </nav>
-            <div className="profile">
+            <button
+              type="button"
+              className="profile"
+              onClick={() => router.push("/profile")}
+              style={{
+                all: "unset",
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                cursor: "pointer",
+                width: "100%",
+              }}
+            >
               <span>{(userName ?? "ک").slice(0, 1)}</span>
               <div>
                 <b>{userName ?? "کاربر محلی"}</b>
-                <small>{workspaceName || "بدون فضا"}</small>
+                <small>{workspaceName || "بدون فضا"} · پروفایل</small>
               </div>
-            </div>
+            </button>
           </aside>
         </section>
         {rail}

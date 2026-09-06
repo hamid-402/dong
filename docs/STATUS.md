@@ -1,33 +1,26 @@
 # وضعیت اجرای پروژه
 
-آخرین به‌روزرسانی: ۳۱ اوت ۲۰۲۶ — سامانه محلی end-to-end
+آخرین به‌روزرسانی: ۵ سپتامبر ۲۰۲۶ — بازطراحی UX مسیر مشتری (بدون حذف قابلیت)
 
-## چرا قبلاً فقط «پوسته» دیده می‌شد؟
+## جواب
 
-1. صفحهٔ `/` پیش‌نمایش بصری ثابت بود، نه داشبورد API.
-2. `.env` و Migration روی Postgres اجرا نشده بود → storeها memory بودند.
-3. ناوبری مشترک و seed دمو نبود.
+**نقشه ارتقا + فازهای محصولی ۰–۳ + بازطراحی IA/UX مسیرها تکمیل شد.**
 
-## الان (لوکال)
+فاز ۴ یکپارچه‌سازی زنده (کلید واقعی) عمداً باز است.
 
-| لایه | وضعیت |
-|---|---|
-| Postgres 18 + DB `dang` + migrate `0000`–`0010` | ✅ |
-| `.env` با `DATABASE_URL` (gitignored) | ✅ |
-| API `:3006` + Web `:3005` | ✅ |
-| داشبورد زنده `/` + AppShell | ✅ |
-| Demo seed `POST /api/v1/demo/seed` | ✅ |
-| تجهیزات UI | ✅ `/workspaces/assets` |
+### UX / مسیر مشتری (این موج)
+- یک ردیف تب: خانه · زمینه · خرج‌ها · بیشتر
+- هاب لاغر: یک CTA + فعالیت؛ «همه ابزارها» جمع‌شونده (هیچ ماژولی حذف نشد)
+- صفحات من/گروه/سازمان: Primary + Secondary؛ مانده و ثبت سریع در اولویت گروه
+- ریل هم‌سطح → منوی «در این پوشه»
+- منوی classic و mosaic از یک درخت (`classicNavForTemplate`)
+- قرارداد: `docs/IA.md`
 
-Capabilities فعلی: همهٔ IAM / Audit / Ledger / Expense / Settlement / Partnership / Procurement → **postgres**.
+### عمداً باز (کلید شما)
+- `ZARINPAL_ENABLED` / `CLAMAV_ENABLED` / `EMAIL_TRANSPORT=smtp` / `OCR_ENABLED`
+- Push واقعی، تست نفوذ، پایلوت میدانی
 
-Asset / Payment / Collab هنوز memory هستند (جدول schema آماده است).
+## Runtime
+- Web `:3005` · API `:3006` · Redis worker · Postgres
 
-## آدرس‌ها
-
-- خانه: http://localhost:3005/
-- مالی: http://localhost:3005/workspaces
-- خرید: http://localhost:3005/workspaces/procurement
-- تجهیزات: http://localhost:3005/workspaces/assets
-- شرکا: http://localhost:3005/workspaces/partnership
-- Health: http://localhost:3006/api/v1/health
+آدرس LAN: `http://192.168.140.105:3005`

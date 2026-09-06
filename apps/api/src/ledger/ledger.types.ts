@@ -11,6 +11,12 @@ export type LedgerStore = {
     actorUserId: string,
     expense: ExpenseSummary,
   ): Promise<JournalEntrySummary>;
+  /** Marks the journal entry for a posted expense as reversed (balances ignore it). */
+  reverseExpense(
+    workspaceId: string,
+    actorUserId: string,
+    expenseId: string,
+  ): Promise<void>;
   postSettlement(
     actorUserId: string,
     settlement: SettlementSummary,

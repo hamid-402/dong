@@ -33,7 +33,7 @@ curl.exe -s -o NUL -w "%{http_code}" http://localhost:3005/workspaces
 
 ## Postgres (محلی)
 
-1. `docs/LOCAL-DATABASE.md` — نقش‌ها، migrate تا `0010`، Grant
+1. `docs/LOCAL-DATABASE.md` — نقش‌ها، migrate تا `0014`، Grant
 2. `$env:DATABASE_URL="postgresql://dang_migrator:<PASSWORD>@127.0.0.1:5432/dang"`
 3. `pnpm db:migrate`
 4. API runtime با `dang_runtime` (نه migrator)

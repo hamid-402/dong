@@ -3,12 +3,16 @@ node_modules/
 .turbo/
 dist/
 coverage/
+test-results/
+playwright-report/
+.cursor/
 .env
 .env.*
 !.env.example
 *.log
 .DS_Store
 Thumbs.db
+.data/
 
 tsbuildinfo
 *.tsbuildinfo

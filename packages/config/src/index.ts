@@ -53,6 +53,15 @@ export type AppEnv = {
   oidcClientSecret?: string;
   /** When true (default in development), accept trusted local actor headers. */
   allowDevAuth: boolean;
+  /** Session cookie secret (dev default is insecure; set SESSION_SECRET in prod). */
+  sessionSecret: string;
+  /** Local directory for attachment binary blobs (optional). */
+  attachmentBlobDir?: string;
+  /** SMTP URL e.g. smtp://user:pass@host:587 — enables real email delivery. */
+  smtpUrl?: string;
+  smtpFrom?: string;
+  /** PSP merchant id (Zarinpal). Live only with ZARINPAL_ENABLED=1. */
+  zarinpalMerchantId?: string;
 };
 
 function requireString(name: string, fallback?: string): string {
@@ -96,6 +105,15 @@ export function loadAppEnv(partial: EnvBag = readEnv()): AppEnv {
       partial.ALLOW_DEV_AUTH,
       nodeEnv === "development" || nodeEnv === "test",
     ),
+    sessionSecret:
+      partial.SESSION_SECRET ||
+      (nodeEnv === "production"
+        ? ""
+        : "dev-only-session-secret-change-me"),
+    attachmentBlobDir: partial.ATTACHMENT_BLOB_DIR || undefined,
+    smtpUrl: partial.SMTP_URL || undefined,
+    smtpFrom: partial.SMTP_FROM || undefined,
+    zarinpalMerchantId: partial.ZARINPAL_MERCHANT_ID || undefined,
   };
 }
 
@@ -103,6 +121,20 @@ export function isOidcConfigured(env: AppEnv = loadAppEnv()): boolean {
   return Boolean(env.oidcIssuerUrl && env.oidcClientId);
 }
 
+export function isSmtpConfigured(env: AppEnv = loadAppEnv()): boolean {
+  return Boolean(env.smtpUrl);
+}
+
+export function isPaymentProviderConfigured(env: AppEnv = loadAppEnv()): boolean {
+  return Boolean(env.zarinpalMerchantId);
+}
+
+export function isRedisConfigured(env: AppEnv = loadAppEnv()): boolean {
+  return Boolean(env.redisUrl);
+}
+
 export function requireDatabaseUrl(env: AppEnv = loadAppEnv()): string {
   return requireString("DATABASE_URL", env.databaseUrl);
 }
+
+export * from "./integrations.js";

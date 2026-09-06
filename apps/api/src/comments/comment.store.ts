@@ -11,6 +11,7 @@ export type CommentStore = {
     workspaceId: string,
     targetType: CommentTargetType,
     targetId: string,
+    actorUserId: string,
   ): Promise<CommentSummary[]>;
 };
 
@@ -41,6 +42,7 @@ export class MemoryCommentStore implements CommentStore {
     workspaceId: string,
     targetType: CommentTargetType,
     targetId: string,
+    _actorUserId: string,
   ): Promise<CommentSummary[]> {
     return Promise.resolve(
       this.comments.filter(

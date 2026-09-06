@@ -1,5 +1,6 @@
 import {
   index,
+  integer,
   pgSchema,
   primaryKey,
   text,
@@ -11,7 +12,9 @@ import {
 export const iam = pgSchema("iam");
 
 export const workspaceTemplate = iam.enum("workspace_template", [
+  "personal",
   "friends_family",
+  "household",
   "project_partners",
   "small_team",
   "construction",
@@ -34,6 +37,12 @@ export const userAccount = iam.table(
     id: uuid("id").defaultRandom().primaryKey(),
     externalSubject: text("external_subject").notNull(),
     displayName: text("display_name").notNull(),
+    email: text("email"),
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+    passwordHash: text("password_hash"),
+    avatarUrl: text("avatar_url"),
+    locale: text("locale").default("fa-IR"),
+    timezone: text("timezone").default("Asia/Tehran"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -43,6 +52,68 @@ export const userAccount = iam.table(
   },
   (table) => [
     uniqueIndex("user_account_external_subject_uq").on(table.externalSubject),
+  ],
+);
+
+export const authSession = iam.table(
+  "auth_session",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userAccount.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("auth_session_token_hash_uq").on(table.tokenHash),
+    index("auth_session_user_idx").on(table.userId),
+  ],
+);
+
+export const authPasswordReset = iam.table(
+  "auth_password_reset",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userAccount.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("auth_password_reset_token_hash_uq").on(table.tokenHash),
+    index("auth_password_reset_user_idx").on(table.userId),
+  ],
+);
+
+export const authEmailVerify = iam.table(
+  "auth_email_verify",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userAccount.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("auth_email_verify_token_hash_uq").on(table.tokenHash),
+    index("auth_email_verify_user_idx").on(table.userId),
   ],
 );
 
@@ -81,6 +152,7 @@ export const membership = iam.table(
       .notNull()
       .references(() => userAccount.id, { onDelete: "cascade" }),
     role: membershipRole("role").notNull(),
+    defaultShares: integer("default_shares").default(1).notNull(),
     joinedAt: timestamp("joined_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -93,6 +165,23 @@ export const membership = iam.table(
     }),
     index("membership_user_id_idx").on(table.userId),
   ],
+);
+
+/** At most one canonical personal workspace per user (idempotent ensure). */
+export const personalWorkspace = iam.table(
+  "personal_workspace",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => userAccount.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [uniqueIndex("personal_workspace_workspace_uq").on(table.workspaceId)],
 );
 
 export const invite = iam.table(

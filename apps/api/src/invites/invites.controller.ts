@@ -16,7 +16,7 @@ import { InvitesService } from "./invites.service.js";
 export class InvitesController {
   constructor(
     @Inject(InvitesService) private readonly invites: InvitesService,
-    private readonly idempotency: IdempotencyService,
+    @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
   ) {}
 
   @Post("workspaces/:workspaceId/invites")

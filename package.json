@@ -19,12 +19,20 @@
     "db:generate": "pnpm --filter @dang/db db:generate",
     "db:migrate": "pnpm --filter @dang/db db:migrate",
     "db:check": "pnpm --filter @dang/db db:check",
-    "test": "pnpm --filter @dang/contracts test && pnpm --filter @dang/db test"
+    "test": "pnpm --filter @dang/contracts test && pnpm --filter @dang/db test && pnpm --filter @dang/api test && pnpm --filter @dang/observability test && pnpm --filter @dang/web test",
+    "test:coverage": "pnpm --filter @dang/contracts test:coverage-check",
+    "test:e2e": "pnpm --filter @dang/web test:e2e",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": ["eslint --fix --max-warnings=0"]
   },
   "devDependencies": {
     "eslint": "^9.39.5",
-    "turbo": "latest",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.0",
+    "turbo": "^2.10.12",
     "typescript": "^6.0.3",
-    "typescript-eslint": "latest"
+    "typescript-eslint": "^8.68.0"
   }
 }

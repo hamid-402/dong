@@ -1,10 +1,34 @@
-# احراز هویت محلی (تا پیاده‌سازی OIDC)
+# احراز هویت محلی و پروفایل
 
-تا قبل از اتصال Keycloak/OIDC، API در محیط development با هدرهای قابل اعتماد
-Actor می‌سازد. این مسیر فقط وقتی `ALLOW_DEV_AUTH=true` باشد (پیش‌فرض development)
-فعال است و در production باید خاموش بماند.
+دنگ سه مسیر هویت دارد:
 
-## هدرها
+1. **ایمیل/رمز + کوکی نشست** (استاندارد محصول)
+2. **DevAuth** با هدرهای `x-dang-*` وقتی `ALLOW_DEV_AUTH=true` و `NODE_ENV !== production` (فقط توسعه)
+3. **OIDC** با PKCE + همان کوکی نشست (پیکربندی‌شده؛ جزئیات در `LOCAL-OIDC.md`)
+
+## مسیرهای API
+
+| مسیر | توضیح |
+|---|---|
+| `POST /auth/register` | ثبت‌نام؛ کوکی `dang_session` |
+| `POST /auth/login` | ورود (rate-limit) |
+| `POST /auth/logout` | ابطال نشست |
+| `POST /auth/forgot-password` | درخواست بازیابی (ضد enumeration، rate-limit) |
+| `POST /auth/reset-password` | تنظیم رمز با توکن یک‌بارمصرف |
+| `GET/PATCH /auth/profile` | پروفایل شخصی |
+| `POST /auth/change-password` | تغییر رمز + ابطال همه نشست‌ها |
+| `POST /auth/revoke-sessions` | ابطال همه نشست‌ها (همه دستگاه‌ها) |
+| `GET /auth/session` | خلاصه نشست فعلی |
+| `GET /auth/me` | Actor + فضاهای کاری |
+
+رمز با **Argon2id** هش می‌شود؛ هش‌های قدیمی scrypt در لاگین موفق ارتقا می‌یابند. توکن نشست و بازیابی فقط به‌صورت SHA-256 در DB ذخیره می‌شوند.
+
+## صفحات وب
+
+- `/login` `/register` `/forgot-password` `/reset-password` `/profile`
+- در حالت توسعه، `forgot-password` ممکن است `debugResetUrl` برگرداند (بدون ایمیل واقعی).
+
+## DevAuth (قدیمی)
 
 | هدر | الزام | توضیح |
 |---|---|---|
@@ -12,21 +36,15 @@ Actor می‌سازد. این مسیر فقط وقتی `ALLOW_DEV_AUTH=true` ب�
 | `x-dang-display-name` | خیر | نام نمایشی |
 | `x-dang-user-id` | خیر | UUID ثابت برای تکرارپذیری تست |
 
-## نمونه
+Guard اول کوکی نشست را می‌خواند؛ اگر نبود و `ALLOW_DEV_AUTH` فعال بود، به هدرها برمی‌گردد.
 
-```bash
-curl -s http://localhost:3006/api/v1/auth/me ^
-  -H "x-dang-subject: hamid-dev" ^
-  -H "x-dang-display-name: حمید"
+## Migration
 
-curl -s http://localhost:3006/api/v1/workspaces ^
-  -H "Content-Type: application/json" ^
-  -H "x-dang-subject: hamid-dev" ^
-  -H "x-dang-display-name: حمید" ^
-  -d "{\"name\":\"پروژه ویلا\",\"slug\":\"villa-partners\",\"template\":\"project_partners\"}"
+```powershell
+$env:DATABASE_URL="postgresql://dang_migrator:<PASSWORD>@127.0.0.1:5432/dang"
+pnpm --filter @dang/db db:migrate
 ```
 
-## وضعیت Persistence
+شامل `0013_local_auth_profile` (فیلدهای پروفایل، `auth_session`، `auth_password_reset`).
 
-اگر `DATABASE_URL` تنظیم شده باشد، API از PostgreSQL + RLS استفاده می‌کند؛ در غیر این
-صورت Workspace و Membership در حافظه Process نگه داشته می‌شوند.
+`SESSION_SECRET` را در production تنظیم کنید.

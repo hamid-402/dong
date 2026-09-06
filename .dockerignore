@@ -1,0 +1,11 @@
+# Ignore local/dev artifacts when building from repo root
+.git
+.cursor
+**/.next
+**/dist
+**/coverage
+**/*.md
+!docs/**
+.env
+.env.*
+**/node_modules

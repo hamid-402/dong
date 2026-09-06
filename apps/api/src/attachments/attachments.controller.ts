@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, Query, Res, UseGuards } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import type {
   AttachmentSummary,
@@ -6,7 +6,9 @@ import type {
   CreateAttachmentRequest,
   OcrReceiptResult,
   QuarantineScanResult,
+  UploadAttachmentContentRequest,
 } from "@dang/contracts";
+import type { FastifyReply } from "fastify";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
 import { AttachmentsService } from "./attachments.service.js";
 
@@ -58,5 +60,32 @@ export class AttachmentsController {
     @Param("attachmentId") attachmentId: string,
   ): Promise<OcrReceiptResult> {
     return this.attachments.runOcr(actor, workspaceId, attachmentId);
+  }
+
+  @Post(":attachmentId/content")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Upload attachment bytes (base64); hash must match metadata" })
+  uploadContent(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("attachmentId") attachmentId: string,
+    @Body() body: UploadAttachmentContentRequest,
+  ): Promise<AttachmentSummary> {
+    return this.attachments.uploadContent(actor, workspaceId, attachmentId, body);
+  }
+
+  @Get(":attachmentId/content")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Download stored attachment bytes" })
+  async downloadContent(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("attachmentId") attachmentId: string,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<Buffer> {
+    const file = await this.attachments.getContent(actor, workspaceId, attachmentId);
+    reply.header("Content-Type", file.mimeType);
+    reply.header("Content-Disposition", `inline; filename="${encodeURIComponent(file.fileName)}"`);
+    return file.buffer;
   }
 }

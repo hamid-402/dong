@@ -10,12 +10,14 @@ import {
 } from "@dang/contracts";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { LEDGER_STORE, type LedgerStore } from "../ledger/ledger.types.js";
+import { NotificationsService } from "../notifications/notifications.service.js";
 
 @Injectable()
 export class BalancesService {
   constructor(
     @Inject(LEDGER_STORE) private readonly ledger: LedgerStore,
     @Inject(IAM_STORE) private readonly iam: IamStore,
+    @Inject(NotificationsService) private readonly notifications: NotificationsService,
   ) {}
 
   async getProvisional(
@@ -32,6 +34,10 @@ export class BalancesService {
     }
 
     const lines = await this.ledger.balancesForWorkspace(workspaceId, actor.userId);
+
+    void this.notifications
+      .notifyGroupDebtAlerts(workspaceId, actor.userId, lines)
+      .catch(() => undefined);
 
     return {
       workspaceId,

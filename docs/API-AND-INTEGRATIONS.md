@@ -106,6 +106,54 @@ Templateها Versioned و قابل Preview هستند. SMS/Push متن حساس 
 Dual Write به دیتابیس حسابداری ممنوع است. Integration از Contract و Adapter عبور
 می‌کند.
 
+## Personal finance (`/me/finance`)
+
+مالیه شخصی روی کاربر است (نه فقط یک workspace گروهی):
+
+| مسیر | نقش |
+|------|-----|
+| `GET /me/finance/overview?from&to` | پرداخت/سهم در بازه + مانده فعلی هر فضای عضو |
+| `GET /me/finance/trends?from&to&groupBy=day\|week\|month` | سری زمانی واقعی از خرج گروهی + هزینه کیف شخصی |
+| `GET/POST /me/finance/accounts` … | حساب‌های نقد/بانک کاربر |
+| `GET/POST /me/finance/transactions` | تراکنش‌های کیف شخصی |
+| `GET/POST /me/finance/budgets` | بودجه ماهانه؛ هشدار `warn`/`exceeded` → نوتیف in-app روی دفتر شخصی با `metadata.route=/me` |
+| `GET/POST /me/finance/categories` | دسته‌بندی شخصی |
+| `GET/POST /me/finance/exports` | CSV واقعی از overview/تراکنش‌ها |
+
+یکتایی «دفتر من»: جدول `iam.personal_workspace` (یک `user_id` → یک `workspace_id`)؛ `ensurePersonalWorkspace` idempotent است.
+
+### دفتر روزانه گروه (`/workspaces/:id/daily-ledger`)
+
+| مسیر | توضیح |
+|---|---|
+| `GET …/daily-ledger` | ماتریس روز×عضو؛ فقط `expense.source=daily_ledger` |
+| `GET …/daily-ledger/export.csv` | خروجی CSV (جلالی + اقلام) |
+| `PUT …/days/:date` | تعطیلی دستی / یادداشت؛ تعطیل → reverse فقط قلم‌های دفتر؛ برداشتن تعطیلی → restore |
+| `POST …/entries` | ثبت کالا+مبلغ (عضو یا shared) |
+| `PATCH/DELETE …/entries/:id` | ویرایش (reverse+create) / حذف |
+| `POST …/import` | ورود CSV: `date_iso,column,item_name,amount_toman` |
+| `GET/POST …/range-locks` | قفل بازه (owner/admin/finance) |
+| `POST …/range-locks/:id/unlock` | باز کردن قفل |
+
+تعطیلی: reverse فقط `source=daily_ledger`؛ با برداشتن تعطیلی از روی idهای ذخیره‌شده recreate می‌شود.
+
+## یکپارچه‌سازی‌ها (زیرساخت آماده / فعال‌سازی صریح)
+
+از `/system/capabilities` و فیلد `integrationsReady` بخوانید — UI دکمه جعلی نشان ندهد.
+
+| قابلیت | زیرساخت | فعال‌سازی زنده |
+|--------|---------|----------------|
+| زرین‌پال | کلاینت request/verify + callback | `ZARINPAL_MERCHANT_ID` + `ZARINPAL_ENABLED=1` |
+| آنتی‌ویروس | ClamAV INSTREAM + stub MIME | `CLAMAV_HOST` + `CLAMAV_ENABLED=1` |
+| ایمیل SMTP | Nodemailer روی `SMTP_URL` | `EMAIL_TRANSPORT=smtp` (+ `SMTP_URL`) |
+| ایمیل Resend | از قبل زنده | `RESEND_API_KEY` |
+| OCR HTTP | POST به `OCR_HTTP_URL` | `OCR_ENABLED=1` |
+| Worker | Redis BLPOP consumer (ioredis؛ سازگار با Redis 3+/Valkey) | `REDIS_URL` + `pnpm dev:worker` (heartbeat) |
+| Jobs | بدون Redis: `inline_stub`؛ با Redis زنده + heartbeat: `stubs.backgroundWorker=false` |
+| Persistence اضافه | `workspaceDay` + `workspaceRangeLock` + `account` |
+
+مهاجرت: `0027` … `0029_workspace_day_lock`.
+
 ## Versioning
 
 - تغییر Breaking فقط در Version جدید

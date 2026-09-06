@@ -10,17 +10,19 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@dang/config": "workspace:*",
     "@dang/contracts": "workspace:*",
     "@dang/observability": "workspace:*",
-    "@nestjs/common": "latest",
-    "@nestjs/core": "latest",
-    "reflect-metadata": "latest",
-    "rxjs": "latest"
+    "@nestjs/common": "^12.0.1",
+    "@nestjs/core": "^12.0.1",
+    "ioredis": "^6.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
   },
   "devDependencies": {
-    "@types/node": "latest",
+    "@types/node": "^26.4.0",
     "eslint": "^9.39.5",
-    "tsx": "latest",
+    "tsx": "^4.23.12",
     "typescript": "^6.0.3"
   }
 }

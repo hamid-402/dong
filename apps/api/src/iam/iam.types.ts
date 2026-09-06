@@ -32,6 +32,8 @@ export type IamStore = {
   upsertDevActor(input: UpsertDevActorInput): Promise<AuthActor>;
   listWorkspacesForUser(userId: string): Promise<WorkspaceSummary[]>;
   createWorkspace(input: CreateWorkspaceInput): Promise<WorkspaceSummary>;
+  /** Idempotent: returns existing personal workspace or creates «دفتر من». */
+  ensurePersonalWorkspace(userId: string): Promise<WorkspaceSummary>;
   getWorkspaceForUser(
     workspaceId: string,
     userId: string,
@@ -40,6 +42,12 @@ export type IamStore = {
     workspaceId: string,
     actorUserId: string,
   ): Promise<MembershipSummary[] | undefined>;
+  setMemberDefaultShares(
+    workspaceId: string,
+    actorUserId: string,
+    targetUserId: string,
+    defaultShares: number,
+  ): Promise<MembershipSummary | undefined>;
   createInvite(input: CreateInviteInput): Promise<CreateInviteResponse>;
   listInvites(
     workspaceId: string,

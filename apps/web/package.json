@@ -3,26 +3,36 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3005 --webpack",
-    "dev:turbo": "next dev --port 3005 --turbopack",
+    "dev": "next dev --hostname 0.0.0.0 --port 3005 --webpack",
+    "dev:turbo": "next dev --hostname 0.0.0.0 --port 3005 --turbopack",
     "build": "next build",
-    "start": "next start --port 3005",
+    "start": "next start --hostname 0.0.0.0 --port 3005",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium"
   },
   "dependencies": {
     "@dang/contracts": "workspace:*",
     "@dang/ui": "workspace:*",
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest"
+    "next": "^16.3.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@types/node": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
+    "@playwright/test": "^1.63.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^26.4.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^6.1.1",
     "eslint": "^9.39.5",
-    "eslint-config-next": "latest",
-    "typescript": "^6.0.3"
+    "eslint-config-next": "^16.3.3",
+    "jsdom": "^30.0.1",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.0"
   }
 }

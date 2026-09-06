@@ -3,14 +3,17 @@ import {
   createDatabase,
   eq,
   expense,
+  expenseItem,
+  expenseItemAssignment,
   expensePaymentLine,
   expenseSplitLine,
   withTenantContext,
   type AppDatabase,
 } from "@dang/db";
-import type { CreateExpenseDraftRequest, ExpenseSummary } from "@dang/contracts";
+import type { CreateExpenseDraftRequest, ExpenseItemSummary, ExpenseSummary } from "@dang/contracts";
 import {
   asSplitMethod,
+  canActorViewExpense,
   toExpenseSummary,
   validateExpenseDraftInput,
   type ExpenseStore,
@@ -21,17 +24,60 @@ function formatOccurredOn(value: string | Date): string {
   return typeof value === "string" ? value : value.toISOString().slice(0, 10);
 }
 
+function optionalMoney(minor: bigint | null | undefined) {
+  if (minor == null) return undefined;
+  return { amountMinor: minor.toString(), currency: "IRR" as const };
+}
+
+async function loadItems(
+  tx: AppDatabase,
+  expenseId: string,
+): Promise<ExpenseItemSummary[]> {
+  const items = await tx
+    .select()
+    .from(expenseItem)
+    .where(eq(expenseItem.expenseId, expenseId));
+  const result: ExpenseItemSummary[] = [];
+  for (const item of items.sort((a, b) => a.lineNo - b.lineNo)) {
+    const assignments = await tx
+      .select()
+      .from(expenseItemAssignment)
+      .where(eq(expenseItemAssignment.itemId, item.id));
+    const sharesByUserId: Record<string, number> = {};
+    for (const row of assignments) {
+      sharesByUserId[row.userId] = row.shares;
+    }
+    result.push({
+      id: item.id,
+      lineNo: item.lineNo,
+      title: item.title,
+      amount: { amountMinor: item.amountMinor.toString(), currency: "IRR" },
+      assigneeUserIds: assignments.map((a) => a.userId),
+      sharesByUserId,
+      notes: item.notes ?? undefined,
+    });
+  }
+  return result;
+}
+
 function mapExpense(
   row: typeof expense.$inferSelect,
   splits: Array<typeof expenseSplitLine.$inferSelect>,
   payments: Array<typeof expensePaymentLine.$inferSelect>,
+  items: ExpenseItemSummary[],
 ): StoredExpense {
   return {
     id: row.id,
     workspaceId: row.workspaceId,
+    periodId: row.periodId ?? undefined,
+    outingId: row.outingId ?? undefined,
     title: row.title,
     status: row.status,
+    visibility: row.visibility ?? "shared",
     total: { amountMinor: row.totalMinor.toString(), currency: "IRR" },
+    tip: optionalMoney(row.tipMinor),
+    tax: optionalMoney(row.taxMinor),
+    discount: optionalMoney(row.discountMinor),
     paidByUserId: row.paidByUserId,
     paymentLines: payments
       .sort((a, b) => a.lineNo - b.lineNo)
@@ -49,9 +95,16 @@ function mapExpense(
         percent: line.percentBp != null ? String(line.percentBp) : undefined,
         shares: line.shares ?? undefined,
       })),
+    items: items.length > 0 ? items : undefined,
+    categoryId: row.categoryId ?? undefined,
+    budgetId: row.budgetId ?? undefined,
+    requiresApproval: row.requiresApproval ?? false,
+    approvedByUserId: row.approvedByUserId ?? undefined,
+    approvedAt: row.approvedAt?.toISOString(),
     occurredOn: formatOccurredOn(row.occurredOn),
     createdAt: row.createdAt.toISOString(),
     note: row.note ?? undefined,
+    source: row.source === "daily_ledger" ? "daily_ledger" : undefined,
     idempotencyKey: row.idempotencyKey,
     createdByUserId: row.createdByUserId,
   };
@@ -71,7 +124,8 @@ export class PostgresExpenseStore implements ExpenseStore {
     actorUserId: string,
     input: CreateExpenseDraftRequest,
   ): Promise<StoredExpense> {
-    const { paymentLines, splits } = validateExpenseDraftInput(input);
+    const { participantUserIds, paymentLines, splits } =
+      validateExpenseDraftInput(input);
 
     return withTenantContext(
       this.db,
@@ -96,12 +150,23 @@ export class PostgresExpenseStore implements ExpenseStore {
           .insert(expense)
           .values({
             workspaceId: input.workspaceId,
+            periodId: input.periodId?.trim() || null,
+            outingId: input.outingId?.trim() || null,
             title: input.title.trim(),
             note: input.note?.trim() || null,
+            source: input.source === "daily_ledger" ? "daily_ledger" : null,
             status: "draft",
+            visibility: input.visibility ?? "shared",
             totalMinor: BigInt(input.total.amountMinor),
+            tipMinor: input.tip ? BigInt(input.tip.amountMinor) : null,
+            taxMinor: input.tax ? BigInt(input.tax.amountMinor) : null,
+            discountMinor: input.discount ? BigInt(input.discount.amountMinor) : null,
             paidByUserId: input.paidByUserId.trim(),
             splitMethod: input.splitMethod,
+            categoryId: input.categoryId?.trim() || null,
+            budgetId: input.budgetId?.trim() || null,
+            requiresApproval:
+              input.requiresApproval ?? input.visibility === "company",
             occurredOn: input.occurredOn,
             idempotencyKey: input.idempotencyKey.trim(),
             createdByUserId: actorUserId,
@@ -135,6 +200,35 @@ export class PostgresExpenseStore implements ExpenseStore {
           })),
         );
 
+        if (input.splitMethod === "itemized" && input.items?.length) {
+          for (let index = 0; index < input.items.length; index += 1) {
+            const item = input.items[index]!;
+            const insertedItems = await tx
+              .insert(expenseItem)
+              .values({
+                expenseId: row.id,
+                workspaceId: input.workspaceId,
+                lineNo: index + 1,
+                title: item.title.trim(),
+                amountMinor: BigInt(item.amount.amountMinor),
+                notes: item.notes?.trim() || null,
+              })
+              .returning();
+            const itemRow = insertedItems[0];
+            if (!itemRow) continue;
+            const assignees = [...new Set(item.assigneeUserIds.map((id) => id.trim()))];
+            if (assignees.length === 0) continue;
+            await tx.insert(expenseItemAssignment).values(
+              assignees.map((userId) => ({
+                itemId: itemRow.id,
+                userId,
+                shares: item.sharesByUserId?.[userId] ?? 1,
+              })),
+            );
+          }
+        }
+
+        void participantUserIds;
         return this.loadExpense(tx, row.id, input.workspaceId);
       },
     );
@@ -156,6 +250,7 @@ export class PostgresExpenseStore implements ExpenseStore {
         const result: ExpenseSummary[] = [];
         for (const row of rows) {
           const stored = await this.loadExpense(tx, row.id, workspaceId);
+          if (!canActorViewExpense(stored, actorUserId)) continue;
           result.push(toExpenseSummary(stored));
         }
         return result;
@@ -182,6 +277,44 @@ export class PostgresExpenseStore implements ExpenseStore {
       "draft",
       "submitted",
     ]);
+  }
+
+  async reverse(
+    workspaceId: string,
+    expenseId: string,
+    actorUserId: string,
+  ): Promise<StoredExpense> {
+    return this.updateStatus(workspaceId, expenseId, actorUserId, "reversed", [
+      "draft",
+      "submitted",
+      "posted",
+    ]);
+  }
+
+  async updateVisibility(
+    workspaceId: string,
+    expenseId: string,
+    visibility: "shared" | "private" | "company",
+    actorUserId: string,
+  ): Promise<StoredExpense> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const updated = await tx
+          .update(expense)
+          .set({
+            visibility,
+            requiresApproval: false,
+            approvedByUserId: visibility === "company" ? actorUserId : null,
+            approvedAt: visibility === "company" ? new Date() : null,
+          })
+          .where(and(eq(expense.id, expenseId), eq(expense.workspaceId, workspaceId)))
+          .returning();
+        if (!updated[0]) throw new Error("EXPENSE_NOT_FOUND");
+        return this.loadExpense(tx, expenseId, workspaceId);
+      },
+    );
   }
 
   private async updateStatus(
@@ -250,6 +383,7 @@ export class PostgresExpenseStore implements ExpenseStore {
       .from(expensePaymentLine)
       .where(eq(expensePaymentLine.expenseId, expenseId));
 
-    return mapExpense(row, splits, payments);
+    const items = await loadItems(tx, expenseId);
+    return mapExpense(row, splits, payments, items);
   }
 }

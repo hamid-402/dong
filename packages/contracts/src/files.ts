@@ -9,7 +9,7 @@ export type QuarantineScanResult = {
   attachmentId: string;
   workspaceId: string;
   status: QuarantineStatus;
-  engine: "stub-av";
+  engine: "stub-av" | "clamav";
   scannedAt: string;
   /** Human-readable reason when blocked/error. */
   detail?: string;

@@ -13,12 +13,16 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "tsx --test tests/**/*.test.ts"
+    "test": "tsx --test tests/**/*.test.ts",
+    "test:coverage-check": "tsx --test --experimental-test-coverage --test-coverage-exclude=**/tests/** --test-coverage-exclude=**/billing.ts --test-coverage-exclude=**/procurement.ts --test-coverage-exclude=**/jobs.ts --test-coverage-exclude=**/payments.ts --test-coverage-exclude=**/partnership.ts --test-coverage-exclude=**/index.ts --test-coverage-exclude=**/files.ts --test-coverage-exclude=**/account.ts --test-coverage-exclude=**/assets.ts --test-coverage-exclude=**/collaboration.ts --test-coverage-exclude=**/proposals.ts --test-coverage-exclude=**/reports.ts --test-coverage-lines=80 --test-coverage-branches=65 tests/**/*.test.ts"
   },
   "devDependencies": {
-    "@types/node": "latest",
+    "@types/node": "^26.4.0",
     "eslint": "^9.39.5",
-    "tsx": "latest",
+    "tsx": "^4.23.12",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "zod": "^4.5.4"
   }
 }

@@ -1,23 +1,27 @@
-import type { CSSProperties, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+"use client";
+
+import { useId, type CSSProperties, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 
 const fieldWrap: CSSProperties = {
   display: "grid",
-  gap: 6,
+  gap: 8,
 };
 
 const labelStyle: CSSProperties = {
   fontSize: 13,
   fontWeight: 500,
-  color: "var(--dang-muted, #9eaaa6)",
+  color: "var(--dang-muted)",
 };
 
 const controlStyle: CSSProperties = {
-  border: "1px solid var(--dang-line, rgba(220,229,225,.11))",
-  background: "var(--dang-surface-2, #16211e)",
-  color: "var(--dang-text, #f3f1e9)",
-  borderRadius: 12,
+  border: "1px solid var(--dang-line)",
+  background: "var(--dang-surface-2)",
+  color: "var(--dang-text)",
+  borderRadius: "var(--dang-radius-md, 12px)",
   padding: "12px 14px",
+  minHeight: "var(--dang-control-h, 48px)",
   font: "inherit",
+  fontSize: 15,
   width: "100%",
 };
 
@@ -27,13 +31,18 @@ export type TextFieldProps = InputHTMLAttributes<HTMLInputElement> & {
 };
 
 export function TextField({ label, hint, id, style, ...rest }: TextFieldProps) {
-  const inputId = id ?? (typeof label === "string" ? label : undefined);
+  const autoId = useId();
+  const inputId = id ?? autoId;
   return (
     <label style={fieldWrap} htmlFor={inputId}>
       <span style={labelStyle}>{label}</span>
-      <input id={inputId} style={{ ...controlStyle, ...style }} {...rest} />
+      <input
+        id={inputId}
+        style={{ ...controlStyle, ...style }}
+        {...rest}
+      />
       {hint ? (
-        <span style={{ fontSize: 12, color: "var(--dang-muted, #9eaaa6)" }}>{hint}</span>
+        <span style={{ fontSize: 12, color: "var(--dang-muted)" }}>{hint}</span>
       ) : null}
     </label>
   );
@@ -42,16 +51,21 @@ export function TextField({ label, hint, id, style, ...rest }: TextFieldProps) {
 export type SelectFieldProps = SelectHTMLAttributes<HTMLSelectElement> & {
   label: ReactNode;
   children: ReactNode;
+  hint?: ReactNode;
 };
 
-export function SelectField({ label, id, style, children, ...rest }: SelectFieldProps) {
-  const selectId = id ?? (typeof label === "string" ? label : undefined);
+export function SelectField({ label, hint, id, style, children, ...rest }: SelectFieldProps) {
+  const autoId = useId();
+  const selectId = id ?? autoId;
   return (
     <label style={fieldWrap} htmlFor={selectId}>
       <span style={labelStyle}>{label}</span>
       <select id={selectId} style={{ ...controlStyle, ...style }} {...rest}>
         {children}
       </select>
+      {hint ? (
+        <span style={{ fontSize: 12, color: "var(--dang-muted)" }}>{hint}</span>
+      ) : null}
     </label>
   );
 }

@@ -43,7 +43,7 @@ export class CommentsService {
     targetId: string,
   ): Promise<CommentSummary[]> {
     await this.requireMember(workspaceId, actor.userId);
-    return this.comments.listForTarget(workspaceId, targetType, targetId);
+    return this.comments.listForTarget(workspaceId, targetType, targetId, actor.userId);
   }
 
   private async requireMember(workspaceId: string, userId: string): Promise<void> {

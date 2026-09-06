@@ -4,6 +4,7 @@ import {
   allocateAmountSplit,
   allocateEqualSplit,
   allocateExpenseSplit,
+  allocateItemizedSplit,
   allocatePercentSplit,
   allocateSharesSplit,
   buildExpenseJournalLines,
@@ -79,6 +80,69 @@ test("allocateSharesSplit distributes by weight", () => {
   ]);
   assert.equal(lines[0]?.amount.amountMinor, "67");
   assert.equal(lines[1]?.amount.amountMinor, "33");
+});
+
+test("ice-cream equal: four people share 10000 remainder", () => {
+  const lines = allocateEqualSplit(
+    { amountMinor: "10000", currency: "IRR" },
+    ["ali", "sara", "reza", "mina"],
+  );
+  const sum = lines.reduce((acc, line) => acc + BigInt(line.amount.amountMinor), 0n);
+  assert.equal(sum, 10000n);
+  assert.equal(lines.length, 4);
+});
+
+test("lunch amount omits Reza — only Ali and Sara owe", () => {
+  const total = { amountMinor: "7500", currency: "IRR" as const };
+  const lines = allocateAmountSplit(total, [
+    { userId: "ali", amount: { amountMinor: "3000", currency: "IRR" } },
+    { userId: "sara", amount: { amountMinor: "4500", currency: "IRR" } },
+  ]);
+  assert.equal(lines.some((l) => l.userId === "reza"), false);
+  assert.equal(
+    lines.reduce((acc, line) => acc + BigInt(line.amount.amountMinor), 0n),
+    7500n,
+  );
+});
+
+test("itemized shared appetizer + tip equals total", () => {
+  const result = allocateItemizedSplit({
+    items: [
+      {
+        title: "پیش‌غذا مشترک",
+        amount: { amountMinor: "2000", currency: "IRR" },
+        assigneeUserIds: ["ali", "sara"],
+      },
+      {
+        title: "غذای علی",
+        amount: { amountMinor: "3000", currency: "IRR" },
+        assigneeUserIds: ["ali"],
+      },
+      {
+        title: "غذای سارا",
+        amount: { amountMinor: "4000", currency: "IRR" },
+        assigneeUserIds: ["sara"],
+      },
+    ],
+    tip: { amountMinor: "900", currency: "IRR" },
+    tax: { amountMinor: "100", currency: "IRR" },
+  });
+  assert.equal(result.total.amountMinor, "10000");
+  const sum = result.splits.reduce((acc, line) => acc + BigInt(line.amount.amountMinor), 0n);
+  assert.equal(sum, 10000n);
+  assert.equal(result.splits.some((l) => l.userId === "reza"), false);
+});
+
+test("family defaultShares 2:1 rent split", () => {
+  const lines = allocateSharesSplit(
+    { amountMinor: "3000", currency: "IRR" },
+    [
+      { userId: "parent", shares: 2 },
+      { userId: "child", shares: 1 },
+    ],
+  );
+  assert.equal(lines[0]?.amount.amountMinor, "2000");
+  assert.equal(lines[1]?.amount.amountMinor, "1000");
 });
 
 test("multi-payer journal stays balanced", () => {

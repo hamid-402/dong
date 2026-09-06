@@ -254,6 +254,24 @@ export class MemoryProcurementStore implements ProcurementStore {
     );
   }
 
+  applyCompanyExpenseSpend(
+    workspaceId: string,
+    amountMinor: string,
+    budgetId?: string,
+  ): Promise<BudgetSummary | null> {
+    const amount = BigInt(amountMinor);
+    const candidates = [...this.budgets.values()].filter(
+      (b) =>
+        b.workspaceId === workspaceId &&
+        b.status === "open" &&
+        (!budgetId || b.id === budgetId),
+    );
+    const target = candidates[0];
+    if (!target) return Promise.resolve(null);
+    target.spentMinor = (BigInt(target.spentMinor) + amount).toString();
+    return Promise.resolve(stripBudget(target));
+  }
+
   createVendor(input: CreateVendorRequest): Promise<VendorSummary> {
     const id = crypto.randomUUID();
     const vendor: StoredVendor = {

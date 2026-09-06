@@ -20,6 +20,11 @@ export type AttachmentStore = {
     attachmentId: string,
     result: QuarantineScanResult,
   ): Promise<AttachmentSummary>;
+  markBlobStored(
+    workspaceId: string,
+    attachmentId: string,
+    storagePath: string,
+  ): Promise<AttachmentSummary>;
 };
 
 export const ATTACHMENT_STORE = Symbol("ATTACHMENT_STORE");
@@ -77,6 +82,7 @@ export class MemoryAttachmentStore implements AttachmentStore {
         input.kind === "receipt" && scan.status !== "blocked"
           ? crypto.randomUUID()
           : undefined,
+      hasBlob: false,
     };
     this.attachments.set(attachment.id, attachment);
     this.idempotency.set(idemKey, attachment.id);
@@ -117,6 +123,20 @@ export class MemoryAttachmentStore implements AttachmentStore {
       ...row,
       quarantineStatus: result.status,
     };
+    this.attachments.set(attachmentId, updated);
+    return Promise.resolve(updated);
+  }
+
+  markBlobStored(
+    workspaceId: string,
+    attachmentId: string,
+    _storagePath: string,
+  ): Promise<AttachmentSummary> {
+    const row = this.attachments.get(attachmentId);
+    if (!row || row.workspaceId !== workspaceId) {
+      return Promise.reject(new Error("ATTACHMENT_NOT_FOUND"));
+    }
+    const updated: AttachmentSummary = { ...row, hasBlob: true };
     this.attachments.set(attachmentId, updated);
     return Promise.resolve(updated);
   }

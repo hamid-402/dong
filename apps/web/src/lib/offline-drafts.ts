@@ -5,9 +5,11 @@ export type OfflineExpenseDraft = {
   totalToman: string;
   paidByUserId?: string;
   participantUserIds: string[];
-  splitMethod: "equal" | "amount" | "percent" | "shares";
+  splitMethod: "equal" | "amount" | "percent" | "shares" | "itemized";
   occurredOn: string;
   note?: string;
+  periodId?: string;
+  visibility?: "shared" | "private" | "company";
   updatedAt: string;
 };
 

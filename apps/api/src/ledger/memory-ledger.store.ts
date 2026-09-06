@@ -40,6 +40,20 @@ export class MemoryLedgerStore implements LedgerStore {
     });
   }
 
+  async reverseExpense(
+    workspaceId: string,
+    actorUserId: string,
+    expenseId: string,
+  ): Promise<void> {
+    void actorUserId;
+    const key = this.sourceKey(workspaceId, "expense", expenseId);
+    const existingId = this.sourceIndex.get(key);
+    if (!existingId) return;
+    const existing = this.entries.get(existingId);
+    if (!existing) return;
+    this.entries.set(existingId, { ...existing, status: "reversed" });
+  }
+
   async postSettlement(
     actorUserId: string,
     settlement: SettlementSummary,

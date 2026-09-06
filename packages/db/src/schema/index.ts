@@ -5,4 +5,6 @@ export * from "./collaboration.js";
 export * from "./finance.js";
 export * from "./iam.js";
 export * from "./partnership.js";
+export * from "./personal.js";
 export * from "./procurement.js";
+export * from "./proposals.js";

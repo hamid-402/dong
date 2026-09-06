@@ -9,6 +9,7 @@ export type PaymentProviderId = "stub" | "zarinpal" | "idpay";
 export type CreatePaymentLinkRequest = {
   workspaceId: string;
   settlementId?: string;
+  invoiceId?: string;
   amount: Money;
   description: string;
   /** Return URL after PSP redirect (must be https in production). */
@@ -28,6 +29,7 @@ export type PaymentLinkSummary = {
   id: string;
   workspaceId: string;
   settlementId?: string;
+  invoiceId?: string;
   provider: PaymentProviderId;
   amount: Money;
   description: string;

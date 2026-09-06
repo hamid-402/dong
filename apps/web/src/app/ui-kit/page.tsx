@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Amount, Button, SelectField, Surface, TextField, formatToman } from "@dang/ui";
 
 export default function UiKitPage() {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">("light");
 
   return (
     <main
@@ -55,7 +55,8 @@ export default function UiKitPage() {
           <div style={{ display: "grid", gap: 12, maxWidth: 420 }}>
             <TextField label="عنوان هزینه" placeholder="مثلاً مصالح سقف" />
             <SelectField label="قالب Workspace" defaultValue="friends_family">
-              <option value="friends_family">دوستان و خانواده</option>
+              <option value="friends_family">دوستان</option>
+              <option value="household">خانواده</option>
               <option value="project_partners">شرکای پروژه</option>
             </SelectField>
             <p style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>
