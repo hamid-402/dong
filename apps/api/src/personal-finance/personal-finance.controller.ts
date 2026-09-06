@@ -18,9 +18,17 @@ import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import {
   aggregatePersonalFinanceTrends,
   buildPersonalOverviewCsv,
+  createPersonalCategoryRequestSchema,
+  createPersonalFinanceExportRequestSchema,
+  createPersonalMoneyAccountRequestSchema,
+  createPersonalMoneyTxnRequestSchema,
+  createPersonalTransferRequestSchema,
   shouldNotifyPersonalBudgetAlert,
   spaceKindForTemplate,
   sumActorExpensesInRange,
+  updatePersonalCategoryRequestSchema,
+  updatePersonalMoneyAccountRequestSchema,
+  upsertPersonalBudgetRequestSchema,
   zeroIrr,
   type AuthActor,
   type CreatePersonalCategoryRequest,
@@ -45,6 +53,7 @@ import {
 } from "@dang/contracts";
 import type { FastifyReply } from "fastify";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { EXPENSE_STORE, type ExpenseStore } from "../expenses/expense.types.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { LEDGER_STORE, type LedgerStore } from "../ledger/ledger.types.js";
@@ -156,7 +165,8 @@ export class PersonalFinanceController {
   @UseGuards(AuthGuard)
   createAccount(
     @CurrentActor() actor: AuthActor,
-    @Body() body: CreatePersonalMoneyAccountRequest,
+    @Body(new ZodValidationPipe(createPersonalMoneyAccountRequestSchema))
+    body: CreatePersonalMoneyAccountRequest,
   ): Promise<PersonalMoneyAccountSummary> {
     return this.mapErrors(() => this.resources.createAccount(actor.userId, body));
   }
@@ -166,7 +176,8 @@ export class PersonalFinanceController {
   updateAccount(
     @CurrentActor() actor: AuthActor,
     @Param("accountId") accountId: string,
-    @Body() body: UpdatePersonalMoneyAccountRequest,
+    @Body(new ZodValidationPipe(updatePersonalMoneyAccountRequestSchema))
+    body: UpdatePersonalMoneyAccountRequest,
   ): Promise<PersonalMoneyAccountSummary> {
     return this.mapErrors(() =>
       this.resources.updateAccount(actor.userId, accountId, body),
@@ -195,7 +206,8 @@ export class PersonalFinanceController {
   @UseGuards(AuthGuard)
   async createTxn(
     @CurrentActor() actor: AuthActor,
-    @Body() body: CreatePersonalMoneyTxnRequest,
+    @Body(new ZodValidationPipe(createPersonalMoneyTxnRequestSchema))
+    body: CreatePersonalMoneyTxnRequest,
   ): Promise<PersonalMoneyTxnSummary> {
     await this.assertOptionalLinks(actor.userId, body);
     const yearMonth = body.occurredOn?.slice(0, 7);
@@ -221,7 +233,8 @@ export class PersonalFinanceController {
   @UseGuards(AuthGuard)
   createTransfer(
     @CurrentActor() actor: AuthActor,
-    @Body() body: CreatePersonalTransferRequest,
+    @Body(new ZodValidationPipe(createPersonalTransferRequestSchema))
+    body: CreatePersonalTransferRequest,
   ): Promise<{ out: PersonalMoneyTxnSummary; in: PersonalMoneyTxnSummary }> {
     return this.mapErrors(() => this.resources.createTransfer(actor.userId, body));
   }
@@ -236,7 +249,8 @@ export class PersonalFinanceController {
   @UseGuards(AuthGuard)
   async upsertBudget(
     @CurrentActor() actor: AuthActor,
-    @Body() body: UpsertPersonalBudgetRequest,
+    @Body(new ZodValidationPipe(upsertPersonalBudgetRequestSchema))
+    body: UpsertPersonalBudgetRequest,
   ): Promise<PersonalBudgetSummary> {
     const previous = (await this.resources.listBudgets(actor.userId)).find(
       (b) => b.yearMonth === body.yearMonth,
@@ -258,7 +272,8 @@ export class PersonalFinanceController {
   @UseGuards(AuthGuard)
   createCategory(
     @CurrentActor() actor: AuthActor,
-    @Body() body: CreatePersonalCategoryRequest,
+    @Body(new ZodValidationPipe(createPersonalCategoryRequestSchema))
+    body: CreatePersonalCategoryRequest,
   ): Promise<PersonalCategorySummary> {
     return this.mapErrors(() => this.resources.createCategory(actor.userId, body));
   }
@@ -268,7 +283,8 @@ export class PersonalFinanceController {
   updateCategory(
     @CurrentActor() actor: AuthActor,
     @Param("categoryId") categoryId: string,
-    @Body() body: UpdatePersonalCategoryRequest,
+    @Body(new ZodValidationPipe(updatePersonalCategoryRequestSchema))
+    body: UpdatePersonalCategoryRequest,
   ): Promise<PersonalCategorySummary> {
     return this.mapErrors(() =>
       this.resources.updateCategory(actor.userId, categoryId, body),
@@ -302,7 +318,8 @@ export class PersonalFinanceController {
   @UseGuards(AuthGuard)
   async createExport(
     @CurrentActor() actor: AuthActor,
-    @Body() body: CreatePersonalFinanceExportRequest,
+    @Body(new ZodValidationPipe(createPersonalFinanceExportRequestSchema))
+    body: CreatePersonalFinanceExportRequest,
   ): Promise<PersonalFinanceExportSummary> {
     const created = await this.mapErrors(() =>
       this.resources.createExport(actor.userId, body, async () => {

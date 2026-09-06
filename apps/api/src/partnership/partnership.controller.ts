@@ -16,7 +16,15 @@ import type {
   ReportExportPayload,
   WithdrawalSummary,
 } from "@dang/contracts";
+import {
+  createAgreementRequestSchema,
+  createPeriodLockRequestSchema,
+  recordContributionRequestSchema,
+  recordPartnerLoanRequestSchema,
+  recordWithdrawalRequestSchema,
+} from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { PartnershipService } from "./partnership.service.js";
 
 @ApiTags("partnership")
@@ -30,7 +38,7 @@ export class PartnershipController {
   createAgreement(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateAgreementRequest,
+    @Body(new ZodValidationPipe(createAgreementRequestSchema)) body: CreateAgreementRequest,
   ): Promise<AgreementSummary> {
     return this.partnership.createAgreement(actor, workspaceId, body);
   }
@@ -49,7 +57,8 @@ export class PartnershipController {
   recordContribution(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: RecordContributionRequest,
+    @Body(new ZodValidationPipe(recordContributionRequestSchema))
+    body: RecordContributionRequest,
   ): Promise<ContributionSummary> {
     return this.partnership.recordContribution(actor, workspaceId, body);
   }
@@ -59,7 +68,8 @@ export class PartnershipController {
   recordLoan(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: RecordPartnerLoanRequest,
+    @Body(new ZodValidationPipe(recordPartnerLoanRequestSchema))
+    body: RecordPartnerLoanRequest,
   ): Promise<PartnerLoanSummary> {
     return this.partnership.recordLoan(actor, workspaceId, body);
   }
@@ -69,7 +79,8 @@ export class PartnershipController {
   recordWithdrawal(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: RecordWithdrawalRequest,
+    @Body(new ZodValidationPipe(recordWithdrawalRequestSchema))
+    body: RecordWithdrawalRequest,
   ): Promise<WithdrawalSummary> {
     return this.partnership.recordWithdrawal(actor, workspaceId, body);
   }
@@ -111,7 +122,8 @@ export class PartnershipController {
   createPeriodLock(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreatePeriodLockRequest,
+    @Body(new ZodValidationPipe(createPeriodLockRequestSchema))
+    body: CreatePeriodLockRequest,
   ): Promise<PeriodLockSummary> {
     return this.partnership.createPeriodLock(actor, workspaceId, body);
   }

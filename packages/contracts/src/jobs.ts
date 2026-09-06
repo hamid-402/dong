@@ -7,6 +7,11 @@ export type WorkerJobName =
   | "webhook.dispatch"
   | "ledger.rebuild_balances";
 
+/** Body for POST …/jobs (dev in-process runner). */
+export type RunJobRequest = {
+  name: WorkerJobName;
+};
+
 export type JobRunSummary = {
   jobId: string;
   name: WorkerJobName;

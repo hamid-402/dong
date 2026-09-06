@@ -1,11 +1,10 @@
 import { Body, Controller, Get, Inject, Param, Post, UseGuards } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
-import type { AuthActor } from "@dang/contracts";
-import type { WorkerJobName } from "@dang/contracts";
+import type { AuthActor, RunJobRequest } from "@dang/contracts";
+import { runJobRequestSchema } from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { JobsService, type JobRunResult } from "./jobs.service.js";
-
-type RunJobRequest = { name: WorkerJobName };
 
 @ApiTags("jobs")
 @Controller("workspaces/:workspaceId/jobs")
@@ -18,7 +17,7 @@ export class JobsController {
   run(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: RunJobRequest,
+    @Body(new ZodValidationPipe(runJobRequestSchema)) body: RunJobRequest,
   ): JobRunResult {
     void actor;
     return this.jobs.run(body.name, workspaceId);

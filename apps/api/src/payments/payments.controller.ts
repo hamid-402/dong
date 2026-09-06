@@ -5,7 +5,9 @@ import type {
   CreatePaymentLinkRequest,
   PaymentLinkSummary,
 } from "@dang/contracts";
+import { createPaymentLinkRequestSchema } from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { PaymentsService } from "./payments.service.js";
 
 @ApiTags("payments")
@@ -21,7 +23,7 @@ export class PaymentsController {
   create(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreatePaymentLinkRequest,
+    @Body(new ZodValidationPipe(createPaymentLinkRequestSchema)) body: CreatePaymentLinkRequest,
   ): Promise<PaymentLinkSummary> {
     return this.payments.createLink(actor, workspaceId, body);
   }

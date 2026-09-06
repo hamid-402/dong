@@ -16,7 +16,12 @@ import type {
   CreateOutingRequest,
   OutingSummary,
 } from "@dang/contracts";
+import {
+  createOutingRequestSchema,
+  updateMemberDefaultSharesRequestSchema,
+} from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { OUTING_STORE, type OutingStore } from "./outing.store.js";
 
@@ -34,7 +39,7 @@ export class OutingsController {
   async create(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateOutingRequest,
+    @Body(new ZodValidationPipe(createOutingRequestSchema)) body: CreateOutingRequest,
   ): Promise<OutingSummary> {
     await this.requireMember(workspaceId, actor.userId);
     if (!body.title?.trim()) {
@@ -95,7 +100,8 @@ export class MemberSharesController {
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
     @Param("userId") userId: string,
-    @Body() body: { defaultShares: number },
+    @Body(new ZodValidationPipe(updateMemberDefaultSharesRequestSchema))
+    body: { defaultShares: number },
   ) {
     const shares = Number(body.defaultShares);
     if (!Number.isInteger(shares) || shares <= 0 || shares > 100) {

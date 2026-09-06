@@ -17,6 +17,7 @@ import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { JobsService } from "../jobs/jobs.service.js";
 import { AttachmentBlobService } from "./attachment-blob.service.js";
 import { ATTACHMENT_STORE, type AttachmentStore } from "./attachment.store.js";
+import { mayStartOcr } from "./av-policy.js";
 import { scanAttachmentContent } from "./av-scanner.js";
 import { runReceiptOcr } from "./ocr.client.js";
 
@@ -36,20 +37,23 @@ export class AttachmentsService {
   ): Promise<AttachmentSummary> {
     await this.requireMember(workspaceId, actor.userId);
     try {
-      const created = await this.attachments.create(actor.userId, {
+      let current = await this.attachments.create(actor.userId, {
         ...body,
         workspaceId,
       });
-      if (created.quarantineStatus === "pending") {
-        await this.scanQuarantine(actor, workspaceId, created.id);
+      if (current.quarantineStatus === "pending") {
+        await this.scanQuarantine(actor, workspaceId, current.id);
+        current =
+          (await this.attachments.getById(workspaceId, current.id)) ?? current;
       }
-      if (created.ocrJobId && created.quarantineStatus !== "blocked") {
+      // Fail-closed: never OCR when quarantine is blocked or error (scan errors persist as error).
+      if (current.ocrJobId && mayStartOcr(current.quarantineStatus)) {
         this.jobs.run("ocr.receipt", workspaceId, {
-          attachmentId: created.id,
-          fileName: created.fileName,
+          attachmentId: current.id,
+          fileName: current.fileName,
         });
       }
-      return (await this.attachments.getById(workspaceId, created.id)) ?? created;
+      return current;
     } catch (error: unknown) {
       if (error instanceof Error) {
         const map: Record<string, string> = {
@@ -131,10 +135,13 @@ export class AttachmentsService {
         status: 404,
       });
     }
-    if (attachment.quarantineStatus === "blocked") {
+    if (!mayStartOcr(attachment.quarantineStatus)) {
       throw new BadRequestException({
         type: "https://dang.local/problems/quarantine-blocked",
-        title: "Attachment blocked by quarantine",
+        title:
+          attachment.quarantineStatus === "error"
+            ? "Attachment quarantine scan failed"
+            : "Attachment blocked by quarantine",
         status: 400,
       });
     }

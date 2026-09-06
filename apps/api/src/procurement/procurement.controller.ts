@@ -16,7 +16,17 @@ import type {
   SubmitApprovalRequest,
   VendorSummary,
 } from "@dang/contracts";
+import {
+  createBudgetRequestSchema,
+  createNeedRequestSchema,
+  createPurchaseOrderRequestSchema,
+  createPurchaseRequestRequestSchema,
+  createVendorRequestSchema,
+  recordDeliveryRequestSchema,
+  submitApprovalRequestSchema,
+} from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { ProcurementService } from "./procurement.service.js";
 
 @ApiTags("procurement")
@@ -30,7 +40,7 @@ export class ProcurementController {
   createNeed(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateNeedRequest,
+    @Body(new ZodValidationPipe(createNeedRequestSchema)) body: CreateNeedRequest,
   ): Promise<NeedSummary> {
     return this.procurement.createNeed(actor, workspaceId, body);
   }
@@ -49,7 +59,8 @@ export class ProcurementController {
   createPurchaseRequest(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreatePurchaseRequestRequest,
+    @Body(new ZodValidationPipe(createPurchaseRequestRequestSchema))
+    body: CreatePurchaseRequestRequest,
   ): Promise<PurchaseRequestSummary> {
     return this.procurement.createPurchaseRequest(actor, workspaceId, body);
   }
@@ -79,7 +90,7 @@ export class ProcurementController {
   decide(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: SubmitApprovalRequest,
+    @Body(new ZodValidationPipe(submitApprovalRequestSchema)) body: SubmitApprovalRequest,
   ): Promise<PurchaseRequestSummary> {
     return this.procurement.decidePurchaseRequest(actor, workspaceId, body);
   }
@@ -89,7 +100,7 @@ export class ProcurementController {
   createBudget(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateBudgetRequest,
+    @Body(new ZodValidationPipe(createBudgetRequestSchema)) body: CreateBudgetRequest,
   ): Promise<BudgetSummary> {
     return this.procurement.createBudget(actor, workspaceId, body);
   }
@@ -108,7 +119,7 @@ export class ProcurementController {
   createVendor(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateVendorRequest,
+    @Body(new ZodValidationPipe(createVendorRequestSchema)) body: CreateVendorRequest,
   ): Promise<VendorSummary> {
     return this.procurement.createVendor(actor, workspaceId, body);
   }
@@ -127,7 +138,8 @@ export class ProcurementController {
   createPurchaseOrder(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreatePurchaseOrderRequest,
+    @Body(new ZodValidationPipe(createPurchaseOrderRequestSchema))
+    body: CreatePurchaseOrderRequest,
   ): Promise<PurchaseOrderSummary> {
     return this.procurement.createPurchaseOrder(actor, workspaceId, body);
   }
@@ -146,7 +158,7 @@ export class ProcurementController {
   recordDelivery(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: RecordDeliveryRequest,
+    @Body(new ZodValidationPipe(recordDeliveryRequestSchema)) body: RecordDeliveryRequest,
   ): Promise<DeliverySummary> {
     return this.procurement.recordDelivery(actor, workspaceId, body);
   }

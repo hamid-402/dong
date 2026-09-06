@@ -6,6 +6,7 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import {
+  createWorkspaceRequestSchema,
   workspaceTemplateCatalog,
   type AuthActor,
   type CreateWorkspaceRequest,
@@ -15,6 +16,7 @@ import {
 } from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
 import { IdempotencyService } from "../common/idempotency.service.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { WorkspacesService } from "./workspaces.service.js";
 
 @ApiTags("workspaces")
@@ -55,7 +57,7 @@ export class WorkspacesController {
   @ApiHeader({ name: "idempotency-key", required: false })
   create(
     @CurrentActor() actor: AuthActor,
-    @Body() body: CreateWorkspaceRequest,
+    @Body(new ZodValidationPipe(createWorkspaceRequestSchema)) body: CreateWorkspaceRequest,
     @Headers("idempotency-key") idempotencyKey?: string,
   ): Promise<WorkspaceSummary> {
     return this.idempotency.run("workspace.create", actor.userId, idempotencyKey, () =>

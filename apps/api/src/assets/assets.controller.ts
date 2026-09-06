@@ -9,7 +9,15 @@ import type {
   ReturnAssetRequest,
   TransferAssetRequest,
 } from "@dang/contracts";
+import {
+  assignAssetRequestSchema,
+  createAssetFromDeliveryRequestSchema,
+  damageAssetRequestSchema,
+  returnAssetRequestSchema,
+  transferAssetRequestSchema,
+} from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { AssetsService } from "./assets.service.js";
 
 @ApiTags("assets")
@@ -23,7 +31,8 @@ export class AssetsController {
   createFromDelivery(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: CreateAssetFromDeliveryRequest,
+    @Body(new ZodValidationPipe(createAssetFromDeliveryRequestSchema))
+    body: CreateAssetFromDeliveryRequest,
   ): Promise<AssetSummary> {
     return this.assets.createFromDelivery(actor, workspaceId, body);
   }
@@ -42,7 +51,7 @@ export class AssetsController {
   assign(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: AssignAssetRequest,
+    @Body(new ZodValidationPipe(assignAssetRequestSchema)) body: AssignAssetRequest,
   ): Promise<AssetSummary> {
     return this.assets.assign(actor, workspaceId, body);
   }
@@ -52,7 +61,7 @@ export class AssetsController {
   transfer(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: TransferAssetRequest,
+    @Body(new ZodValidationPipe(transferAssetRequestSchema)) body: TransferAssetRequest,
   ): Promise<AssetSummary> {
     return this.assets.transfer(actor, workspaceId, body);
   }
@@ -62,7 +71,7 @@ export class AssetsController {
   markReturned(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: ReturnAssetRequest,
+    @Body(new ZodValidationPipe(returnAssetRequestSchema)) body: ReturnAssetRequest,
   ): Promise<AssetSummary> {
     return this.assets.markReturned(actor, workspaceId, body);
   }
@@ -72,7 +81,7 @@ export class AssetsController {
   markDamaged(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body() body: DamageAssetRequest,
+    @Body(new ZodValidationPipe(damageAssetRequestSchema)) body: DamageAssetRequest,
   ): Promise<AssetSummary> {
     return this.assets.markDamaged(actor, workspaceId, body);
   }
