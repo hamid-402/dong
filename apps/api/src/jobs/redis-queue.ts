@@ -1,7 +1,9 @@
 import Redis from "ioredis";
 import {
+  DANG_JOB_DLQ_KEY,
   DANG_JOB_QUEUE_KEY,
   DANG_WORKER_HEARTBEAT_KEY,
+  type DeadLetterJob,
   type QueuedWorkerJob,
 } from "@dang/contracts";
 import { isRedisConfigured, loadAppEnv } from "@dang/config";
@@ -99,5 +101,89 @@ export async function blpopWorkerJob(
     lastFailAt = Date.now();
     shared = null;
     return null;
+  }
+}
+
+function parseDeadLetter(raw: string): DeadLetterJob | null {
+  try {
+    const parsed = JSON.parse(raw) as DeadLetterJob;
+    if (!parsed?.job || typeof parsed.error !== "string" || typeof parsed.attempts !== "number") {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/** Length of dead-letter list (null when Redis unavailable). */
+export async function getDlqLength(): Promise<number | null> {
+  const client = await getRedisClient();
+  if (!client) return null;
+  try {
+    return await client.llen(DANG_JOB_DLQ_KEY);
+  } catch {
+    lastFailAt = Date.now();
+    shared = null;
+    return null;
+  }
+}
+
+/** Peek newest DLQ items (LRANGE from the right end) without removing. */
+export async function listDlqItems(limit = 50): Promise<DeadLetterJob[] | null> {
+  const client = await getRedisClient();
+  if (!client) return null;
+  try {
+    const capped = Math.max(1, Math.min(limit, 100));
+    const len = await client.llen(DANG_JOB_DLQ_KEY);
+    if (len === 0) return [];
+    const start = Math.max(0, len - capped);
+    const raw = await client.lrange(DANG_JOB_DLQ_KEY, start, -1);
+    return raw
+      .map(parseDeadLetter)
+      .filter((x): x is DeadLetterJob => x !== null)
+      .reverse();
+  } catch {
+    lastFailAt = Date.now();
+    shared = null;
+    return null;
+  }
+}
+
+/**
+ * Replay one dead-letter job: RPOP from DLQ, LPUSH back to main queue.
+ * Returns the entry, or null if empty / Redis down.
+ */
+export async function replayDlqJob(): Promise<DeadLetterJob | null> {
+  const client = await getRedisClient();
+  if (!client) return null;
+  try {
+    const raw = await client.rpop(DANG_JOB_DLQ_KEY);
+    if (!raw) return null;
+    const entry = parseDeadLetter(raw);
+    if (!entry) {
+      // Malformed — do not re-queue; leave dropped (already popped).
+      return null;
+    }
+    await client.lpush(DANG_JOB_QUEUE_KEY, JSON.stringify(entry.job));
+    return entry;
+  } catch {
+    lastFailAt = Date.now();
+    shared = null;
+    return null;
+  }
+}
+
+/** Mirror of worker push — useful for tests / ops tooling. */
+export async function pushDeadLetter(entry: DeadLetterJob): Promise<boolean> {
+  const client = await getRedisClient();
+  if (!client) return false;
+  try {
+    await client.rpush(DANG_JOB_DLQ_KEY, JSON.stringify(entry));
+    return true;
+  } catch {
+    lastFailAt = Date.now();
+    shared = null;
+    return false;
   }
 }

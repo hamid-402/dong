@@ -9,6 +9,7 @@ import { FormStack } from "@/components/ui-blocks";
 import { validateEmail } from "@/lib/auth-validation";
 import { authErrorMessage } from "@/lib/api-errors";
 import { api, setDevIdentity, markClientSession, api as apiClient } from "@/lib/api";
+import { t } from "@/lib/i18n";
 
 export function LoginView() {
   const router = useRouter();
@@ -21,6 +22,8 @@ export function LoginView() {
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [oidcReady, setOidcReady] = useState(false);
+  const loginTitle = t("login.title");
+  const loginDescription = t("login.description");
 
   useEffect(() => {
     void api
@@ -56,8 +59,8 @@ export function LoginView() {
 
   return (
     <AuthShell
-      title="ورود به حساب"
-      description="با ایمیل و رمز وارد شوید."
+      title={loginTitle}
+      description={loginDescription}
       footer={
         <AuthLinkRow>
           <Link href="/forgot-password">فراموشی رمز</Link>
