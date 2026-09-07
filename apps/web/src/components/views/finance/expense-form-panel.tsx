@@ -1,6 +1,11 @@
 "use client";
 
-import type { ExpensePeriodSummary, MembershipSummary, SessionSummary } from "@dang/contracts";
+import type {
+  CostCenterSummary,
+  ExpensePeriodSummary,
+  MembershipSummary,
+  SessionSummary,
+} from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import {
@@ -40,6 +45,9 @@ type ExpenseFormPanelProps = {
   onSyncOfflineDraft: (draft: OfflineExpenseDraft) => void;
   onRemoveOfflineDraft: (draftId: string) => void;
   canAssignPrivateToOthers?: boolean;
+  costCenters?: CostCenterSummary[];
+  costCenterId?: string;
+  onCostCenterIdChange?: (value: string) => void;
 };
 
 /**
@@ -69,6 +77,9 @@ export function ExpenseFormPanel({
   onSyncOfflineDraft,
   onRemoveOfflineDraft,
   canAssignPrivateToOthers = false,
+  costCenters = [],
+  costCenterId = "",
+  onCostCenterIdChange,
 }: ExpenseFormPanelProps) {
   // Expense form progress (dong-50 #17) — derived from real form state, not fake steps.
   const amountStepDone =
@@ -160,6 +171,21 @@ export function ExpenseFormPanel({
             ))}
           </SelectField>
         </details>
+        {costCenters.length > 0 && onCostCenterIdChange ? (
+          <SelectField
+            label="مرکز هزینه (اختیاری)"
+            value={costCenterId}
+            onChange={(event) => onCostCenterIdChange(event.target.value)}
+          >
+            <option value="">بدون مرکز هزینه</option>
+            {costCenters.map((center) => (
+              <option key={center.id} value={center.id}>
+                {center.name}
+                {center.code ? ` · ${center.code}` : ""}
+              </option>
+            ))}
+          </SelectField>
+        ) : null}
         <SplitComposer
           members={members}
           totalToman={amountToman}

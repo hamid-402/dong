@@ -20,6 +20,7 @@ import { api, ApiError, clearClientSession, getDevIdentity, setDevIdentity } fro
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { FlashMessages } from "@/lib/use-flash-message";
 import { MfaSettingsPanel } from "@/components/shell/mfa-settings-panel";
+import { NotificationPrefsPanel } from "@/components/notification-prefs-panel";
 
 function authModeLabel(mode: UserProfile["authMode"]): string {
   if (mode === "password") return "ورود با ایمیل";
@@ -355,6 +356,10 @@ export function ProfileView() {
         </SectionCard>
 
         <MfaSettingsPanel profile={profile} onProfileChange={setProfile} />
+        <NotificationPrefsPanel
+          flags={chrome.capabilities?.productFlags}
+          onError={(message) => setError(message)}
+        />
       </ProductGrid>
     </AppShell>
   );

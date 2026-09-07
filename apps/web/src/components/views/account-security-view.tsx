@@ -7,6 +7,7 @@ import { AuthAlert } from "@/components/auth-shell";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader, ProductGrid } from "@/components/ui-blocks";
 import { MfaSettingsPanel } from "@/components/shell/mfa-settings-panel";
+import { NotificationPrefsPanel } from "@/components/notification-prefs-panel";
 import { api, ApiError } from "@/lib/api";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useRouter } from "next/navigation";
@@ -47,6 +48,10 @@ export function AccountSecurityView() {
       {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
       <ProductGrid>
         <MfaSettingsPanel profile={profile} onProfileChange={setProfile} />
+        <NotificationPrefsPanel
+          flags={chrome.capabilities?.productFlags}
+          onError={setError}
+        />
       </ProductGrid>
     </AppShell>
   );

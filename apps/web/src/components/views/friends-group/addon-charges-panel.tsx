@@ -41,12 +41,25 @@ export function AddonChargesPanel({
   const [title, setTitle] = useState("");
   const [amountToman, setAmountToman] = useState("");
   const [targetUserId, setTargetUserId] = useState("");
+  const [linkedExpenseId, setLinkedExpenseId] = useState("");
+  const [sharedExpenses, setSharedExpenses] = useState<
+    Array<{ id: string; title: string }>
+  >([]);
   const [pending, startTransition] = useTransition();
 
   function reload() {
-    return api
-      .listAddonCharges(workspaceId)
-      .then(setCharges)
+    return Promise.all([
+      api.listAddonCharges(workspaceId),
+      api.listExpenses(workspaceId).catch(() => []),
+    ])
+      .then(([chargeList, expenseList]) => {
+        setCharges(chargeList);
+        setSharedExpenses(
+          expenseList
+            .filter((e) => e.visibility === "shared")
+            .map((e) => ({ id: e.id, title: e.title })),
+        );
+      })
       .catch((err: unknown) => onError(friendlyErrorMessage(err, "بارگذاری اضافه‌ها ناموفق")));
   }
 
@@ -75,10 +88,12 @@ export function AddonChargesPanel({
             title: title.trim(),
             targetMemberUserId: targetUserId,
             amount,
+            linkedExpenseId: linkedExpenseId || undefined,
             idempotencyKey: newClientId(),
           });
           setTitle("");
           setAmountToman("");
+          setLinkedExpenseId("");
           onSuccess("اضافهٔ شخصی ثبت شد — تا تأیید، در صورتحساب قطعی نیست");
           await reload();
         } catch (err: unknown) {
@@ -140,6 +155,18 @@ export function AddonChargesPanel({
           {members.map((m) => (
             <option key={m.userId} value={m.userId}>
               {m.displayName}
+            </option>
+          ))}
+        </SelectField>
+        <SelectField
+          label="پیوند به خرج مشترک (اختیاری)"
+          value={linkedExpenseId}
+          onChange={(e) => setLinkedExpenseId(e.target.value)}
+        >
+          <option value="">بدون پیوند</option>
+          {sharedExpenses.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.title}
             </option>
           ))}
         </SelectField>

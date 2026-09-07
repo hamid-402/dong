@@ -291,7 +291,8 @@ export function OrgSpaceView() {
           {chrome.capabilities?.productFlags &&
           (chrome.capabilities.productFlags.reimbursement ||
             chrome.capabilities.productFlags.categoryBudget ||
-            chrome.capabilities.productFlags.expenseImport) ? (
+            chrome.capabilities.productFlags.expenseImport ||
+            chrome.capabilities.productFlags.expensePolicy) ? (
             <WaveFFinancePanel
               workspaceId={workspace.id}
               flags={chrome.capabilities.productFlags}

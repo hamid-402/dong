@@ -12,6 +12,7 @@ import type {
   PeriodKind,
   SettlementSummary,
   WorkspaceBalancesResponse,
+  CostCenterSummary,
 } from "@dang/contracts";
 import { isFinanceManagerRole } from "@dang/contracts";
 import { Button, TextField, formatToman } from "@dang/ui";
@@ -28,7 +29,7 @@ import {
   ProductGrid,
   SectionCard,
 } from "@/components/ui-blocks";
-import { DEV_IDENTITY_DEFAULTS, getDevIdentity, setDevIdentity, type AuditEventDto } from "@/lib/api";
+import { api, DEV_IDENTITY_DEFAULTS, getDevIdentity, setDevIdentity, type AuditEventDto } from "@/lib/api";
 import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
 import { hubPathFor } from "@/lib/hub-links";
 import { friendlyErrorMessage } from "@/lib/api-errors";
@@ -84,6 +85,8 @@ export function FinanceView({
   const [split, setSplit] = useState<SplitComposerValue>(() => emptySplitComposer("shared"));
   const [expenseFilter, setExpenseFilter] = useState<"all" | ExpenseVisibility>("all");
   const [expensePeriodId, setExpensePeriodId] = useState("");
+  const [costCenterId, setCostCenterId] = useState("");
+  const [costCenters, setCostCenters] = useState<CostCenterSummary[]>([]);
   const [settleToUserId, setSettleToUserId] = useState("");
   const [settleAmountToman, setSettleAmountToman] = useState("");
   const [periodTitle, setPeriodTitle] = useState("هفته جاری");
@@ -181,6 +184,19 @@ export function FinanceView({
         setDevIdentity(identity.subject, identity.displayName);
         applyWorkspaceData(await loadWorkspaceData(selectedId));
         if (!cancelled) setOfflineDrafts(listOfflineExpenseDrafts(selectedId));
+        if (
+          !cancelled &&
+          chrome.capabilities?.productFlags?.costCenter
+        ) {
+          const centers = await api.listCostCenters(selectedId).catch(() => []);
+          if (!cancelled) {
+            setCostCenters(centers.filter((c) => c.active));
+            setCostCenterId("");
+          }
+        } else if (!cancelled) {
+          setCostCenters([]);
+          setCostCenterId("");
+        }
         setError(null);
       } catch (err: unknown) {
         if (!cancelled) {
@@ -261,6 +277,7 @@ export function FinanceView({
     expenseDate,
     split,
     expensePeriodId,
+    costCenterId,
     settleToUserId,
     settleAmountToman,
     periodTitle,
@@ -434,6 +451,9 @@ export function FinanceView({
               lastDraftSavedAt={lastDraftSavedAt}
               pending={pending}
               canAssignPrivateToOthers={canManageFinance}
+              costCenters={costCenters}
+              costCenterId={costCenterId}
+              onCostCenterIdChange={setCostCenterId}
               onCreateExpense={onCreateExpense}
               onSaveOfflineDraft={onSaveOfflineDraft}
               onSyncOfflineDraft={onSyncOfflineDraft}

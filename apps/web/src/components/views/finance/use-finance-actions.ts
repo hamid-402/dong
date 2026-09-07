@@ -40,6 +40,7 @@ export type FinanceActionsDeps = {
   expenseDate: string;
   split: SplitComposerValue;
   expensePeriodId: string;
+  costCenterId: string;
   settleToUserId: string;
   settleAmountToman: string;
   periodTitle: string;
@@ -72,6 +73,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
     expenseDate,
     split,
     expensePeriodId,
+    costCenterId,
     settleToUserId,
     settleAmountToman,
     periodTitle,
@@ -137,6 +139,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
             discount: payload.discount,
             occurredOn: expenseDate,
             periodId: expensePeriodId || undefined,
+            costCenterId: costCenterId || undefined,
             visibility: split.visibility,
             idempotencyKey: newClientId(),
           });
