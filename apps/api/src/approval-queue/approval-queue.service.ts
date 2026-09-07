@@ -56,8 +56,7 @@ export class ApprovalQueueService {
     for (const charge of charges) {
       if (
         charge.status === "pending_ack" &&
-        (charge.targetMemberUserId === actor.userId ||
-          charge.createdByUserId === actor.userId)
+        charge.targetMemberUserId === actor.userId
       ) {
         items.push({
           kind: "addon_charge",
@@ -81,20 +80,22 @@ export class ApprovalQueueService {
         createdAt: invoice.createdAt,
       });
     }
-    for (const expense of expenseRows) {
-      if (
-        expense.requiresApproval &&
-        (expense.status === "submitted" || expense.status === "draft")
-      ) {
-        items.push({
-          kind: "expense",
-          id: expense.id,
-          title: expense.title,
-          amount: expense.total,
-          status: expense.status,
-          hrefHint: "expenses",
-          createdAt: expense.createdAt,
-        });
+    if (!flags.approvalSteps) {
+      for (const expense of expenseRows) {
+        if (
+          expense.requiresApproval &&
+          (expense.status === "submitted" || expense.status === "draft")
+        ) {
+          items.push({
+            kind: "expense",
+            id: expense.id,
+            title: expense.title,
+            amount: expense.total,
+            status: expense.status,
+            hrefHint: "expenses",
+            createdAt: expense.createdAt,
+          });
+        }
       }
     }
     for (const step of pendingSteps) {

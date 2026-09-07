@@ -191,6 +191,14 @@ export class ReportsController {
   ): Promise<ExpenseCategorySummary> {
     await this.requireWritableMember(workspaceId, actor.userId);
     if (!body.name?.trim()) throw new BadRequestException({ detail: "نام دسته لازم است" });
+    if (body.parentId) {
+      const categories = await this.reports.listCategories(workspaceId, actor.userId);
+      if (!categories.some((category) => category.id === body.parentId)) {
+        throw new BadRequestException({
+          detail: "دسته والد باید در همین فضای کاری وجود داشته باشد",
+        });
+      }
+    }
     return this.reports.createCategory(workspaceId, actor.userId, body);
   }
 
