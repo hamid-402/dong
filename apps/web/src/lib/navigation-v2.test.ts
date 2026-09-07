@@ -108,6 +108,14 @@ describe("navigation-v2", () => {
     expect(finance?.items.some((i) => i.key === "org-finance")).toBe(true);
   });
 
+  it("does not show org-finance for friends template even with Wave F flags", () => {
+    const finance = spaceNav("friends_family", "g1", {
+      costCenter: true,
+      allowance: true,
+    }).find((s) => s.key === "finance");
+    expect(finance?.items.some((i) => i.key === "org-finance")).toBe(false);
+  });
+
   it("builds more path for workspace tools launcher", () => {
     expect(wPath("acme", "more")).toBe("/w/acme/more");
   });
