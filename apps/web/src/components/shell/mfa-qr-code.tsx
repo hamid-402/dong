@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 
@@ -38,7 +39,14 @@ export function MfaQrCode({ otpauthUrl }: { otpauthUrl: string }) {
   return (
     <div className="mfa-qr">
       {dataUrl ? (
-        <img className="mfa-qr__img" src={dataUrl} width={180} height={180} alt="کد QR برای فعال‌سازی MFA" />
+        <Image
+          className="mfa-qr__img"
+          src={dataUrl}
+          width={180}
+          height={180}
+          unoptimized
+          alt="کد QR برای فعال‌سازی MFA"
+        />
       ) : failed ? (
         <p className="liveHint">ساخت QR ممکن نشد — از لینک یا secret دستی استفاده کنید.</p>
       ) : (

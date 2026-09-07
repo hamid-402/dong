@@ -135,7 +135,7 @@ export function OrgFinanceView() {
           {flags?.fxRates ? (
             <FxRatesPanel
               canWrite
-              conversionLive={chrome.capabilities?.conversionLive === true}
+              conversionLive={Boolean(chrome.capabilities?.conversionLive)}
               readOnly={readOnly}
               onError={setError}
             />
