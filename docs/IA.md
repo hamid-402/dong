@@ -45,6 +45,8 @@
 |-----|-----|
 | فضای کاری (خانه) | `/w/[slug]/space` |
 | مالی / خرج‌ها | `/w/[slug]/expenses` (تسویه `/settlements` · صورتحساب `/invoices` · تکرار `/recurring`) |
+| مالی سازمان (Wave F) | `/w/[slug]/org-finance` — فقط وقتی flagهای مربوط در capabilities روشن باشد |
+| add-on / تأیید | `/addons` · `/approvals` — فقط با `addonAck` / `approvalQueue` |
 | دفتر روزانه | از تب‌ها / More همان slug |
 | دعوت | مسیر invite موجود + scope workspace |
 | پروفایل / تنظیمات | Shell More / settings |

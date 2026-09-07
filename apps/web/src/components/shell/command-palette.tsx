@@ -56,9 +56,7 @@ export function CommandPalette() {
     for (const tab of bottomTabsV2(template, slug)) {
       push({ id: `tab-${tab.key}`, label: tab.label, href: tab.href, group: "میانبر" });
     }
-    for (const section of spaceNav(template, slug, {
-      approvalQueue: chrome.capabilities?.productFlags?.approvalQueue,
-    })) {
+    for (const section of spaceNav(template, slug, chrome.capabilities?.productFlags)) {
       for (const item of section.items) {
         push({
           id: `nav-${item.key}`,
@@ -87,7 +85,7 @@ export function CommandPalette() {
     return list;
   }, [
     chrome.workspaces,
-    chrome.capabilities?.productFlags?.approvalQueue,
+    chrome.capabilities?.productFlags,
     slug,
     template,
   ]);

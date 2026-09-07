@@ -28,6 +28,7 @@ export const NAV_LABELS = {
   metrics: "متریک محصول",
   addExpense: "ثبت خرج",
   approvals: "مرکز تأیید",
+  orgFinance: "مالی سازمان",
   sectionFinance: "مالی",
   sectionBuy: "خرید",
   sectionSpace: "مدیریت فضا",

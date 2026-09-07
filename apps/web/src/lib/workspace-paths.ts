@@ -9,6 +9,7 @@ export type WorkspacePage =
   | "recurring"
   | "addons"
   | "approvals"
+  | "orgFinance"
   | "ledger"
   | "members"
   | "procurement"
@@ -28,6 +29,7 @@ const PAGE_SEGMENTS: Record<WorkspacePage, string> = {
   recurring: "/recurring",
   addons: "/addons",
   approvals: "/approvals",
+  orgFinance: "/org-finance",
   ledger: "/ledger",
   members: "/members",
   procurement: "/procurement",

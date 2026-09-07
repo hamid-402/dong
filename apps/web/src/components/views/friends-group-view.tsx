@@ -13,7 +13,7 @@ import type {
   WorkspaceBalancesResponse,
   WorkspaceSummary,
 } from "@dang/contracts";
-import { isFinanceManagerRole, suggestMinimalSettlements } from "@dang/contracts";
+import { isFinanceManagerRole } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -146,11 +146,6 @@ export function FriendsGroupView() {
       company: expenses.filter((e) => e.visibility === "company").length,
     }),
     [expenses],
-  );
-
-  const settlementSuggestions = useMemo(
-    () => (balances ? suggestMinimalSettlements(balances.lines) : []),
-    [balances],
   );
 
   function onCreateGroup() {
@@ -405,12 +400,12 @@ export function FriendsGroupView() {
                 })}
               </DataList>
             )}
-            {settlementSuggestions.length > 0 && chrome.workspaceId ? (
+            {chrome.workspaceId &&
+            chrome.capabilities?.productFlags?.debtSimplifyApi ? (
               <DebtSimplifyPanel
                 workspaceId={chrome.workspaceId}
                 memberLabel={memberLabel}
-                fallbackSuggestions={settlementSuggestions}
-                enabled={Boolean(chrome.capabilities?.productFlags?.debtSimplifyApi)}
+                enabled
                 onError={setError}
                 onSuccess={flashSuccess}
                 onApplied={() => {

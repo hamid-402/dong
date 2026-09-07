@@ -3,7 +3,6 @@
 import { useEffect, useState, useTransition } from "react";
 import type {
   DebtSimplifySuggestionsResponse,
-  SettlementSuggestion,
 } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
 import { DataList, DataRow } from "@/components/ui-blocks";
@@ -14,19 +13,16 @@ import { newClientId } from "@/lib/id";
 type Props = {
   workspaceId: string;
   memberLabel: (userId: string) => string;
-  /** Client-side fallback when API flag is off (preserves current UX). */
-  fallbackSuggestions: SettlementSuggestion[];
   enabled: boolean;
   onError: (message: string) => void;
   onSuccess: (message: string) => void;
   onApplied?: () => void;
 };
 
-/** First-class simplify UI — apply uses API only when productFlags.debtSimplifyApi. */
+/** First-class simplify UI — only rendered when productFlags.debtSimplifyApi is on. */
 export function DebtSimplifyPanel({
   workspaceId,
   memberLabel,
-  fallbackSuggestions,
   enabled,
   onError,
   onSuccess,
@@ -50,12 +46,17 @@ export function DebtSimplifyPanel({
       );
   }, [enabled, workspaceId, onError]);
 
-  const suggestions = enabled
-    ? (payload?.suggestions ?? [])
-    : fallbackSuggestions;
+  // When API flag is off, do not show a dead suggestion list without Apply.
+  if (!enabled) {
+    return null;
+  }
+
+  const suggestions = payload?.suggestions ?? [];
+  if (suggestions.length === 0) {
+    return null;
+  }
 
   function onApplyAll() {
-    if (!enabled) return;
     startTransition(() => {
       void (async () => {
         try {
@@ -75,15 +76,11 @@ export function DebtSimplifyPanel({
     });
   }
 
-  if (suggestions.length === 0) {
-    return null;
-  }
-
   return (
     <>
       <p className="liveHint">
         پیشنهاد تسویه حداقلی — عضو بدهکار به طلبکار
-        {enabled && payload
+        {payload
           ? payload.goldenRulesOk
             ? " · قوانین طلایی تأیید شد"
             : " · هشدار: قوانین طلایی برقرار نیست"
@@ -98,13 +95,11 @@ export function DebtSimplifyPanel({
           />
         ))}
       </DataList>
-      {enabled ? (
-        <div className="dataRowActions">
-          <Button type="button" onClick={onApplyAll} disabled={pending}>
-            ثبت همه به‌عنوان ادعای تسویه
-          </Button>
-        </div>
-      ) : null}
+      <div className="dataRowActions">
+        <Button type="button" onClick={onApplyAll} disabled={pending}>
+          ثبت همه به‌عنوان ادعای تسویه
+        </Button>
+      </div>
     </>
   );
 }

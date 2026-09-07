@@ -1,4 +1,4 @@
-import type { WorkspaceTemplate } from "@dang/contracts";
+import type { ProductFeatureFlags, WorkspaceTemplate } from "@dang/contracts";
 import { spaceKindForTemplate } from "@dang/contracts";
 import { hubPathFor } from "@/lib/hub-links";
 import { NAV_LABELS, spaceTabLabel } from "@/lib/nav-labels";
@@ -28,8 +28,38 @@ export type BottomTabV2 = {
   icon: ShellIcon;
 };
 
+/** Product-flag gates for More / palette — hide when off (no dead tiles). */
+export type SpaceNavFlags = Partial<
+  Pick<
+    ProductFeatureFlags,
+    | "addonAck"
+    | "approvalQueue"
+    | "costCenter"
+    | "allowance"
+    | "reimbursement"
+    | "categoryBudget"
+    | "expenseImport"
+    | "expensePolicy"
+    | "workspacePlans"
+    | "planAdmin"
+  >
+>;
+
 function scoped(slug: string | null, page: WorkspacePage, hubFallback: string): string {
   return slug ? wPath(slug, page) : hubFallback;
+}
+
+function orgFinanceLive(flags?: SpaceNavFlags): boolean {
+  return Boolean(
+    flags?.costCenter ||
+      flags?.allowance ||
+      flags?.reimbursement ||
+      flags?.categoryBudget ||
+      flags?.expenseImport ||
+      flags?.expensePolicy ||
+      flags?.workspacePlans ||
+      flags?.planAdmin,
+  );
 }
 
 /** Account-level destinations — no tab duplicates (حساب/فضا) and no spaces list
@@ -58,14 +88,16 @@ export const ACCOUNT_NAV = accountNav();
  * Sidebar sections for the active workspace, filtered by template modules.
  * Prefers `/w/[slug]/…` when slug is known; otherwise hub fallbacks.
  * Does not repeat tab destinations (خانه / فضا / حساب).
+ * Flagged items are omitted when the product flag is off (honest discoverability).
  */
 export function spaceNav(
   template: WorkspaceTemplate | undefined,
   slug: string | null = null,
-  flags?: { approvalQueue?: boolean },
+  flags?: SpaceNavFlags,
 ): NavSectionV2[] {
   const modules = modulesForTemplate(template);
   const has = (mod: string) => modules.has(mod);
+  const kind = spaceKindForTemplate(template);
 
   const financeItems: NavItemV2[] = (
     [
@@ -91,20 +123,35 @@ export function spaceNav(
         icon: "receipt" as const,
         module: "expenses",
       },
-      {
-        key: "addons",
-        label: NAV_LABELS.addons,
-        href: scoped(slug, "addons", hubPathFor("/group")),
-        icon: "wallet" as const,
-        module: "expenses",
-      },
+      ...(flags?.addonAck
+        ? [
+            {
+              key: "addons",
+              label: NAV_LABELS.addons,
+              href: scoped(slug, "addons", hubPathFor("/group")),
+              icon: "wallet" as const,
+              module: "expenses",
+            },
+          ]
+        : []),
       ...(flags?.approvalQueue
         ? [
             {
               key: "approvals",
-              label: "مرکز تأیید",
+              label: NAV_LABELS.approvals,
               href: scoped(slug, "approvals", hubPathFor("/workspaces")),
               icon: "receipt" as const,
+              module: "expenses",
+            },
+          ]
+        : []),
+      ...(kind === "org" && orgFinanceLive(flags)
+        ? [
+            {
+              key: "org-finance",
+              label: NAV_LABELS.orgFinance,
+              href: scoped(slug, "orgFinance", hubPathFor("/orgs")),
+              icon: "wallet" as const,
               module: "expenses",
             },
           ]

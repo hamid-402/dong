@@ -66,7 +66,47 @@ describe("navigation-v2", () => {
   it("does not repeat tab destination «خرج‌ها» in spaceNav", () => {
     const finance = spaceNav("friends_family", "g1").find((s) => s.key === "finance");
     expect(finance?.items.some((i) => i.key === "expenses")).toBe(false);
-    expect(finance?.items.map((i) => i.key)).toEqual(["settlements", "ledger"]);
+    expect(finance?.items.map((i) => i.key)).toEqual([
+      "settlements",
+      "invoices",
+      "recurring",
+      "ledger",
+    ]);
+  });
+
+  it("hides flag-gated finance tiles when product flags are off", () => {
+    const finance = spaceNav("small_team", "org").find((s) => s.key === "finance");
+    expect(finance?.items.some((i) => i.key === "addons")).toBe(false);
+    expect(finance?.items.some((i) => i.key === "approvals")).toBe(false);
+    expect(finance?.items.some((i) => i.key === "org-finance")).toBe(false);
+  });
+
+  it("shows addon, approval, and org-finance when flags are on", () => {
+    const finance = spaceNav("small_team", "org", {
+      addonAck: true,
+      approvalQueue: true,
+      costCenter: true,
+    }).find((s) => s.key === "finance");
+    expect(finance?.items.map((i) => i.key)).toEqual([
+      "settlements",
+      "invoices",
+      "recurring",
+      "addons",
+      "approvals",
+      "org-finance",
+      "ledger",
+    ]);
+    expect(finance?.items.find((i) => i.key === "org-finance")?.href).toBe(
+      "/w/org/org-finance",
+    );
+  });
+
+  it("does not show org-finance for friends template even with Wave F flags", () => {
+    const finance = spaceNav("friends_family", "g1", {
+      costCenter: true,
+      allowance: true,
+    }).find((s) => s.key === "finance");
+    expect(finance?.items.some((i) => i.key === "org-finance")).toBe(false);
   });
 
   it("builds more path for workspace tools launcher", () => {

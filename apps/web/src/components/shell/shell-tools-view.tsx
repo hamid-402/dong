@@ -63,9 +63,7 @@ export function ShellToolsView() {
   const pathname = usePathname();
   const active = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const slug = slugFromPathname(pathname) ?? active?.slug ?? null;
-  const sections = spaceNav(active?.template, slug, {
-    approvalQueue: chrome.capabilities?.productFlags?.approvalQueue,
-  });
+  const sections = spaceNav(active?.template, slug, chrome.capabilities?.productFlags);
   const accountItems = accountNav();
 
   return (
