@@ -13,10 +13,15 @@ import {
   type AuthClientMode,
 } from "./api/client";
 import { assetsApi } from "./api/assets";
+import { allowancesApi } from "./api/allowances";
+import { approvalQueueApi } from "./api/approval-queue";
+import { addonChargesApi } from "./api/addon-charges";
 import { attachmentsApi } from "./api/attachments";
 import { billingApi } from "./api/billing";
+import { costCentersApi } from "./api/cost-centers";
 import { dailyLedgerApi } from "./api/daily-ledger";
 import { expensesApi } from "./api/expenses";
+import { waveFApi } from "./api/wave-f";
 import { partnershipApi } from "./api/partnership";
 import { personalFinanceApi } from "./api/personal-finance";
 import { procurementApi } from "./api/procurement";
@@ -49,17 +54,22 @@ export type { SystemCapabilities, HealthReadyResponse } from "./api/system";
  */
 export const api = {
   ...authApi,
+  ...allowancesApi,
+  ...approvalQueueApi,
   ...expensesApi,
+  ...waveFApi,
   ...personalFinanceApi,
   ...workspacesApi,
   ...settlementsApi,
   ...dailyLedgerApi,
   ...billingApi,
+  ...costCentersApi,
   ...reportsApi,
   ...attachmentsApi,
   ...proposalsApi,
   ...procurementApi,
   ...assetsApi,
   ...partnershipApi,
+  ...addonChargesApi,
   ...systemApi,
 };

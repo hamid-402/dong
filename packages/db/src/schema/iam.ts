@@ -29,6 +29,7 @@ export const membershipRole = iam.enum("membership_role", [
   "asset_custodian",
   "member",
   "auditor",
+  "guest",
 ]);
 
 export const userAccount = iam.table(
@@ -189,6 +190,24 @@ export const membership = iam.table(
     index("membership_user_id_idx").on(table.userId),
   ],
 );
+
+export const userNotificationPref = iam.table("user_notification_pref", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => userAccount.id, { onDelete: "cascade" }),
+  emailDigest: text("email_digest").default("off").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const workspacePlan = iam.table("workspace_plan", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspace.id, { onDelete: "cascade" }),
+  plan: text("plan").default("free").notNull(),
+  seatsLimit: integer("seats_limit"),
+  featuresJson: text("features_json"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
 /** At most one canonical personal workspace per user (idempotent ensure). */
 export const personalWorkspace = iam.table(

@@ -11,13 +11,12 @@ import type {
   ExpensePeriodSummary,
   GeneratePeriodInvoicesRequest,
   MemberInvoiceSummary,
-  MembershipRole,
 } from "@dang/contracts";
-import { isFinanceManagerRole, isReadOnlyRole } from "@dang/contracts";
+import { isFinanceManagerRole } from "@dang/contracts";
 import { MfaService } from "../auth/mfa.service.js";
 import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
 import { IdempotencyService } from "../common/idempotency.service.js";
-import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
 import { BILLING_STORE, type BillingStore } from "./billing.types.js";
 
@@ -25,7 +24,7 @@ import { BILLING_STORE, type BillingStore } from "./billing.types.js";
 export class BillingService {
   constructor(
     @Inject(BILLING_STORE) private readonly billing: BillingStore,
-    @Inject(IAM_STORE) private readonly iam: IamStore,
+    @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
     @Inject(AUDIT_STORE) private readonly audit: AuditStore,
     @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
     @Inject(MfaService) private readonly mfa: MfaService,
@@ -37,7 +36,7 @@ export class BillingService {
     workspaceId: string,
     body: CreateExpensePeriodRequest,
   ): Promise<ExpensePeriodSummary> {
-    await this.requireFinanceManager(workspaceId, actor.userId);
+    await this.access.requireFinanceManager(workspaceId, actor.userId);
     this.assertPeriodInput(body);
     try {
       return await this.idempotency.run(
@@ -70,7 +69,7 @@ export class BillingService {
     actor: AuthActor,
     workspaceId: string,
   ): Promise<ExpensePeriodSummary[]> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.access.requireMember(workspaceId, actor.userId);
     return this.billing.listPeriods(workspaceId, actor.userId);
   }
 
@@ -80,15 +79,8 @@ export class BillingService {
     periodId: string,
     body: GeneratePeriodInvoicesRequest,
   ): Promise<MemberInvoiceSummary[]> {
-    const role = await this.requireMemberRole(workspaceId, actor.userId);
-    if (isReadOnlyRole(role)) {
-      throw new ForbiddenException({
-        type: "https://dang.local/problems/forbidden",
-        title: "نقش ناظر فقط خواندنی است",
-        status: 403,
-        detail: "Auditor cannot generate invoices",
-      });
-    }
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    this.access.assertNotReadOnly(role);
     if (!isFinanceManagerRole(role)) {
       throw new ForbiddenException({
         type: "https://dang.local/problems/forbidden",
@@ -127,7 +119,7 @@ export class BillingService {
     workspaceId: string,
     periodId: string,
   ): Promise<MemberInvoiceSummary[]> {
-    const role = await this.requireMemberRole(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
     const invoices = await this.billing.listInvoices(
       workspaceId,
       periodId,
@@ -142,7 +134,7 @@ export class BillingService {
     workspaceId: string,
     invoiceId: string,
   ): Promise<MemberInvoiceSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.access.requireMember(workspaceId, actor.userId);
     try {
       return await this.billing.approveInvoice(workspaceId, invoiceId, actor.userId);
     } catch (error: unknown) {
@@ -156,7 +148,7 @@ export class BillingService {
     invoiceId: string,
     note?: string,
   ): Promise<MemberInvoiceSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.access.requireMember(workspaceId, actor.userId);
     try {
       return await this.billing.disputeInvoice(
         workspaceId,
@@ -174,7 +166,7 @@ export class BillingService {
     workspaceId: string,
     invoiceId: string,
   ): Promise<MemberInvoiceSummary> {
-    await this.requireFinanceManager(workspaceId, actor.userId);
+    await this.access.requireFinanceManager(workspaceId, actor.userId);
     try {
       const invoice = await this.billing.issueInvoice(workspaceId, invoiceId, actor.userId);
       await this.audit.append({
@@ -204,7 +196,7 @@ export class BillingService {
     workspaceId: string,
     invoiceId: string,
   ): Promise<MemberInvoiceSummary> {
-    await this.requireFinanceManager(workspaceId, actor.userId);
+    await this.access.requireFinanceManager(workspaceId, actor.userId);
     try {
       const invoice = await this.billing.markInvoicePaid(
         workspaceId,
@@ -231,7 +223,7 @@ export class BillingService {
     periodId: string,
     body: { requireAllPaid?: boolean } = {},
   ): Promise<ExpensePeriodSummary> {
-    await this.requireFinanceManager(workspaceId, actor.userId);
+    await this.access.requireFinanceManager(workspaceId, actor.userId);
     try {
       const period = await this.billing.closePeriod(
         workspaceId,
@@ -258,7 +250,7 @@ export class BillingService {
     workspaceId: string,
     periodId: string,
   ): Promise<ExpensePeriodSummary> {
-    await this.requireFinanceManager(workspaceId, actor.userId);
+    await this.access.requireFinanceManager(workspaceId, actor.userId);
     try {
       const period = await this.billing.cancelPeriod(
         workspaceId,
@@ -308,41 +300,6 @@ export class BillingService {
         status: 400,
       });
     }
-  }
-
-  private async requireMemberRole(
-    workspaceId: string,
-    userId: string,
-  ): Promise<MembershipRole> {
-    const members = (await this.iam.listMembers(workspaceId, userId)) ?? [];
-    const me = members.find((m) => m.userId === userId);
-    if (!me) {
-      throw new ForbiddenException({
-        type: "https://dang.local/problems/forbidden",
-        title: "عضویت فضای کاری لازم است",
-        status: 403,
-      });
-    }
-    return me.role;
-  }
-
-  private async requireMember(workspaceId: string, userId: string): Promise<void> {
-    await this.requireMemberRole(workspaceId, userId);
-  }
-
-  private async requireFinanceManager(
-    workspaceId: string,
-    userId: string,
-  ): Promise<MembershipRole> {
-    const role = await this.requireMemberRole(workspaceId, userId);
-    if (!isFinanceManagerRole(role)) {
-      throw new ForbiddenException({
-        type: "https://dang.local/problems/forbidden",
-        title: "فقط مدیر مالی / مادرخرج می‌تواند این کار را انجام دهد",
-        status: 403,
-      });
-    }
-    return role;
   }
 
   private rethrow(error: unknown): never {

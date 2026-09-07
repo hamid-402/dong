@@ -7,9 +7,8 @@ score — every number comes from a real Lighthouse run against a reachable URL.
 
 - **Bundle size budget** — `pnpm bundle:check` (`scripts/check-bundle-budget.mjs`) measures
   built `.next/static` client assets against warn/fail thresholds.
-- **View line budget** — `pnpm views:line-budget` (`scripts/view-line-budget.mjs`) warns at
-  >800 and fails at >1600 lines per `apps/web/src/components/views/*.tsx` file, keeping large
-  views (finance, daily-ledger) from silently regrowing.
+- **Component line budget** — `pnpm views:line-budget` (`scripts/view-line-budget.mjs`)
+  scopes **`apps/web/src/components/**`** (Law 5): warn >800 / fail >1600 lines per `.tsx` file.
 
 ## Running Lighthouse manually
 

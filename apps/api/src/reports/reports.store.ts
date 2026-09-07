@@ -20,6 +20,7 @@ import type {
   ReportExportSummary,
   ReportGroupBy,
   WorkspaceReportResponse,
+  ReviseRecurringRuleRequest,
 } from "@dang/contracts";
 import { createLogger } from "@dang/observability";
 import { createPersistenceStore } from "../common/postgres-store.factory.js";
@@ -64,6 +65,12 @@ export type ReportsStore = {
     actorUserId: string,
     input: CreateRecurringRuleRequest,
   ): Promise<RecurringRuleSummary>;
+  reviseRecurring(
+    workspaceId: string,
+    actorUserId: string,
+    ruleId: string,
+    input: ReviseRecurringRuleRequest,
+  ): Promise<RecurringRuleSummary>;
   runRecurringDue(
     workspaceId: string,
     actorUserId: string,
@@ -75,6 +82,8 @@ export type ReportsStore = {
       amount: { amountMinor: string; currency: "IRR" };
       visibility: "shared" | "private" | "company";
       categoryId?: string;
+      autoConfirm: boolean;
+      createdByUserId: string;
     }>;
   }>;
 };
@@ -226,14 +235,40 @@ export class MemoryReportsStore implements ReportsStore {
       splitMethod: "equal",
       categoryId: input.categoryId,
       active: true,
+      autoConfirm: input.autoConfirm ?? false,
       createdByUserId: actorUserId,
       createdAt: new Date().toISOString(),
+      version: 1,
       idempotencyKey: input.idempotencyKey.trim(),
     };
     list.push(row);
     this.recurring.set(workspaceId, list);
     const { idempotencyKey: _, ...rest } = row;
     return rest;
+  }
+
+  async reviseRecurring(workspaceId: string, actorUserId: string, ruleId: string, input: ReviseRecurringRuleRequest) {
+    const list = this.recurring.get(workspaceId) ?? [];
+    const current = list.find((row) => row.id === ruleId);
+    if (!current) throw new Error("RECURRING_RULE_NOT_FOUND");
+    current.active = false;
+    const revised: MemRec = {
+      ...current,
+      id: crypto.randomUUID(),
+      title: input.title ?? current.title,
+      amount: input.amountMinor ? { amountMinor: input.amountMinor, currency: "IRR" } : current.amount,
+      cadence: input.cadence ?? current.cadence,
+      nextRunOn: input.nextRunOn ?? current.nextRunOn,
+      active: true,
+      version: current.version + 1,
+      effectiveFrom: input.effectiveFrom,
+      supersedesRuleId: current.id,
+      createdByUserId: actorUserId,
+      createdAt: new Date().toISOString(),
+      idempotencyKey: input.idempotencyKey,
+    };
+    list.push(revised);
+    return revised;
   }
 
   async runRecurringDue(
@@ -247,6 +282,8 @@ export class MemoryReportsStore implements ReportsStore {
       amount: { amountMinor: string; currency: "IRR" };
       visibility: "shared" | "private" | "company";
       categoryId?: string;
+      autoConfirm: boolean;
+      createdByUserId: string;
     }>;
   }> {
     const list = this.recurring.get(workspaceId) ?? [];
@@ -256,6 +293,8 @@ export class MemoryReportsStore implements ReportsStore {
       amount: { amountMinor: string; currency: "IRR" };
       visibility: "shared" | "private" | "company";
       categoryId?: string;
+      autoConfirm: boolean;
+      createdByUserId: string;
     }> = [];
     for (const rule of list) {
       if (!rule.active || rule.nextRunOn > today) continue;
@@ -265,6 +304,8 @@ export class MemoryReportsStore implements ReportsStore {
         amount: { amountMinor: rule.amount.amountMinor, currency: "IRR" },
         visibility: rule.visibility,
         categoryId: rule.categoryId,
+        autoConfirm: rule.autoConfirm,
+        createdByUserId: rule.createdByUserId,
       });
       rule.nextRunOn = advanceDate(rule.nextRunOn, rule.cadence);
     }
@@ -478,8 +519,12 @@ export class PostgresReportsStore implements ReportsStore {
         splitMethod: "equal" as const,
         categoryId: r.categoryId ?? undefined,
         active: r.active,
+        autoConfirm: r.autoConfirm,
         createdByUserId: r.createdByUserId,
         createdAt: r.createdAt.toISOString(),
+        version: r.version,
+        effectiveFrom: r.effectiveFrom ? formatDate(r.effectiveFrom) : undefined,
+        supersedesRuleId: r.supersedesRuleId ?? undefined,
       }));
     });
   }
@@ -513,8 +558,12 @@ export class PostgresReportsStore implements ReportsStore {
           splitMethod: "equal" as const,
           categoryId: r.categoryId ?? undefined,
           active: r.active,
+          autoConfirm: r.autoConfirm,
           createdByUserId: r.createdByUserId,
           createdAt: r.createdAt.toISOString(),
+          version: r.version,
+          effectiveFrom: r.effectiveFrom ? formatDate(r.effectiveFrom) : undefined,
+          supersedesRuleId: r.supersedesRuleId ?? undefined,
         };
       }
       const inserted = await tx
@@ -527,6 +576,7 @@ export class PostgresReportsStore implements ReportsStore {
           nextRunOn: input.nextRunOn,
           visibility: input.visibility ?? "private",
           categoryId: input.categoryId ?? null,
+          autoConfirm: input.autoConfirm ?? false,
           createdByUserId: actorUserId,
           idempotencyKey: input.idempotencyKey.trim(),
         })
@@ -543,8 +593,49 @@ export class PostgresReportsStore implements ReportsStore {
         splitMethod: "equal" as const,
         categoryId: r.categoryId ?? undefined,
         active: r.active,
+        autoConfirm: r.autoConfirm,
         createdByUserId: r.createdByUserId,
         createdAt: r.createdAt.toISOString(),
+        version: r.version,
+        effectiveFrom: r.effectiveFrom ? formatDate(r.effectiveFrom) : undefined,
+        supersedesRuleId: r.supersedesRuleId ?? undefined,
+      };
+    });
+  }
+
+  async reviseRecurring(workspaceId: string, actorUserId: string, ruleId: string, input: ReviseRecurringRuleRequest) {
+    return withTenantContext(this.db, { workspaceId, userId: actorUserId }, async (tx) => {
+      const rows = await tx.select().from(recurringRule).where(and(eq(recurringRule.workspaceId, workspaceId), eq(recurringRule.id, ruleId))).limit(1);
+      const current = rows[0];
+      if (!current) throw new Error("RECURRING_RULE_NOT_FOUND");
+      await tx.update(recurringRule).set({ active: false }).where(eq(recurringRule.id, current.id));
+      const inserted = await tx.insert(recurringRule).values({
+        workspaceId,
+        title: input.title ?? current.title,
+        amountMinor: input.amountMinor ? BigInt(input.amountMinor) : current.amountMinor,
+        currency: current.currency,
+        cadence: input.cadence ?? current.cadence,
+        nextRunOn: input.nextRunOn ?? formatDate(current.nextRunOn),
+        visibility: current.visibility,
+        splitMethod: current.splitMethod,
+        categoryId: current.categoryId,
+        active: true,
+        autoConfirm: current.autoConfirm,
+        version: current.version + 1,
+        effectiveFrom: input.effectiveFrom,
+        supersedesRuleId: current.id,
+        createdByUserId: actorUserId,
+        idempotencyKey: input.idempotencyKey,
+      }).returning();
+      const r = inserted[0]!;
+      return {
+        id:r.id,workspaceId:r.workspaceId,title:r.title,
+        amount:{amountMinor:r.amountMinor.toString(),currency:"IRR" as const},
+        cadence:r.cadence as RecurringRuleSummary["cadence"],nextRunOn:formatDate(r.nextRunOn),
+        visibility:r.visibility,splitMethod:"equal" as const,categoryId:r.categoryId??undefined,
+        active:r.active,autoConfirm:r.autoConfirm,createdByUserId:r.createdByUserId,
+        createdAt:r.createdAt.toISOString(),version:r.version,effectiveFrom:formatDate(r.effectiveFrom!),
+        supersedesRuleId:r.supersedesRuleId??undefined,
       };
     });
   }
@@ -560,6 +651,8 @@ export class PostgresReportsStore implements ReportsStore {
       amount: { amountMinor: string; currency: "IRR" };
       visibility: "shared" | "private" | "company";
       categoryId?: string;
+      autoConfirm: boolean;
+      createdByUserId: string;
     }>;
   }> {
     return withTenantContext(this.db, { workspaceId, userId: actorUserId }, async (tx) => {
@@ -573,6 +666,8 @@ export class PostgresReportsStore implements ReportsStore {
         amount: { amountMinor: string; currency: "IRR" };
         visibility: "shared" | "private" | "company";
         categoryId?: string;
+        autoConfirm: boolean;
+        createdByUserId: string;
       }> = [];
       for (const rule of rows) {
         const next = formatDate(rule.nextRunOn);
@@ -583,6 +678,8 @@ export class PostgresReportsStore implements ReportsStore {
           amount: { amountMinor: rule.amountMinor.toString(), currency: "IRR" },
           visibility: rule.visibility,
           categoryId: rule.categoryId ?? undefined,
+          autoConfirm: rule.autoConfirm,
+          createdByUserId: rule.createdByUserId,
         });
         const advanced = advanceDate(next, rule.cadence as RecurringRuleSummary["cadence"]);
         await tx

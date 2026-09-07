@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShellIconSvg } from "@/components/app-shell";
+import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { WorkspaceSwitcher } from "@/components/mosaic/workspace-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { HeaderProfileButton } from "@/components/header-profile-button";
@@ -17,12 +17,8 @@ import { CommandPalette } from "@/components/shell/command-palette";
 import { bottomTabsV2, expenseFabHref } from "@/lib/navigation-v2";
 import { breadcrumbForPathname } from "@/lib/shell-breadcrumb";
 import { NAV_LABELS } from "@/lib/nav-labels";
+import { slugFromPathname } from "@/lib/workspace-storage";
 import { useViewportMode } from "@/lib/use-viewport";
-
-function slugFromPathname(pathname: string): string | null {
-  const match = pathname.match(/^\/w\/([^/]+)/);
-  return match?.[1] ? decodeURIComponent(match[1]) : null;
-}
 
 function AppShellV2Inner({ children }: { children: ReactNode }) {
   const chrome = useAppChrome();

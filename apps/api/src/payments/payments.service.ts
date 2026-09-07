@@ -17,7 +17,7 @@ import {
 import { isZarinpalLive, loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
 import { BILLING_STORE, type BillingStore } from "../billing/billing.types.js";
-import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import {
   SETTLEMENT_STORE,
   type SettlementStore,
@@ -38,7 +38,7 @@ const ZARINPAL_SYSTEM_ACTOR = "00000000-0000-4000-8000-000000000021";
 export class PaymentsService {
   constructor(
     @Inject(PAYMENT_STORE) private readonly store: PaymentStore,
-    @Inject(IAM_STORE) private readonly iam: IamStore,
+    @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
     @Inject(SETTLEMENT_STORE) private readonly settlements: SettlementStore,
     @Inject(BILLING_STORE) private readonly billing: BillingStore,
   ) {}
@@ -48,7 +48,7 @@ export class PaymentsService {
     workspaceId: string,
     body: CreatePaymentLinkRequest,
   ): Promise<PaymentLinkSummary> {
-    const role = await this.requireMemberRole(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
     await this.assertCanCreatePaymentLink(actor.userId, workspaceId, role, body);
     assertNoCustodyPayload(body);
 
@@ -142,7 +142,7 @@ export class PaymentsService {
   }
 
   async listLinks(actor: AuthActor, workspaceId: string): Promise<PaymentLinkSummary[]> {
-    const role = await this.requireMemberRole(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
     const links = await this.store.list(workspaceId);
     if (isFinanceManagerRole(role)) return links;
 
@@ -278,21 +278,5 @@ export class PaymentsService {
         status: 403,
       });
     }
-  }
-
-  private async requireMemberRole(
-    workspaceId: string,
-    userId: string,
-  ): Promise<MembershipRole> {
-    const members = (await this.iam.listMembers(workspaceId, userId)) ?? [];
-    const me = members.find((m) => m.userId === userId);
-    if (!me) {
-      throw new ForbiddenException({
-        type: "https://dang.local/problems/forbidden",
-        title: "Not a workspace member",
-        status: 403,
-      });
-    }
-    return me.role;
   }
 }

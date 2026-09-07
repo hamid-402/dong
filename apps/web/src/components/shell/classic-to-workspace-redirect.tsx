@@ -7,8 +7,7 @@ import {
   absoluteForPage,
   classicPathToWorkspacePage,
 } from "@/lib/workspace-paths";
-
-const WORKSPACE_KEY = "dang.activeWorkspaceId";
+import { readStoredWorkspaceId } from "@/lib/workspace-storage";
 
 function RedirectInner({
   page,
@@ -48,7 +47,7 @@ function RedirectInner({
         const list = await api.listWorkspaces();
         let stored = "";
         try {
-          stored = localStorage.getItem(WORKSPACE_KEY) ?? "";
+          stored = readStoredWorkspaceId();
         } catch {
           /* ignore */
         }

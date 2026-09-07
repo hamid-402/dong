@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import type {
   BudgetSummary,
   ExpenseSummary,
   MembershipSummary,
   WorkspaceSummary,
 } from "@dang/contracts";
-import { spaceKindForTemplate } from "@dang/contracts";
+import { isFinanceManagerRole, spaceKindForTemplate } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -23,19 +23,24 @@ import {
   StatusPill,
 } from "@/components/ui-blocks";
 import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
+import { CostCentersPanel } from "@/components/cost-centers-panel";
+import { AllowancesPanel } from "@/components/allowances-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
 import { expenseStatusLabel, expenseVisibilityLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
+import { WaveFFinancePanel } from "@/components/wave-f-finance-panel";
 
 const APPROVER_ROLES = new Set(["owner", "admin", "approver", "finance"]);
 
 /** Org / team home — budgets, company reimbursement, procurement links. Additive. */
 export function OrgSpaceView() {
   const chrome = useAppChrome();
+  const scope = useOptionalWorkspaceScope();
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
   const [loading, setLoading] = useState(true);
   const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
@@ -45,33 +50,30 @@ export function OrgSpaceView() {
   const [myRole, setMyRole] = useState<string>("");
   const [pending, startTransition] = useTransition();
 
-  const orgWorkspaces = useMemo(
-    () => chrome.workspaces.filter((w) => spaceKindForTemplate(w.template) === "org"),
-    [chrome.workspaces],
-  );
-
   async function refresh(workspaceId: string) {
+    const actorId = chrome.actor?.userId;
     const [memberList, expenseList, budgetList, me] = await Promise.all([
       api.listMembers(workspaceId),
       api.listExpenses(workspaceId),
       api.listBudgets(workspaceId),
-      api.me(),
+      actorId ? Promise.resolve(null) : api.me(),
     ]);
+    const userId = actorId ?? me!.actor.userId;
     setMembers(memberList);
     setExpenses(expenseList);
     setBudgets(budgetList);
-    const role = memberList.find((m) => m.userId === me.actor.userId)?.role ?? "";
+    const role = memberList.find((m) => m.userId === userId)?.role ?? "";
     setMyRole(role);
     setWorkspace(chrome.workspaces.find((w) => w.id === workspaceId) ?? null);
   }
 
   useEffect(() => {
     if (!chrome.ready) return;
-    const preferred =
-      orgWorkspaces.find((w) => w.id === chrome.workspaceId)?.id ??
-      orgWorkspaces[0]?.id ??
-      "";
-    if (!preferred) {
+    const scoped = scope?.workspaceId
+      ? chrome.workspaces.find((w) => w.id === scope.workspaceId) ?? null
+      : chrome.workspaces.find((w) => w.id === chrome.workspaceId) ?? null;
+    const isOrg = scoped && spaceKindForTemplate(scoped.template) === "org";
+    if (!isOrg || !scoped) {
       setWorkspace(null);
       setMembers([]);
       setExpenses([]);
@@ -79,13 +81,12 @@ export function OrgSpaceView() {
       setLoading(false);
       return;
     }
-    if (preferred !== chrome.workspaceId) chrome.selectWorkspace(preferred);
     setLoading(true);
-    void refresh(preferred)
+    void refresh(scoped.id)
       .then(() => setError(null))
       .catch((err: unknown) => setError(friendlyErrorMessage(err, "خطا")))
       .finally(() => setLoading(false));
-  }, [chrome.ready, chrome.workspaceId, orgWorkspaces.length]);
+  }, [chrome.ready, chrome.workspaceId, chrome.workspaces, scope?.workspaceId, chrome.actor?.userId]);
 
   function onPromote(expenseId: string) {
     if (!workspace) return;
@@ -272,6 +273,32 @@ export function OrgSpaceView() {
               ))}
             </DataList>
           </SectionCard>
+
+          {chrome.capabilities?.productFlags?.costCenter ? (
+            <CostCentersPanel workspaceId={workspace.id} />
+          ) : null}
+
+          {chrome.capabilities?.productFlags?.allowance &&
+          isFinanceManagerRole(myRole) ? (
+            <AllowancesPanel
+              workspaceId={workspace.id}
+              members={members}
+              onError={setError}
+              onSuccess={flashSuccess}
+            />
+          ) : null}
+
+          {chrome.capabilities?.productFlags &&
+          (chrome.capabilities.productFlags.reimbursement ||
+            chrome.capabilities.productFlags.categoryBudget ||
+            chrome.capabilities.productFlags.expenseImport) ? (
+            <WaveFFinancePanel
+              workspaceId={workspace.id}
+              flags={chrome.capabilities.productFlags}
+              onError={setError}
+              onChanged={() => void refresh(workspace.id)}
+            />
+          ) : null}
 
           <WorkspaceReportsPanel
             workspaceId={workspace.id}

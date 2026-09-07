@@ -76,6 +76,29 @@ test("finance manager (مادرخرج) can list others' private expenses when el
   );
 });
 
+test("finance_and_creator audience hides another member but allows finance manager", async () => {
+  const store = new MemoryExpenseStore();
+  const created = await store.createDraft("alice", {
+    workspaceId: "ws1",
+    title: "خرج محدود خانواده",
+    total: { amountMinor: "2500", currency: "IRR" },
+    paidByUserId: "alice",
+    splitMethod: "equal",
+    participantUserIds: ["alice", "bob"],
+    occurredOn: "2026-09-02",
+    visibility: "shared",
+    audience: "finance_and_creator",
+    idempotencyKey: "audience-1",
+  });
+
+  const forBob = await store.listForWorkspace("ws1", "bob");
+  const forFinance = await store.listForWorkspace("ws1", "finance-user", {
+    viewAllPrivate: true,
+  });
+  assert.equal(forBob.some((expense) => expense.id === created.id), false);
+  assert.equal(forFinance.some((expense) => expense.id === created.id), true);
+});
+
 test("submit of private expense rejects non-creator; post allows elevated finance", async () => {
   const store = new MemoryExpenseStore();
   const created = await store.createDraft("alice", {

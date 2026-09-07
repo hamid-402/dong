@@ -2,7 +2,7 @@
 
 import { newClientId } from "@/lib/id";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import type { ExpenseSummary, MembershipSummary, WorkspaceSummary } from "@dang/contracts";
 import { spaceKindForTemplate } from "@dang/contracts";
 import { Amount, Button, TextField } from "@dang/ui";
@@ -32,12 +32,14 @@ import { tomanInputToIrrMinor } from "@/lib/irr-money";
 import { expenseStatusLabel, spaceKindForTemplateLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 
 const initialSplit: SplitComposerValue = emptySplitComposer("private");
 
 /** Personal space home — additive; does not remove group/org flows. */
 export function PersonalSpaceView() {
   const chrome = useAppChrome();
+  const scope = useOptionalWorkspaceScope();
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
   const [loading, setLoading] = useState(true);
   const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
@@ -51,26 +53,23 @@ export function PersonalSpaceView() {
   const [split, setSplit] = useState<SplitComposerValue>(initialSplit);
   const [pending, startTransition] = useTransition();
 
-  const personalWorkspaces = useMemo(
-    () => chrome.workspaces.filter((w) => spaceKindForTemplate(w.template) === "personal"),
-    [chrome.workspaces],
-  );
-
   async function refresh(workspaceId: string) {
-    const [memberList, expenseList, me, cats] = await Promise.all([
+    const actorId = chrome.actor?.userId;
+    const [memberList, expenseList, cats, me] = await Promise.all([
       api.listMembers(workspaceId),
       api.listExpenses(workspaceId),
-      api.me(),
       api.listCategories(workspaceId).catch(() => []),
+      actorId ? Promise.resolve(null) : api.me(),
     ]);
+    const userId = actorId ?? me!.actor.userId;
     setMembers(memberList);
     setExpenses(expenseList.filter((e) => e.visibility === "private" || e.visibility === "shared"));
     setCategories(cats);
-    setCurrentUserId(me.actor.userId);
+    setCurrentUserId(userId);
     setSplit((prev) => ({
       ...prev,
       visibility: "private",
-      participantUserIds: [me.actor.userId],
+      participantUserIds: [userId],
     }));
     const current = chrome.workspaces.find((w) => w.id === workspaceId) ?? null;
     setWorkspace(current);
@@ -78,26 +77,24 @@ export function PersonalSpaceView() {
 
   useEffect(() => {
     if (!chrome.ready) return;
-    const preferred =
-      personalWorkspaces.find((w) => w.id === chrome.workspaceId)?.id ??
-      personalWorkspaces[0]?.id ??
-      "";
-    if (!preferred) {
+    // Honor URL slug from WorkspaceScope — do not snap chrome to another personal space.
+    const scoped = scope?.workspaceId
+      ? chrome.workspaces.find((w) => w.id === scope.workspaceId) ?? null
+      : chrome.workspaces.find((w) => w.id === chrome.workspaceId) ?? null;
+    const isPersonal = scoped && spaceKindForTemplate(scoped.template) === "personal";
+    if (!isPersonal || !scoped) {
       setWorkspace(null);
       setMembers([]);
       setExpenses([]);
       setLoading(false);
       return;
     }
-    if (preferred !== chrome.workspaceId) {
-      chrome.selectWorkspace(preferred);
-    }
     setLoading(true);
-    void refresh(preferred)
+    void refresh(scoped.id)
       .then(() => setError(null))
       .catch((err: unknown) => setError(friendlyErrorMessage(err, "خطا")))
       .finally(() => setLoading(false));
-  }, [chrome.ready, chrome.workspaceId, personalWorkspaces.length]);
+  }, [chrome.ready, chrome.workspaceId, chrome.workspaces, scope?.workspaceId, chrome.actor?.userId]);
 
   function onEnsurePersonal() {
     startTransition(() => {

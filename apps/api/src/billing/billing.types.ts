@@ -31,6 +31,10 @@ export type BillingStore = {
     periodId: string,
     actorUserId: string,
   ): Promise<MemberInvoiceSummary[]>;
+  listPendingApprovals(
+    workspaceId: string,
+    actorUserId: string,
+  ): Promise<MemberInvoiceSummary[]>;
   approveInvoice(
     workspaceId: string,
     invoiceId: string,

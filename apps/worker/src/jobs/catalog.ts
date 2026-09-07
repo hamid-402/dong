@@ -53,6 +53,18 @@ export const workerJobCatalog: WorkerJobDefinition[] = [
     phase: 2,
     requiresRedis: true,
   },
+  {
+    name: "recurrence.tick",
+    descriptionFa: "اجرای قوانین تکرارشونده سررسیدشده",
+    phase: 4,
+    requiresRedis: true,
+  },
+  {
+    name: "digest.weekly",
+    descriptionFa: "ارسال خلاصه هفتگی opt-in کاربران",
+    phase: 4,
+    requiresRedis: true,
+  },
 ];
 
 export type WorkerStatus = {

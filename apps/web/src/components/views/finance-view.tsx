@@ -10,10 +10,8 @@ import type {
   MembershipSummary,
   PaymentLinkSummary,
   PeriodKind,
-  SessionSummary,
   SettlementSummary,
   WorkspaceBalancesResponse,
-  WorkspaceSummary,
 } from "@dang/contracts";
 import { isFinanceManagerRole } from "@dang/contracts";
 import { Button, TextField, formatToman } from "@dang/ui";
@@ -30,7 +28,7 @@ import {
   ProductGrid,
   SectionCard,
 } from "@/components/ui-blocks";
-import { api, DEV_IDENTITY_DEFAULTS, getDevIdentity, setDevIdentity, type AuditEventDto, type SystemCapabilities } from "@/lib/api";
+import { DEV_IDENTITY_DEFAULTS, getDevIdentity, setDevIdentity, type AuditEventDto } from "@/lib/api";
 import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
 import { hubPathFor } from "@/lib/hub-links";
 import { friendlyErrorMessage } from "@/lib/api-errors";
@@ -38,6 +36,7 @@ import { wPath } from "@/lib/workspace-paths";
 import { zeroSumHint } from "@/lib/status-labels";
 import { templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { FlashMessages } from "@/lib/use-flash-message";
 import {
   listOfflineExpenseDrafts,
@@ -59,11 +58,14 @@ export function FinanceView({
   focusPanel,
 }: {
   /** Scroll to expense or settlement panel after data loads (used by /settlements and hash links). */
-  focusPanel?: "expense" | "settlement";
+  focusPanel?: "expense" | "settlement" | "invoice" | "reports";
 } = {}) {
   const chrome = useAppChrome();
-  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
-  const [selectedId, setSelectedId] = useState("");
+  const scope = useOptionalWorkspaceScope();
+  const selectedId = scope?.workspaceId || chrome.workspaceId;
+  const workspaces = chrome.workspaces;
+  const session = chrome.session;
+  const capabilities = chrome.capabilities;
   const [members, setMembers] = useState<MembershipSummary[]>([]);
   const [expenses, setExpenses] = useState<ExpenseSummary[]>([]);
   const [settlements, setSettlements] = useState<SettlementSummary[]>([]);
@@ -74,7 +76,6 @@ export function FinanceView({
   const [balances, setBalances] = useState<WorkspaceBalancesResponse | null>(null);
   const [ledgerEntries, setLedgerEntries] = useState<JournalEntrySummary[]>([]);
   const [auditEvents, setAuditEvents] = useState<AuditEventDto[]>([]);
-  const [session, setSession] = useState<SessionSummary | null>(null);
   const [devSubject, setDevSubject] = useState<string>(DEV_IDENTITY_DEFAULTS.subject);
   const [devDisplayName, setDevDisplayName] = useState<string>(DEV_IDENTITY_DEFAULTS.displayName);
   const [title, setTitle] = useState("");
@@ -98,7 +99,6 @@ export function FinanceView({
   const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
   /** Show optional post-settlement satisfaction prompt after a real confirm (dong-50 #40). */
   const [settlementNps, setSettlementNps] = useState(false);
-  const [capabilities, setCapabilities] = useState<SystemCapabilities | null>(null);
   const paymentsLive =
     capabilities?.providers?.payment === "zarinpal" ||
     (capabilities != null && capabilities.stubs.paymentProvider === false);
@@ -144,17 +144,9 @@ export function FinanceView({
       void (async () => {
         try {
           setDevIdentity(devSubject.trim() || "dev-local-user", devDisplayName.trim() || "کاربر محلی");
-          const [list, nextSession] = await Promise.all([api.listWorkspaces(), api.session()]);
-          setSession(nextSession);
-          setWorkspaces(list);
-          const nextId =
-            selectedId && list.some((item) => item.id === selectedId)
-              ? selectedId
-              : (list[0]?.id ?? "");
-          setSelectedId(nextId);
-          if (nextId) {
-            applyWorkspaceData(await loadWorkspaceData(nextId, selectedPeriodId));
-            setOfflineDrafts(listOfflineExpenseDrafts(nextId));
+          if (selectedId) {
+            applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+            setOfflineDrafts(listOfflineExpenseDrafts(selectedId));
           } else {
             setExpenses([]);
             setSettlements([]);
@@ -177,30 +169,18 @@ export function FinanceView({
   }
   useEffect(() => {
     let cancelled = false;
+    if (!chrome.ready || !selectedId) {
+      if (chrome.ready && !selectedId) setInitialLoading(false);
+      return;
+    }
     void (async () => {
       try {
         const identity = getDevIdentity();
         setDevSubject(identity.subject);
         setDevDisplayName(identity.displayName);
         setDevIdentity(identity.subject, identity.displayName);
-        const [list, nextSession] = await Promise.all([api.listWorkspaces(), api.session()]);
-        if (cancelled) return;
-        setSession(nextSession);
-        void api.capabilities().then((caps) => {
-          if (!cancelled) setCapabilities(caps);
-        });
-        setWorkspaces(list);
-        const preferred =
-          (chrome.workspaceId && list.some((item) => item.id === chrome.workspaceId)
-            ? chrome.workspaceId
-            : null) ??
-          list[0]?.id ??
-          "";
-        setSelectedId(preferred);
-        if (preferred) {
-          applyWorkspaceData(await loadWorkspaceData(preferred));
-          if (!cancelled) setOfflineDrafts(listOfflineExpenseDrafts(preferred));
-        }
+        applyWorkspaceData(await loadWorkspaceData(selectedId));
+        if (!cancelled) setOfflineDrafts(listOfflineExpenseDrafts(selectedId));
         setError(null);
       } catch (err: unknown) {
         if (!cancelled) {
@@ -213,7 +193,7 @@ export function FinanceView({
     return () => {
       cancelled = true;
     };
-  }, [chrome.workspaceId]);
+  }, [chrome.ready, selectedId]);
 
   useEffect(() => {
     if (initialLoading || !selectedId) return;
@@ -224,11 +204,19 @@ export function FinanceView({
       focusPanel === "expense" ||
       hash === "#expense-panel" ||
       hash === "#quick-expense";
+    const wantInvoice =
+      focusPanel === "invoice" || hash === "#period-invoice-panel";
+    const wantReports =
+      focusPanel === "reports" || hash === "#reports-panel";
     const id = wantSettlement
       ? "settlement-panel"
-      : wantExpense
-        ? "expense-panel"
-        : null;
+      : wantInvoice
+        ? "period-invoice-panel"
+        : wantReports
+          ? "reports-panel"
+          : wantExpense
+            ? "expense-panel"
+            : null;
     if (!id) return;
     const timer = window.setTimeout(() => {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -484,13 +472,15 @@ export function FinanceView({
 
           {selectedId ? (
             <ProductGrid>
-              <WorkspaceReportsPanel
-                workspaceId={selectedId}
-                defaultVisibility={supportsCompany ? "company" : "shared"}
-                onChanged={() => {
-                  void loadWorkspaceData(selectedId, selectedPeriodId).then(applyWorkspaceData);
-                }}
-              />
+              <div id="reports-panel">
+                <WorkspaceReportsPanel
+                  workspaceId={selectedId}
+                  defaultVisibility={supportsCompany ? "company" : "shared"}
+                  onChanged={() => {
+                    void loadWorkspaceData(selectedId, selectedPeriodId).then(applyWorkspaceData);
+                  }}
+                />
+              </div>
             </ProductGrid>
           ) : null}
         </>

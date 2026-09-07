@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { CSSProperties } from "react";
-import { ShellIconSvg, type ShellIcon } from "@/components/app-shell";
+import { ShellIconSvg, type ShellIcon } from "@/components/shell/shell-icons";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import {
   accountNav,
@@ -13,6 +13,7 @@ import {
 } from "@/lib/navigation-v2";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { TILE_GEM_PALETTES } from "@/lib/tile-gem-palettes";
+import { slugFromPathname } from "@/lib/workspace-storage";
 
 const GEM_BY_ICON: Partial<Record<ShellIcon, string>> = {
   wallet: "teal",
@@ -56,18 +57,15 @@ function ToolsTile({ item }: { item: NavItemV2 }) {
   );
 }
 
-function slugFromPathname(pathname: string): string | null {
-  const match = pathname.match(/^\/w\/([^/]+)/);
-  return match?.[1] ? decodeURIComponent(match[1]) : null;
-}
-
 /** Mosaic-style tool launcher — replaces the dense desktop sidebar list. */
 export function ShellToolsView() {
   const chrome = useAppChrome();
   const pathname = usePathname();
   const active = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const slug = slugFromPathname(pathname) ?? active?.slug ?? null;
-  const sections = spaceNav(active?.template, slug);
+  const sections = spaceNav(active?.template, slug, {
+    approvalQueue: chrome.capabilities?.productFlags?.approvalQueue,
+  });
   const accountItems = accountNav();
 
   return (

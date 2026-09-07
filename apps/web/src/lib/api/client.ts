@@ -16,6 +16,7 @@ import type {
   UpdateProfileRequest,
   UserProfile,
 } from "@dang/contracts";
+import { WEB_SESSION_COOKIE, WEB_SESSION_COOKIE_VALUE } from "@dang/contracts";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
 
@@ -36,7 +37,6 @@ export type AuditEventDto = {
 const DEV_SUBJECT_KEY = "dang.dev.subject";
 const DEV_NAME_KEY = "dang.dev.displayName";
 const AUTH_MODE_KEY = "dang.auth.mode";
-const WEB_SESSION_COOKIE = "dang_web_session";
 const WEB_SESSION_MAX_AGE_SEC = 14 * 24 * 60 * 60;
 
 export type AuthClientMode = "dev" | "password" | "oidc";
@@ -51,7 +51,7 @@ export function getAuthClientMode(): AuthClientMode {
 export function markClientSession(mode: AuthClientMode = "password") {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(AUTH_MODE_KEY, mode);
-  document.cookie = `${WEB_SESSION_COOKIE}=1; path=/; max-age=${WEB_SESSION_MAX_AGE_SEC}; SameSite=Lax`;
+  document.cookie = `${WEB_SESSION_COOKIE}=${WEB_SESSION_COOKIE_VALUE}; path=/; max-age=${WEB_SESSION_MAX_AGE_SEC}; SameSite=Lax`;
 }
 
 export function clearClientSession() {

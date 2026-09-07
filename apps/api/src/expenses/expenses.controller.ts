@@ -15,11 +15,13 @@ import type {
   ExpenseSplitLine,
   ExpenseSummary,
   PreviewExpenseSplitInput,
+  ExpenseCsvImportRequest,
 } from "@dang/contracts";
 import {
   allocateExpenseSplit,
   createExpenseDraftSchema,
   previewExpenseSplitSchema,
+  expenseCsvImportSchema,
 } from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
@@ -82,6 +84,17 @@ export class ExpensesController {
     });
   }
 
+  @Post("import-csv")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Import generic CSV rows as expense drafts" })
+  importCsv(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body(new ZodValidationPipe(expenseCsvImportSchema)) body: ExpenseCsvImportRequest,
+  ) {
+    return this.expenses.importCsv(actor, workspaceId, body);
+  }
+
   @Post(":expenseId/submit")
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: "Submit a draft expense for posting" })
@@ -115,6 +128,17 @@ export class ExpensesController {
     @Param("expenseId") expenseId: string,
   ): Promise<ExpenseSummary> {
     return this.expenses.promotePrivateToCompany(actor, workspaceId, expenseId);
+  }
+
+  @Post(":expenseId/approve")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Approve an expense awaiting policy approval" })
+  approve(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("expenseId") expenseId: string,
+  ): Promise<ExpenseSummary> {
+    return this.expenses.approve(actor, workspaceId, expenseId);
   }
 
   @Get()

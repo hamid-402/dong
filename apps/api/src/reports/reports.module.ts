@@ -5,6 +5,7 @@ import { IamModule } from "../iam/iam.module.js";
 import { EXPENSE_STORE, type ExpenseStore } from "../expenses/expense.types.js";
 import { resolveExpenseListOptions } from "../expenses/expense-list-options.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { RecurrenceRunGuard } from "./recurrence-run.guard.js";
 import { ReportsController } from "./reports.controller.js";
 import { createReportsStore, REPORTS_STORE, type ReportsStore } from "./reports.store.js";
 
@@ -12,6 +13,7 @@ import { createReportsStore, REPORTS_STORE, type ReportsStore } from "./reports.
   imports: [AuthModule, IamModule, ExpensesModule],
   controllers: [ReportsController],
   providers: [
+    RecurrenceRunGuard,
     {
       provide: REPORTS_STORE,
       inject: [EXPENSE_STORE, IAM_STORE],

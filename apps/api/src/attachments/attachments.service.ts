@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -13,7 +12,7 @@ import {
   type QuarantineScanResult,
   type UploadAttachmentContentRequest,
 } from "@dang/contracts";
-import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { JobsService } from "../jobs/jobs.service.js";
 import { AttachmentBlobService } from "./attachment-blob.service.js";
 import { ATTACHMENT_STORE, type AttachmentStore } from "./attachment.store.js";
@@ -25,7 +24,7 @@ import { runReceiptOcr } from "./ocr.client.js";
 export class AttachmentsService {
   constructor(
     @Inject(ATTACHMENT_STORE) private readonly attachments: AttachmentStore,
-    @Inject(IAM_STORE) private readonly iam: IamStore,
+    @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
     @Inject(JobsService) private readonly jobs: JobsService,
     @Inject(AttachmentBlobService) private readonly blobs: AttachmentBlobService,
   ) {}
@@ -35,7 +34,7 @@ export class AttachmentsService {
     workspaceId: string,
     body: CreateAttachmentRequest,
   ): Promise<AttachmentSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.access.requireMember(workspaceId, actor.userId);
     try {
       let current = await this.attachments.create(actor.userId, {
         ...body,
@@ -84,7 +83,7 @@ export class AttachmentsService {
     targetType: CreateAttachmentRequest["targetType"],
     targetId: string,
   ): Promise<AttachmentSummary[]> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.access.requireMember(workspaceId, actor.userId);
     return this.attachments.listForTarget(workspaceId, targetType, targetId);
   }
 
@@ -93,7 +92,7 @@ export class AttachmentsService {
     workspaceId: string,
     attachmentId: string,
   ): Promise<QuarantineScanResult> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.access.requireMember(workspaceId, actor.userId);
     const attachment = await this.attachments.getById(workspaceId, attachmentId);
     if (!attachment) {
       throw new NotFoundException({
@@ -130,7 +129,7 @@ export class AttachmentsService {
     workspaceId: string,
     attachmentId: string,
   ): Promise<OcrReceiptResult> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.access.requireMember(workspaceId, actor.userId);
     const attachment = await this.attachments.getById(workspaceId, attachmentId);
     if (!attachment) {
       throw new NotFoundException({
@@ -170,7 +169,7 @@ export class AttachmentsService {
     attachmentId: string,
     body: UploadAttachmentContentRequest,
   ): Promise<AttachmentSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.access.requireMember(workspaceId, actor.userId);
     const attachment = await this.attachments.getById(workspaceId, attachmentId);
     if (!attachment) {
       throw new NotFoundException({
@@ -228,7 +227,7 @@ export class AttachmentsService {
     workspaceId: string,
     attachmentId: string,
   ): Promise<{ buffer: Buffer; fileName: string; mimeType: string }> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.access.requireMember(workspaceId, actor.userId);
     const attachment = await this.attachments.getById(workspaceId, attachmentId);
     if (!attachment?.hasBlob) {
       throw new NotFoundException({
@@ -254,16 +253,5 @@ export class AttachmentsService {
 
   blobMode() {
     return this.blobs.mode();
-  }
-
-  private async requireMember(workspaceId: string, userId: string): Promise<void> {
-    const membership = await this.iam.getWorkspaceForUser(workspaceId, userId);
-    if (!membership) {
-      throw new ForbiddenException({
-        type: "https://dang.local/problems/forbidden",
-        title: "Not a workspace member",
-        status: 403,
-      });
-    }
   }
 }

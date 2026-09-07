@@ -5,6 +5,10 @@ export type WorkspacePage =
   | "space"
   | "expenses"
   | "settlements"
+  | "invoices"
+  | "recurring"
+  | "addons"
+  | "approvals"
   | "ledger"
   | "members"
   | "procurement"
@@ -20,6 +24,10 @@ const PAGE_SEGMENTS: Record<WorkspacePage, string> = {
   space: "/space",
   expenses: "/expenses",
   settlements: "/settlements",
+  invoices: "/invoices",
+  recurring: "/recurring",
+  addons: "/addons",
+  approvals: "/approvals",
   ledger: "/ledger",
   members: "/members",
   procurement: "/procurement",

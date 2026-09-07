@@ -12,6 +12,13 @@ export {
 } from "./money.js";
 
 export {
+  createPersonalAddonChargeRequestSchema,
+  disputePersonalAddonChargeRequestSchema,
+  type CreatePersonalAddonChargeRequestInput,
+  type DisputePersonalAddonChargeRequestInput,
+} from "./addon-charge.js";
+
+export {
   expenseSplitLineSchema,
   expensePaymentLineSchema,
   expenseItemSchema,
@@ -51,11 +58,19 @@ export {
 } from "./payments.js";
 
 export {
+  createCostCenterRequestSchema,
+  createMemberAllowanceRequestSchema,
+  updateWorkspaceExpensePolicyRequestSchema,
   createOutingRequestSchema,
   createSettlementClaimRequestSchema,
+  createSimplifySettlementClaimsRequestSchema,
   updateMemberDefaultSharesRequestSchema,
+  type CreateCostCenterRequestInput,
+  type CreateMemberAllowanceRequestInput,
+  type UpdateWorkspaceExpensePolicyRequestInput,
   type CreateOutingRequestInput,
   type CreateSettlementClaimRequestInput,
+  type CreateSimplifySettlementClaimsRequestInput,
   type UpdateMemberDefaultSharesRequestInput,
 } from "./finance.js";
 
@@ -129,6 +144,7 @@ export {
 
 export {
   reportGroupBySchema,
+  workspaceReportCompareQuerySchema,
   createReportExportRequestSchema,
   createExpenseCategoryRequestSchema,
   recurringCadenceSchema,
@@ -136,6 +152,7 @@ export {
   type CreateReportExportRequestInput,
   type CreateExpenseCategoryRequestInput,
   type CreateRecurringRuleRequestInput,
+  type WorkspaceReportCompareQueryInput,
 } from "./reports.js";
 
 export {

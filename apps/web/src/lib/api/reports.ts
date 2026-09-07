@@ -5,11 +5,28 @@ import type {
   ReportExportSummary,
   ReportGroupBy,
   WorkspaceReportResponse,
+  WorkspaceReportCompareQuery,
+  WorkspaceReportCompareResponse,
 } from "@dang/contracts";
 import { API_BASE, apiFetch } from "./client";
 
 /** Workspace report, report-export and member-report endpoints — domain slice (dong-50 #30). */
 export const reportsApi = {
+  compareWorkspaceReport: (
+    workspaceId: string,
+    query: WorkspaceReportCompareQuery,
+  ) => {
+    const params = new URLSearchParams({
+      from: query.from,
+      to: query.to,
+      priorFrom: query.priorFrom,
+      priorTo: query.priorTo,
+      ...(query.groupBy ? { groupBy: query.groupBy } : {}),
+    });
+    return apiFetch<WorkspaceReportCompareResponse>(
+      `/workspaces/${workspaceId}/reports/compare?${params.toString()}`,
+    );
+  },
   workspaceReport: (
     workspaceId: string,
     query: { from: string; to: string; groupBy?: ReportGroupBy },

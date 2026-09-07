@@ -10,7 +10,18 @@ import { hashPassword } from "./password.js";
 test("AccountService.login returns MFA challenge when TOTP enabled", async () => {
   const accounts = new MemoryAccountStore();
   const iam = new MemoryIamStore();
-  const mfa = new MfaService(accounts, iam);
+  const accountServiceStub = {
+    async issueSessionForUser(
+      userId: string,
+      reply: { setCookie: (...args: unknown[]) => void },
+      meta?: { ip?: string; userAgent?: string },
+    ) {
+      const { issueSessionCookie } = await import("./session-cookie.js");
+      await issueSessionCookie(accounts, userId, reply as never, meta);
+      await iam.ensurePersonalWorkspace(userId).catch(() => undefined);
+    },
+  };
+  const mfa = new MfaService(accounts, iam, accountServiceStub as never);
   const mailer = new MailerService();
   const service = new AccountService(accounts, iam, mailer, mfa);
 

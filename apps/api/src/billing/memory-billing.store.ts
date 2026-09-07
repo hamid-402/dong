@@ -8,6 +8,7 @@ import type {
   MemberInvoiceSummary,
   Money,
 } from "@dang/contracts";
+import { assertInvoiceTotalConsistent } from "@dang/contracts";
 import type { ExpenseStore } from "../expenses/expense.types.js";
 import type { BillingStore } from "./billing.types.js";
 
@@ -159,6 +160,7 @@ export class MemoryBillingStore implements BillingStore {
         lines: bucket.lines,
         createdAt: new Date().toISOString(),
       };
+      assertInvoiceTotalConsistent(invoice);
       this.invoices.set(invoice.id, invoice);
       result.push(invoice);
     }
@@ -185,6 +187,20 @@ export class MemoryBillingStore implements BillingStore {
     return Promise.resolve(
       [...this.invoices.values()].filter(
         (i) => i.workspaceId === workspaceId && i.periodId === periodId,
+      ),
+    );
+  }
+
+  listPendingApprovals(
+    workspaceId: string,
+    actorUserId: string,
+  ): Promise<MemberInvoiceSummary[]> {
+    return Promise.resolve(
+      [...this.invoices.values()].filter(
+        (invoice) =>
+          invoice.workspaceId === workspaceId &&
+          invoice.memberUserId === actorUserId &&
+          invoice.status === "pending_approval",
       ),
     );
   }

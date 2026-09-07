@@ -6,6 +6,11 @@ import type {
   MembershipSummary,
   WorkspaceSummary,
 } from "@dang/contracts";
+import {
+  inviteSatisfiesFinanceQuorum,
+  isFinanceManagerRole,
+  spaceKindForTemplate,
+} from "@dang/contracts";
 import type {
   CreateInviteInput,
   CreateWorkspaceInput,
@@ -301,6 +306,25 @@ export class MemoryIamStore implements IamStore {
     );
     if (!actorMembership || !INVITE_OWNER_ROLES.includes(actorMembership.role)) {
       return Promise.reject(new Error("INVITE_FORBIDDEN"));
+    }
+
+    const workspace = this.workspaces.get(input.workspaceId);
+    if (!workspace) {
+      return Promise.reject(new Error("INVITE_FORBIDDEN"));
+    }
+
+    const members = [...this.memberships.values()].filter(
+      (m) => m.workspaceId === input.workspaceId,
+    );
+    const financeCount = members.filter((m) => isFinanceManagerRole(m.role)).length;
+    const quorum = inviteSatisfiesFinanceQuorum({
+      spaceKind: spaceKindForTemplate(workspace.template),
+      currentMemberCount: members.length,
+      currentFinanceManagerCount: financeCount,
+      inviteRole: input.role,
+    });
+    if (!quorum.ok) {
+      return Promise.reject(new Error("FINANCE_QUORUM_REQUIRED"));
     }
 
     const hours = input.expiresInHours ?? 72;

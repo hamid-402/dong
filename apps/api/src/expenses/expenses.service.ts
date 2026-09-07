@@ -9,19 +9,26 @@ import type {
   AuthActor,
   CreateExpenseDraftRequest,
   ExpenseSummary,
-  MembershipRole,
 } from "@dang/contracts";
-import { isReadOnlyRole } from "@dang/contracts";
+import { readProductFeatureFlags, spaceKindForTemplate } from "@dang/contracts";
+import { parseExpenseCsv, type ExpenseCsvImportRequest } from "@dang/contracts";
 import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
 import { IdempotencyService } from "../common/idempotency.service.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { LEDGER_STORE, type LedgerStore } from "../ledger/ledger.types.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
+import { ATTACHMENT_STORE, type AttachmentStore } from "../attachments/attachment.store.js";
+import { ApprovalStepsService } from "../approval-steps/approval-steps.module.js";
 import {
   PROCUREMENT_STORE,
   type ProcurementStore,
 } from "../procurement/procurement.types.js";
 import { resolveExpenseListOptions } from "./expense-list-options.js";
+import {
+  EXPENSE_POLICY_STORE,
+  type ExpensePolicyStore,
+} from "../expense-policy/expense-policy.types.js";
 import {
   EXPENSE_STORE,
   toExpenseSummary,
@@ -35,12 +42,16 @@ const COMPANY_POST_ROLES = new Set(["owner", "admin", "approver", "finance"]);
 export class ExpensesService {
   constructor(
     @Inject(EXPENSE_STORE) private readonly expenses: ExpenseStore,
+    @Inject(EXPENSE_POLICY_STORE) private readonly policies: ExpensePolicyStore,
     @Inject(LEDGER_STORE) private readonly ledger: LedgerStore,
     @Inject(IAM_STORE) private readonly iam: IamStore,
+    @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
     @Inject(AUDIT_STORE) private readonly audit: AuditStore,
     @Inject(PROCUREMENT_STORE) private readonly procurement: ProcurementStore,
     @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
     @Inject(NotificationsService) private readonly notifications: NotificationsService,
+    @Inject(ATTACHMENT_STORE) private readonly attachments: AttachmentStore,
+    @Inject(ApprovalStepsService) private readonly approvalSteps: ApprovalStepsService,
   ) {}
 
   async createDraft(
@@ -48,19 +59,30 @@ export class ExpensesService {
     workspaceId: string,
     body: CreateExpenseDraftRequest,
   ): Promise<ExpenseSummary> {
-    const role = await this.requireMemberRole(workspaceId, actor.userId);
-    if (isReadOnlyRole(role)) {
-      throw new ForbiddenException({
-        type: "https://dang.local/problems/forbidden",
-        title: "نقش ناظر فقط خواندنی است",
-        status: 403,
-        detail: "Auditor cannot create expense drafts",
-      });
-    }
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    this.access.assertNotReadOnly(role);
 
+    let requiresApproval = body.requiresApproval;
+    const workspace = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
+    const visibility = body.visibility ?? "shared";
+    if (
+      readProductFeatureFlags(process.env).expensePolicy &&
+      spaceKindForTemplate(workspace?.template) === "org" &&
+      (visibility === "shared" || visibility === "company")
+    ) {
+      const policy = await this.policies.get(workspaceId, actor.userId);
+      if (
+        policy.approvalThresholdMinor !== null &&
+        BigInt(body.total.amountMinor) >= BigInt(policy.approvalThresholdMinor)
+      ) {
+        requiresApproval = true;
+      }
+    }
     const payload: CreateExpenseDraftRequest = {
       ...body,
       workspaceId,
+      requiresApproval:
+        requiresApproval ?? (visibility === "company" ? true : undefined),
     };
 
     try {
@@ -95,9 +117,14 @@ export class ExpensesService {
     workspaceId: string,
     expenseId: string,
   ): Promise<ExpenseSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    this.access.assertNotReadOnly(role);
+    await this.assertReceiptPolicy(workspaceId, expenseId, actor.userId);
     try {
       const updated = await this.expenses.submit(workspaceId, expenseId, actor.userId);
+      if (updated.requiresApproval) {
+        await this.approvalSteps.createFirst(workspaceId, expenseId, actor.userId);
+      }
       await this.audit.append({
         workspaceId,
         actorUserId: actor.userId,
@@ -118,7 +145,9 @@ export class ExpensesService {
     workspaceId: string,
     expenseId: string,
   ): Promise<ExpenseSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    const memberRole = await this.access.requireMemberRole(workspaceId, actor.userId);
+    this.access.assertNotReadOnly(memberRole);
+    await this.assertReceiptPolicy(workspaceId, expenseId, actor.userId);
     try {
       const { viewAllPrivate, role } = await resolveExpenseListOptions(
         this.iam,
@@ -136,6 +165,19 @@ export class ExpensesService {
             detail: "ثبت نهایی خرج شرکتی فقط با نقش تأییدکننده/مدیر مجاز است",
           });
         }
+      }
+      if (current.requiresApproval && !current.approvedAt) {
+        if (!role || !COMPANY_POST_ROLES.has(role)) {
+          throw new ForbiddenException({
+            detail: "این خرج پیش از ثبت نهایی نیاز به تأیید مدیر مالی یا تأییدکننده دارد",
+          });
+        }
+        await this.expenses.approve(
+          workspaceId,
+          expenseId,
+          actor.userId,
+          { viewAllPrivate },
+        );
       }
       const updated = await this.expenses.post(workspaceId, expenseId, actor.userId, {
         viewAllPrivate,
@@ -180,7 +222,8 @@ export class ExpensesService {
     workspaceId: string,
     expenseId: string,
   ): Promise<ExpenseSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    this.access.assertNotReadOnly(role);
     try {
       const { viewAllPrivate } = await resolveExpenseListOptions(
         this.iam,
@@ -219,7 +262,7 @@ export class ExpensesService {
     workspaceId: string,
     expenseId: string,
   ): Promise<ExpenseSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.access.requireMember(workspaceId, actor.userId);
     const { viewAllPrivate, role } = await resolveExpenseListOptions(
       this.iam,
       workspaceId,
@@ -269,8 +312,53 @@ export class ExpensesService {
     return toExpenseSummary(updated);
   }
 
+  async approve(
+    actor: AuthActor,
+    workspaceId: string,
+    expenseId: string,
+  ): Promise<ExpenseSummary> {
+    const { viewAllPrivate, role } = await resolveExpenseListOptions(
+      this.iam,
+      workspaceId,
+      actor.userId,
+    );
+    if (!role || !COMPANY_POST_ROLES.has(role)) {
+      throw new ForbiddenException({
+        detail: "تأیید خرج فقط برای مدیر مالی یا تأییدکننده مجاز است",
+      });
+    }
+    if (readProductFeatureFlags(process.env).approvalSteps) {
+      const assigned = await this.approvalSteps.pending(workspaceId, actor.userId);
+      if (!assigned.some((step) => step.expenseId === expenseId)) {
+        throw new ForbiddenException({
+          detail: "This approval step is assigned to another approver.",
+        });
+      }
+    }
+    try {
+      const updated = await this.expenses.approve(
+        workspaceId,
+        expenseId,
+        actor.userId,
+        { viewAllPrivate },
+      );
+      await this.approvalSteps.approve(workspaceId, expenseId, actor.userId);
+      await this.audit.append({
+        workspaceId,
+        actorUserId: actor.userId,
+        action: "expense.approve",
+        targetType: "expense",
+        targetId: expenseId,
+        result: "success",
+      });
+      return toExpenseSummary(updated);
+    } catch (error: unknown) {
+      this.rethrowLifecycle(error);
+    }
+  }
+
   async list(actor: AuthActor, workspaceId: string): Promise<ExpenseSummary[]> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.access.requireMember(workspaceId, actor.userId);
     const { viewAllPrivate } = await resolveExpenseListOptions(
       this.iam,
       workspaceId,
@@ -281,24 +369,49 @@ export class ExpensesService {
     });
   }
 
-  private async requireMemberRole(
-    workspaceId: string,
-    userId: string,
-  ): Promise<MembershipRole> {
-    const members = (await this.iam.listMembers(workspaceId, userId)) ?? [];
-    const me = members.find((m) => m.userId === userId);
-    if (!me) {
-      throw new ForbiddenException({
-        type: "https://dang.local/problems/forbidden",
-        title: "Not a workspace member",
-        status: 403,
-      });
+  async importCsv(actor: AuthActor, workspaceId: string, input: ExpenseCsvImportRequest) {
+    if (!readProductFeatureFlags(process.env).expenseImport) {
+      throw new ForbiddenException({ detail: "Set ENABLE_EXPENSE_IMPORT=1" });
     }
-    return me.role;
+    const rows = parseExpenseCsv(input.csvText);
+    const created: ExpenseSummary[] = [];
+    for (const [index, row] of rows.entries()) {
+      created.push(await this.createDraft(actor, workspaceId, {
+        workspaceId,
+        title: row.title,
+        total: { amountMinor: (BigInt(row.amountToman) * 10n).toString(), currency: "IRR" },
+        paidByUserId: actor.userId,
+        splitMethod: "equal",
+        participantUserIds: [actor.userId],
+        occurredOn: row.occurredOn,
+        visibility: row.visibility,
+        idempotencyKey: `${input.idempotencyKey}:${index}`,
+      }));
+    }
+    return { imported: created.length, expenses: created };
   }
 
-  private async requireMember(workspaceId: string, userId: string): Promise<void> {
-    await this.requireMemberRole(workspaceId, userId);
+  private async assertReceiptPolicy(
+    workspaceId: string,
+    expenseId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    if (!readProductFeatureFlags(process.env).expensePolicy) return;
+    const policy = await this.policies.get(workspaceId, actorUserId);
+    if (policy.requireReceiptAboveMinor === null) return;
+    const { viewAllPrivate } = await resolveExpenseListOptions(this.iam, workspaceId, actorUserId);
+    const expense = (await this.expenses.listForWorkspace(workspaceId, actorUserId, { viewAllPrivate }))
+      .find((row) => row.id === expenseId);
+    if (!expense || BigInt(expense.total.amountMinor) < BigInt(policy.requireReceiptAboveMinor)) return;
+    const attachments = await this.attachments.listForTarget(workspaceId, "expense", expenseId);
+    if (attachments.length === 0) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/receipt-required",
+        title: "RECEIPT_REQUIRED",
+        status: 400,
+        detail: "A receipt attachment is required by workspace policy.",
+      });
+    }
   }
 
   private rethrowLifecycle(error: unknown): never {
@@ -325,6 +438,13 @@ export class ExpensesService {
         detail: "Allowed: draft→submit, draft|submitted→post",
       });
     }
+    if (error instanceof Error && error.message === "EXPENSE_APPROVAL_STATUS") {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "Expense is not awaiting approval",
+        status: 400,
+      });
+    }
     throw error;
   }
 
@@ -348,6 +468,7 @@ export class ExpensesService {
         EXPENSE_PAYMENT_AMOUNT: "Payment lines must be positive IRR amounts",
         EXPENSE_PAYMENT_SUM: "Payment lines must sum to total",
         EXPENSE_PRIVATE_ASSIGNEE: "Private expenses must have exactly one participant",
+        EXPENSE_ORIGINAL_MONEY: "originalCurrency and originalAmountMinor must be provided together",
       };
       const detail = map[error.message];
       if (detail) {

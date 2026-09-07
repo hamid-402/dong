@@ -95,7 +95,7 @@ export class DemoSeedService {
     const invite = await this.iam.createInvite({
       workspaceId: workspace.id,
       actorUserId: actor.userId,
-      role: "member",
+      role: "finance",
       invitedSubject: PARTNER_SUBJECT,
     });
 

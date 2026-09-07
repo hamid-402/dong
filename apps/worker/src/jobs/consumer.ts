@@ -1,5 +1,9 @@
 import { createLogger } from "@dang/observability";
-import { buildDeadLetterJob, type QueuedWorkerJob } from "@dang/contracts";
+import {
+  buildDeadLetterJob,
+  readProductFeatureFlags,
+  type QueuedWorkerJob,
+} from "@dang/contracts";
 import { blpopJob, pushDeadLetter, touchHeartbeat } from "../queue/redis-queue.js";
 
 const logger = createLogger("dang-worker-consumer");
@@ -79,10 +83,95 @@ async function processLedgerRebuildBalances(
   return result;
 }
 
+async function processRecurrenceTick(job: QueuedWorkerJob): Promise<JobProcessResult> {
+  if (!readProductFeatureFlags(process.env).recurrenceWorker) {
+    throw new Error("recurrence_worker_disabled");
+  }
+
+  const base = apiInternalBase();
+  if (!base) throw new Error("recurrence_api_internal_url_missing");
+
+  const actorUserId = job.meta?.actorUserId?.trim();
+  if (!actorUserId) throw new Error("recurrence_actor_user_id_missing");
+
+  const asOf = job.meta?.asOf?.trim();
+  if (asOf && !/^\d{4}-\d{2}-\d{2}$/.test(asOf)) {
+    throw new Error("recurrence_as_of_invalid");
+  }
+
+  const headers: Record<string, string> = {};
+  const internalToken = process.env.DANG_INTERNAL_JOB_TOKEN?.trim();
+  if (internalToken) {
+    headers["x-dang-internal-job"] = internalToken;
+    headers["x-dang-internal-actor-user-id"] = actorUserId;
+  } else {
+    const actorSubject = job.meta?.actorSubject?.trim();
+    if (!actorSubject) throw new Error("recurrence_internal_auth_missing");
+    headers["x-dang-subject"] = actorSubject;
+    headers["x-dang-user-id"] = actorUserId;
+  }
+
+  const query = asOf ? `?asOf=${encodeURIComponent(asOf)}` : "";
+  const url =
+    `${base.replace(/\/$/, "")}/api/v1/workspaces/` +
+    `${encodeURIComponent(job.workspaceId)}/recurring-rules/run-due${query}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 500);
+    throw new Error(`recurrence_api_${response.status}:${detail}`);
+  }
+
+  const payload = (await response.json()) as {
+    createdExpenseIds?: unknown[];
+    titles?: unknown[];
+  };
+  const result: JobProcessResult = {
+    ok: true,
+    name: job.name,
+    jobId: job.jobId,
+    workspaceId: job.workspaceId,
+    result: {
+      action: "recurrence_tick",
+      createdCount: payload.createdExpenseIds?.length ?? 0,
+      titleCount: payload.titles?.length ?? 0,
+      asOf: asOf ?? "today",
+    },
+  };
+  logger.info("recurrence.tick completed", {
+    jobId: job.jobId,
+    workspaceId: job.workspaceId,
+    createdCount: result.result.createdCount,
+  });
+  return result;
+}
+
+async function processWeeklyDigest(job: QueuedWorkerJob): Promise<JobProcessResult> {
+  if (!readProductFeatureFlags(process.env).weeklyDigest) throw new Error("weekly_digest_disabled");
+  const base = apiInternalBase();
+  const token = process.env.DANG_INTERNAL_JOB_TOKEN?.trim();
+  if (!base || !token) throw new Error("digest_internal_api_not_configured");
+  const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/system/digest/weekly-tick`, {
+    method: "POST",
+    headers: { "x-dang-internal-job": token },
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!response.ok) throw new Error(`digest_api_${response.status}:${(await response.text()).slice(0,500)}`);
+  const payload = await response.json() as { eligible?: number; sent?: number };
+  return { ok:true,name:job.name,jobId:job.jobId,workspaceId:job.workspaceId,result:{action:"digest_weekly",eligible:payload.eligible??0,sent:payload.sent??0} };
+}
+
 export async function processQueuedJob(job: QueuedWorkerJob): Promise<JobProcessResult | void> {
   switch (job.name) {
     case "ledger.rebuild_balances":
       return processLedgerRebuildBalances(job);
+    case "recurrence.tick":
+      return processRecurrenceTick(job);
+    case "digest.weekly":
+      return processWeeklyDigest(job);
     case "report.export":
       logger.info("Processed report.export (file generation hook ready)", {
         jobId: job.jobId,

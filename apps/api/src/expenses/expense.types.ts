@@ -48,6 +48,12 @@ export type ExpenseStore = {
     actorUserId: string,
     options?: ExpenseViewOptions,
   ): Promise<StoredExpense>;
+  approve(
+    workspaceId: string,
+    expenseId: string,
+    actorUserId: string,
+    options?: ExpenseViewOptions,
+  ): Promise<StoredExpense>;
   reverse(
     workspaceId: string,
     expenseId: string,
@@ -93,6 +99,9 @@ export function validateExpenseDraftInput(input: CreateExpenseDraftRequest): {
   }
   if (!input.paidByUserId?.trim()) {
     throw new Error("EXPENSE_PAYER");
+  }
+  if ((input.originalCurrency === undefined) !== (input.originalAmountMinor === undefined)) {
+    throw new Error("EXPENSE_ORIGINAL_MONEY");
   }
 
   let paymentLines: ExpensePaymentLine[];
@@ -186,36 +195,45 @@ export function toExpenseSummary(expense: StoredExpense): ExpenseSummary {
     splits: expense.splits,
     items: expense.items,
     categoryId: expense.categoryId,
+    costCenterId: expense.costCenterId,
     budgetId: expense.budgetId,
+    audience: expense.audience ?? "all_members",
     requiresApproval: expense.requiresApproval,
     approvedByUserId: expense.approvedByUserId,
     approvedAt: expense.approvedAt,
     occurredOn: expense.occurredOn,
     createdAt: expense.createdAt,
     source: expense.source === "daily_ledger" ? "daily_ledger" : undefined,
+    originalCurrency: expense.originalCurrency,
+    originalAmountMinor: expense.originalAmountMinor,
+    fxRateId: expense.fxRateId,
   };
 }
 
 /**
- * Shared/company: all workspace members.
- * Private: party (creator/payer/participant) — or finance manager (مادرخرج) when elevated.
+ * Existing visibility rules apply first. Restricted audience then limits the
+ * result to the creator or an elevated finance manager.
  */
 export function canActorViewExpense(
   expense: Pick<
     StoredExpense,
-    "visibility" | "paidByUserId" | "participantUserIds" | "createdByUserId" | "paymentLines"
+    "visibility" | "audience" | "paidByUserId" | "participantUserIds" | "createdByUserId" | "paymentLines"
   >,
   actorUserId: string,
   options?: ExpenseViewOptions,
 ): boolean {
   const visibility = expense.visibility ?? "shared";
-  if (visibility !== "private") return true;
-  if (options?.viewAllPrivate) return true;
-  if (expense.createdByUserId === actorUserId) return true;
-  if (expense.paidByUserId === actorUserId) return true;
-  if (expense.participantUserIds.includes(actorUserId)) return true;
-  if (expense.paymentLines.some((line) => line.userId === actorUserId)) return true;
-  return false;
+  const visibilityAllowed =
+    visibility !== "private" ||
+    Boolean(options?.viewAllPrivate) ||
+    expense.createdByUserId === actorUserId ||
+    expense.paidByUserId === actorUserId ||
+    expense.participantUserIds.includes(actorUserId) ||
+    expense.paymentLines.some((line) => line.userId === actorUserId);
+  if (!visibilityAllowed) return false;
+
+  if ((expense.audience ?? "all_members") !== "finance_and_creator") return true;
+  return Boolean(options?.viewAllPrivate) || expense.createdByUserId === actorUserId;
 }
 
 /**
@@ -225,7 +243,7 @@ export function canActorViewExpense(
 export function assertCanMutateExpense(
   expense: Pick<
     StoredExpense,
-    "visibility" | "paidByUserId" | "participantUserIds" | "createdByUserId" | "paymentLines"
+    "visibility" | "audience" | "paidByUserId" | "participantUserIds" | "createdByUserId" | "paymentLines"
   >,
   actorUserId: string,
   action: "submit" | "post" | "reverse" | "promote",

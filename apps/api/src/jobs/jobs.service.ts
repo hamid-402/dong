@@ -13,7 +13,7 @@ import type {
 } from "@dang/contracts";
 import { isRedisConfigured, loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
-import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import {
   enqueueWorkerJob,
   getDlqLength,
@@ -54,7 +54,9 @@ export class JobsService {
   private readonly runs: JobRunResult[] = [];
   private readonly pending: QueuedWorkerJob[] = [];
 
-  constructor(@Inject(IAM_STORE) private readonly iam: IamStore) {}
+  constructor(
+    @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
+  ) {}
 
   executionMode(): JobExecutionMode {
     return isRedisConfigured(loadAppEnv()) ? "redis_queue" : "inline_stub";
@@ -78,8 +80,16 @@ export class JobsService {
     workspaceId: string,
     meta?: Record<string, string>,
   ): Promise<JobRunResult> {
-    await this.requireMember(actor, workspaceId);
-    return this.run(name, workspaceId, meta);
+    await this.access.requireMember(workspaceId, actor.userId);
+    const jobMeta =
+      name === "recurrence.tick"
+        ? {
+            ...meta,
+            actorUserId: actor.userId,
+            actorSubject: actor.externalSubject,
+          }
+        : meta;
+    return this.run(name, workspaceId, jobMeta);
   }
 
   async run(
@@ -104,6 +114,18 @@ export class JobsService {
           execution === "redis_queue"
             ? `Queued ledger rebuild for workspace ${workspaceId}`
             : `Rebuilt balance projection for workspace ${workspaceId} (inline)`;
+        break;
+      case "recurrence.tick":
+        detail =
+          execution === "redis_queue"
+            ? `Queued recurrence tick for workspace ${workspaceId}`
+            : `Recurrence tick accepted inline for workspace ${workspaceId}`;
+        break;
+      case "digest.weekly":
+        detail =
+          execution === "redis_queue"
+            ? "Queued weekly digest tick"
+            : "Weekly digest tick accepted inline";
         break;
       case "notify.email":
         detail = `Email notify queued/accepted for workspace ${workspaceId}`;
@@ -180,7 +202,7 @@ export class JobsService {
     actor: AuthActor,
     workspaceId: string,
   ): Promise<JobRunResult[]> {
-    await this.requireMember(actor, workspaceId);
+    await this.access.requireMember(workspaceId, actor.userId);
     return this.runs.filter((r) => r.workspaceId === workspaceId).slice(-20);
   }
 
@@ -192,31 +214,12 @@ export class JobsService {
     return this.pending.length;
   }
 
-  private async requireMember(actor: AuthActor, workspaceId: string): Promise<void> {
-    const membership = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
-    if (!membership) {
-      throw new ForbiddenException({
-        type: "https://dang.local/problems/forbidden",
-        title: "عضویت فضای کاری لازم است",
-        status: 403,
-      });
-    }
-  }
-
   private async requireOwnerOrAdmin(
     actor: AuthActor,
     workspaceId: string,
   ): Promise<void> {
-    const members = await this.iam.listMembers(workspaceId, actor.userId);
-    if (!members) {
-      throw new ForbiddenException({
-        type: "https://dang.local/problems/forbidden",
-        title: "Not a workspace member",
-        status: 403,
-      });
-    }
-    const self = members.find((m) => m.userId === actor.userId);
-    if (!self || !DLQ_ROLES.has(self.role)) {
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    if (!DLQ_ROLES.has(role)) {
       throw new ForbiddenException({
         type: "https://dang.local/problems/forbidden",
         title: "Only owner/admin can manage the job DLQ",

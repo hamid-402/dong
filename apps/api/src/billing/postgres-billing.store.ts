@@ -18,6 +18,7 @@ import type {
   MemberInvoiceSummary,
   Money,
 } from "@dang/contracts";
+import { assertInvoiceTotalConsistent } from "@dang/contracts";
 import type { BillingStore } from "./billing.types.js";
 
 function irr(amountMinor: string | bigint): Money {
@@ -317,6 +318,33 @@ export class PostgresBillingStore implements BillingStore {
     );
   }
 
+  async listPendingApprovals(
+    workspaceId: string,
+    actorUserId: string,
+  ): Promise<MemberInvoiceSummary[]> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const rows = await tx
+          .select()
+          .from(memberInvoice)
+          .where(
+            and(
+              eq(memberInvoice.workspaceId, workspaceId),
+              eq(memberInvoice.memberUserId, actorUserId),
+              eq(memberInvoice.status, "pending_approval"),
+            ),
+          );
+        const result: MemberInvoiceSummary[] = [];
+        for (const row of rows) {
+          result.push(await this.loadInvoice(tx, row.id, workspaceId));
+        }
+        return result;
+      },
+    );
+  }
+
   async approveInvoice(
     workspaceId: string,
     invoiceId: string,
@@ -522,7 +550,7 @@ export class PostgresBillingStore implements BillingStore {
       .select()
       .from(memberInvoiceLine)
       .where(eq(memberInvoiceLine.invoiceId, invoiceId));
-    return {
+    const summary: MemberInvoiceSummary = {
       id: row.id,
       workspaceId: row.workspaceId,
       periodId: row.periodId,
@@ -546,5 +574,7 @@ export class PostgresBillingStore implements BillingStore {
         })),
       createdAt: row.createdAt.toISOString(),
     };
+    assertInvoiceTotalConsistent(summary);
+    return summary;
   }
 }

@@ -1,9 +1,12 @@
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   UnauthorizedException,
+  forwardRef,
 } from "@nestjs/common";
 import { isRedisConfigured, loadAppEnv } from "@dang/config";
 import type {
@@ -20,11 +23,10 @@ import * as OTPAuth from "otpauth";
 import { randomBytes } from "node:crypto";
 import { getRedisClient } from "../jobs/redis-queue.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { AccountService } from "./account.service.js";
 import {
   ACCOUNT_STORE,
   MFA_CHALLENGE_TTL_MS,
-  SESSION_COOKIE,
-  SESSION_TTL_MS,
   authModeForUser,
   toActor,
   toProfile,
@@ -57,6 +59,7 @@ type CookieReply = {
     value: string,
     options: Record<string, unknown>,
   ) => void;
+  clearCookie?: (name: string, options?: Record<string, unknown>) => void;
 };
 
 @Injectable()
@@ -67,6 +70,8 @@ export class MfaService {
   constructor(
     @Inject(ACCOUNT_STORE) private readonly accounts: AccountStore,
     @Inject(IAM_STORE) private readonly iam: IamStore,
+    @Inject(forwardRef(() => AccountService))
+    private readonly accountService: AccountService,
   ) {}
 
   generateSecret(): string {
@@ -210,12 +215,15 @@ export class MfaService {
     const challengeId = body.challengeId.trim();
     const rateKey = `mfa:${meta?.ip ?? "unknown"}:${challengeId}`;
     if (!(await mfaVerifyRate.allow(rateKey))) {
-      throw new BadRequestException({
-        type: "https://dang.local/problems/rate-limited",
-        title: "Too many MFA attempts",
-        status: 429,
-        detail: "تعداد تلاش تأیید MFA زیاد است؛ کمی بعد دوباره امتحان کنید",
-      });
+      throw new HttpException(
+        {
+          type: "https://dang.local/problems/rate-limited",
+          title: "Too many MFA attempts",
+          status: 429,
+          detail: "تعداد تلاش تأیید MFA زیاد است؛ کمی بعد دوباره امتحان کنید",
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const challenge = await this.loadChallenge(challengeId);
@@ -236,8 +244,7 @@ export class MfaService {
     if (!ok) throw this.unauthorized("MFA_INVALID_CODE");
 
     await this.deleteChallenge(challengeId);
-    await this.issueSession(user.userId, reply, meta);
-    await this.iam.ensurePersonalWorkspace(user.userId).catch(() => undefined);
+    await this.accountService.issueSessionForUser(user.userId, reply, meta);
     return {
       ok: true,
       profile: toProfile(user, authModeForUser(user)),
@@ -285,29 +292,6 @@ export class MfaService {
     } catch {
       /* best-effort */
     }
-  }
-
-  private async issueSession(
-    userId: string,
-    reply: CookieReply,
-    meta?: { ip?: string; userAgent?: string },
-  ): Promise<void> {
-    const env = loadAppEnv();
-    const raw = newOpaqueToken();
-    await this.accounts.createSession({
-      userId,
-      tokenHash: hashToken(raw),
-      expiresAt: new Date(Date.now() + SESSION_TTL_MS),
-      ip: meta?.ip,
-      userAgent: meta?.userAgent,
-    });
-    reply.setCookie(SESSION_COOKIE, raw, {
-      path: "/",
-      httpOnly: true,
-      sameSite: "lax",
-      secure: env.nodeEnv === "production",
-      maxAge: Math.floor(SESSION_TTL_MS / 1000),
-    });
   }
 
   private async consumeRecoveryCode(userId: string, raw: string): Promise<boolean> {

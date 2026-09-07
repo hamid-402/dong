@@ -11,6 +11,7 @@ import type {
   SettlementSummary,
 } from "@dang/contracts";
 import {
+  assertSettlementStatusTransition,
   toSettlementSummary,
   validateSettlementClaimInput,
   type SettlementStore,
@@ -188,6 +189,7 @@ export class PostgresSettlementStore implements SettlementStore {
         if (!allowedFrom.includes(row.status)) {
           throw new Error("SETTLEMENT_STATUS");
         }
+        assertSettlementStatusTransition(row.status, nextStatus);
 
         const updated = await tx
           .update(settlement)

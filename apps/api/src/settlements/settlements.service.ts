@@ -8,14 +8,22 @@ import {
 import type {
   AuthActor,
   CreateSettlementClaimRequest,
+  CreateSimplifySettlementClaimsRequest,
+  CreateSimplifySettlementClaimsResponse,
   MembershipRole,
   SettlementSummary,
 } from "@dang/contracts";
-import { isFinanceManagerRole, isReadOnlyRole } from "@dang/contracts";
+import {
+  isFinanceManagerRole,
+  isZeroSumBalances,
+  readProductFeatureFlags,
+  settlementSuggestionsSatisfyGoldenRules,
+  suggestMinimalSettlements,
+} from "@dang/contracts";
 import { MfaService } from "../auth/mfa.service.js";
 import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
 import { IdempotencyService } from "../common/idempotency.service.js";
-import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { LEDGER_STORE, type LedgerStore } from "../ledger/ledger.types.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
 import {
@@ -30,7 +38,7 @@ export class SettlementsService {
   constructor(
     @Inject(SETTLEMENT_STORE) private readonly settlements: SettlementStore,
     @Inject(LEDGER_STORE) private readonly ledger: LedgerStore,
-    @Inject(IAM_STORE) private readonly iam: IamStore,
+    @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
     @Inject(AUDIT_STORE) private readonly audit: AuditStore,
     @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
     @Inject(NotificationsService) private readonly notifications: NotificationsService,
@@ -42,15 +50,8 @@ export class SettlementsService {
     workspaceId: string,
     body: CreateSettlementClaimRequest,
   ): Promise<SettlementSummary> {
-    const role = await this.requireMemberRole(workspaceId, actor.userId);
-    if (isReadOnlyRole(role)) {
-      throw new ForbiddenException({
-        type: "https://dang.local/problems/forbidden",
-        title: "نقش ناظر فقط خواندنی است",
-        status: 403,
-        detail: "Auditor cannot create settlement claims",
-      });
-    }
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    this.access.assertNotReadOnly(role);
 
     const payload: CreateSettlementClaimRequest = {
       ...body,
@@ -90,7 +91,7 @@ export class SettlementsService {
     workspaceId: string,
     settlementId: string,
   ): Promise<SettlementSummary> {
-    const role = await this.requireMemberRole(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
     const existing = await this.requireSettlement(workspaceId, settlementId, actor.userId);
     this.assertPartyAction(actor.userId, existing, role, "confirm");
     if (isFinanceManagerRole(role)) {
@@ -137,7 +138,7 @@ export class SettlementsService {
     workspaceId: string,
     settlementId: string,
   ): Promise<SettlementSummary> {
-    const role = await this.requireMemberRole(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
     const existing = await this.requireSettlement(workspaceId, settlementId, actor.userId);
     this.assertPartyAction(actor.userId, existing, role, "dispute");
     try {
@@ -165,7 +166,7 @@ export class SettlementsService {
     workspaceId: string,
     settlementId: string,
   ): Promise<SettlementSummary> {
-    const role = await this.requireMemberRole(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
     const existing = await this.requireSettlement(workspaceId, settlementId, actor.userId);
     this.assertPartyAction(actor.userId, existing, role, "cancel");
     try {
@@ -189,8 +190,114 @@ export class SettlementsService {
   }
 
   async list(actor: AuthActor, workspaceId: string): Promise<SettlementSummary[]> {
-    await this.requireMemberRole(workspaceId, actor.userId);
-    return this.settlements.listForWorkspace(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    const settlements = await this.settlements.listForWorkspace(workspaceId, actor.userId);
+    if (isFinanceManagerRole(role)) return settlements;
+    return settlements.filter(
+      (s) => s.fromUserId === actor.userId || s.toUserId === actor.userId,
+    );
+  }
+
+  /**
+   * Materialize greedy simplify suggestions as claimed settlements (not confirmed).
+   * Existing claim/confirm/dispute flows stay the source of truth for lifecycle.
+   */
+  async createSimplifyClaims(
+    actor: AuthActor,
+    workspaceId: string,
+    body: CreateSimplifySettlementClaimsRequest,
+  ): Promise<CreateSimplifySettlementClaimsResponse> {
+    if (!readProductFeatureFlags(process.env).debtSimplifyApi) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/feature-disabled",
+        title: "Debt simplify API disabled",
+        detail: "Set ENABLE_DEBT_SIMPLIFY_API=1 to enable simplify claim creation.",
+        status: 403,
+      });
+    }
+
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    this.access.assertNotReadOnly(role);
+
+    return this.idempotency.run(
+      `settlement.simplify:${workspaceId}`,
+      actor.userId,
+      body.idempotencyKey,
+      async () => {
+        const lines = await this.ledger.balancesForWorkspace(
+          workspaceId,
+          actor.userId,
+        );
+        if (!isZeroSumBalances(lines)) {
+          throw new BadRequestException({
+            type: "https://dang.local/problems/validation",
+            title: "Balances are not zero-sum",
+            status: 400,
+          });
+        }
+        const suggestions = suggestMinimalSettlements(lines);
+        if (
+          !settlementSuggestionsSatisfyGoldenRules(lines, suggestions)
+        ) {
+          throw new BadRequestException({
+            type: "https://dang.local/problems/validation",
+            title: "Simplify suggestions failed golden rules",
+            status: 400,
+          });
+        }
+
+        const open = await this.settlements.listForWorkspace(
+          workspaceId,
+          actor.userId,
+        );
+        const openKeys = new Set(
+          open
+            .filter((s) => s.status === "claimed" || s.status === "disputed")
+            .map(
+              (s) =>
+                `${s.fromUserId}:${s.toUserId}:${s.amount.amountMinor}`,
+            ),
+        );
+
+        const created: SettlementSummary[] = [];
+        let skipped = 0;
+        let index = 0;
+        for (const suggestion of suggestions) {
+          const key = `${suggestion.fromUserId}:${suggestion.toUserId}:${suggestion.amount.amountMinor}`;
+          if (openKeys.has(key)) {
+            skipped += 1;
+            continue;
+          }
+          const claim = await this.createClaim(actor, workspaceId, {
+            workspaceId,
+            fromUserId: suggestion.fromUserId,
+            toUserId: suggestion.toUserId,
+            amount: suggestion.amount,
+            note: "پیشنهاد ساده‌سازی بدهی (greedy)",
+            idempotencyKey: `${body.idempotencyKey}:${index}`,
+          });
+          created.push(claim);
+          openKeys.add(key);
+          index += 1;
+        }
+
+        await this.audit.append({
+          workspaceId,
+          actorUserId: actor.userId,
+          action: "settlement.simplify.claims",
+          targetType: "workspace",
+          targetId: workspaceId,
+          result: "success",
+          metadata: {
+            created: created.length,
+            skipped,
+            suggestionCount: suggestions.length,
+          },
+        });
+
+        return { workspaceId, created, skipped };
+      },
+    );
   }
 
   private async requireSettlement(
@@ -235,26 +342,6 @@ export class SettlementsService {
         status: 403,
       });
     }
-  }
-
-  private async requireMemberRole(
-    workspaceId: string,
-    userId: string,
-  ): Promise<MembershipRole> {
-    const members = (await this.iam.listMembers(workspaceId, userId)) ?? [];
-    const me = members.find((m) => m.userId === userId);
-    if (!me) {
-      throw new ForbiddenException({
-        type: "https://dang.local/problems/forbidden",
-        title: "Not a workspace member",
-        status: 403,
-      });
-    }
-    return me.role;
-  }
-
-  private async requireMember(workspaceId: string, userId: string): Promise<void> {
-    await this.requireMemberRole(workspaceId, userId);
   }
 
   private rethrowLifecycle(error: unknown): never {

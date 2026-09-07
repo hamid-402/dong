@@ -8,6 +8,74 @@ export type ExpenseStatus =
   | "posted"
   | "reversed";
 
+export type ExpenseAudience = "all_members" | "finance_and_creator";
+
+export type CostCenterSummary = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  code: string;
+  active: boolean;
+  createdAt: string;
+};
+
+export type CreateCostCenterRequest = {
+  name: string;
+  code: string;
+};
+
+export type AllowancePeriodKind = "week" | "month";
+
+export type MemberAllowanceSummary = {
+  id: string;
+  workspaceId: string;
+  memberUserId: string;
+  periodKind: AllowancePeriodKind;
+  limit: Money;
+  alertPct: number;
+  active: boolean;
+  createdByUserId: string;
+  createdAt: string;
+};
+
+export type CreateMemberAllowanceRequest = {
+  memberUserId: string;
+  periodKind: AllowancePeriodKind;
+  limit: Money;
+  alertPct?: number;
+  idempotencyKey: string;
+};
+
+export type MemberAllowanceUsage = MemberAllowanceSummary & {
+  periodStartsOn: string;
+  spent: Money;
+  remaining: Money;
+  alertReached: boolean;
+};
+
+export type WorkspaceExpensePolicySummary = {
+  workspaceId: string;
+  approvalThresholdMinor: string | null;
+  requireReceiptAboveMinor: string | null;
+  updatedAt?: string;
+  updatedByUserId?: string;
+};
+
+export type UpdateWorkspaceExpensePolicyRequest = {
+  approvalThresholdMinor: string | null;
+  requireReceiptAboveMinor: string | null;
+};
+
+export type ApprovalQueueItem = {
+  kind: "addon_charge" | "member_invoice" | "expense";
+  id: string;
+  title: string;
+  amount?: Money;
+  status: string;
+  hrefHint: string;
+  createdAt: string;
+};
+
 export type SettlementStatus =
   | "claimed"
   | "confirmed"
@@ -65,16 +133,22 @@ export type CreateExpenseDraftRequest = {
   /** Optional multi-expense outing container. */
   outingId?: string;
   categoryId?: string;
+  costCenterId?: string;
   budgetId?: string;
   /** When true (company default), post requires approver role. */
   requiresApproval?: boolean;
   /** shared = جمعی؛ private = خصوصی من؛ company = خرج جاری شرکت/تیم. */
   visibility?: "shared" | "private" | "company";
+  /** all_members by default; restricted items remain visible to creator and finance managers. */
+  audience?: ExpenseAudience;
   /**
    * System provenance — set by daily ledger (and similar) creators.
    * Omitted/null = classic expense UI.
    */
   source?: "daily_ledger" | null;
+  /** Preserved source money only; reporting/ledger total remains IRR. */
+  originalCurrency?: string;
+  originalAmountMinor?: string;
 };
 
 export type ExpenseSplitLine = {
@@ -412,6 +486,7 @@ export type ExpenseSummary = {
   title: string;
   status: ExpenseStatus;
   visibility: "shared" | "private" | "company";
+  audience?: ExpenseAudience;
   total: Money;
   tip?: Money;
   tax?: Money;
@@ -423,6 +498,7 @@ export type ExpenseSummary = {
   splits: ExpenseSplitLine[];
   items?: ExpenseItemSummary[];
   categoryId?: string;
+  costCenterId?: string;
   budgetId?: string;
   requiresApproval?: boolean;
   approvedByUserId?: string;
@@ -431,6 +507,9 @@ export type ExpenseSummary = {
   createdAt: string;
   /** Present when created via daily ledger (or similar). */
   source?: "daily_ledger";
+  originalCurrency?: string;
+  originalAmountMinor?: string;
+  fxRateId?: string;
 };
 
 export type CreateOutingRequest = {
@@ -514,6 +593,28 @@ export type WorkspaceBalancesResponse = {
   lines: BalanceLine[];
   /** Sum of all nets must be zero for a consistent slice. */
   zeroSum: boolean;
+};
+
+/** First-class debt-simplification payload (Dong 2.0 Wave 3). */
+export type DebtSimplifySuggestionsResponse = {
+  workspaceId: string;
+  currency: "IRR";
+  lines: BalanceLine[];
+  suggestions: SettlementSuggestion[];
+  /** True when suggestions satisfy the three golden rules. */
+  goldenRulesOk: boolean;
+  zeroSum: boolean;
+};
+
+/** Apply greedy suggestions as settlement claims (does not auto-confirm). */
+export type CreateSimplifySettlementClaimsRequest = {
+  idempotencyKey: string;
+};
+
+export type CreateSimplifySettlementClaimsResponse = {
+  workspaceId: string;
+  created: SettlementSummary[];
+  skipped: number;
 };
 
 type BalanceExpenseInput = Pick<
@@ -720,6 +821,45 @@ export function suggestMinimalSettlements(
     if (creditor.amount === 0n) j += 1;
   }
   return suggestions;
+}
+
+/**
+ * Dong 2.0 golden checks for greedy debt simplification.
+ * Interprets “no new debtor→debtor edges” as: every suggestion is debtor→creditor
+ * relative to the input nets (never creditor→anyone, never debtor→debtor).
+ */
+export function settlementSuggestionsSatisfyGoldenRules(
+  lines: readonly BalanceLine[],
+  suggestions: readonly SettlementSuggestion[],
+): boolean {
+  const netByUser = new Map<string, bigint>();
+  for (const line of lines) {
+    netByUser.set(line.userId, BigInt(line.net.amountMinor));
+  }
+  if (!isZeroSumBalances(lines)) return false;
+
+  const delta = new Map<string, bigint>();
+  for (const userId of netByUser.keys()) delta.set(userId, 0n);
+
+  for (const s of suggestions) {
+    const pay = BigInt(s.amount.amountMinor);
+    if (pay <= 0n) return false;
+    const fromNet = netByUser.get(s.fromUserId) ?? 0n;
+    const toNet = netByUser.get(s.toUserId) ?? 0n;
+    // from must be a debtor (net < 0), to a creditor (net > 0)
+    if (fromNet >= 0n || toNet <= 0n) return false;
+    delta.set(s.fromUserId, (delta.get(s.fromUserId) ?? 0n) + pay);
+    delta.set(s.toUserId, (delta.get(s.toUserId) ?? 0n) - pay);
+  }
+
+  for (const [userId, net] of netByUser) {
+    const change = delta.get(userId) ?? 0n;
+    // After paying |net| if debtor (net negative: paying increases net toward 0)
+    // debtor net=-50, pays 50 → effective remaining net = -50+50=0
+    // creditor net=+50, receives 50 → remaining = +50-50=0
+    if (net + change !== 0n) return false;
+  }
+  return true;
 }
 
 export const financeVerticalSliceSteps = [

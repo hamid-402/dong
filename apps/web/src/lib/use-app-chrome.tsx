@@ -9,17 +9,31 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { NotificationSummary, WorkspaceSummary } from "@dang/contracts";
-import { api, getDevIdentity, setDevIdentity } from "@/lib/api";
+import type {
+  AuthActor,
+  NotificationSummary,
+  SessionSummary,
+  WorkspaceSummary,
+} from "@dang/contracts";
+import { api, getDevIdentity, setDevIdentity, type SystemCapabilities } from "@/lib/api";
 import { persistenceLabelFa } from "@/lib/status-labels";
-
-const WORKSPACE_KEY = "dang.activeWorkspaceId";
+import {
+  readStoredWorkspaceId,
+  writeStoredWorkspaceId,
+} from "@/lib/workspace-storage";
 
 export type AppChromeState = {
   workspaceName: string;
   workspaceId: string;
   userName: string;
   persistenceLabel: string;
+  allowDevAuth: boolean;
+  /** Full capabilities from one bootstrap — views must not re-fetch. */
+  capabilities: SystemCapabilities | null;
+  /** Actor from /auth/me (preferred) — views must not re-fetch session/me for identity. */
+  actor: AuthActor | null;
+  /** Session-shaped summary derived from me + auth mode (for legacy view props). */
+  session: SessionSummary | null;
   workspaces: WorkspaceSummary[];
   notifications: NotificationSummary[];
   unreadCount: number;
@@ -33,28 +47,23 @@ export type AppChromeState = {
 
 const AppChromeContext = createContext<AppChromeState | null>(null);
 
-function readStoredWorkspaceId(): string {
-  if (typeof window === "undefined") return "";
-  try {
-    return localStorage.getItem(WORKSPACE_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function writeStoredWorkspaceId(id: string) {
-  try {
-    localStorage.setItem(WORKSPACE_KEY, id);
-  } catch {
-    /* ignore */
-  }
+function sessionFromActor(actor: AuthActor | null): SessionSummary | null {
+  if (!actor) return null;
+  return {
+    authenticated: true,
+    mode: actor.authMode,
+    actor,
+  };
 }
 
 export function AppChromeProvider({ children }: { children: ReactNode }) {
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [userName, setUserName] = useState("");
-  const [persistenceLabel, setPersistenceLabel] = useState("دفتر عملیات مشترک");
+  const [persistenceLabel, setPersistenceLabel] = useState("در حال بارگذاری…");
+  const [allowDevAuth, setAllowDevAuth] = useState(false);
+  const [capabilities, setCapabilities] = useState<SystemCapabilities | null>(null);
+  const [actor, setActor] = useState<AuthActor | null>(null);
   const [notifications, setNotifications] = useState<NotificationSummary[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +106,7 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
       try {
         const identity = getDevIdentity();
         setDevIdentity(identity.subject, identity.displayName);
-        // SessionGate already verified auth — avoid a second /auth/session round-trip.
+        // SessionGate already verified auth — single bootstrap for product chrome.
         const [me, caps, list] = await Promise.all([
           api.me().catch(() => null),
           api.capabilities().catch(() => null),
@@ -107,16 +116,20 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
 
         const stored = readStoredWorkspaceId();
         const selected = list.find((w) => w.id === stored)?.id ?? list[0]?.id ?? "";
+        const nextActor = me?.actor ?? null;
 
         setWorkspaces(list);
         setWorkspaceId(selected);
         if (selected) writeStoredWorkspaceId(selected);
-        setUserName(me?.actor?.displayName ?? identity.displayName);
+        setActor(nextActor);
+        setUserName(nextActor?.displayName ?? identity.displayName);
+        setCapabilities(caps);
         setPersistenceLabel(
           caps
             ? persistenceLabelFa(caps.persistence, caps.databaseConfigured)
             : "بدون اتصال",
         );
+        setAllowDevAuth(Boolean(caps?.allowDevAuth));
         setReady(true);
         setError(null);
       } catch (err: unknown) {
@@ -157,6 +170,7 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
 
   const workspaceName = workspaces.find((w) => w.id === workspaceId)?.name ?? "";
   const unreadCount = notifications.filter((n) => !n.readAt).length;
+  const session = useMemo(() => sessionFromActor(actor), [actor]);
 
   const value = useMemo<AppChromeState>(
     () => ({
@@ -164,6 +178,10 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
       workspaceId,
       userName,
       persistenceLabel,
+      allowDevAuth,
+      capabilities,
+      actor,
+      session,
       workspaces,
       notifications,
       unreadCount,
@@ -179,6 +197,10 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
       workspaceId,
       userName,
       persistenceLabel,
+      allowDevAuth,
+      capabilities,
+      actor,
+      session,
       workspaces,
       notifications,
       unreadCount,

@@ -9,7 +9,18 @@ import { hashPassword } from "./password.js";
 function makeMfaService() {
   const accounts = new MemoryAccountStore();
   const iam = new MemoryIamStore();
-  const mfa = new MfaService(accounts, iam);
+  const accountService = {
+    async issueSessionForUser(
+      userId: string,
+      reply: { setCookie: (...args: unknown[]) => void },
+      meta?: { ip?: string; userAgent?: string },
+    ) {
+      const { issueSessionCookie } = await import("./session-cookie.js");
+      await issueSessionCookie(accounts, userId, reply as never, meta);
+      await iam.ensurePersonalWorkspace(userId).catch(() => undefined);
+    },
+  };
+  const mfa = new MfaService(accounts, iam, accountService as never);
   return { accounts, iam, mfa };
 }
 

@@ -36,8 +36,10 @@ export function WorkspaceScopeProvider({ children }: { children: ReactNode }) {
     );
   }, [chrome.ready, chrome.workspaces, slugParam]);
 
+  const { ready: chromeReady, workspaceId, selectWorkspace } = chrome;
+
   useEffect(() => {
-    if (!chrome.ready) return;
+    if (!chromeReady) return;
     if (!slugParam) {
       router.replace("/spaces");
       return;
@@ -46,10 +48,10 @@ export function WorkspaceScopeProvider({ children }: { children: ReactNode }) {
       router.replace("/spaces");
       return;
     }
-    if (match.id !== chrome.workspaceId) {
-      chrome.selectWorkspace(match.id);
+    if (match.id !== workspaceId) {
+      selectWorkspace(match.id);
     }
-  }, [chrome, match, router, slugParam]);
+  }, [chromeReady, match, router, selectWorkspace, slugParam, workspaceId]);
 
   const value = useMemo<WorkspaceScopeValue>(
     () => ({

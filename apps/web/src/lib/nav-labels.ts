@@ -3,6 +3,9 @@ export const NAV_LABELS = {
   home: "خانه",
   expenses: "خرج‌ها",
   settlements: "تسویه",
+  invoices: "صورتحساب",
+  recurring: "تکرارشونده",
+  addons: "اضافه شخصی",
   space: "فضا",
   /** Kind-specific space tab (bottomTabsV2). */
   spacePersonal: "من",

@@ -183,29 +183,19 @@ export function OverviewView() {
     ? wPath(slug, "settlements")
     : `${hubPathFor("/workspaces")}#settlement-panel`;
 
-  function load() {
+  function load(workspaceId: string) {
     startTransition(() => {
       void (async () => {
         try {
           const identity = getDevIdentity();
           setDevIdentity(identity.subject, identity.displayName);
-          const [session, workspaces, caps] = await Promise.all([
-            api.session(),
-            api.listWorkspaces(),
-            api.capabilities().catch(() => null),
-          ]);
-          setAllowDemoSeed(Boolean(caps?.allowDevAuth));
-          const list = workspaces;
-          if (list.length === 0) {
+          // AppChrome already loaded workspaces/capabilities — only fetch page data.
+          const workspace =
+            chrome.workspaces.find((item) => item.id === workspaceId) ??
+            chrome.workspaces[0];
+          if (!workspace) {
             setError("فضای کاری ندارید — یک فضا بسازید یا از دعوت استفاده کنید.");
             setData(null);
-            return;
-          }
-          const workspace =
-            list.find((item) => item.id === chrome.workspaceId) ?? list[0];
-          const actor = session.actor;
-          if (!workspace || !actor) {
-            setError("برای شروع، فضای کاری بسازید یا وارد شوید.");
             return;
           }
           const [dashboard, needs, members] = await Promise.all([
@@ -213,6 +203,7 @@ export function OverviewView() {
             api.listNeeds(workspace.id).catch(() => []),
             api.listMembers(workspace.id).catch(() => []),
           ]);
+          setAllowDemoSeed(chrome.allowDevAuth);
           const netMinor = Number(dashboard.actorNet.amountMinor);
           const firstExpense = dashboard.activity.recentExpenses[0];
           const sourceBits = [
@@ -224,14 +215,14 @@ export function OverviewView() {
           const allPostgres = sourceBits.every((s) => s === "postgres");
           const allMemory = sourceBits.every((s) => s === "memory");
           const persistence = allPostgres
-            ? "Postgres"
+            ? "ذخیره‌سازی پایدار"
             : allMemory
-              ? "حافظه"
-              : `مختلط (${sourceBits.filter((s) => s === "postgres").length}/4 Postgres)`;
+              ? "حافظه موقت"
+              : `مختلط (${sourceBits.filter((s) => s === "postgres").length}/4 پایدار)`;
           setData({
             workspaceId: dashboard.workspaceId,
             workspaceName: dashboard.workspaceName,
-            userName: actor.displayName,
+            userName: chrome.userName || identity.displayName,
             balanceToman: Math.round(netMinor / 10),
             postedCount: dashboard.spend.postedCount,
             postedSpendToman: Math.round(
@@ -282,8 +273,9 @@ export function OverviewView() {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [chrome.workspaceId]);
+    if (!chrome.ready || !chrome.workspaceId) return;
+    load(chrome.workspaceId);
+  }, [chrome.ready, chrome.workspaceId]);
 
   const spaceKind = spaceKindForTemplate(activeWs?.template);
 
@@ -316,7 +308,13 @@ export function OverviewView() {
         actions={
           <>
             <time suppressHydrationWarning>{todayLabel || "—"}</time>
-            <button type="button" disabled={pending} onClick={load}>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                if (chrome.workspaceId) load(chrome.workspaceId);
+              }}
+            >
               نوسازی
             </button>
             {allowDemoSeed ? (
@@ -328,7 +326,7 @@ export function OverviewView() {
                     void (async () => {
                       try {
                         await api.seedDemo();
-                        load();
+                        if (chrome.workspaceId) load(chrome.workspaceId);
                       } catch (err: unknown) {
                         setError(err instanceof Error ? err.message : "خطای seed");
                       }

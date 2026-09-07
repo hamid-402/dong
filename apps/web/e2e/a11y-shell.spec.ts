@@ -148,6 +148,10 @@ test.describe("a11y product shell (dev session cookie)", () => {
       `/w/${slug}/expenses`,
       `/w/${slug}/ledger`,
       `/w/${slug}/settlements`,
+      `/w/${slug}/invoices`,
+      `/w/${slug}/recurring`,
+      `/w/${slug}/addons`,
+      `/w/${slug}/approvals`,
       `/w/${slug}/metrics`,
     ] as const) {
       await page.goto(path);

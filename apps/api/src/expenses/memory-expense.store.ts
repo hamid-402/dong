@@ -29,6 +29,7 @@ export class MemoryExpenseStore implements ExpenseStore {
       title: input.title.trim(),
       status: "draft",
       visibility: input.visibility ?? "shared",
+      audience: input.audience ?? "all_members",
       total: input.total,
       tip: input.tip,
       tax: input.tax,
@@ -47,6 +48,7 @@ export class MemoryExpenseStore implements ExpenseStore {
             }))
           : undefined,
       categoryId: input.categoryId?.trim() || undefined,
+      costCenterId: input.costCenterId?.trim() || undefined,
       budgetId: input.budgetId?.trim() || undefined,
       requiresApproval:
         input.requiresApproval ?? (input.visibility === "company"),
@@ -54,6 +56,8 @@ export class MemoryExpenseStore implements ExpenseStore {
       createdAt: new Date().toISOString(),
       note: input.note?.trim() || undefined,
       source: input.source === "daily_ledger" ? "daily_ledger" : undefined,
+      originalCurrency: input.originalCurrency,
+      originalAmountMinor: input.originalAmountMinor,
       idempotencyKey: input.idempotencyKey.trim(),
       createdByUserId: actorUserId,
     };
@@ -122,6 +126,31 @@ export class MemoryExpenseStore implements ExpenseStore {
         return Promise.reject(new Error("EXPENSE_STATUS"));
       }
       const updated: StoredExpense = { ...existing, status: "posted" };
+      this.expenses.set(expenseId, updated);
+      return Promise.resolve(updated);
+    } catch (error: unknown) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  approve(
+    workspaceId: string,
+    expenseId: string,
+    actorUserId: string,
+    options?: ExpenseViewOptions,
+  ): Promise<StoredExpense> {
+    try {
+      const existing = this.requireExpense(workspaceId, expenseId);
+      assertCanMutateExpense(existing, actorUserId, "post", options);
+      if (!existing.requiresApproval || existing.status === "posted" || existing.status === "reversed") {
+        return Promise.reject(new Error("EXPENSE_APPROVAL_STATUS"));
+      }
+      const updated: StoredExpense = {
+        ...existing,
+        requiresApproval: false,
+        approvedByUserId: actorUserId,
+        approvedAt: new Date().toISOString(),
+      };
       this.expenses.set(expenseId, updated);
       return Promise.resolve(updated);
     } catch (error: unknown) {

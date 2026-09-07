@@ -20,8 +20,10 @@ import {
   StatusLine,
 } from "@/components/ui-blocks";
 import { JalaliDateField } from "@/components/jalali-date-field";
+import { ReportComparePanel } from "@/components/report-compare-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
+import { useOptionalAppChrome } from "@/lib/use-app-chrome";
 
 function monthStart(): string {
   return resolveDailyLedgerRange("month").from;
@@ -41,6 +43,7 @@ export function WorkspaceReportsPanel({
   defaultVisibility?: "shared" | "private" | "company";
   onChanged?: () => void;
 }) {
+  const chrome = useOptionalAppChrome();
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(todayIso);
   const [groupBy, setGroupBy] = useState<ReportGroupBy>("day");
@@ -254,6 +257,10 @@ export function WorkspaceReportsPanel({
         )}
       </SectionCard>
 
+      {chrome?.capabilities?.productFlags?.biCompare ? (
+        <ReportComparePanel workspaceId={workspaceId} groupBy={groupBy} />
+      ) : null}
+
       <details className="reportDetails">
         <summary>
           <span>دسته‌ها</span>
@@ -316,7 +323,8 @@ export function WorkspaceReportsPanel({
             </div>
           </FormStack>
           <p className="liveHint">
-            قواعد تکراری خودکار در پس‌زمینه اجرا نمی‌شوند — فقط با دکمهٔ بالا پیش‌نویس ساخته می‌شود.
+            قواعد تکراری با دکمهٔ بالا پیش‌نویس می‌سازند. اگر ENABLE_RECURRENCE_WORKER=1 و worker
+            روشن باشد، job‏ recurrence.tick هم می‌تواند همان مسیر را با تاریخ شبیه‌سازی‌شده اجرا کند.
           </p>
           {recurring.length === 0 ? (
             <EmptyHint>قاعده‌ای نیست.</EmptyHint>

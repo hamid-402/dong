@@ -56,13 +56,24 @@ export const createExpenseDraftSchema = z
     periodId: entityIdSchema.optional(),
     outingId: entityIdSchema.optional(),
     categoryId: entityIdSchema.optional(),
+    costCenterId: entityIdSchema.optional(),
     budgetId: entityIdSchema.optional(),
     requiresApproval: z.boolean().optional(),
     visibility: z.enum(["shared", "private", "company"]).optional(),
+    audience: z.enum(["all_members", "finance_and_creator"]).optional(),
     source: z.enum(["daily_ledger"]).nullable().optional(),
+    originalCurrency: z.string().regex(/^[A-Z]{3}$/).optional(),
+    originalAmountMinor: z.string().regex(/^[1-9]\d*$/).optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
+    if ((data.originalCurrency === undefined) !== (data.originalAmountMinor === undefined)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "ORIGINAL_MONEY_PAIR",
+        path: ["originalCurrency"],
+      });
+    }
     if (data.splitMethod !== "itemized" && data.participantUserIds.length < 1) {
       ctx.addIssue({
         code: "custom",

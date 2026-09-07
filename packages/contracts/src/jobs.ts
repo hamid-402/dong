@@ -5,7 +5,9 @@ export type WorkerJobName =
   | "notify.push"
   | "report.export"
   | "webhook.dispatch"
-  | "ledger.rebuild_balances";
+  | "ledger.rebuild_balances"
+  | "recurrence.tick"
+  | "digest.weekly";
 
 /** Body for POST …/jobs (dev in-process runner). */
 export type RunJobRequest = {

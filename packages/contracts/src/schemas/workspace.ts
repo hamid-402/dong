@@ -18,6 +18,7 @@ export const membershipRoleSchema = z.enum([
   "asset_custodian",
   "member",
   "auditor",
+  "guest",
 ]);
 
 export const createWorkspaceRequestSchema = z

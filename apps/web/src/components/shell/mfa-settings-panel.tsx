@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button, TextField } from "@dang/ui";
 import type { MfaSetupResponse, UserProfile } from "@dang/contracts";
 import { AuthAlert } from "@/components/auth-shell";
 import { MfaQrCode } from "@/components/shell/mfa-qr-code";
 import { FormStack, SectionCard, StatusLine, StatusPill } from "@/components/ui-blocks";
-import { api, ApiError, type SystemCapabilities } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
+import { useOptionalAppChrome } from "@/lib/use-app-chrome";
 
 type Props = {
   profile: UserProfile | null;
@@ -17,7 +18,9 @@ type Props = {
  * MFA management — only interactive when capabilities.mfa is true (no fake UI).
  */
 export function MfaSettingsPanel({ profile, onProfileChange }: Props) {
-  const [caps, setCaps] = useState<SystemCapabilities | null>(null);
+  const chrome = useOptionalAppChrome();
+  const caps = chrome?.capabilities ?? null;
+  const capsReady = Boolean(chrome?.ready);
   const [setup, setSetup] = useState<MfaSetupResponse | null>(null);
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
@@ -26,19 +29,9 @@ export function MfaSettingsPanel({ profile, onProfileChange }: Props) {
   const [info, setInfo] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        setCaps(await api.capabilities());
-      } catch {
-        setCaps(null);
-      }
-    })();
-  }, []);
-
   const mfaAvailable = caps?.mfa === true;
 
-  if (caps === null) {
+  if (!capsReady) {
     return (
       <SectionCard title="تأیید دو مرحله‌ای (MFA)" tone="quiet">
         <p className="liveHint">در حال بررسی قابلیت MFA…</p>
@@ -49,10 +42,7 @@ export function MfaSettingsPanel({ profile, onProfileChange }: Props) {
   if (!mfaAvailable) {
     return (
       <SectionCard title="تأیید دو مرحله‌ای (MFA)" tone="quiet">
-        <StatusLine>
-          MFA روی این استقرار فعال نیست
-          {caps.stubs ? " (یا هنوز در capabilities گزارش نشده)." : "."}
-        </StatusLine>
+        <StatusLine>MFA روی این استقرار فعال نیست.</StatusLine>
       </SectionCard>
     );
   }

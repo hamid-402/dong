@@ -1,25 +1,25 @@
 #!/usr/bin/env node
 /**
- * View line-count budget (dong-50 #42).
+ * Component line-count budget (Dong 2.0 Law 5 / roadmap).
  *
- * Keeps `apps/web/src/components/views/*.tsx` from silently ballooning again after
- * the finance-view split. Two thresholds:
- *   - WARN  (> 800 lines):  surfaced in the CI step summary, non-blocking.
+ * Scope: all TSX under apps/web/src/components (recursive, not only views/).
+ * Thresholds:
+ *   - WARN  (> 800 lines): CI warning / step summary, non-blocking.
  *   - FAIL  (> 1600 lines): hard failure (exit 1).
  *
  * Env overrides:
  *   VIEW_LINE_WARN   (default 800)
  *   VIEW_LINE_FAIL   (default 1600)
- *   VIEW_LINE_DIR    (default apps/web/src/components/views)
+ *   VIEW_LINE_DIR    (default apps/web/src/components) — recursive
  */
-import { appendFileSync, readdirSync, readFileSync } from "node:fs";
+import { appendFileSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = resolve(__dirname, "..");
-const viewsDir = resolve(
-  process.env.VIEW_LINE_DIR ?? join(repoRoot, "apps", "web", "src", "components", "views"),
+const componentsDir = resolve(
+  process.env.VIEW_LINE_DIR ?? join(repoRoot, "apps", "web", "src", "components"),
 );
 
 const WARN = Number(process.env.VIEW_LINE_WARN ?? 800);
@@ -28,7 +28,6 @@ const FAIL = Number(process.env.VIEW_LINE_FAIL ?? 1600);
 function countLines(file) {
   const text = readFileSync(file, "utf8");
   if (text.length === 0) return 0;
-  // Count newlines; add 1 when the file does not end in a trailing newline.
   let lines = 0;
   for (let i = 0; i < text.length; i++) {
     if (text.charCodeAt(i) === 10) lines++;
@@ -36,44 +35,61 @@ function countLines(file) {
   return text.endsWith("\n") ? lines : lines + 1;
 }
 
-/** Direct *.tsx files only (panels extracted into subfolders are measured separately). */
-function listViewFiles(dir) {
+/** Recursive *.tsx under components (skip tests). */
+function listComponentFiles(dir, acc = []) {
   let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
   } catch {
-    console.error(`view-line-budget: views dir not found: ${dir}`);
+    console.error(`component-line-budget: dir not found: ${dir}`);
     process.exit(2);
   }
-  return entries
-    .filter(
-      (entry) =>
-        entry.isFile() &&
-        entry.name.endsWith(".tsx") &&
-        !entry.name.endsWith(".test.tsx") &&
-        !entry.name.endsWith(".spec.tsx"),
-    )
-    .map((entry) => join(dir, entry.name));
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      listComponentFiles(full, acc);
+      continue;
+    }
+    if (
+      entry.isFile() &&
+      entry.name.endsWith(".tsx") &&
+      !entry.name.endsWith(".test.tsx") &&
+      !entry.name.endsWith(".spec.tsx")
+    ) {
+      acc.push(full);
+    }
+  }
+  return acc;
 }
 
-const files = listViewFiles(viewsDir)
+try {
+  if (!statSync(componentsDir).isDirectory()) {
+    console.error(`component-line-budget: not a directory: ${componentsDir}`);
+    process.exit(2);
+  }
+} catch {
+  console.error(`component-line-budget: dir not found: ${componentsDir}`);
+  process.exit(2);
+}
+
+const files = listComponentFiles(componentsDir)
   .map((file) => ({ file, lines: countLines(file), name: file.slice(repoRoot.length + 1) }))
   .sort((a, b) => b.lines - a.lines);
 
 const warnings = files.filter((f) => f.lines > WARN && f.lines <= FAIL);
 const failures = files.filter((f) => f.lines > FAIL);
 
-console.log(`view-line-budget: dir=${viewsDir}`);
-console.log(`view-line-budget: warn>${WARN} fail>${FAIL} (files=${files.length})`);
+console.log(`component-line-budget: scope=apps/web/src/components/** (recursive)`);
+console.log(`component-line-budget: dir=${componentsDir}`);
+console.log(`component-line-budget: warn>${WARN} fail>${FAIL} (files=${files.length})`);
 for (const f of files) {
   const tag = f.lines > FAIL ? "FAIL" : f.lines > WARN ? "WARN" : "ok";
   console.log(`  [${tag}] ${f.lines}\t${f.name}`);
 }
 
-// GitHub step summary (non-blocking warnings + any failures).
 const summaryPath = process.env.GITHUB_STEP_SUMMARY;
 if (summaryPath && (warnings.length > 0 || failures.length > 0)) {
-  const lines = ["## View line budget", ""];
+  const lines = ["## Component line budget (`components/**`)", ""];
   if (failures.length > 0) {
     lines.push(`### ❌ Over hard limit (> ${FAIL} lines)`);
     for (const f of failures) lines.push(`- \`${f.name}\` — ${f.lines} lines`);
@@ -92,16 +108,16 @@ if (summaryPath && (warnings.length > 0 || failures.length > 0)) {
 }
 
 for (const f of warnings) {
-  console.warn(`::warning::view-line-budget: ${f.name} is ${f.lines} lines (soft limit ${WARN})`);
+  console.warn(`::warning::component-line-budget: ${f.name} is ${f.lines} lines (soft limit ${WARN})`);
 }
 
 if (failures.length > 0) {
   for (const f of failures) {
     console.error(
-      `::error::view-line-budget: ${f.name} is ${f.lines} lines — exceeds hard limit ${FAIL}`,
+      `::error::component-line-budget: ${f.name} is ${f.lines} lines — exceeds hard limit ${FAIL}`,
     );
   }
   process.exit(1);
 }
 
-console.log("view-line-budget: OK");
+console.log("component-line-budget: OK");

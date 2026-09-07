@@ -1,11 +1,13 @@
 import { Module } from "@nestjs/common";
 import { APP_INTERCEPTOR } from "@nestjs/core";
+import { AddonChargesModule } from "./addon-charges/addon-charges.module.js";
 import { AssetsModule } from "./assets/assets.module.js";
 import { AttachmentsModule } from "./attachments/attachments.module.js";
 import { AuditModule } from "./audit/audit.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { BalancesModule } from "./balances/balances.module.js";
 import { CommentsModule } from "./comments/comments.module.js";
+import { CostCentersModule } from "./cost-centers/cost-centers.module.js";
 import { IdempotencyModule } from "./common/idempotency.module.js";
 import { RequestIdInterceptor } from "./common/request-id.interceptor.js";
 import { DemoModule } from "./demo/demo.module.js";
@@ -27,6 +29,13 @@ import { ReportsModule } from "./reports/reports.module.js";
 import { ProposalsModule } from "./proposals/proposals.module.js";
 import { PersonalFinanceModule } from "./personal-finance/personal-finance.module.js";
 import { DashboardModule } from "./dashboard/dashboard.module.js";
+import { AllowancesModule } from "./allowances/allowances.module.js";
+import { ApprovalQueueModule } from "./approval-queue/approval-queue.module.js";
+import { ExpensePolicyModule } from "./expense-policy/expense-policy.module.js";
+import { ReimbursementsModule } from "./reimbursements/reimbursements.module.js";
+import { CategoryBudgetsModule } from "./category-budgets/category-budgets.module.js";
+import { FxRatesModule } from "./fx-rates/fx-rates.module.js";
+import { WaveFSettingsModule } from "./wave-f-settings/wave-f-settings.module.js";
 
 @Module({
   imports: [
@@ -41,6 +50,7 @@ import { DashboardModule } from "./dashboard/dashboard.module.js";
     SettlementsModule,
     BalancesModule,
     CommentsModule,
+    CostCentersModule,
     AttachmentsModule,
     NotificationsModule,
     JobsModule,
@@ -50,9 +60,17 @@ import { DashboardModule } from "./dashboard/dashboard.module.js";
     PartnershipModule,
     PaymentsModule,
     BillingModule,
+    AddonChargesModule,
     ReportsModule,
     PersonalFinanceModule,
     DashboardModule,
+    AllowancesModule,
+    ExpensePolicyModule,
+    ApprovalQueueModule,
+    ReimbursementsModule,
+    CategoryBudgetsModule,
+    FxRatesModule,
+    WaveFSettingsModule,
     DemoModule,
   ],
   controllers: [HealthController, SystemController],

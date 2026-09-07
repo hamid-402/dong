@@ -1,8 +1,11 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   UnauthorizedException,
+  forwardRef,
 } from "@nestjs/common";
 import { loadAppEnv } from "@dang/config";
 import type {
@@ -24,7 +27,6 @@ import {
   ACCOUNT_STORE,
   RESET_TTL_MS,
   SESSION_COOKIE,
-  SESSION_TTL_MS,
   VERIFY_TTL_MS,
   authModeForUser,
   toActor,
@@ -47,7 +49,7 @@ type CookieReply = {
     value: string,
     options: Record<string, unknown>,
   ) => void;
-  clearCookie: (name: string, options?: Record<string, unknown>) => void;
+  clearCookie?: (name: string, options?: Record<string, unknown>) => void;
 };
 
 const loginRate = createAdaptiveRateLimit(20, 15 * 60_000);
@@ -60,7 +62,7 @@ export class AccountService {
     @Inject(ACCOUNT_STORE) private readonly accounts: AccountStore,
     @Inject(IAM_STORE) private readonly iam: IamStore,
     @Inject(MailerService) private readonly mailer: MailerService,
-    @Inject(MfaService) private readonly mfa: MfaService,
+    @Inject(forwardRef(() => MfaService)) private readonly mfa: MfaService,
   ) {}
 
   async resolveSessionActor(rawToken: string | undefined): Promise<AuthActor | null> {
@@ -93,12 +95,15 @@ export class AccountService {
   ): Promise<AuthActionResponse> {
     const rateKey = `register:${meta?.ip ?? "unknown"}:${(body.email ?? "").toLowerCase()}`;
     if (!(await registerRate.allow(rateKey))) {
-      throw new BadRequestException({
-        type: "https://dang.local/problems/rate-limited",
-        title: "Too many register attempts",
-        status: 429,
-        detail: "تعداد تلاش ثبت‌نام زیاد است؛ کمی بعد دوباره امتحان کنید",
-      });
+      throw new HttpException(
+        {
+          type: "https://dang.local/problems/rate-limited",
+          title: "Too many register attempts",
+          status: 429,
+          detail: "تعداد تلاش ثبت‌نام زیاد است؛ کمی بعد دوباره امتحان کنید",
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
     try {
       const email = assertEmail(body.email);
@@ -137,12 +142,15 @@ export class AccountService {
   ): Promise<LoginResponse> {
     const rateKey = `login:${meta?.ip ?? "unknown"}:${(body.email ?? "").toLowerCase()}`;
     if (!(await loginRate.allow(rateKey))) {
-      throw new BadRequestException({
-        type: "https://dang.local/problems/rate-limited",
-        title: "Too many login attempts",
-        status: 429,
-        detail: "تعداد تلاش ورود زیاد است؛ کمی بعد دوباره امتحان کنید",
-      });
+      throw new HttpException(
+        {
+          type: "https://dang.local/problems/rate-limited",
+          title: "Too many login attempts",
+          status: 429,
+          detail: "تعداد تلاش ورود زیاد است؛ کمی بعد دوباره امتحان کنید",
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
     try {
       const email = assertEmail(body.email);
@@ -233,12 +241,15 @@ export class AccountService {
     const env = loadAppEnv();
     const rateKey = `forgot:${(body.email ?? "").toLowerCase()}`;
     if (!(await forgotRate.allow(rateKey))) {
-      throw new BadRequestException({
-        type: "https://dang.local/problems/rate-limited",
-        title: "Too many reset requests",
-        status: 429,
-        detail: "درخواست بازیابی زیاد است؛ کمی بعد دوباره امتحان کنید",
-      });
+      throw new HttpException(
+        {
+          type: "https://dang.local/problems/rate-limited",
+          title: "Too many reset requests",
+          status: 429,
+          detail: "درخواست بازیابی زیاد است؛ کمی بعد دوباره امتحان کنید",
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
     try {
       const email = assertEmail(body.email);
@@ -346,27 +357,13 @@ export class AccountService {
     reply: CookieReply,
     meta?: { ip?: string; userAgent?: string },
   ): Promise<void> {
-    const env = loadAppEnv();
-    const raw = newOpaqueToken();
-    await this.accounts.createSession({
-      userId,
-      tokenHash: hashToken(raw),
-      expiresAt: new Date(Date.now() + SESSION_TTL_MS),
-      ip: meta?.ip,
-      userAgent: meta?.userAgent,
-    });
-    reply.setCookie(SESSION_COOKIE, raw, {
-      path: "/",
-      httpOnly: true,
-      sameSite: "lax",
-      secure: env.nodeEnv === "production",
-      maxAge: Math.floor(SESSION_TTL_MS / 1000),
-    });
+    const { issueSessionCookie } = await import("./session-cookie.js");
+    await issueSessionCookie(this.accounts, userId, reply, meta);
   }
 
   private clearCookie(reply: CookieReply): void {
     const env = loadAppEnv();
-    reply.clearCookie(SESSION_COOKIE, {
+    reply.clearCookie?.(SESSION_COOKIE, {
       path: "/",
       httpOnly: true,
       sameSite: "lax",

@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { userAccount, workspace } from "./iam.js";
 
 export const finance = pgSchema("finance");
@@ -192,6 +193,8 @@ export const expenseCategory = finance.table(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspace.id, { onDelete: "cascade" }),
+    /** Optional parent for hierarchical categories (Dong 2.0 Wave 1). */
+    parentId: uuid("parent_id"),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -200,8 +203,83 @@ export const expenseCategory = finance.table(
   },
   (table) => [
     uniqueIndex("expense_category_workspace_slug_uq").on(table.workspaceId, table.slug),
+    index("expense_category_workspace_parent_idx").on(table.workspaceId, table.parentId),
   ],
 );
+
+export const costCenter = finance.table(
+  "cost_center",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    code: text("code").notNull(),
+    active: boolean("active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("cost_center_workspace_code_uq").on(
+      table.workspaceId,
+      table.code,
+    ),
+    index("cost_center_workspace_active_idx").on(
+      table.workspaceId,
+      table.active,
+    ),
+  ],
+);
+
+export const memberAllowance = finance.table(
+  "member_allowance",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    memberUserId: uuid("member_user_id")
+      .notNull()
+      .references(() => userAccount.id, { onDelete: "cascade" }),
+    periodKind: text("period_kind").notNull(),
+    limitMinor: bigint("limit_minor", { mode: "bigint" }).notNull(),
+    currency: text("currency").default("IRR").notNull(),
+    alertPct: integer("alert_pct").default(80).notNull(),
+    active: boolean("active").default(true).notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdByUserId: uuid("created_by")
+      .notNull()
+      .references(() => userAccount.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("member_allowance_active_member_period_uq")
+      .on(table.workspaceId, table.memberUserId, table.periodKind)
+      .where(sql`${table.active}`),
+    uniqueIndex("member_allowance_idempotency_uq").on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+    index("member_allowance_workspace_active_idx").on(
+      table.workspaceId,
+      table.active,
+    ),
+  ],
+);
+
+export const workspaceExpensePolicy = finance.table("workspace_expense_policy", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspace.id, { onDelete: "cascade" }),
+  approvalThresholdMinor: bigint("approval_threshold_minor", { mode: "bigint" }),
+  requireReceiptAboveMinor: bigint("require_receipt_above_minor", { mode: "bigint" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedByUserId: uuid("updated_by")
+    .notNull()
+    .references(() => userAccount.id),
+});
 
 export const expense = finance.table(
   "expense",
@@ -229,11 +307,18 @@ export const expense = finance.table(
     categoryId: uuid("category_id").references(() => expenseCategory.id, {
       onDelete: "set null",
     }),
+    costCenterId: uuid("cost_center_id").references(() => costCenter.id, {
+      onDelete: "set null",
+    }),
     budgetId: uuid("budget_id"),
+    audience: text("audience").default("all_members").notNull(),
     requiresApproval: boolean("requires_approval").default(false).notNull(),
     approvedByUserId: uuid("approved_by_user_id").references(() => userAccount.id),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     currency: text("currency").default("IRR").notNull(),
+    originalCurrency: text("original_currency"),
+    originalAmountMinor: bigint("original_amount_minor", { mode: "bigint" }),
+    fxRateId: uuid("fx_rate_id"),
     paidByUserId: uuid("paid_by_user_id")
       .notNull()
       .references(() => userAccount.id),
@@ -255,6 +340,7 @@ export const expense = finance.table(
     index("expense_workspace_time_idx").on(table.workspaceId, table.createdAt),
     index("expense_period_id_idx").on(table.periodId),
     index("expense_outing_id_idx").on(table.outingId),
+    index("expense_cost_center_id_idx").on(table.workspaceId, table.costCenterId),
   ],
 );
 
@@ -531,6 +617,10 @@ export const recurringRule = finance.table(
       onDelete: "set null",
     }),
     active: boolean("active").default(true).notNull(),
+    version: integer("version").default(1).notNull(),
+    effectiveFrom: date("effective_from"),
+    supersedesRuleId: uuid("supersedes_rule_id"),
+    autoConfirm: boolean("auto_confirm").default(false).notNull(),
     createdByUserId: uuid("created_by_user_id")
       .notNull()
       .references(() => userAccount.id),
@@ -545,6 +635,83 @@ export const recurringRule = finance.table(
       table.idempotencyKey,
     ),
   ],
+);
+
+export const reimbursementRequest = finance.table(
+  "reimbursement_request",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspace.id, { onDelete: "cascade" }),
+    expenseId: uuid("expense_id").references(() => expense.id, { onDelete: "set null" }),
+    claimantUserId: uuid("claimant_user_id").notNull().references(() => userAccount.id),
+    amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
+    currency: text("currency").default("IRR").notNull(),
+    title: text("title").notNull(),
+    status: text("status").default("draft").notNull(),
+    note: text("note"),
+    decidedBy: uuid("decided_by").references(() => userAccount.id),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("reimbursement_request_idempotency_uq").on(table.workspaceId, table.idempotencyKey),
+    index("reimbursement_request_workspace_status_idx").on(table.workspaceId, table.status),
+  ],
+);
+
+export const categoryBudget = finance.table(
+  "category_budget",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspace.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id").notNull().references(() => expenseCategory.id, { onDelete: "cascade" }),
+    yearMonth: text("year_month").notNull(),
+    limitMinor: bigint("limit_minor", { mode: "bigint" }).notNull(),
+    alertPct: integer("alert_pct").default(80).notNull(),
+    currency: text("currency").default("IRR").notNull(),
+    active: boolean("active").default(true).notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdByUserId: uuid("created_by").notNull().references(() => userAccount.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("category_budget_month_uq").on(table.workspaceId, table.categoryId, table.yearMonth),
+    uniqueIndex("category_budget_idempotency_uq").on(table.workspaceId, table.idempotencyKey),
+  ],
+);
+
+export const approvalWorkflowStep = finance.table(
+  "approval_workflow_step",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspace.id, { onDelete: "cascade" }),
+    expenseId: uuid("expense_id").notNull().references(() => expense.id, { onDelete: "cascade" }),
+    stepNo: integer("step_no").notNull(),
+    approverUserId: uuid("approver_user_id").notNull().references(() => userAccount.id),
+    status: text("status").default("pending").notNull(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("approval_workflow_step_expense_no_uq").on(table.expenseId, table.stepNo)],
+);
+
+/** Global system table: no tenant RLS; runtime reads and feature-gated writes. */
+export const fxRate = finance.table(
+  "fx_rate",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    baseCurrency: text("base_currency").notNull(),
+    quoteCurrency: text("quote_currency").notNull(),
+    rateNumeric: text("rate_numeric").notNull(),
+    asOf: date("as_of").notNull(),
+    source: text("source").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("fx_rate_pair_date_uq").on(table.baseCurrency, table.quoteCurrency, table.asOf)],
 );
 
 export const reportExport = finance.table(
@@ -574,6 +741,61 @@ export const reportExport = finance.table(
     index("report_export_workspace_created_idx").on(
       table.workspaceId,
       table.createdAt,
+    ),
+  ],
+);
+
+/** Personal add-on within a group (Dong 2.0) — FSM pending_ack → confirmed | disputed. */
+export const addonChargeStatus = finance.enum("addon_charge_status", [
+  "pending_ack",
+  "confirmed",
+  "disputed",
+]);
+
+export const personalAddonCharge = finance.table(
+  "personal_addon_charge",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    targetMemberUserId: uuid("target_member_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
+    currency: text("currency").default("IRR").notNull(),
+    title: text("title").notNull(),
+    note: text("note"),
+    categoryId: uuid("category_id").references(() => expenseCategory.id, {
+      onDelete: "set null",
+    }),
+    linkedExpenseId: uuid("linked_expense_id").references(() => expense.id, {
+      onDelete: "set null",
+    }),
+    status: addonChargeStatus("status").default("pending_ack").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("personal_addon_charge_idempotency_uq").on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+    index("personal_addon_charge_workspace_status_idx").on(
+      table.workspaceId,
+      table.status,
+    ),
+    index("personal_addon_charge_target_idx").on(
+      table.workspaceId,
+      table.targetMemberUserId,
     ),
   ],
 );

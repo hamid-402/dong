@@ -76,6 +76,10 @@ function mapExpense(
     title: row.title,
     status: row.status,
     visibility: row.visibility ?? "shared",
+    audience:
+      row.audience === "finance_and_creator"
+        ? "finance_and_creator"
+        : "all_members",
     total: { amountMinor: row.totalMinor.toString(), currency: "IRR" },
     tip: optionalMoney(row.tipMinor),
     tax: optionalMoney(row.taxMinor),
@@ -99,6 +103,7 @@ function mapExpense(
       })),
     items: items.length > 0 ? items : undefined,
     categoryId: row.categoryId ?? undefined,
+    costCenterId: row.costCenterId ?? undefined,
     budgetId: row.budgetId ?? undefined,
     requiresApproval: row.requiresApproval ?? false,
     approvedByUserId: row.approvedByUserId ?? undefined,
@@ -107,6 +112,9 @@ function mapExpense(
     createdAt: row.createdAt.toISOString(),
     note: row.note ?? undefined,
     source: row.source === "daily_ledger" ? "daily_ledger" : undefined,
+    originalCurrency: row.originalCurrency ?? undefined,
+    originalAmountMinor: row.originalAmountMinor?.toString(),
+    fxRateId: row.fxRateId ?? undefined,
     idempotencyKey: row.idempotencyKey,
     createdByUserId: row.createdByUserId,
   };
@@ -159,13 +167,17 @@ export class PostgresExpenseStore implements ExpenseStore {
             source: input.source === "daily_ledger" ? "daily_ledger" : null,
             status: "draft",
             visibility: input.visibility ?? "shared",
+            audience: input.audience ?? "all_members",
             totalMinor: BigInt(input.total.amountMinor),
+            originalCurrency: input.originalCurrency ?? null,
+            originalAmountMinor: input.originalAmountMinor ? BigInt(input.originalAmountMinor) : null,
             tipMinor: input.tip ? BigInt(input.tip.amountMinor) : null,
             taxMinor: input.tax ? BigInt(input.tax.amountMinor) : null,
             discountMinor: input.discount ? BigInt(input.discount.amountMinor) : null,
             paidByUserId: input.paidByUserId.trim(),
             splitMethod: input.splitMethod,
             categoryId: input.categoryId?.trim() || null,
+            costCenterId: input.costCenterId?.trim() || null,
             budgetId: input.budgetId?.trim() || null,
             requiresApproval:
               input.requiresApproval ?? input.visibility === "company",
@@ -312,6 +324,38 @@ export class PostgresExpenseStore implements ExpenseStore {
       ["draft", "submitted"],
       "post",
       options,
+    );
+  }
+
+  async approve(
+    workspaceId: string,
+    expenseId: string,
+    actorUserId: string,
+    options?: ExpenseViewOptions,
+  ): Promise<StoredExpense> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const stored = await this.loadExpense(tx, expenseId, workspaceId);
+        assertCanMutateExpense(stored, actorUserId, "post", options);
+        if (
+          !stored.requiresApproval ||
+          stored.status === "posted" ||
+          stored.status === "reversed"
+        ) {
+          throw new Error("EXPENSE_APPROVAL_STATUS");
+        }
+        await tx
+          .update(expense)
+          .set({
+            requiresApproval: false,
+            approvedByUserId: actorUserId,
+            approvedAt: new Date(),
+          })
+          .where(and(eq(expense.id, expenseId), eq(expense.workspaceId, workspaceId)));
+        return this.loadExpense(tx, expenseId, workspaceId);
+      },
     );
   }
 

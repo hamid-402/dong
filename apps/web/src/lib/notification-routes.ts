@@ -1,27 +1,37 @@
 import type { NotificationSummary } from "@dang/contracts";
-import { hubPathFor } from "@/lib/hub-links";
+import { absoluteForPage, classicPathToWorkspacePage, wPath } from "@/lib/workspace-paths";
 
-/** Resolve in-app navigation from notification metadata (real API data). */
-export function notificationTargetHref(notification: NotificationSummary): string | null {
+/** Resolve in-app navigation from notification metadata (slug-aware when possible). */
+export function notificationTargetHref(
+  notification: NotificationSummary,
+  slug?: string | null,
+): string | null {
   const event = notification.metadata?.event;
   if (event === "expense.posted") {
-    return `${hubPathFor("/workspaces")}#expense-panel`;
+    return slug ? `${wPath(slug, "expenses")}#expense-panel` : absoluteForPage("expenses", null) + "#expense-panel";
   }
   if (event === "settlement.confirmed") {
-    return `${hubPathFor("/workspaces")}#settlement-panel`;
+    return slug
+      ? `${wPath(slug, "settlements")}#settlement-panel`
+      : absoluteForPage("settlements", null) + "#settlement-panel";
   }
   if (event === "proposal.created" || event === "proposal.accepted") {
-    return hubPathFor("/proposals");
+    return slug ? wPath(slug, "proposals") : absoluteForPage("proposals", null);
   }
   if (event === "personal.budget.alert") {
-    return hubPathFor("/me");
+    return slug ? wPath(slug, "space") : absoluteForPage("space", null);
   }
   if (event === "group.debt.alert") {
-    return `${hubPathFor("/workspaces")}#settlement-panel`;
+    return slug
+      ? `${wPath(slug, "settlements")}#settlement-panel`
+      : absoluteForPage("settlements", null) + "#settlement-panel";
   }
   const route = notification.metadata?.route;
   if (route?.startsWith("/")) {
-    return hubPathFor(route);
+    const page = classicPathToWorkspacePage(route);
+    if (page && slug) return absoluteForPage(page, slug);
+    if (page) return absoluteForPage(page, null);
+    return route;
   }
   return null;
 }

@@ -1,5 +1,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import {
+  API_SESSION_COOKIE,
+  WEB_SESSION_COOKIE,
+  WEB_SESSION_COOKIE_VALUE,
+} from "@dang/contracts";
 
 const PUBLIC_PREFIXES = [
   "/login",
@@ -45,10 +50,8 @@ export function pathMatchesPrefix(pathname: string, prefix: string): boolean {
 /**
  * Additive session gate:
  * - Prefer real API session cookie (`dang_session`) when same-origin proxy is used
- * - Keep `dang_web_session` for existing password/OIDC client flows (not removed)
+ * - Keep `dang_web_session=1` for existing password/OIDC client flows (not removed)
  * - Dev identity still works after client marks web session
- * - Authenticated classic paths that don't need a slug redirect to canonical IA routes;
- *   other classic product URLs stay protected and resolve via ClassicToWorkspaceRedirect → /w
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -58,9 +61,10 @@ export function middleware(request: NextRequest) {
   const needsAuth = PROTECTED_PREFIXES.some((p) => pathMatchesPrefix(pathname, p));
   if (!needsAuth) return NextResponse.next();
 
-  const apiSession = request.cookies.get("dang_session")?.value?.trim();
-  const webSession = request.cookies.get("dang_web_session")?.value?.trim();
-  const hasSession = Boolean(apiSession) || webSession === "1" || Boolean(webSession);
+  const apiSession = request.cookies.get(API_SESSION_COOKIE)?.value?.trim();
+  const webSession = request.cookies.get(WEB_SESSION_COOKIE)?.value?.trim();
+  const hasSession =
+    Boolean(apiSession) || webSession === WEB_SESSION_COOKIE_VALUE;
 
   if (!hasSession) {
     const loginUrl = request.nextUrl.clone();

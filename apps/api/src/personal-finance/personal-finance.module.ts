@@ -7,6 +7,7 @@ import { ExpensesModule } from "../expenses/expenses.module.js";
 import { SettlementsModule } from "../settlements/settlements.module.js";
 import { MemoryPersonalResourcesStore } from "./memory-personal-resources.store.js";
 import { PersonalFinanceController } from "./personal-finance.controller.js";
+import { PersonalFinanceService } from "./personal-finance.service.js";
 import { PostgresPersonalResourcesStore } from "./postgres-personal-resources.store.js";
 import {
   PERSONAL_RESOURCES_STORE,
@@ -30,6 +31,7 @@ export function createPersonalResourcesStore(): PersonalResourcesStore {
   imports: [AuthModule, ExpensesModule, SettlementsModule],
   controllers: [PersonalFinanceController],
   providers: [
+    PersonalFinanceService,
     { provide: PERSONAL_RESOURCES_STORE, useFactory: createPersonalResourcesStore },
   ],
   exports: [PERSONAL_RESOURCES_STORE],

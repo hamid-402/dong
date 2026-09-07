@@ -101,7 +101,7 @@ export type AccountStore = {
 
 export const ACCOUNT_STORE = Symbol("ACCOUNT_STORE");
 
-export const SESSION_COOKIE = "dang_session";
+export { API_SESSION_COOKIE as SESSION_COOKIE } from "@dang/contracts";
 export const SESSION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 export const RESET_TTL_MS = 60 * 60 * 1000;
 export const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;

@@ -3,20 +3,28 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { api, clearClientSession, getAuthClientMode, markClientSession } from "@/lib/api";
+import { WEB_SESSION_COOKIE, WEB_SESSION_COOKIE_VALUE } from "@dang/contracts";
 
-const SESSION_CHECK_MS = 8_000;
-const WEB_SESSION_COOKIE = "dang_web_session";
+/** Soft verify — don't block the shell for long when the API is cold. */
+const SESSION_CHECK_MS = 2_500;
 
 function hasWebSessionCookie(): boolean {
   if (typeof document === "undefined") return false;
   return document.cookie
     .split(";")
-    .some((part) => part.trim().startsWith(`${WEB_SESSION_COOKIE}=1`));
+    .some((part) => part.trim() === `${WEB_SESSION_COOKIE}=${WEB_SESSION_COOKIE_VALUE}`);
+}
+
+function canEnterShellOptimistically(): boolean {
+  const mode = getAuthClientMode();
+  if (mode === "dev") return true;
+  if ((mode === "password" || mode === "oidc") && hasWebSessionCookie()) return true;
+  return false;
 }
 
 /**
  * Client-side session verification (additive to middleware cookie check).
- * Runs once per mount — not on every pathname change (that caused extra latency).
+ * Optimistic: show shell immediately when cookie/dev mode is present, verify in background.
  */
 export function SessionGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -25,9 +33,11 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    const timer = window.setTimeout(() => {
-      /* raced via Promise.race below */
-    }, SESSION_CHECK_MS);
+
+    if (canEnterShellOptimistically()) {
+      if (getAuthClientMode() === "dev") markClientSession("dev");
+      setReady(true);
+    }
 
     void (async () => {
       try {
@@ -52,7 +62,6 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
           setReady(true);
           return;
         }
-        // Password/OIDC already set dang_web_session; don't bounce if cookie probe is slow.
         if (
           (getAuthClientMode() === "password" || getAuthClientMode() === "oidc") &&
           hasWebSessionCookie()
@@ -65,8 +74,6 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
         router.replace(`/login?next=${next}`);
       } catch {
         if (cancelled) return;
-        // Dev mode (or timed-out/unavailable session probe): enter shell;
-        // subsequent API calls still authenticate via x-dang-* headers.
         if (getAuthClientMode() === "dev") {
           markClientSession("dev");
           setReady(true);
@@ -81,13 +88,11 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
         }
         clearClientSession();
         router.replace("/login");
-      } finally {
-        window.clearTimeout(timer);
       }
     })();
+
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
     };
     // Intentionally once: middleware already guards routes; re-checking on every
     // hub navigation doubled session round-trips and felt like a heavy app.

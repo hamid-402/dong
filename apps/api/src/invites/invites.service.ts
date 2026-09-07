@@ -28,6 +28,7 @@ const ASSIGNABLE_ROLES: MembershipRole[] = [
   "asset_custodian",
   "member",
   "auditor",
+  "guest",
 ];
 
 function looksLikeEmail(value: string | undefined): value is string {
@@ -153,6 +154,15 @@ export class InvitesService {
           type: "https://dang.local/problems/forbidden",
           title: "Not allowed to invite",
           status: 403,
+        });
+      }
+      if (error.message === "FINANCE_QUORUM_REQUIRED") {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/finance-quorum",
+          title: "Backup treasurer required",
+          detail:
+            "این فضا حداقل به دو مدیر مالی فعال نیاز دارد. نقش دعوت را finance یا admin بگذارید تا پشتیبان مادرخرج تأمین شود.",
+          status: 400,
         });
       }
       if (error.message === "INVITE_NOT_FOUND" || error.message === "INVITE_INVALID") {

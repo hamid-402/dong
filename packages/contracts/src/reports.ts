@@ -8,6 +8,14 @@ export type WorkspaceReportQuery = {
   groupBy?: ReportGroupBy;
 };
 
+export type WorkspaceReportCompareQuery = {
+  from: string;
+  to: string;
+  priorFrom: string;
+  priorTo: string;
+  groupBy?: ReportGroupBy;
+};
+
 export type WorkspaceReportBucket = {
   key: string;
   label: string;
@@ -24,6 +32,29 @@ export type WorkspaceReportResponse = {
   expenseCount: number;
   buckets: WorkspaceReportBucket[];
 };
+
+export type WorkspaceReportCompareResponse = {
+  current: WorkspaceReportResponse;
+  prior: WorkspaceReportResponse;
+  deltaTotal: Money;
+  deltaPercent: number | null;
+};
+
+export function compareReportTotals(
+  current: WorkspaceReportResponse,
+  prior: WorkspaceReportResponse,
+): Pick<WorkspaceReportCompareResponse, "deltaTotal" | "deltaPercent"> {
+  const currentMinor = BigInt(current.grandTotal.amountMinor);
+  const priorMinor = BigInt(prior.grandTotal.amountMinor);
+  const delta = currentMinor - priorMinor;
+  return {
+    deltaTotal: { amountMinor: delta.toString(), currency: "IRR" },
+    deltaPercent:
+      priorMinor === 0n
+        ? null
+        : Number(delta * 10_000n / priorMinor) / 100,
+  };
+}
 
 export type CreateReportExportRequest = {
   from: string;
@@ -75,8 +106,12 @@ export type RecurringRuleSummary = {
   splitMethod: "equal";
   categoryId?: string;
   active: boolean;
+  autoConfirm: boolean;
   createdByUserId: string;
   createdAt: string;
+  version: number;
+  effectiveFrom?: string;
+  supersedesRuleId?: string;
 };
 
 export type CreateRecurringRuleRequest = {
@@ -86,5 +121,6 @@ export type CreateRecurringRuleRequest = {
   nextRunOn: string;
   visibility?: "shared" | "private" | "company";
   categoryId?: string;
+  autoConfirm?: boolean;
   idempotencyKey: string;
 };

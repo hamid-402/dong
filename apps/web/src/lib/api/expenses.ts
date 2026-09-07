@@ -47,6 +47,11 @@ export const expensesApi = {
     apiFetch<ExpenseSummary>(`/workspaces/${workspaceId}/expenses/${expenseId}/post`, {
       method: "POST",
     }),
+  approveExpense: (workspaceId: string, expenseId: string) =>
+    apiFetch<ExpenseSummary>(
+      `/workspaces/${workspaceId}/expenses/${expenseId}/approve`,
+      { method: "POST", body: "{}" },
+    ),
   promoteExpenseCompany: (workspaceId: string, expenseId: string) =>
     apiFetch<ExpenseSummary>(
       `/workspaces/${workspaceId}/expenses/${expenseId}/promote-company`,

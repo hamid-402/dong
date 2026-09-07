@@ -239,6 +239,41 @@
       "when": 1788702000000,
       "tag": "0033_mfa_totp",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1788760000000,
+      "tag": "0034_addon_category_parent",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1788761000000,
+      "tag": "0035_recurring_auto_confirm",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1788762000000,
+      "tag": "0036_wave6_bi_cost_center_audience",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1788763000000,
+      "tag": "0037_wave_f_guest_allowance_policy",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1788764000000,
+      "tag": "0038_wave_f_finish_infra",
+      "breakpoints": true
     }
   ]
 }

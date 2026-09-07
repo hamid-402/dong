@@ -34,11 +34,15 @@ pnpm test
 
 ## اسناد مرجع
 
-1. [وضعیت اجرا](docs/STATUS.md)
-2. [PostgreSQL محلی](docs/LOCAL-DATABASE.md)
-3. [احراز هویت Dev](docs/LOCAL-AUTH.md)
-4. [Runbook](docs/RUNBOOK.md)
-5. [نقشه فازبندی](docs/ROADMAP.md)
+1. [تجمیع دنگ ۲.۰ با سامانه فعلی](docs/DONG-2.0-RECONCILIATION.md) — **منبع حقیقت اجرا**
+2. [موجودی پایان Wave F — Live در برابر Infra](docs/DONG-2.0-FINISH.md)
+3. [محصول و معماری ۲.۰](docs/DONG-2.0-PRODUCT.md)
+4. [نقشه راه و حاکمیت ۲.۰](docs/DONG-2.0-ROADMAP.md)
+5. [وضعیت اجرا](docs/STATUS.md)
+6. [PostgreSQL محلی](docs/LOCAL-DATABASE.md)
+7. [احراز هویت Dev](docs/LOCAL-AUTH.md)
+8. [Runbook](docs/RUNBOOK.md)
+9. [نقشه فازبندی](docs/ROADMAP.md)
 
 ## اصول غیرقابل مذاکره
 

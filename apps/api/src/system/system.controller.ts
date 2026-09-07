@@ -6,6 +6,7 @@ import {
   partnershipVerticalSliceSteps,
   paymentHardeningNotes,
   procurementVerticalSliceSteps,
+  readProductFeatureFlags,
 } from "@dang/contracts";
 import {
   isClamavHostConfigured,
@@ -29,6 +30,10 @@ import { AttachmentBlobService } from "../attachments/attachment-blob.service.js
 import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
 import { BILLING_STORE, type BillingStore } from "../billing/billing.types.js";
 import { COMMENT_STORE, type CommentStore } from "../comments/comment.store.js";
+import {
+  COST_CENTER_STORE,
+  type CostCenterStore,
+} from "../cost-centers/cost-centers.types.js";
 import { EXPENSE_STORE, type ExpenseStore } from "../expenses/expense.types.js";
 import {
   WORKSPACE_DAY_STORE,
@@ -53,67 +58,10 @@ import {
   PERSONAL_RESOURCES_STORE,
   type PersonalResourcesStore,
 } from "../personal-finance/personal-resources.types.js";
+import type { SystemCapabilities } from "@dang/contracts";
 import { SETTLEMENT_STORE, type SettlementStore } from "../settlements/settlement.types.js";
 
-type Persistence = "memory" | "postgres";
-
-type CapabilitiesResponse = {
-  version: string;
-  allowDevAuth: boolean;
-  oidcConfigured: boolean;
-  databaseConfigured: boolean;
-  /** TOTP MFA endpoints are implemented in this build. */
-  mfa: true;
-  readiness: "ready" | "degraded";
-  persistence: {
-    iam: Persistence;
-    audit: Persistence;
-    ledger: Persistence;
-    expense: Persistence;
-    settlement: Persistence;
-    partnership: Persistence;
-    procurement: Persistence;
-    proposals: Persistence;
-    billing: Persistence;
-    comment: Persistence;
-    notification: Persistence;
-    attachment: Persistence;
-    payment: Persistence;
-    asset: Persistence;
-    personalFinance: Persistence;
-    workspaceDay: Persistence;
-    workspaceRangeLock: Persistence;
-    account: Persistence;
-    procurementVendorPoDelivery: Persistence;
-    attachmentBlob: "local" | "none";
-  };
-  stubs: {
-    paymentProvider: boolean;
-    ocr: boolean;
-    avScan: boolean;
-    backgroundWorker: boolean;
-    emailDelivery: boolean;
-  };
-  providers: {
-    payment: "stub" | "zarinpal";
-    ocr: "stub" | "configured";
-    antivirus: "stub" | "configured";
-    jobs: "inline_stub" | "redis_queue";
-    email: "log" | "resend" | "smtp" | "none";
-    attachmentBlob: "local" | "none";
-  };
-  integrationsReady: {
-    zarinpal: { merchantConfigured: boolean; enabled: boolean };
-    clamav: { hostConfigured: boolean; enabled: boolean };
-    smtp: { urlConfigured: boolean; enabled: boolean };
-    ocrHttp: { urlConfigured: boolean; enabled: boolean };
-    workerConsumer: { redisConfigured: boolean; heartbeatAlive: boolean };
-  };
-  financeVerticalSlice: readonly string[];
-  procurementVerticalSlice: readonly string[];
-  partnershipVerticalSlice: readonly string[];
-  paymentHardening: readonly string[];
-};
+type CapabilitiesResponse = SystemCapabilities;
 
 @ApiTags("system")
 @Controller("system")
@@ -138,6 +86,7 @@ export class SystemController {
     @Inject(WORKSPACE_DAY_STORE) private readonly workspaceDays: WorkspaceDayStore,
     @Inject(WORKSPACE_RANGE_LOCK_STORE) private readonly rangeLocks: WorkspaceRangeLockStore,
     @Inject(ACCOUNT_STORE) private readonly accounts: AccountStore,
+    @Inject(COST_CENTER_STORE) private readonly costCenters: CostCenterStore,
     @Inject(MailerService) private readonly mailer: MailerService,
     @Inject(JobsService) private readonly jobs: JobsService,
   ) {}
@@ -163,6 +112,7 @@ export class SystemController {
       databaseConfigured,
       mfa: true,
       readiness: degraded ? "degraded" : "ready",
+      productFlags: readProductFeatureFlags(process.env),
       persistence: {
         iam: this.iam.persistence,
         audit: this.audit.persistence,
@@ -182,9 +132,11 @@ export class SystemController {
         workspaceDay: this.workspaceDays.persistence,
         workspaceRangeLock: this.rangeLocks.persistence,
         account: this.accounts.persistence,
+        costCenter: this.costCenters.persistence,
         procurementVendorPoDelivery: this.procurement.persistence,
         attachmentBlob: this.attachmentBlobs.mode(),
       },
+      conversionLive: false,
       stubs: {
         paymentProvider: !zarinpalLive,
         ocr: !ocrLive,

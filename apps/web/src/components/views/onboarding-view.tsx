@@ -58,15 +58,18 @@ export function OnboardingView() {
     let cancelled = false;
     void (async () => {
       try {
-        const [meResponse, templateResponse, caps] = await Promise.all([
-          api.me(),
-          api.templates(),
-          api.capabilities().catch(() => null),
-        ]);
+        const templateResponse = await api.templates();
         if (cancelled) return;
-        setMe(meResponse);
         setTemplates(templateResponse);
-        setAllowDevAuth(Boolean(caps?.allowDevAuth));
+        setAllowDevAuth(chrome.allowDevAuth);
+        if (chrome.actor) {
+          setMe({
+            actor: chrome.actor,
+            workspaces: chrome.workspaces,
+          });
+        } else {
+          setMe(await api.me());
+        }
         setError(null);
       } catch (err: unknown) {
         if (cancelled) return;
@@ -78,7 +81,7 @@ export function OnboardingView() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [chrome.ready, chrome.allowDevAuth, chrome.actor, chrome.workspaces]);
 
   function refresh() {
     startTransition(() => {

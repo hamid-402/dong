@@ -62,6 +62,7 @@ export const ACCOUNT_NAV = accountNav();
 export function spaceNav(
   template: WorkspaceTemplate | undefined,
   slug: string | null = null,
+  flags?: { approvalQueue?: boolean },
 ): NavSectionV2[] {
   const modules = modulesForTemplate(template);
   const has = (mod: string) => modules.has(mod);
@@ -76,6 +77,38 @@ export function spaceNav(
         icon: "wallet" as const,
         module: "settlements",
       },
+      {
+        key: "invoices",
+        label: NAV_LABELS.invoices,
+        href: scoped(slug, "invoices", `${hubPathFor("/workspaces")}#period-invoice-panel`),
+        icon: "receipt" as const,
+        module: "expenses",
+      },
+      {
+        key: "recurring",
+        label: NAV_LABELS.recurring,
+        href: scoped(slug, "recurring", `${hubPathFor("/workspaces")}#reports-panel`),
+        icon: "receipt" as const,
+        module: "expenses",
+      },
+      {
+        key: "addons",
+        label: NAV_LABELS.addons,
+        href: scoped(slug, "addons", hubPathFor("/group")),
+        icon: "wallet" as const,
+        module: "expenses",
+      },
+      ...(flags?.approvalQueue
+        ? [
+            {
+              key: "approvals",
+              label: "مرکز تأیید",
+              href: scoped(slug, "approvals", hubPathFor("/workspaces")),
+              icon: "receipt" as const,
+              module: "expenses",
+            },
+          ]
+        : []),
       {
         key: "ledger",
         label: NAV_LABELS.ledger,

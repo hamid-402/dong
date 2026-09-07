@@ -9,6 +9,7 @@ const EXPENSE: Record<string, string> = {
   submitted: "ارسال‌شده",
   posted: "ثبت‌شده",
   void: "باطل",
+  reversed: "برگشت‌خورده",
 };
 
 const SETTLEMENT: Record<string, string> = {

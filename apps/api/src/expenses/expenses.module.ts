@@ -2,8 +2,11 @@ import { Module } from "@nestjs/common";
 import { loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
 import { AuthModule } from "../auth/auth.module.js";
+import { AttachmentsModule } from "../attachments/attachments.module.js";
+import { ApprovalStepsModule } from "../approval-steps/approval-steps.module.js";
 import { createPersistenceStore } from "../common/postgres-store.factory.js";
 import { IamModule } from "../iam/iam.module.js";
+import { ExpensePolicyModule } from "../expense-policy/expense-policy.module.js";
 import { LedgerModule } from "../ledger/ledger.module.js";
 import { ProcurementModule } from "../procurement/procurement.module.js";
 import { DailyLedgerController } from "./daily-ledger.controller.js";
@@ -68,7 +71,15 @@ function createWorkspaceRangeLockStore(): WorkspaceRangeLockStore {
 }
 
 @Module({
-  imports: [AuthModule, LedgerModule, IamModule, ProcurementModule],
+  imports: [
+    AuthModule,
+    LedgerModule,
+    IamModule,
+    ProcurementModule,
+    ExpensePolicyModule,
+    AttachmentsModule,
+    ApprovalStepsModule,
+  ],
   controllers: [
     ExpensesController,
     OutingsController,
@@ -95,6 +106,12 @@ function createWorkspaceRangeLockStore(): WorkspaceRangeLockStore {
       useFactory: createWorkspaceRangeLockStore,
     },
   ],
-  exports: [EXPENSE_STORE, OUTING_STORE, WORKSPACE_DAY_STORE, WORKSPACE_RANGE_LOCK_STORE],
+  exports: [
+    ExpensesService,
+    EXPENSE_STORE,
+    OUTING_STORE,
+    WORKSPACE_DAY_STORE,
+    WORKSPACE_RANGE_LOCK_STORE,
+  ],
 })
 export class ExpensesModule {}

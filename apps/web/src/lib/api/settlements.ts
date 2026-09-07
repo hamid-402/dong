@@ -1,5 +1,8 @@
 import type {
   CreateSettlementClaimRequest,
+  CreateSimplifySettlementClaimsRequest,
+  CreateSimplifySettlementClaimsResponse,
+  DebtSimplifySuggestionsResponse,
   JournalEntrySummary,
   SettlementSummary,
   WorkspaceBalancesResponse,
@@ -37,6 +40,19 @@ export const settlementsApi = {
     ),
   getBalances: (workspaceId: string) =>
     apiFetch<WorkspaceBalancesResponse>(`/workspaces/${workspaceId}/balances`),
+  getDebtSimplifySuggestions: (workspaceId: string) =>
+    apiFetch<DebtSimplifySuggestionsResponse>(
+      `/workspaces/${workspaceId}/balances/simplify-suggestions`,
+    ),
+  createSimplifySettlementClaims: (
+    workspaceId: string,
+    body: CreateSimplifySettlementClaimsRequest,
+  ) =>
+    apiFetch<CreateSimplifySettlementClaimsResponse>(
+      `/workspaces/${workspaceId}/settlements/simplify-claims`,
+      { method: "POST", body: JSON.stringify(body) },
+      body.idempotencyKey,
+    ),
   listLedgerEntries: (workspaceId: string) =>
     apiFetch<JournalEntrySummary[]>(`/workspaces/${workspaceId}/ledger/entries`),
   listAuditEvents: (workspaceId: string) =>

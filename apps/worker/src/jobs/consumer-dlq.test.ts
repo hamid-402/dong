@@ -90,3 +90,33 @@ test("ledger.rebuild_balances completes with structured result", async () => {
   assert.equal(result.result.action, "rebuild_balances");
   assert.equal(result.result.mode, "local_ack");
 });
+
+test("recurrence.tick disabled failure reaches DLQ", async () => {
+  const previous = process.env.ENABLE_RECURRENCE_WORKER;
+  delete process.env.ENABLE_RECURRENCE_WORKER;
+  const pushed: DeadLetterJob[] = [];
+  const job: QueuedWorkerJob = {
+    jobId: "j-recurrence-disabled",
+    name: "recurrence.tick",
+    workspaceId: "ws-recurrence",
+    meta: { actorUserId: "user-1" },
+    enqueuedAt: "2026-01-01T00:00:00.000Z",
+  };
+
+  try {
+    const result = await processQueuedJobWithRetries(job, {
+      maxAttempts: 1,
+      pushDlq: async (entry) => {
+        pushed.push(entry);
+        return true;
+      },
+    });
+    assert.equal(result, "dlq");
+    assert.equal(pushed.length, 1);
+    assert.equal(pushed[0]?.job.name, "recurrence.tick");
+    assert.equal(pushed[0]?.error, "recurrence_worker_disabled");
+  } finally {
+    if (previous === undefined) delete process.env.ENABLE_RECURRENCE_WORKER;
+    else process.env.ENABLE_RECURRENCE_WORKER = previous;
+  }
+});

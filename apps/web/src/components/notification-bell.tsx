@@ -101,7 +101,10 @@ export function NotificationBell({ workspaceId, initialUnreadCount = 0 }: Notifi
               setItems((prev) => prev.map((n) => (n.id === notification.id ? updated : n)));
             }
           }
-          const href = notificationTargetHref(notification);
+          const href = notificationTargetHref(
+            notification,
+            chrome?.workspaces.find((w) => w.id === effectiveWorkspaceId)?.slug,
+          );
           if (href) {
             setOpen(false);
             router.push(href);

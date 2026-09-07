@@ -27,6 +27,7 @@ import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { useIsNarrow } from "@/lib/use-viewport";
 import { DailyLedgerLockPanel } from "@/components/views/daily-ledger/daily-ledger-lock-panel";
 import { DailyLedgerToolbar } from "@/components/views/daily-ledger/daily-ledger-toolbar";
@@ -42,6 +43,7 @@ import {
 /** Professional day×member consumption ledger — API-backed only. */
 export function DailyLedgerView() {
   const chrome = useAppChrome();
+  const scope = useOptionalWorkspaceScope();
   const isNarrow = useIsNarrow();
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
@@ -91,19 +93,14 @@ export function DailyLedgerView() {
 
   useEffect(() => {
     if (!chrome.ready) return;
-    void (async () => {
-      try {
-        const list = await api.listWorkspaces();
-        const usable = list.filter((w) => w.template !== "personal");
-        setWorkspaces(usable);
-        const selected =
-          usable.find((w) => w.id === chrome.workspaceId)?.id ?? usable[0]?.id ?? "";
-        setWorkspaceId(selected);
-      } catch (err: unknown) {
-        setError(friendlyErrorMessage(err, "بارگذاری فضاها ناموفق"));
-      }
-    })();
-  }, [chrome.ready, chrome.workspaceId]);
+    const usable = chrome.workspaces.filter((w) => w.template !== "personal");
+    setWorkspaces(usable);
+    const selected =
+      usable.find((w) => w.id === (scope?.workspaceId || chrome.workspaceId))?.id ??
+      usable[0]?.id ??
+      "";
+    setWorkspaceId(selected);
+  }, [chrome.ready, chrome.workspaceId, chrome.workspaces, scope?.workspaceId]);
 
   function applyPreset(next: DailyLedgerRangePreset) {
     setPreset(next);

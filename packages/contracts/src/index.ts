@@ -31,7 +31,8 @@ export type MembershipRole =
   | "buyer"
   | "asset_custodian"
   | "member"
-  | "auditor";
+  | "auditor"
+  | "guest";
 
 /**
  * مادرخرج / مدیر مالی گروه یا سازمان — نه ادمین سراسری محصول.
@@ -49,11 +50,61 @@ export function isFinanceManagerRole(
   );
 }
 
-/** Auditor may be invited/assigned but must not mutate finance records. */
+/** Law 9: non-personal spaces need ≥2 finance managers after bootstrap (≤1 member). */
+export const MIN_FINANCE_MANAGERS_NON_PERSONAL = 2;
+
+export function spaceRequiresFinanceQuorum(
+  spaceKind: "personal" | "group" | "org",
+): boolean {
+  return spaceKind !== "personal";
+}
+
+/**
+ * Backup Treasurer rule (roadmap Law 9).
+ * Bootstrap: a brand-new space with a single owner may have one finance manager.
+ * Once there are 2+ members, at least {@link MIN_FINANCE_MANAGERS_NON_PERSONAL}
+ * finance managers are required.
+ */
+export function financeManagerQuorumOk(input: {
+  spaceKind: "personal" | "group" | "org";
+  memberCount: number;
+  financeManagerCount: number;
+}): { ok: true } | { ok: false; code: "FINANCE_QUORUM_REQUIRED" } {
+  if (!spaceRequiresFinanceQuorum(input.spaceKind)) return { ok: true };
+  if (input.memberCount <= 1) return { ok: true };
+  if (input.financeManagerCount >= MIN_FINANCE_MANAGERS_NON_PERSONAL) {
+    return { ok: true };
+  }
+  return { ok: false, code: "FINANCE_QUORUM_REQUIRED" };
+}
+
+/**
+ * Whether inviting `inviteRole` into a non-personal space would leave quorum unmet
+ * after the invitee joins (memberCount + 1).
+ */
+export function inviteSatisfiesFinanceQuorum(input: {
+  spaceKind: "personal" | "group" | "org";
+  currentMemberCount: number;
+  currentFinanceManagerCount: number;
+  inviteRole: MembershipRole;
+}): { ok: true } | { ok: false; code: "FINANCE_QUORUM_REQUIRED" } {
+  if (!spaceRequiresFinanceQuorum(input.spaceKind)) return { ok: true };
+  const nextMembers = input.currentMemberCount + 1;
+  const nextFinance =
+    input.currentFinanceManagerCount +
+    (isFinanceManagerRole(input.inviteRole) ? 1 : 0);
+  return financeManagerQuorumOk({
+    spaceKind: input.spaceKind,
+    memberCount: nextMembers,
+    financeManagerCount: nextFinance,
+  });
+}
+
+/** Auditor and temporary guest may be invited but must not mutate finance records. */
 export function isReadOnlyRole(
   role: string | null | undefined,
-): role is "auditor" {
-  return role === "auditor";
+): role is "auditor" | "guest" {
+  return role === "auditor" || role === "guest";
 }
 
 export type WorkspaceTemplateCatalogItem = {
@@ -225,6 +276,7 @@ export type AcceptInviteRequest = {
 };
 
 export * from "./account.js";
+export * from "./addon-charge.js";
 export * from "./assets.js";
 export * from "./billing.js";
 export * from "./collaboration.js";
@@ -240,4 +292,8 @@ export * from "./personal-finance.js";
 export * from "./daily-ledger.js";
 export * from "./reports.js";
 export * from "./product-metrics.js";
+export * from "./session-cookies.js";
+export * from "./system.js";
+export * from "./product-flags.js";
+export * from "./wave-f.js";
 export * from "./schemas/index.js";

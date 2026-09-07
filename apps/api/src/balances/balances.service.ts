@@ -5,7 +5,11 @@ import {
 } from "@nestjs/common";
 import {
   isZeroSumBalances,
+  readProductFeatureFlags,
+  settlementSuggestionsSatisfyGoldenRules,
+  suggestMinimalSettlements,
   type AuthActor,
+  type DebtSimplifySuggestionsResponse,
   type WorkspaceBalancesResponse,
 } from "@dang/contracts";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
@@ -47,5 +51,36 @@ export class BalancesService {
       lines,
       zeroSum: isZeroSumBalances(lines),
     };
+  }
+
+  async getSimplifySuggestions(
+    actor: AuthActor,
+    workspaceId: string,
+  ): Promise<DebtSimplifySuggestionsResponse> {
+    this.assertSimplifyEnabled();
+    const balances = await this.getProvisional(actor, workspaceId);
+    const suggestions = suggestMinimalSettlements(balances.lines);
+    return {
+      workspaceId,
+      currency: "IRR",
+      lines: balances.lines,
+      suggestions,
+      goldenRulesOk: settlementSuggestionsSatisfyGoldenRules(
+        balances.lines,
+        suggestions,
+      ),
+      zeroSum: balances.zeroSum,
+    };
+  }
+
+  private assertSimplifyEnabled(): void {
+    if (!readProductFeatureFlags(process.env).debtSimplifyApi) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/feature-disabled",
+        title: "Debt simplify API disabled",
+        detail: "Set ENABLE_DEBT_SIMPLIFY_API=1 to enable first-class simplify suggestions.",
+        status: 403,
+      });
+    }
   }
 }

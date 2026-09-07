@@ -1,5 +1,37 @@
 import type { Money } from "./money.js";
 
+/**
+ * Invoice golden invariant (Dong 2.0 §۴.۳):
+ * `total = sharedTotal + privateTotal` (privateTotal stands for personal add-ons
+ * until the dedicated addon entity is fully wired).
+ */
+export function isInvoiceTotalConsistent(invoice: {
+  sharedTotal: Money;
+  privateTotal: Money;
+  total: Money;
+}): boolean {
+  if (
+    invoice.sharedTotal.currency !== invoice.privateTotal.currency ||
+    invoice.sharedTotal.currency !== invoice.total.currency
+  ) {
+    return false;
+  }
+  const shared = BigInt(invoice.sharedTotal.amountMinor);
+  const priv = BigInt(invoice.privateTotal.amountMinor);
+  const total = BigInt(invoice.total.amountMinor);
+  return shared + priv === total;
+}
+
+export function assertInvoiceTotalConsistent(invoice: {
+  sharedTotal: Money;
+  privateTotal: Money;
+  total: Money;
+}): void {
+  if (!isInvoiceTotalConsistent(invoice)) {
+    throw new Error("INVOICE_TOTAL_INVARIANT");
+  }
+}
+
 export type PeriodKind = "day" | "week" | "month" | "year" | "custom";
 export type PeriodStatus = "open" | "review" | "closed" | "cancelled";
 export type ExpenseVisibility = "shared" | "private" | "company";

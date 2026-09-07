@@ -36,6 +36,9 @@ import { expenseStatusLabel, workspaceTemplateLabel } from "@/lib/status-labels"
 import { FlashMessages, useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
+import { AddonChargesPanel } from "@/components/views/friends-group/addon-charges-panel";
+import { DebtSimplifyPanel } from "@/components/views/friends-group/debt-simplify-panel";
+import { AllowancesPanel } from "@/components/allowances-panel";
 
 type ExpenseFilter = "all" | "shared" | "private" | "company";
 
@@ -66,6 +69,7 @@ export function FriendsGroupView() {
     "friends_family",
   );
   const [friendEmail, setFriendEmail] = useState("");
+  const [friendRole, setFriendRole] = useState<"finance" | "member" | "guest">("finance");
   const [createdInvite, setCreatedInvite] = useState<CreateInviteResponse | null>(null);
   const [outingTitle, setOutingTitle] = useState("");
   const [outings, setOutings] = useState<
@@ -202,7 +206,7 @@ export function FriendsGroupView() {
       void (async () => {
         try {
           const invite = await api.createInvite(chrome.workspaceId, {
-            role: "member",
+            role: friendRole,
             invitedSubject: subject,
           });
           setCreatedInvite(invite);
@@ -399,19 +403,18 @@ export function FriendsGroupView() {
                 })}
               </DataList>
             )}
-            {settlementSuggestions.length > 0 ? (
-              <>
-                <p className="liveHint">پیشنهاد تسویه حداقلی — عضو بدهکار به طلبکار</p>
-                <DataList>
-                  {settlementSuggestions.map((s) => (
-                    <DataRow
-                      key={`${s.fromUserId}-${s.toUserId}-${s.amount.amountMinor}`}
-                      title={`${memberLabel(s.fromUserId)} می‌دهد به ${memberLabel(s.toUserId)}`}
-                      trailing={<Amount irrMinor={s.amount.amountMinor} />}
-                    />
-                  ))}
-                </DataList>
-              </>
+            {settlementSuggestions.length > 0 && chrome.workspaceId ? (
+              <DebtSimplifyPanel
+                workspaceId={chrome.workspaceId}
+                memberLabel={memberLabel}
+                fallbackSuggestions={settlementSuggestions}
+                enabled={Boolean(chrome.capabilities?.productFlags?.debtSimplifyApi)}
+                onError={setError}
+                onSuccess={flashSuccess}
+                onApplied={() => {
+                  void api.getBalances(chrome.workspaceId).then(setBalances).catch(() => null);
+                }}
+              />
             ) : null}
             <div className="dataRowActions">
               <Button
@@ -437,12 +440,44 @@ export function FriendsGroupView() {
             </div>
           </SectionCard>
 
+          {chrome.capabilities?.productFlags?.addonAck && chrome.workspaceId ? (
+            <AddonChargesPanel
+              workspaceId={chrome.workspaceId}
+              actorUserId={chrome.actor?.userId ?? null}
+              members={members}
+              onError={setError}
+              onSuccess={flashSuccess}
+            />
+          ) : null}
+
+          {chrome.capabilities?.productFlags?.allowance &&
+          chrome.workspaceId &&
+          canManageFinance ? (
+            <AllowancesPanel
+              workspaceId={chrome.workspaceId}
+              members={members}
+              onError={setError}
+              onSuccess={flashSuccess}
+            />
+          ) : null}
+
           <SectionCard title="افزودن دوست" badge={members.length} delayClass="delay2">
             {!chrome.workspaceId ? (
               <EmptyHint>اول گروه بسازید یا انتخاب کنید.</EmptyHint>
             ) : (
               <>
                 <FormStack>
+                  <SelectField
+                    label="نقش مهمان"
+                    value={friendRole}
+                    onChange={(event) =>
+                      setFriendRole(event.target.value as "finance" | "member" | "guest")
+                    }
+                  >
+                    <option value="finance">مادرخرج / پشتیبان</option>
+                    <option value="member">عضو</option>
+                    <option value="guest">مهمان موقت</option>
+                  </SelectField>
                   <TextField
                     label="ایمیل یا شناسه دوست"
                     value={friendEmail}

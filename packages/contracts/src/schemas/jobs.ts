@@ -8,6 +8,8 @@ export const workerJobNameSchema = z.enum([
   "report.export",
   "webhook.dispatch",
   "ledger.rebuild_balances",
+  "recurrence.tick",
+  "digest.weekly",
 ]);
 
 export const runJobRequestSchema = z

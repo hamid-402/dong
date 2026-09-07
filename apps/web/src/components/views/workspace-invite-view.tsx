@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import type { CreateInviteResponse, WorkspaceSummary } from "@dang/contracts";
+import type { CreateInviteResponse } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -15,38 +15,24 @@ import {
 } from "@/components/ui-blocks";
 import { api, getDevIdentity, setDevIdentity } from "@/lib/api";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { hubPathFor } from "@/lib/hub-links";
 import { wPath } from "@/lib/workspace-paths";
 
 export function WorkspaceInviteView() {
   const chrome = useAppChrome();
-  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
-  const [workspaceId, setWorkspaceId] = useState("");
-  const [role, setRole] = useState("member");
+  const scope = useOptionalWorkspaceScope();
+  const workspaces = chrome.workspaces;
+  const workspaceId = scope?.workspaceId || chrome.workspaceId;
+  const [role, setRole] = useState("finance");
   const [invitedSubject, setInvitedSubject] = useState("");
   const [created, setCreated] = useState<CreateInviteResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const identity = getDevIdentity();
-        setDevIdentity(identity.subject, identity.displayName);
-        const list = await api.listWorkspaces();
-        if (cancelled) return;
-        setWorkspaces(list);
-        setWorkspaceId(list[0]?.id ?? "");
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "خطای ناشناخته");
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    const identity = getDevIdentity();
+    setDevIdentity(identity.subject, identity.displayName);
   }, []);
 
   function onCreate() {
@@ -69,7 +55,7 @@ export function WorkspaceInviteView() {
 
   const pageError = error ?? chrome.error;
   const selected = workspaces.find((w) => w.id === workspaceId);
-  const slug = selected?.slug ?? null;
+  const slug = selected?.slug ?? scope?.slug ?? null;
   const groupHref = slug ? wPath(slug, "space") : hubPathFor("/group");
 
   return (
@@ -94,39 +80,33 @@ export function WorkspaceInviteView() {
 
       <ProductGrid>
         <SectionCard title="ساخت دعوت" delayClass="delay1">
-          {workspaces.length === 0 ? (
+          {!chrome.ready ? (
+            <EmptyHint>در حال بارگذاری فضاها…</EmptyHint>
+          ) : workspaces.length === 0 ? (
             <EmptyHint>
               ابتدا یک فضا بسازید — <Link href="/spaces/new">شروع فضای کاری</Link>
             </EmptyHint>
           ) : null}
           <FormStack>
-            <SelectField
-              label="فضای کاری"
-              value={workspaceId}
-              onChange={(event) => setWorkspaceId(event.target.value)}
-            >
-              {workspaces.length === 0 ? (
-                <option value="">ابتدا یک فضا بسازید</option>
-              ) : (
-                workspaces.map((workspace) => (
-                  <option key={workspace.id} value={workspace.id}>
-                    {workspace.name}
-                  </option>
-                ))
-              )}
-            </SelectField>
+            <p className="liveHint" style={{ marginBottom: 8 }}>
+              فضای فعال: <strong>{selected?.name ?? "—"}</strong>
+            </p>
             <SelectField
               label="نقش"
               value={role}
               onChange={(event) => setRole(event.target.value)}
             >
+              <option value="finance">مالی (مادرخرج / پشتیبان)</option>
+              <option value="admin">ادمین</option>
               <option value="member">عضو</option>
-              <option value="finance">مالی (مادرخرج)</option>
               <option value="approver">تأییدکننده</option>
               <option value="buyer">خریدار</option>
-              <option value="admin">ادمین</option>
               <option value="auditor">حسابرس</option>
+              <option value="guest">مهمان موقت</option>
             </SelectField>
+            <p className="emptyHint" style={{ border: "none", padding: 0, marginTop: -4 }}>
+              قانون پشتیبان مادرخرج: تا وقتی دو مدیر مالی فعال نباشد، دعوت با نقش غیرمالی رد می‌شود.
+            </p>
             {role === "finance" ? (
               <p className="emptyHint" style={{ border: "none", padding: 0, marginTop: -4 }}>
                 مادرخرج می‌تواند صورتحساب بسازد، تسویه را تأیید کند و دوره‌های مالی را ببندد —

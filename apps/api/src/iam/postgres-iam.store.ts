@@ -20,6 +20,11 @@ import type {
   WorkspaceSummary,
   WorkspaceTemplate,
 } from "@dang/contracts";
+import {
+  inviteSatisfiesFinanceQuorum,
+  isFinanceManagerRole,
+  spaceKindForTemplate,
+} from "@dang/contracts";
 import type {
   CreateInviteInput,
   CreateWorkspaceInput,
@@ -454,6 +459,36 @@ export class PostgresIamStore implements IamStore {
         const role = actorMembership[0]?.role;
         if (!role || !INVITE_OWNER_ROLES.includes(role)) {
           throw new Error("INVITE_FORBIDDEN");
+        }
+
+        const wsRows = await tx
+          .select()
+          .from(workspace)
+          .where(eq(workspace.id, input.workspaceId))
+          .limit(1);
+        const ws = wsRows[0];
+        if (!ws) throw new Error("INVITE_FORBIDDEN");
+
+        const memberRows = await tx
+          .select({ role: membership.role })
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, input.workspaceId),
+              isNull(membership.disabledAt),
+            ),
+          );
+        const financeCount = memberRows.filter((m) =>
+          isFinanceManagerRole(m.role),
+        ).length;
+        const quorum = inviteSatisfiesFinanceQuorum({
+          spaceKind: spaceKindForTemplate(asTemplate(ws.template)),
+          currentMemberCount: memberRows.length,
+          currentFinanceManagerCount: financeCount,
+          inviteRole: input.role,
+        });
+        if (!quorum.ok) {
+          throw new Error("FINANCE_QUORUM_REQUIRED");
         }
 
         const hours = input.expiresInHours ?? 72;

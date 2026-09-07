@@ -10,6 +10,28 @@ export const reportGroupBySchema = z.enum([
   "visibility",
 ]);
 
+export const workspaceReportCompareQuerySchema = z
+  .object({
+    from: isoDateSchema,
+    to: isoDateSchema,
+    priorFrom: isoDateSchema,
+    priorTo: isoDateSchema,
+    groupBy: reportGroupBySchema.optional(),
+  })
+  .strict()
+  .refine((value) => value.from <= value.to, {
+    message: "from must be on or before to",
+    path: ["to"],
+  })
+  .refine((value) => value.priorFrom <= value.priorTo, {
+    message: "priorFrom must be on or before priorTo",
+    path: ["priorTo"],
+  });
+
+export type WorkspaceReportCompareQueryInput = z.infer<
+  typeof workspaceReportCompareQuerySchema
+>;
+
 export const createReportExportRequestSchema = z
   .object({
     from: isoDateSchema,
@@ -45,6 +67,7 @@ export const createRecurringRuleRequestSchema = z
     nextRunOn: isoDateSchema,
     visibility: z.enum(["shared", "private", "company"]).optional(),
     categoryId: entityIdSchema.optional(),
+    autoConfirm: z.boolean().optional().default(false),
     idempotencyKey: idempotencyKeySchema,
   })
   .strict();

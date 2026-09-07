@@ -17,12 +17,14 @@ import {
   type CreateWorkspaceRangeLockRequest,
   type DailyLedgerRangePreset,
   type DailyLedgerResponse,
+  type MembershipSummary,
   type UpdateDailyLedgerEntryRequest,
   type UpsertWorkspaceDayRequest,
   type UpsertWorkspaceDayResponse,
   type WorkspaceRangeLockSummary,
 } from "@dang/contracts";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { resolveExpenseListOptions } from "./expense-list-options.js";
 import { EXPENSE_STORE, type ExpenseStore } from "./expense.types.js";
 import { ExpensesService } from "./expenses.service.js";
@@ -37,15 +39,35 @@ import {
 
 const LOCK_ROLES = new Set(["owner", "admin", "finance"]);
 
+type MembersCache = Map<string, MembershipSummary[]>;
+
 @Injectable()
 export class DailyLedgerService {
   constructor(
     @Inject(IAM_STORE) private readonly iam: IamStore,
+    @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
     @Inject(EXPENSE_STORE) private readonly expenses: ExpenseStore,
     @Inject(WORKSPACE_DAY_STORE) private readonly days: WorkspaceDayStore,
     @Inject(WORKSPACE_RANGE_LOCK_STORE) private readonly locks: WorkspaceRangeLockStore,
     @Inject(ExpensesService) private readonly expenseService: ExpensesService,
   ) {}
+
+  /** Per-request/method cache so listMembers is not hit repeatedly in one flow. */
+  private async loadMembers(
+    workspaceId: string,
+    userId: string,
+    cache: MembersCache,
+  ): Promise<MembershipSummary[]> {
+    const key = `${workspaceId}:${userId}`;
+    const hit = cache.get(key);
+    if (hit) return hit;
+    const members = await this.iam.listMembers(workspaceId, userId);
+    if (!members?.length) {
+      throw new ForbiddenException({ detail: "عضویت پیدا نشد" });
+    }
+    cache.set(key, members);
+    return members;
+  }
 
   async getLedger(
     actor: AuthActor,
@@ -57,7 +79,7 @@ export class DailyLedgerService {
   ): Promise<DailyLedgerResponse> {
     await this.requireMember(workspaceId, actor.userId);
     const range = this.resolveRange(presetQ, fromQ, toQ, daysQ);
-    return this.buildLedger(actor, workspaceId, range.from, range.to);
+    return this.buildLedger(actor, workspaceId, range.from, range.to, new Map());
   }
 
   async exportCsvPayload(
@@ -70,7 +92,13 @@ export class DailyLedgerService {
   ): Promise<{ body: string; filename: string }> {
     await this.requireMember(workspaceId, actor.userId);
     const range = this.resolveRange(presetQ, fromQ, toQ, daysQ);
-    const ledger = await this.buildLedger(actor, workspaceId, range.from, range.to);
+    const ledger = await this.buildLedger(
+      actor,
+      workspaceId,
+      range.from,
+      range.to,
+      new Map(),
+    );
     const csv = buildDailyLedgerCsv(ledger);
     const body = `\uFEFF${csv}`;
     const filename = `dang-daily-ledger-${range.from}_${range.to}.csv`;
@@ -176,14 +204,14 @@ export class DailyLedgerService {
     this.validateEntryBody(body);
     await this.assertDayOpen(workspaceId, actor.userId, body.date);
 
-    const members = await this.iam.listMembers(workspaceId, actor.userId);
-    if (!members?.length) throw new ForbiddenException({ detail: "عضویت پیدا نشد" });
+    const cache: MembersCache = new Map();
+    const members = await this.loadMembers(workspaceId, actor.userId, cache);
 
     const memberId = body.memberUserId?.trim() || null;
     const draft = this.buildDraft(actor, workspaceId, body, members.map((m) => m.userId), memberId);
     const created = await this.expenseService.createDraft(actor, workspaceId, draft);
     await this.expenseService.post(actor, workspaceId, created.id);
-    return this.buildLedger(actor, workspaceId, body.date, body.date);
+    return this.buildLedger(actor, workspaceId, body.date, body.date, cache);
   }
 
   async importCsv(
@@ -202,8 +230,8 @@ export class DailyLedgerService {
     if (rows.length > 500) {
       throw new BadRequestException({ detail: "حداکثر ۵۰۰ ردیف در هر import" });
     }
-    const members = await this.iam.listMembers(workspaceId, actor.userId);
-    if (!members?.length) throw new ForbiddenException({ detail: "عضویت پیدا نشد" });
+    const cache: MembersCache = new Map();
+    const members = await this.loadMembers(workspaceId, actor.userId, cache);
     const byName = new Map(
       members.map((m) => [m.displayName.trim().toLowerCase(), m.userId]),
     );
@@ -251,7 +279,7 @@ export class DailyLedgerService {
       }
     }
 
-    const ledger = await this.buildLedger(actor, workspaceId, minDate, maxDate);
+    const ledger = await this.buildLedger(actor, workspaceId, minDate, maxDate, cache);
     return { imported, skipped, ledger };
   }
 
@@ -284,8 +312,8 @@ export class DailyLedgerService {
       await this.assertDayOpen(workspaceId, actor.userId, nextDate);
     }
 
-    const members = await this.iam.listMembers(workspaceId, actor.userId);
-    if (!members?.length) throw new ForbiddenException({ detail: "عضویت پیدا نشد" });
+    const cache: MembersCache = new Map();
+    const members = await this.loadMembers(workspaceId, actor.userId, cache);
 
     const isMemberCell =
       current.visibility === "shared" &&
@@ -317,7 +345,7 @@ export class DailyLedgerService {
     await this.expenseService.post(actor, workspaceId, created.id);
     const from = nextDate < current.occurredOn ? nextDate : current.occurredOn;
     const to = nextDate > current.occurredOn ? nextDate : current.occurredOn;
-    return this.buildLedger(actor, workspaceId, from, to);
+    return this.buildLedger(actor, workspaceId, from, to, cache);
   }
 
   async deleteEntry(
@@ -333,7 +361,13 @@ export class DailyLedgerService {
     }
     await this.assertDayOpen(workspaceId, actor.userId, current.occurredOn);
     await this.expenseService.reverse(actor, workspaceId, expenseId);
-    return this.buildLedger(actor, workspaceId, current.occurredOn, current.occurredOn);
+    return this.buildLedger(
+      actor,
+      workspaceId,
+      current.occurredOn,
+      current.occurredOn,
+      new Map(),
+    );
   }
 
   validateEntryBody(body: CreateDailyLedgerEntryRequest): void {
@@ -493,9 +527,9 @@ export class DailyLedgerService {
     workspaceId: string,
     from: string,
     to: string,
+    cache: MembersCache = new Map(),
   ): Promise<DailyLedgerResponse> {
-    const members = await this.iam.listMembers(workspaceId, actor.userId);
-    if (!members) throw new ForbiddenException({ detail: "عضویت پیدا نشد" });
+    const members = await this.loadMembers(workspaceId, actor.userId, cache);
     const me = members.find((m) => m.userId === actor.userId);
     const canManageLocks = Boolean(me && LOCK_ROLES.has(me.role));
     const [expenses, dayMeta, rangeLocks] = await Promise.all([
@@ -551,10 +585,7 @@ export class DailyLedgerService {
   }
 
   async requireMember(workspaceId: string, userId: string): Promise<void> {
-    const ws = await this.iam.getWorkspaceForUser(workspaceId, userId);
-    if (!ws) {
-      throw new ForbiddenException({ detail: "عضویت فضای کاری پیدا نشد" });
-    }
+    await this.access.requireMember(workspaceId, userId);
   }
 
   private async listVisibleExpenses(workspaceId: string, userId: string) {
@@ -567,8 +598,8 @@ export class DailyLedgerService {
   }
 
   async requireLockManager(workspaceId: string, userId: string): Promise<void> {
-    const members = await this.iam.listMembers(workspaceId, userId);
-    const me = members?.find((m) => m.userId === userId);
+    const members = await this.loadMembers(workspaceId, userId, new Map());
+    const me = members.find((m) => m.userId === userId);
     if (!me || !LOCK_ROLES.has(me.role)) {
       throw new ForbiddenException({
         detail: "فقط owner/admin/finance می‌توانند بازه را قفل یا باز کنند",
