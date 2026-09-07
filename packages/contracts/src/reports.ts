@@ -85,12 +85,14 @@ export type ExpenseCategorySummary = {
   workspaceId: string;
   name: string;
   slug: string;
+  parentId?: string;
   createdAt: string;
 };
 
 export type CreateExpenseCategoryRequest = {
   name: string;
   slug?: string;
+  parentId?: string;
 };
 
 export type RecurringCadence = "weekly" | "monthly" | "yearly";

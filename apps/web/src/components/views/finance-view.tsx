@@ -51,6 +51,7 @@ import { LedgerAuditPanels } from "@/components/views/finance/ledger-audit-panel
 import { PeriodInvoicePanels } from "@/components/views/finance/period-invoice-panels";
 import { ExpenseFormPanel } from "@/components/views/finance/expense-form-panel";
 import { SettlementPanel } from "@/components/views/finance/settlement-panel";
+import { DebtSimplifyPanel } from "@/components/views/friends-group/debt-simplify-panel";
 import {
   loadWorkspaceData,
   type FinanceWorkspaceData,
@@ -515,6 +516,21 @@ export function FinanceView({
               onCancelSettlement={onCancelSettlement}
               onCreatePaymentLink={onCreatePaymentLink}
             />
+            {capabilities?.productFlags?.debtSimplifyApi ? (
+              <SectionCard title="ساده‌سازی بدهی" tone="quiet">
+                <DebtSimplifyPanel
+                  workspaceId={selectedId}
+                  memberLabel={memberLabel}
+                  enabled
+                  readOnly={readOnlyFinance}
+                  onError={setError}
+                  onSuccess={showSuccess}
+                  onApplied={() => {
+                    void loadWorkspaceData(selectedId, selectedPeriodId).then(applyWorkspaceData);
+                  }}
+                />
+              </SectionCard>
+            ) : null}
           </ProductGrid>
         </>
       ) : null}

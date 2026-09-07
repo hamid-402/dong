@@ -14,7 +14,7 @@ import type {
   ProposalSummary,
   UpdateProposalSettingsRequest,
 } from "@dang/contracts";
-import { spaceKindForTemplate } from "@dang/contracts";
+import { spaceKindForTemplate, isReadOnlyRole } from "@dang/contracts";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
 import {
@@ -68,7 +68,8 @@ export class ProposalsService {
     workspaceId: string,
     body: CreateProposalRequest,
   ): Promise<ProposalSummary> {
-    await this.requireProposalWorkspace(workspaceId, actor.userId);
+    const membership = await this.requireProposalWorkspace(workspaceId, actor.userId);
+    this.assertWritable(membership.role);
     const title = body.title?.trim() ?? "";
     if (title.length < 2 || title.length > 120) {
       throw new BadRequestException({
@@ -143,7 +144,8 @@ export class ProposalsService {
     proposalId: string,
     body: CastProposalVoteRequest,
   ): Promise<ProposalSummary> {
-    await this.requireProposalWorkspace(workspaceId, actor.userId);
+    const membership = await this.requireProposalWorkspace(workspaceId, actor.userId);
+    this.assertWritable(membership.role);
     if (body.choice !== "yes" && body.choice !== "no") {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
@@ -200,6 +202,7 @@ export class ProposalsService {
     proposalId: string,
   ): Promise<ProposalSummary> {
     const membership = await this.requireProposalWorkspace(workspaceId, actor.userId);
+    this.assertWritable(membership.role);
     const { members, settings } = await this.context(workspaceId, actor.userId);
     const existing = await this.store.getProposal(
       workspaceId,
@@ -281,6 +284,17 @@ export class ProposalsService {
     const members = (await this.iam.listMembers(workspaceId, actorUserId)) ?? [];
     const settings = await this.store.getSettings(workspaceId, actorUserId);
     return { members, settings };
+  }
+
+  private assertWritable(role: MembershipRole) {
+    if (isReadOnlyRole(role)) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/read-only-role",
+        title: "Read-only role",
+        status: 403,
+        detail: "نقش ناظر/مهمان مجاز به پیشنهاد یا رأی نیست",
+      });
+    }
   }
 
   private async requireProposalWorkspace(workspaceId: string, userId: string) {

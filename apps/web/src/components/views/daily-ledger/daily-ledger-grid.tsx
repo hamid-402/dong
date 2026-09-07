@@ -15,11 +15,35 @@ type DailyLedgerGridProps = {
   showGregorian: boolean;
   todayIso: string;
   pending: boolean;
+  /** Guest/auditor — hide add/edit/delete and day meta mutators. */
+  readOnly?: boolean;
   onOpenDraft: (target: DraftTarget, item?: DailyLedgerItem) => void;
   onDeleteItem: (expenseId: string) => void;
   onToggleHoliday: (date: string, current: boolean) => void;
   onEditNote: (date: string, note: string) => void;
 };
+
+function ItemActions({
+  readOnly,
+  onEdit,
+  onDelete,
+}: {
+  readOnly: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  if (readOnly) return null;
+  return (
+    <div className="dlItemActions">
+      <button type="button" className="dlItemBtn" onClick={onEdit}>
+        ویرایش
+      </button>
+      <button type="button" className="dlItemBtn isDanger" onClick={onDelete}>
+        حذف
+      </button>
+    </div>
+  );
+}
 
 /**
  * Day × member consumption grid (table + cards) for the daily ledger.
@@ -31,6 +55,7 @@ export function DailyLedgerGrid({
   showGregorian,
   todayIso,
   pending,
+  readOnly = false,
   onOpenDraft,
   onDeleteItem,
   onToggleHoliday,
@@ -79,49 +104,40 @@ export function DailyLedgerGrid({
                               <span className="dlItemTitle">{it.title}</span>
                               <b className="dlItemAmt">{formatTomanMinor(it.amount.amountMinor)}</b>
                             </div>
-                            <div className="dlItemActions">
-                              <button
-                                type="button"
-                                className="dlItemBtn"
-                                onClick={() =>
-                                  onOpenDraft(
-                                    {
-                                      kind: "member",
-                                      date: row.date,
-                                      userId: m.userId,
-                                      displayName: m.displayName,
-                                      expenseId: it.expenseId,
-                                    },
-                                    it,
-                                  )
-                                }
-                              >
-                                ویرایش
-                              </button>
-                              <button
-                                type="button"
-                                className="dlItemBtn isDanger"
-                                onClick={() => onDeleteItem(it.expenseId)}
-                              >
-                                حذف
-                              </button>
-                            </div>
+                            <ItemActions
+                              readOnly={readOnly}
+                              onEdit={() =>
+                                onOpenDraft(
+                                  {
+                                    kind: "member",
+                                    date: row.date,
+                                    userId: m.userId,
+                                    displayName: m.displayName,
+                                    expenseId: it.expenseId,
+                                  },
+                                  it,
+                                )
+                              }
+                              onDelete={() => onDeleteItem(it.expenseId)}
+                            />
                           </div>
                         ))}
-                        <button
-                          type="button"
-                          className="dlAdd"
-                          onClick={() =>
-                            onOpenDraft({
-                              kind: "member",
-                              date: row.date,
-                              userId: m.userId,
-                              displayName: m.displayName,
-                            })
-                          }
-                        >
-                          + کالا
-                        </button>
+                        {!readOnly ? (
+                          <button
+                            type="button"
+                            className="dlAdd"
+                            onClick={() =>
+                              onOpenDraft({
+                                kind: "member",
+                                date: row.date,
+                                userId: m.userId,
+                                displayName: m.displayName,
+                              })
+                            }
+                          >
+                            + کالا
+                          </button>
+                        ) : null}
                       </div>
                     );
                   })}
@@ -133,40 +149,31 @@ export function DailyLedgerGrid({
                           <span className="dlItemTitle">{it.title}</span>
                           <b className="dlItemAmt">{formatTomanMinor(it.amount.amountMinor)}</b>
                         </div>
-                        <div className="dlItemActions">
-                          <button
-                            type="button"
-                            className="dlItemBtn"
-                            onClick={() =>
-                              onOpenDraft(
-                                {
-                                  kind: "shared",
-                                  date: row.date,
-                                  expenseId: it.expenseId,
-                                },
-                                it,
-                              )
-                            }
-                          >
-                            ویرایش
-                          </button>
-                          <button
-                            type="button"
-                            className="dlItemBtn isDanger"
-                            onClick={() => onDeleteItem(it.expenseId)}
-                          >
-                            حذف
-                          </button>
-                        </div>
+                        <ItemActions
+                          readOnly={readOnly}
+                          onEdit={() =>
+                            onOpenDraft(
+                              {
+                                kind: "shared",
+                                date: row.date,
+                                expenseId: it.expenseId,
+                              },
+                              it,
+                            )
+                          }
+                          onDelete={() => onDeleteItem(it.expenseId)}
+                        />
                       </div>
                     ))}
-                    <button
-                      type="button"
-                      className="dlAdd"
-                      onClick={() => onOpenDraft({ kind: "shared", date: row.date })}
-                    >
-                      + مشترک
-                    </button>
+                    {!readOnly ? (
+                      <button
+                        type="button"
+                        className="dlAdd"
+                        onClick={() => onOpenDraft({ kind: "shared", date: row.date })}
+                      >
+                        + مشترک
+                      </button>
+                    ) : null}
                   </div>
                   <footer>
                     جمع: <Amount irrMinor={row.dayTotal.amountMinor} />
@@ -245,49 +252,40 @@ export function DailyLedgerGrid({
                                   <span className="dlItemTitle">{it.title}</span>
                                   <b className="dlItemAmt">{formatTomanMinor(it.amount.amountMinor)}</b>
                                 </div>
-                                <div className="dlItemActions">
-                                  <button
-                                    type="button"
-                                    className="dlItemBtn"
-                                    onClick={() =>
-                                      onOpenDraft(
-                                        {
-                                          kind: "member",
-                                          date: row.date,
-                                          userId: m.userId,
-                                          displayName: m.displayName,
-                                          expenseId: it.expenseId,
-                                        },
-                                        it,
-                                      )
-                                    }
-                                  >
-                                    ویرایش
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="dlItemBtn isDanger"
-                                    onClick={() => onDeleteItem(it.expenseId)}
-                                  >
-                                    حذف
-                                  </button>
-                                </div>
+                                <ItemActions
+                                  readOnly={readOnly}
+                                  onEdit={() =>
+                                    onOpenDraft(
+                                      {
+                                        kind: "member",
+                                        date: row.date,
+                                        userId: m.userId,
+                                        displayName: m.displayName,
+                                        expenseId: it.expenseId,
+                                      },
+                                      it,
+                                    )
+                                  }
+                                  onDelete={() => onDeleteItem(it.expenseId)}
+                                />
                               </div>
                             ))}
-                            <button
-                              type="button"
-                              className="dlAdd"
-                              onClick={() =>
-                                onOpenDraft({
-                                  kind: "member",
-                                  date: row.date,
-                                  userId: m.userId,
-                                  displayName: m.displayName,
-                                })
-                              }
-                            >
-                              + کالا
-                            </button>
+                            {!readOnly ? (
+                              <button
+                                type="button"
+                                className="dlAdd"
+                                onClick={() =>
+                                  onOpenDraft({
+                                    kind: "member",
+                                    date: row.date,
+                                    userId: m.userId,
+                                    displayName: m.displayName,
+                                  })
+                                }
+                              >
+                                + کالا
+                              </button>
+                            ) : null}
                           </div>
                         )}
                       </td>
@@ -306,45 +304,36 @@ export function DailyLedgerGrid({
                               <span className="dlItemTitle">{it.title}</span>
                               <b className="dlItemAmt">{formatTomanMinor(it.amount.amountMinor)}</b>
                             </div>
-                            <div className="dlItemActions">
-                              <button
-                                type="button"
-                                className="dlItemBtn"
-                                onClick={() =>
-                                  onOpenDraft(
-                                    {
-                                      kind: "shared",
-                                      date: row.date,
-                                      expenseId: it.expenseId,
-                                    },
-                                    it,
-                                  )
-                                }
-                              >
-                                ویرایش
-                              </button>
-                              <button
-                                type="button"
-                                className="dlItemBtn isDanger"
-                                onClick={() => onDeleteItem(it.expenseId)}
-                              >
-                                حذف
-                              </button>
-                            </div>
+                            <ItemActions
+                              readOnly={readOnly}
+                              onEdit={() =>
+                                onOpenDraft(
+                                  {
+                                    kind: "shared",
+                                    date: row.date,
+                                    expenseId: it.expenseId,
+                                  },
+                                  it,
+                                )
+                              }
+                              onDelete={() => onDeleteItem(it.expenseId)}
+                            />
                           </div>
                         ))}
-                        <button
-                          type="button"
-                          className="dlAdd"
-                          onClick={() =>
-                            onOpenDraft({
-                              kind: "shared",
-                              date: row.date,
-                            })
-                          }
-                        >
-                          + مشترک
-                        </button>
+                        {!readOnly ? (
+                          <button
+                            type="button"
+                            className="dlAdd"
+                            onClick={() =>
+                              onOpenDraft({
+                                kind: "shared",
+                                date: row.date,
+                              })
+                            }
+                          >
+                            + مشترک
+                          </button>
+                        ) : null}
                       </div>
                     )}
                   </td>
@@ -356,27 +345,41 @@ export function DailyLedgerGrid({
                     )}
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className="dlNoteBtn"
-                      onClick={() => onEditNote(row.date, row.note ?? "")}
-                    >
-                      {row.note?.trim() || (row.isHoliday ? "تعطیل" : "…")}
-                    </button>
+                    {readOnly ? (
+                      <span className="dlMuted">
+                        {row.note?.trim() || (row.isHoliday ? "تعطیل" : "—")}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="dlNoteBtn"
+                        onClick={() => onEditNote(row.date, row.note ?? "")}
+                      >
+                        {row.note?.trim() || (row.isHoliday ? "تعطیل" : "…")}
+                      </button>
+                    )}
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className="dlHolidayBtn"
-                      onClick={() => onToggleHoliday(row.date, row.isHoliday)}
-                      disabled={pending}
-                    >
-                      {row.isHoliday ? (
-                        <StatusPill tone="warn">تعطیل — کلیک برای عادی</StatusPill>
+                    {readOnly ? (
+                      row.isHoliday ? (
+                        <StatusPill tone="warn">تعطیل</StatusPill>
                       ) : (
-                        <span className="dlStatusNormal">عادی — کلیک برای تعطیل</span>
-                      )}
-                    </button>
+                        <span className="dlStatusNormal">عادی</span>
+                      )
+                    ) : (
+                      <button
+                        type="button"
+                        className="dlHolidayBtn"
+                        onClick={() => onToggleHoliday(row.date, row.isHoliday)}
+                        disabled={pending}
+                      >
+                        {row.isHoliday ? (
+                          <StatusPill tone="warn">تعطیل — کلیک برای عادی</StatusPill>
+                        ) : (
+                          <span className="dlStatusNormal">عادی — کلیک برای تعطیل</span>
+                        )}
+                      </button>
+                    )}
                   </td>
                 </tr>
               );

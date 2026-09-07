@@ -21,6 +21,7 @@ import type {
   SubmitApprovalRequest,
   VendorSummary,
 } from "@dang/contracts";
+import { isReadOnlyRole } from "@dang/contracts";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { PROCUREMENT_STORE, type ProcurementStore } from "./procurement.types.js";
 
@@ -36,7 +37,7 @@ export class ProcurementService {
     workspaceId: string,
     body: CreateNeedRequest,
   ): Promise<NeedSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.requireWritableMember(workspaceId, actor.userId);
     return this.store.createNeed(actor.userId, { ...body, workspaceId });
   }
 
@@ -50,7 +51,7 @@ export class ProcurementService {
     workspaceId: string,
     body: CreatePurchaseRequestRequest,
   ): Promise<PurchaseRequestSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.requireWritableMember(workspaceId, actor.userId);
     return this.store.createPurchaseRequest(actor.userId, { ...body, workspaceId });
   }
 
@@ -59,7 +60,7 @@ export class ProcurementService {
     workspaceId: string,
     requestId: string,
   ): Promise<PurchaseRequestSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.requireWritableMember(workspaceId, actor.userId);
     try {
       return await this.store.submitPurchaseRequest(workspaceId, requestId);
     } catch (error: unknown) {
@@ -97,7 +98,7 @@ export class ProcurementService {
     workspaceId: string,
     body: CreateBudgetRequest,
   ): Promise<BudgetSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.requireWritableMember(workspaceId, actor.userId);
     if (body.ceiling.currency !== "IRR" || BigInt(body.ceiling.amountMinor) <= 0n) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
@@ -235,6 +236,20 @@ export class ProcurementService {
         type: "https://dang.local/problems/forbidden",
         title: "Not a workspace member",
         status: 403,
+      });
+    }
+  }
+
+  private async requireWritableMember(workspaceId: string, userId: string): Promise<void> {
+    await this.requireMember(workspaceId, userId);
+    const members = await this.iam.listMembers(workspaceId, userId);
+    const self = members?.find((row) => row.userId === userId);
+    if (!self || isReadOnlyRole(self.role)) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/read-only-role",
+        title: "Read-only role",
+        status: 403,
+        detail: "نقش ناظر/مهمان مجاز به تغییر نیست",
       });
     }
   }

@@ -201,6 +201,7 @@ export class MemoryReportsStore implements ReportsStore {
       workspaceId,
       name: input.name.trim(),
       slug,
+      parentId: input.parentId,
       createdAt: new Date().toISOString(),
     };
     const list = this.categories.get(workspaceId) ?? [];
@@ -468,6 +469,7 @@ export class PostgresReportsStore implements ReportsStore {
         workspaceId: c.workspaceId,
         name: c.name,
         slug: c.slug,
+        parentId: c.parentId ?? undefined,
         createdAt: c.createdAt.toISOString(),
       }));
     });
@@ -489,7 +491,12 @@ export class PostgresReportsStore implements ReportsStore {
         `cat-${Date.now().toString(36)}`;
       const inserted = await tx
         .insert(expenseCategory)
-        .values({ workspaceId, name: input.name.trim(), slug })
+        .values({
+          workspaceId,
+          name: input.name.trim(),
+          slug,
+          parentId: input.parentId ?? null,
+        })
         .returning();
       const c = inserted[0]!;
       return {
@@ -497,6 +504,7 @@ export class PostgresReportsStore implements ReportsStore {
         workspaceId: c.workspaceId,
         name: c.name,
         slug: c.slug,
+        parentId: c.parentId ?? undefined,
         createdAt: c.createdAt.toISOString(),
       };
     });

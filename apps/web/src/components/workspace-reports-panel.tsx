@@ -55,6 +55,7 @@ export function WorkspaceReportsPanel({
   const [categories, setCategories] = useState<ExpenseCategorySummary[]>([]);
   const [recurring, setRecurring] = useState<RecurringRuleSummary[]>([]);
   const [categoryName, setCategoryName] = useState("");
+  const [categoryParentId, setCategoryParentId] = useState("");
   const [ruleTitle, setRuleTitle] = useState("");
   const [ruleToman, setRuleToman] = useState("");
   const [ruleCadence, setRuleCadence] = useState<"weekly" | "monthly" | "yearly">(
@@ -127,8 +128,12 @@ export function WorkspaceReportsPanel({
     startTransition(() => {
       void (async () => {
         try {
-          await api.createCategory(workspaceId, { name });
+          await api.createCategory(workspaceId, {
+            name,
+            parentId: categoryParentId || undefined,
+          });
           setCategoryName("");
+          setCategoryParentId("");
           await refreshMeta();
           setError(null);
         } catch (err: unknown) {
@@ -307,6 +312,18 @@ export function WorkspaceReportsPanel({
                 value={categoryName}
                 onChange={(e) => setCategoryName(e.target.value)}
               />
+              <SelectField
+                label="دسته والد (اختیاری)"
+                value={categoryParentId}
+                onChange={(e) => setCategoryParentId(e.target.value)}
+              >
+                <option value="">بدون والد — ریشه</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </SelectField>
               <Button type="button" onClick={onCreateCategory} disabled={pending}>
                 افزودن دسته
               </Button>
@@ -316,9 +333,16 @@ export function WorkspaceReportsPanel({
             <EmptyHint>دسته‌ای ثبت نشده.</EmptyHint>
           ) : (
             <DataList>
-              {categories.map((cat) => (
-                <DataRow key={cat.id} title={cat.name} meta={cat.slug} />
-              ))}
+              {categories.map((cat) => {
+                const parent = categories.find((c) => c.id === cat.parentId);
+                return (
+                  <DataRow
+                    key={cat.id}
+                    title={parent ? `↳ ${cat.name}` : cat.name}
+                    meta={parent ? `${parent.name} · ${cat.slug}` : cat.slug}
+                  />
+                );
+              })}
             </DataList>
           )}
         </div>

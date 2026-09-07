@@ -28,6 +28,10 @@ import {
 } from "@/components/ui-blocks";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import { api } from "@/lib/api";
+import {
+  personalExportStatusLabel,
+  settlementStatusLabel,
+} from "@/lib/status-labels";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { useAppChrome } from "@/lib/use-app-chrome";
 
@@ -614,7 +618,7 @@ export function PersonalResourcesPanel() {
             <option value="">—</option>
             {linkSettlements.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.id.slice(0, 8)} · {s.status}
+                {s.id.slice(0, 8)} · {settlementStatusLabel(s.status)}
               </option>
             ))}
           </SelectField>
@@ -781,7 +785,7 @@ export function PersonalResourcesPanel() {
                 title={`${ex.kind} · ${ex.from}→${ex.to}`}
                 meta={
                   <span className="pfRowMeta">
-                    {ex.status} · {ex.rowCount} ردیف
+                    {personalExportStatusLabel(ex.status)} · {ex.rowCount} ردیف
                     {ex.hasFile ? (
                       <>
                         {" · "}

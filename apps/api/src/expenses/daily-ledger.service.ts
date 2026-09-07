@@ -111,7 +111,8 @@ export class DailyLedgerService {
     date: string,
     body: UpsertWorkspaceDayRequest,
   ): Promise<UpsertWorkspaceDayResponse> {
-    await this.requireMember(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    this.access.assertNotReadOnly(role);
     await this.assertNotRangeLocked(workspaceId, actor.userId, date);
     try {
       const prevRows = await this.days.listDays(workspaceId, actor.userId, date, date);
@@ -200,7 +201,8 @@ export class DailyLedgerService {
     workspaceId: string,
     body: CreateDailyLedgerEntryRequest,
   ): Promise<DailyLedgerResponse> {
-    await this.requireMember(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    this.access.assertNotReadOnly(role);
     this.validateEntryBody(body);
     await this.assertDayOpen(workspaceId, actor.userId, body.date);
 
@@ -219,7 +221,8 @@ export class DailyLedgerService {
     workspaceId: string,
     body: { csv: string; idempotencyKey?: string },
   ): Promise<{ imported: number; skipped: number; ledger: DailyLedgerResponse }> {
-    await this.requireMember(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    this.access.assertNotReadOnly(role);
     if (!body.csv?.trim()) {
       throw new BadRequestException({ detail: "متن CSV لازم است" });
     }
@@ -289,7 +292,8 @@ export class DailyLedgerService {
     expenseId: string,
     body: UpdateDailyLedgerEntryRequest,
   ): Promise<DailyLedgerResponse> {
-    await this.requireMember(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    this.access.assertNotReadOnly(role);
     const itemName = body.itemName?.trim();
     if (!itemName) throw new BadRequestException({ detail: "نام کالا لازم است" });
     if (!moneySchema.safeParse(body.amount).success) {

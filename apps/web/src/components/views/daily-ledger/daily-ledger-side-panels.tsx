@@ -17,6 +17,7 @@ type DailyLedgerSidePanelsProps = {
   onImportCsvChange: (value: string) => void;
   onRunImport: () => void;
   pending: boolean;
+  readOnly?: boolean;
 };
 
 /**
@@ -30,6 +31,7 @@ export function DailyLedgerSidePanels({
   onImportCsvChange,
   onRunImport,
   pending,
+  readOnly = false,
 }: DailyLedgerSidePanelsProps) {
   return (
     <>
@@ -68,6 +70,9 @@ export function DailyLedgerSidePanels({
         </details>
       ) : null}
 
+      {readOnly ? (
+        <StatusLine>نقش شما فقط مشاهده دارد — ورود CSV و ثبت قلم فعال نیست.</StatusLine>
+      ) : (
       <details className="reportDetails">
         <summary>
           <span>ورود CSV</span>
@@ -89,6 +94,7 @@ export function DailyLedgerSidePanels({
           </Button>
         </div>
       </details>
+      )}
     </>
   );
 }

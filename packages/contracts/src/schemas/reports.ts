@@ -50,6 +50,7 @@ export const createExpenseCategoryRequestSchema = z
   .object({
     name: z.string().trim().min(1).max(80),
     slug: z.string().trim().min(1).max(48).optional(),
+    parentId: entityIdSchema.optional(),
   })
   .strict();
 

@@ -102,7 +102,7 @@ export class ApprovalQueueService {
       items.push({
         kind: "expense",
         id: step.expenseId,
-        title: expense?.title ?? `Approval step ${step.stepNo}`,
+        title: expense?.title ?? `گام تأیید ${step.stepNo}`,
         amount: expense?.total,
         status: `step_${step.stepNo}_pending`,
         hrefHint: "expenses",

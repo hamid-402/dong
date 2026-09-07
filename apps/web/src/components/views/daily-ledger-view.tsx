@@ -5,6 +5,7 @@ import { newClientId } from "@/lib/id";
 import { useEffect, useState, useTransition } from "react";
 import {
   formatJalaliIso,
+  isReadOnlyRole,
   resolveDailyLedgerRange,
   shiftDailyLedgerRange,
 } from "@dang/contracts";
@@ -12,6 +13,7 @@ import type {
   DailyLedgerItem,
   DailyLedgerRangePreset,
   DailyLedgerResponse,
+  MembershipSummary,
   WorkspaceBalancesResponse,
   WorkspaceSummary,
 } from "@dang/contracts";
@@ -26,6 +28,7 @@ import {
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import { membershipRoleLabel } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { useIsNarrow } from "@/lib/use-viewport";
@@ -69,7 +72,9 @@ export function DailyLedgerView() {
   const [balances, setBalances] = useState<WorkspaceBalancesResponse | null>(null);
   const [lockReason, setLockReason] = useState("");
   const [showCustomRange, setShowCustomRange] = useState(false);
+  const [myRole, setMyRole] = useState("");
   const todayIso = todayIsoLocal();
+  const readOnly = isReadOnlyRole(myRole);
 
   useEffect(() => {
     if (viewModeTouched) return;
@@ -101,6 +106,18 @@ export function DailyLedgerView() {
       "";
     setWorkspaceId(selected);
   }, [chrome.ready, chrome.workspaceId, chrome.workspaces, scope?.workspaceId]);
+
+  useEffect(() => {
+    if (!workspaceId) {
+      setMyRole("");
+      return;
+    }
+    void Promise.all([api.listMembers(workspaceId), api.me()])
+      .then(([members, me]: [MembershipSummary[], { actor: { userId: string } }]) => {
+        setMyRole(members.find((m) => m.userId === me.actor.userId)?.role ?? "");
+      })
+      .catch(() => setMyRole(""));
+  }, [workspaceId]);
 
   function applyPreset(next: DailyLedgerRangePreset) {
     setPreset(next);
@@ -169,6 +186,7 @@ export function DailyLedgerView() {
   }, [chrome.ready, workspaceId, from, to]);
 
   function openDraft(target: DraftTarget, item?: DailyLedgerItem) {
+    if (readOnly) return;
     setDraft(target);
     setDraftDate(target.date);
     setDraftColumn(target.kind === "member" ? target.userId : "shared");
@@ -469,6 +487,7 @@ export function DailyLedgerView() {
           onImportCsvChange={setImportCsv}
           onRunImport={runImport}
           pending={pending}
+          readOnly={readOnly}
         />
 
         {!ledger && !error ? <EmptyHint loading>در حال بارگذاری دفتر…</EmptyHint> : null}
@@ -526,6 +545,7 @@ export function DailyLedgerView() {
               showGregorian={showGregorian}
               todayIso={todayIso}
               pending={pending}
+              readOnly={readOnly}
               onOpenDraft={openDraft}
               onDeleteItem={deleteItem}
               onToggleHoliday={toggleHoliday}
@@ -535,7 +555,13 @@ export function DailyLedgerView() {
         ) : null}
         </div>
 
-        {draft ? (
+        {readOnly ? (
+          <StatusLine>
+            نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ثبت/ویرایش قلم و CSV فعال نیست.
+          </StatusLine>
+        ) : null}
+
+        {draft && !readOnly ? (
           <div
             className="dlOverlay"
             role="presentation"

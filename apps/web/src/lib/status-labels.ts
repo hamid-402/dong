@@ -227,6 +227,36 @@ export function periodKindLabel(kind: string): string {
   return kind;
 }
 
+export function approvalQueueKindLabel(kind: string): string {
+  if (kind === "expense") return "خرج";
+  if (kind === "member_invoice") return "صورتحساب";
+  if (kind === "addon_charge") return "اضافه شخصی";
+  return kind;
+}
+
+export function approvalQueueStatusLabel(status: string): string {
+  if (status === "pending_ack") return "در انتظار تأیید";
+  if (status === "submitted") return "ارسال‌شده";
+  if (status === "draft") return "پیش‌نویس";
+  if (status === "pending_approval") return "در انتظار تأیید";
+  if (status.startsWith("step_") && status.endsWith("_pending")) {
+    const n = status.replace(/^step_/, "").replace(/_pending$/, "");
+    return `گام ${n} در انتظار`;
+  }
+  return status;
+}
+
+export function settlementClaimStatusLabel(status: string): string {
+  return settlementStatusLabel(status);
+}
+
+export function personalExportStatusLabel(status: string): string {
+  if (status === "pending") return "در صف";
+  if (status === "completed") return "آماده";
+  if (status === "failed") return "ناموفق";
+  return status;
+}
+
 export function zeroSumHint(zeroSum: boolean): string {
   return zeroSum ? "مانده اعضا متعادل است" : "مانده اعضا متعادل نیست";
 }
