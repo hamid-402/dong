@@ -14,6 +14,7 @@ import type {
   PurchaseRequestSummary,
   VendorSummary,
 } from "@dang/contracts";
+import { isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, TextField } from "@dang/ui";
 import { AppShell, ShellIconSvg } from "@/components/app-shell";
 import {
@@ -26,6 +27,7 @@ import {
   ProductGrid,
   QuickAction,
   SectionCard,
+  StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
 import { api } from "@/lib/api";
@@ -35,12 +37,14 @@ import { tomanInputToIrrMinor } from "@/lib/irr-money";
 import {
   assetStatusLabel,
   deliveryStatusLabel,
+  membershipRoleLabel,
   needStatusLabel,
   purchaseOrderStatusLabel,
   purchaseRequestStatusLabel,
 } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import type { ComponentProps } from "react";
 
 function statusTone(status: string): "neutral" | "ok" | "warn" | "danger" | "gold" {
   if (status === "approved" || status === "delivered" || status === "closed" || status === "active") return "ok";
@@ -69,6 +73,13 @@ export function ProcurementView() {
   const [budgetName, setBudgetName] = useState("بودجه تیم");
   const [budgetToman, setBudgetToman] = useState("500000000");
   const [vendorName, setVendorName] = useState("فروشگاه دیجی");
+  const [readOnly, setReadOnly] = useState(false);
+  const [myRole, setMyRole] = useState("");
+
+  function GuardedForm(props: ComponentProps<typeof FormStack>) {
+    if (readOnly) return null;
+    return <FormStack {...props} />;
+  }
 
   useEffect(() => {
     if (!chrome.ready) return;
@@ -88,7 +99,7 @@ export function ProcurementView() {
   }, [chrome.workspaceId, chrome.ready]);
 
   async function refresh(id: string) {
-    const [n, r, b, v, o, d, a] = await Promise.all([
+    const [n, r, b, v, o, d, a, members] = await Promise.all([
       api.listNeeds(id),
       api.listPurchaseRequests(id),
       api.listBudgets(id),
@@ -96,6 +107,7 @@ export function ProcurementView() {
       api.listPurchaseOrders(id),
       api.listDeliveries(id),
       api.listAssets(id),
+      api.listMembers(id),
     ]);
     setNeeds(n);
     setRequests(r);
@@ -104,6 +116,9 @@ export function ProcurementView() {
     setOrders(o);
     setDeliveries(d);
     setAssets(a);
+    const role = members.find((m) => m.userId === chrome.actor?.userId)?.role ?? "";
+    setMyRole(role);
+    setReadOnly(isReadOnlyRole(role));
   }
 
   const approved = requests.filter((r) => r.status === "approved" || r.status === "ordered");
@@ -134,6 +149,11 @@ export function ProcurementView() {
       />
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
+      {readOnly && workspaceId ? (
+        <StatusLine>
+          نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ثبت نیاز، PR و بودجه فعال نیست.
+        </StatusLine>
+      ) : null}
 
       {loading ? (
         <EmptyHint>در حال بارگذاری تدارکات…</EmptyHint>
@@ -172,7 +192,7 @@ export function ProcurementView() {
           <ProductGrid>
           <SectionCard title="نیاز" badge={needs.length} delayClass="delay1">
             <div id="need-panel" />
-            <FormStack>
+            <GuardedForm>
               <TextField label="عنوان" value={needTitle} onChange={(e) => setNeedTitle(e.target.value)} />
               <Button
                 type="button"
@@ -195,7 +215,7 @@ export function ProcurementView() {
               >
                 ثبت نیاز
               </Button>
-            </FormStack>
+            </GuardedForm>
             {needs.length === 0 ? (
               <EmptyHint>هنوز نیازی ثبت نشده.</EmptyHint>
             ) : (
@@ -213,7 +233,7 @@ export function ProcurementView() {
 
           <SectionCard title="درخواست خرید" badge={requests.length} delayClass="delay1">
             <div id="pr-panel" />
-            <FormStack>
+            <GuardedForm>
               <TextField label="عنوان" value={prTitle} onChange={(e) => setPrTitle(e.target.value)} />
               <TextField label="مبلغ (تومان)" value={prToman} onChange={(e) => setPrToman(e.target.value)} />
               <Button
@@ -243,7 +263,7 @@ export function ProcurementView() {
               >
                 ثبت درخواست
               </Button>
-            </FormStack>
+            </GuardedForm>
             {requests.length === 0 ? (
               <EmptyHint>درخواست خریدی نیست.</EmptyHint>
             ) : (
@@ -293,7 +313,7 @@ export function ProcurementView() {
           </SectionCard>
 
           <SectionCard title="فروشنده و سفارش" delayClass="delay2">
-            <FormStack>
+            <GuardedForm>
               <TextField label="نام فروشنده" value={vendorName} onChange={(e) => setVendorName(e.target.value)} />
               <Button
                 type="button"
@@ -342,7 +362,7 @@ export function ProcurementView() {
                   صدور سفارش از درخواست تأییدشده
                 </Button>
               ) : null}
-            </FormStack>
+            </GuardedForm>
             {vendors.length === 0 ? (
               <EmptyHint>فروشنده‌ای ثبت نشده.</EmptyHint>
             ) : (
@@ -433,7 +453,7 @@ export function ProcurementView() {
           </SectionCard>
 
           <SectionCard title="بودجه" badge={budgets.length} delayClass="delay3">
-            <FormStack>
+            <GuardedForm>
               <TextField label="نام" value={budgetName} onChange={(e) => setBudgetName(e.target.value)} />
               <TextField label="سقف (تومان)" value={budgetToman} onChange={(e) => setBudgetToman(e.target.value)} />
               <Button
@@ -466,7 +486,7 @@ export function ProcurementView() {
               >
                 ثبت بودجه
               </Button>
-            </FormStack>
+            </GuardedForm>
             {budgets.length === 0 ? (
               <EmptyHint>بودجه‌ای تعریف نشده.</EmptyHint>
             ) : (

@@ -13,7 +13,13 @@ import {
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 
-export function CostCentersPanel({ workspaceId }: { workspaceId: string }) {
+export function CostCentersPanel({
+  workspaceId,
+  readOnly = false,
+}: {
+  workspaceId: string;
+  readOnly?: boolean;
+}) {
   const [rows, setRows] = useState<CostCenterSummary[]>([]);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -56,21 +62,25 @@ export function CostCentersPanel({ workspaceId }: { workspaceId: string }) {
   return (
     <SectionCard title="مراکز هزینه" badge={rows.length} delayClass="delay3">
       {error ? <p className="liveError">{error}</p> : null}
-      <FormStack density="compact">
-        <TextField
-          label="نام مرکز"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
-        <TextField
-          label="کد"
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
-        />
-        <Button type="button" onClick={create} disabled={pending}>
-          ساخت مرکز هزینه
-        </Button>
-      </FormStack>
+      {readOnly ? (
+        <EmptyHint>نقش شما فقط مشاهده دارد — ساخت مرکز هزینه فعال نیست.</EmptyHint>
+      ) : (
+        <FormStack density="compact">
+          <TextField
+            label="نام مرکز"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+          <TextField
+            label="کد"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+          />
+          <Button type="button" onClick={create} disabled={pending}>
+            ساخت مرکز هزینه
+          </Button>
+        </FormStack>
+      )}
       {rows.length === 0 ? (
         <EmptyHint>مرکز هزینه‌ای ثبت نشده.</EmptyHint>
       ) : (

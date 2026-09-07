@@ -36,11 +36,14 @@ function minorToTomanField(minor: string | null | undefined): string {
 export function WaveFFinancePanel({
   workspaceId,
   flags,
+  readOnly = false,
   onError,
   onChanged,
 }: {
   workspaceId: string;
   flags: ProductFeatureFlags;
+  /** Auditor/guest — lists only. */
+  readOnly?: boolean;
   onError: (message: string | null) => void;
   onChanged: () => void;
 }) {
@@ -187,21 +190,25 @@ export function WaveFFinancePanel({
     <>
       {flags.reimbursement ? (
         <SectionCard title="درخواست‌های بازپرداخت" badge={claims.length}>
-          <FormStack>
-            <TextField
-              label="عنوان"
-              value={claimTitle}
-              onChange={(e) => setClaimTitle(e.target.value)}
-            />
-            <TextField
-              label="مبلغ (تومان)"
-              value={claimToman}
-              onChange={(e) => setClaimToman(e.target.value)}
-            />
-            <Button type="button" disabled={pending} onClick={createClaim}>
-              ثبت پیش‌نویس
-            </Button>
-          </FormStack>
+          {readOnly ? (
+            <EmptyHint>نقش شما فقط مشاهده دارد — ثبت/تأیید بازپرداخت فعال نیست.</EmptyHint>
+          ) : (
+            <FormStack>
+              <TextField
+                label="عنوان"
+                value={claimTitle}
+                onChange={(e) => setClaimTitle(e.target.value)}
+              />
+              <TextField
+                label="مبلغ (تومان)"
+                value={claimToman}
+                onChange={(e) => setClaimToman(e.target.value)}
+              />
+              <Button type="button" disabled={pending} onClick={createClaim}>
+                ثبت پیش‌نویس
+              </Button>
+            </FormStack>
+          )}
           {claims.length ? (
             <DataList>
               {claims.map((c) => (
@@ -211,68 +218,70 @@ export function WaveFFinancePanel({
                   meta={statusFa[c.status]}
                   trailing={c.amount.amountMinor}
                   actions={
-                    <span className="dataRowActions">
-                      {c.status === "draft" ? (
-                        <>
+                    readOnly ? null : (
+                      <span className="dataRowActions">
+                        {c.status === "draft" ? (
+                          <>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              disabled={pending}
+                              onClick={() =>
+                                run(() => api.submitReimbursement(workspaceId, c.id))
+                              }
+                            >
+                              ارسال
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              disabled={pending}
+                              onClick={() =>
+                                run(() => api.cancelReimbursement(workspaceId, c.id))
+                              }
+                            >
+                              لغو
+                            </Button>
+                          </>
+                        ) : null}
+                        {c.status === "submitted" ? (
+                          <>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              disabled={pending}
+                              onClick={() =>
+                                run(() => api.approveReimbursement(workspaceId, c.id))
+                              }
+                            >
+                              تأیید
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              disabled={pending}
+                              onClick={() =>
+                                run(() => api.rejectReimbursement(workspaceId, c.id))
+                              }
+                            >
+                              رد
+                            </Button>
+                          </>
+                        ) : null}
+                        {c.status === "approved" ? (
                           <Button
                             type="button"
                             variant="ghost"
                             disabled={pending}
                             onClick={() =>
-                              run(() => api.submitReimbursement(workspaceId, c.id))
+                              run(() => api.markReimbursementPaid(workspaceId, c.id))
                             }
                           >
-                            ارسال
+                            پرداخت شد
                           </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            disabled={pending}
-                            onClick={() =>
-                              run(() => api.cancelReimbursement(workspaceId, c.id))
-                            }
-                          >
-                            لغو
-                          </Button>
-                        </>
-                      ) : null}
-                      {c.status === "submitted" ? (
-                        <>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            disabled={pending}
-                            onClick={() =>
-                              run(() => api.approveReimbursement(workspaceId, c.id))
-                            }
-                          >
-                            تأیید
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            disabled={pending}
-                            onClick={() =>
-                              run(() => api.rejectReimbursement(workspaceId, c.id))
-                            }
-                          >
-                            رد
-                          </Button>
-                        </>
-                      ) : null}
-                      {c.status === "approved" ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          disabled={pending}
-                          onClick={() =>
-                            run(() => api.markReimbursementPaid(workspaceId, c.id))
-                          }
-                        >
-                          پرداخت شد
-                        </Button>
-                      ) : null}
-                    </span>
+                        ) : null}
+                      </span>
+                    )
                   }
                 />
               ))}
@@ -285,36 +294,38 @@ export function WaveFFinancePanel({
 
       {flags.categoryBudget ? (
         <SectionCard title="بودجه دسته‌ها" badge={budgets.length}>
-          <FormStack>
-            <SelectField
-              label="دسته"
-              value={budgetCategoryId}
-              onChange={(e) => setBudgetCategoryId(e.target.value)}
-            >
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </SelectField>
-            <TextField
-              label="ماه (YYYY-MM)"
-              value={budgetMonth}
-              onChange={(e) => setBudgetMonth(e.target.value)}
-            />
-            <TextField
-              label="سقف (تومان)"
-              value={budgetToman}
-              onChange={(e) => setBudgetToman(e.target.value)}
-            />
-            <Button
-              type="button"
-              disabled={pending || categories.length === 0}
-              onClick={createBudget}
-            >
-              ثبت بودجه
-            </Button>
-          </FormStack>
+          {readOnly ? null : (
+            <FormStack>
+              <SelectField
+                label="دسته"
+                value={budgetCategoryId}
+                onChange={(e) => setBudgetCategoryId(e.target.value)}
+              >
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </SelectField>
+              <TextField
+                label="ماه (YYYY-MM)"
+                value={budgetMonth}
+                onChange={(e) => setBudgetMonth(e.target.value)}
+              />
+              <TextField
+                label="سقف (تومان)"
+                value={budgetToman}
+                onChange={(e) => setBudgetToman(e.target.value)}
+              />
+              <Button
+                type="button"
+                disabled={pending || categories.length === 0}
+                onClick={createBudget}
+              >
+                ثبت بودجه
+              </Button>
+            </FormStack>
+          )}
           {budgets.length ? (
             <DataList>
               {budgets.map((b) => (
@@ -337,28 +348,35 @@ export function WaveFFinancePanel({
           <StatusLine>
             آستانه‌ها به ریال جزئی ذخیره می‌شوند؛ خالی = بدون اجبار.
           </StatusLine>
-          <FormStack>
-            <TextField
-              label="آستانه تأیید (تومان)"
-              value={approvalToman}
-              onChange={(e) => setApprovalToman(e.target.value)}
-            />
-            <TextField
-              label="رسید اجباری بالای (تومان)"
-              value={receiptToman}
-              onChange={(e) => setReceiptToman(e.target.value)}
-            />
-            <Button type="button" disabled={pending} onClick={savePolicy}>
-              ذخیره سیاست
-            </Button>
-            {policy?.updatedAt ? (
-              <StatusLine>آخرین به‌روزرسانی: {policy.updatedAt}</StatusLine>
-            ) : null}
-          </FormStack>
+          {readOnly ? (
+            <StatusLine>
+              آستانه تأیید: {approvalToman || "—"} تومان · رسید اجباری بالای:{" "}
+              {receiptToman || "—"} تومان
+            </StatusLine>
+          ) : (
+            <FormStack>
+              <TextField
+                label="آستانه تأیید (تومان)"
+                value={approvalToman}
+                onChange={(e) => setApprovalToman(e.target.value)}
+              />
+              <TextField
+                label="رسید اجباری بالای (تومان)"
+                value={receiptToman}
+                onChange={(e) => setReceiptToman(e.target.value)}
+              />
+              <Button type="button" disabled={pending} onClick={savePolicy}>
+                ذخیره سیاست
+              </Button>
+              {policy?.updatedAt ? (
+                <StatusLine>آخرین به‌روزرسانی: {policy.updatedAt}</StatusLine>
+              ) : null}
+            </FormStack>
+          )}
         </SectionCard>
       ) : null}
 
-      {flags.expenseImport ? (
+      {flags.expenseImport && !readOnly ? (
         <SectionCard title="ورود CSV هزینه">
           <FormStack>
             <label>

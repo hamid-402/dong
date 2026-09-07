@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import type { MembershipSummary } from "@dang/contracts";
-import { isFinanceManagerRole, spaceKindForTemplate } from "@dang/contracts";
+import { isFinanceManagerRole, isReadOnlyRole, spaceKindForTemplate } from "@dang/contracts";
 import { AppShell } from "@/components/app-shell";
 import {
   EmptyHint,
@@ -34,6 +34,7 @@ export function OrgFinanceView() {
   const workspace = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const isOrg =
     workspace != null && spaceKindForTemplate(workspace.template) === "org";
+  const readOnly = isReadOnlyRole(myRole);
   const showAny =
     Boolean(flags?.costCenter) ||
     Boolean(flags?.allowance) ||
@@ -93,7 +94,7 @@ export function OrgFinanceView() {
             اگر بخشی را نمی‌بینید، پرچم مربوط در capabilities خاموش است (نه باگ UI).
           </StatusLine>
           {flags?.costCenter && chrome.workspaceId ? (
-            <CostCentersPanel workspaceId={chrome.workspaceId} />
+            <CostCentersPanel workspaceId={chrome.workspaceId} readOnly={readOnly} />
           ) : null}
           {flags?.allowance &&
           chrome.workspaceId &&
@@ -114,6 +115,7 @@ export function OrgFinanceView() {
             <WaveFFinancePanel
               workspaceId={chrome.workspaceId}
               flags={flags}
+              readOnly={readOnly}
               onError={setError}
               onChanged={() => undefined}
             />

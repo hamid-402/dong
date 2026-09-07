@@ -38,9 +38,8 @@ export function CommandPalette() {
     const list: PaletteItem[] = [];
     const seen = new Set<string>();
     const push = (item: PaletteItem) => {
-      const key = item.href.split("#")[0] ?? item.href;
-      if (seen.has(key)) return;
-      seen.add(key);
+      if (seen.has(item.href)) return;
+      seen.add(item.href);
       list.push(item);
     };
 
@@ -55,6 +54,26 @@ export function CommandPalette() {
     }
     for (const tab of bottomTabsV2(template, slug)) {
       push({ id: `tab-${tab.key}`, label: tab.label, href: tab.href, group: "میانبر" });
+    }
+    if (slug) {
+      push({
+        id: "act-settlements",
+        label: NAV_LABELS.settlements,
+        href: wPath(slug, "settlements"),
+        group: "اقدام",
+      });
+      push({
+        id: "act-members",
+        label: NAV_LABELS.invite,
+        href: wPath(slug, "members"),
+        group: "اقدام",
+      });
+      push({
+        id: "act-settings",
+        label: "تنظیمات فضا",
+        href: wPath(slug, "settings"),
+        group: "اقدام",
+      });
     }
     for (const section of spaceNav(template, slug, chrome.capabilities?.productFlags)) {
       for (const item of section.items) {

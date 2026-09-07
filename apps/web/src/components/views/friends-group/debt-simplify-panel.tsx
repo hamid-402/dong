@@ -14,6 +14,8 @@ type Props = {
   workspaceId: string;
   memberLabel: (userId: string) => string;
   enabled: boolean;
+  /** Auditor/guest — suggestions without Apply. */
+  readOnly?: boolean;
   onError: (message: string) => void;
   onSuccess: (message: string) => void;
   onApplied?: () => void;
@@ -24,6 +26,7 @@ export function DebtSimplifyPanel({
   workspaceId,
   memberLabel,
   enabled,
+  readOnly = false,
   onError,
   onSuccess,
   onApplied,
@@ -96,9 +99,13 @@ export function DebtSimplifyPanel({
         ))}
       </DataList>
       <div className="dataRowActions">
-        <Button type="button" onClick={onApplyAll} disabled={pending}>
-          ثبت همه به‌عنوان ادعای تسویه
-        </Button>
+        {readOnly ? (
+          <p className="liveHint">نقش شما فقط مشاهده دارد — ثبت ادعا فعال نیست.</p>
+        ) : (
+          <Button type="button" onClick={onApplyAll} disabled={pending}>
+            ثبت همه به‌عنوان ادعای تسویه
+          </Button>
+        )}
       </div>
     </>
   );

@@ -11,6 +11,7 @@ import type {
   OwnershipShareSummary,
   PeriodLockSummary,
 } from "@dang/contracts";
+import { isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -21,14 +22,16 @@ import {
   PageHeader,
   ProductGrid,
   SectionCard,
+  StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
-import { agreementStatusLabel } from "@/lib/status-labels";
+import { agreementStatusLabel, membershipRoleLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import type { ComponentProps } from "react";
 
 function downloadCsv(filename: string, content: string) {
   const bom = "\uFEFF";
@@ -60,6 +63,13 @@ export function PartnershipView() {
   const [report, setReport] = useState<MemberAccountReport | null>(null);
   const [agreementTitle, setAgreementTitle] = useState("قرارداد شراکت پروژه");
   const [contribToman, setContribToman] = useState("100000000");
+
+  function GuardedForm(props: ComponentProps<typeof FormStack>) {
+    if (isReadOnlyRole(members.find((m) => m.userId === chrome.actor?.userId)?.role)) {
+      return null;
+    }
+    return <FormStack {...props} />;
+  }
 
   useEffect(() => {
     if (!chrome.ready) return;
@@ -96,6 +106,8 @@ export function PartnershipView() {
   const agreement = agreements[0];
   const self = members[0];
   const pageError = error ?? chrome.error;
+  const myRole = members.find((m) => m.userId === chrome.actor?.userId)?.role;
+  const readOnly = isReadOnlyRole(myRole);
 
   return (
     <AppShell
@@ -121,6 +133,11 @@ export function PartnershipView() {
       />
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
+      {readOnly && workspaceId ? (
+        <StatusLine>
+          نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ثبت قرارداد و آورده فعال نیست.
+        </StatusLine>
+      ) : null}
 
       {loading ? (
         <EmptyHint>در حال بارگذاری حساب شرکا…</EmptyHint>
@@ -131,7 +148,7 @@ export function PartnershipView() {
       ) : (
         <ProductGrid>
           <SectionCard title="قرارداد" badge={agreements.length} delayClass="delay1">
-            <FormStack>
+            <GuardedForm>
               <TextField
                 label="عنوان"
                 value={agreementTitle}
@@ -159,7 +176,7 @@ export function PartnershipView() {
               >
                 ثبت قرارداد
               </Button>
-            </FormStack>
+            </GuardedForm>
             {agreements.length === 0 ? (
               <EmptyHint>قراردادی ثبت نشده.</EmptyHint>
             ) : (
@@ -178,7 +195,7 @@ export function PartnershipView() {
 
           {agreement && self ? (
             <SectionCard title="آورده نقدی" delayClass="delay1">
-              <FormStack>
+              <GuardedForm>
                 <TextField
                   label="مبلغ (تومان)"
                   value={contribToman}
@@ -212,7 +229,7 @@ export function PartnershipView() {
                 >
                   ثبت آورده
                 </Button>
-              </FormStack>
+              </GuardedForm>
             </SectionCard>
           ) : null}
 
@@ -232,7 +249,7 @@ export function PartnershipView() {
 
           {self ? (
             <SectionCard title="گزارش حساب شخص" delayClass="delay2">
-              <FormStack>
+              <GuardedForm>
                 <div className="productHeaderActions" style={{ justifyContent: "flex-start" }}>
                   <Button
                     type="button"
@@ -265,7 +282,7 @@ export function PartnershipView() {
                     خروجی CSV / Excel
                   </Button>
                 </div>
-              </FormStack>
+              </GuardedForm>
               {report ? (
                 <DataList>
                   <DataRow
@@ -292,7 +309,7 @@ export function PartnershipView() {
             <p className="emptyHint" style={{ border: "none", padding: 0 }}>
               پس از قفل، ثبت آورده، قرض و برداشت در آن بازه مسدود می‌شود.
             </p>
-            <FormStack>
+            <GuardedForm>
               <Button
                 type="button"
                 onClick={() => {
@@ -317,7 +334,7 @@ export function PartnershipView() {
               >
                 قفل ماه جاری تا امروز
               </Button>
-            </FormStack>
+            </GuardedForm>
             {locks.length === 0 ? (
               <EmptyHint>قفل دوره‌ای ثبت نشده.</EmptyHint>
             ) : (

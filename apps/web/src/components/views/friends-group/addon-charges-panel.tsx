@@ -19,6 +19,8 @@ type Props = {
   workspaceId: string;
   actorUserId: string | null;
   members: MembershipSummary[];
+  /** Auditor/guest — list only. */
+  readOnly?: boolean;
   onError: (message: string) => void;
   onSuccess: (message: string) => void;
 };
@@ -34,6 +36,7 @@ export function AddonChargesPanel({
   workspaceId,
   actorUserId,
   members,
+  readOnly = false,
   onError,
   onSuccess,
 }: Props) {
@@ -136,44 +139,48 @@ export function AddonChargesPanel({
       <p className="liveHint">
         جدا از خرج مشترک — ۱۰۰٪ روی یک نفر؛ تا تأیید هدف، قطعی نیست.
       </p>
-      <FormStack>
-        <TextField
-          label="شرح"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <TextField
-          label="مبلغ (تومان)"
-          value={amountToman}
-          onChange={(e) => setAmountToman(e.target.value)}
-        />
-        <SelectField
-          label="برای عضو"
-          value={targetUserId}
-          onChange={(e) => setTargetUserId(e.target.value)}
-        >
-          {members.map((m) => (
-            <option key={m.userId} value={m.userId}>
-              {m.displayName}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField
-          label="پیوند به خرج مشترک (اختیاری)"
-          value={linkedExpenseId}
-          onChange={(e) => setLinkedExpenseId(e.target.value)}
-        >
-          <option value="">بدون پیوند</option>
-          {sharedExpenses.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.title}
-            </option>
-          ))}
-        </SelectField>
-        <Button type="button" onClick={onCreate} disabled={pending || members.length === 0}>
-          ثبت اضافه
-        </Button>
-      </FormStack>
+      {readOnly ? (
+        <p className="liveHint">نقش شما فقط مشاهده دارد — ثبت یا تأیید اضافه فعال نیست.</p>
+      ) : (
+        <FormStack>
+          <TextField
+            label="شرح"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <TextField
+            label="مبلغ (تومان)"
+            value={amountToman}
+            onChange={(e) => setAmountToman(e.target.value)}
+          />
+          <SelectField
+            label="برای عضو"
+            value={targetUserId}
+            onChange={(e) => setTargetUserId(e.target.value)}
+          >
+            {members.map((m) => (
+              <option key={m.userId} value={m.userId}>
+                {m.displayName}
+              </option>
+            ))}
+          </SelectField>
+          <SelectField
+            label="پیوند به خرج مشترک (اختیاری)"
+            value={linkedExpenseId}
+            onChange={(e) => setLinkedExpenseId(e.target.value)}
+          >
+            <option value="">بدون پیوند</option>
+            {sharedExpenses.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.title}
+              </option>
+            ))}
+          </SelectField>
+          <Button type="button" onClick={onCreate} disabled={pending || members.length === 0}>
+            ثبت اضافه
+          </Button>
+        </FormStack>
+      )}
       {charges.length === 0 ? (
         <EmptyHint>هنوز اضافه‌ای ثبت نشده.</EmptyHint>
       ) : (
@@ -186,7 +193,8 @@ export function AddonChargesPanel({
               trailing={
                 <>
                   <Amount irrMinor={c.amount.amountMinor} />
-                  {c.status === "pending_ack" &&
+                  {!readOnly &&
+                  c.status === "pending_ack" &&
                   actorUserId &&
                   (actorUserId === c.targetMemberUserId ||
                     actorUserId === c.createdByUserId) ? (

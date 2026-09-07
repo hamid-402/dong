@@ -8,7 +8,7 @@ import type {
   MembershipSummary,
   WorkspaceSummary,
 } from "@dang/contracts";
-import { isFinanceManagerRole, spaceKindForTemplate } from "@dang/contracts";
+import { isReadOnlyRole, spaceKindForTemplate } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -23,22 +23,32 @@ import {
   StatusPill,
 } from "@/components/ui-blocks";
 import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
-import { CostCentersPanel } from "@/components/cost-centers-panel";
-import { AllowancesPanel } from "@/components/allowances-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
-import { expenseStatusLabel, expenseVisibilityLabel, membershipRoleLabel } from "@/lib/status-labels";
+import { NAV_LABELS } from "@/lib/nav-labels";
+import {
+  expenseStatusLabel,
+  expenseVisibilityLabel,
+  membershipRoleLabel,
+  workspaceTemplateLabel,
+} from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
-import { WaveFFinancePanel } from "@/components/wave-f-finance-panel";
-import { WorkspacePlanPanel } from "@/components/workspace-plan-panel";
+import { wPath } from "@/lib/workspace-paths";
 
 const APPROVER_ROLES = new Set(["owner", "admin", "approver", "finance"]);
 
-/** Org / team home — budgets, company reimbursement, procurement links. Additive. */
+function budgetStatusLabel(status: string): string {
+  if (status === "active") return "فعال";
+  if (status === "closed") return "بسته";
+  if (status === "draft") return "پیش‌نویس";
+  return status;
+}
+
+/** Org / team home — status + next step. Wave F tools live on /org-finance. */
 export function OrgSpaceView() {
   const chrome = useAppChrome();
   const scope = useOptionalWorkspaceScope();
@@ -48,21 +58,38 @@ export function OrgSpaceView() {
   const [members, setMembers] = useState<MembershipSummary[]>([]);
   const [expenses, setExpenses] = useState<ExpenseSummary[]>([]);
   const [budgets, setBudgets] = useState<BudgetSummary[]>([]);
+  const [approvalCount, setApprovalCount] = useState(0);
   const [myRole, setMyRole] = useState<string>("");
   const [pending, startTransition] = useTransition();
 
+  const flags = chrome.capabilities?.productFlags;
+  const orgFinanceLive = Boolean(
+    flags?.costCenter ||
+      flags?.allowance ||
+      flags?.reimbursement ||
+      flags?.categoryBudget ||
+      flags?.expenseImport ||
+      flags?.expensePolicy ||
+      flags?.workspacePlans ||
+      flags?.planAdmin,
+  );
+
   async function refresh(workspaceId: string) {
     const actorId = chrome.actor?.userId;
-    const [memberList, expenseList, budgetList, me] = await Promise.all([
+    const [memberList, expenseList, budgetList, me, queue] = await Promise.all([
       api.listMembers(workspaceId),
       api.listExpenses(workspaceId),
       api.listBudgets(workspaceId),
       actorId ? Promise.resolve(null) : api.me(),
+      flags?.approvalQueue
+        ? api.listApprovalQueue(workspaceId).catch(() => [])
+        : Promise.resolve([]),
     ]);
     const userId = actorId ?? me!.actor.userId;
     setMembers(memberList);
     setExpenses(expenseList);
     setBudgets(budgetList);
+    setApprovalCount(queue.length);
     const role = memberList.find((m) => m.userId === userId)?.role ?? "";
     setMyRole(role);
     setWorkspace(chrome.workspaces.find((w) => w.id === workspaceId) ?? null);
@@ -79,6 +106,7 @@ export function OrgSpaceView() {
       setMembers([]);
       setExpenses([]);
       setBudgets([]);
+      setApprovalCount(0);
       setLoading(false);
       return;
     }
@@ -87,7 +115,14 @@ export function OrgSpaceView() {
       .then(() => setError(null))
       .catch((err: unknown) => setError(friendlyErrorMessage(err, "خطا")))
       .finally(() => setLoading(false));
-  }, [chrome.ready, chrome.workspaceId, chrome.workspaces, scope?.workspaceId, chrome.actor?.userId]);
+  }, [
+    chrome.ready,
+    chrome.workspaceId,
+    chrome.workspaces,
+    scope?.workspaceId,
+    chrome.actor?.userId,
+    flags?.approvalQueue,
+  ]);
 
   function onPromote(expenseId: string) {
     if (!workspace) return;
@@ -110,7 +145,7 @@ export function OrgSpaceView() {
       void (async () => {
         try {
           await api.postExpense(workspace.id, expenseId);
-          flashSuccess("خرج در دفترکل ثبت و بودجه به‌روز شد");
+          flashSuccess("خرج شرکتی در دفتر ثبت شد");
           await refresh(workspace.id);
         } catch (err: unknown) {
           setError(friendlyErrorMessage(err, "ثبت نهایی ناموفق"));
@@ -120,9 +155,17 @@ export function OrgSpaceView() {
   }
 
   const canApprove = APPROVER_ROLES.has(myRole);
+  const readOnly = isReadOnlyRole(myRole);
   const privateClaims = expenses.filter((e) => e.visibility === "private");
   const companyExpenses = expenses.filter((e) => e.visibility === "company");
   const pageError = error ?? chrome.error;
+  const slug = workspace?.slug ?? null;
+  const orgFinanceHref = slug ? wPath(slug, "orgFinance") : hubPathFor("/orgs");
+  const approvalsHref = slug ? wPath(slug, "approvals") : hubPathFor("/workspaces");
+  const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
+  const procurementHref = slug
+    ? wPath(slug, "procurement")
+    : hubPathFor("/workspaces/procurement");
 
   return (
     <AppShell
@@ -134,7 +177,7 @@ export function OrgSpaceView() {
       <PageHeader
         eyebrow="سازمان"
         title="فضای سازمانی"
-        description="بودجه و تأیید مطالبات شرکتی. خرید و دفتر از منوی کنار."
+        description="وضعیت بودجه و مطالبات — ابزارهای Wave F در مالی سازمان."
       />
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
@@ -158,13 +201,50 @@ export function OrgSpaceView() {
         <ProductGrid>
           <SectionCard title="فضای فعال" delayClass="delay1">
             <StatusLine>
-              <b>{workspace.name}</b> · {workspace.template} · نقش شما:{" "}
+              <b>{workspace.name}</b> · {workspaceTemplateLabel(workspace.template)} · نقش شما:{" "}
               {membershipRoleLabel(myRole)}
+              {readOnly ? " · فقط مشاهده" : null}
             </StatusLine>
             {!templateSupportsCompanyExpenses(workspace.template) ? (
               <EmptyHint>این قالب خرج شرکتی ندارد.</EmptyHint>
             ) : null}
+            <div className="dataRowActions">
+              {orgFinanceLive ? (
+                <Link href={orgFinanceHref}>
+                  <Button type="button">{NAV_LABELS.orgFinance}</Button>
+                </Link>
+              ) : null}
+              <Link href={procurementHref}>
+                <Button type="button" variant="ghost">
+                  {NAV_LABELS.procurement}
+                </Button>
+              </Link>
+              <Link href={membersHref}>
+                <Button type="button" variant="ghost">
+                  {NAV_LABELS.invite}
+                </Button>
+              </Link>
+            </div>
           </SectionCard>
+
+          {flags?.approvalQueue ? (
+            <SectionCard
+              title={NAV_LABELS.approvals}
+              badge={approvalCount}
+              delayClass="delay1"
+            >
+              <StatusLine>
+                {approvalCount === 0
+                  ? "موردی در صف تأیید نیست."
+                  : `${approvalCount} مورد از API در انتظار اقدام.`}
+              </StatusLine>
+              <Link href={approvalsHref}>
+                <Button type="button" variant="ghost">
+                  رفتن به مرکز تأیید
+                </Button>
+              </Link>
+            </SectionCard>
+          ) : null}
 
           <SectionCard title="بودجه‌ها" badge={budgets.length} delayClass="delay1">
             {budgets.length === 0 ? (
@@ -179,7 +259,8 @@ export function OrgSpaceView() {
                     title={b.name}
                     meta={
                       <>
-                        متعهد <Amount irrMinor={b.committedMinor} /> · {b.status}
+                        متعهد <Amount irrMinor={b.committedMinor} /> ·{" "}
+                        {budgetStatusLabel(b.status)}
                       </>
                     }
                     trailing={
@@ -192,7 +273,7 @@ export function OrgSpaceView() {
                 ))}
               </DataList>
             )}
-            <Link href={hubPathFor("/workspaces/procurement")}>رفتن به تدارکات</Link>
+            <Link href={procurementHref}>رفتن به تدارکات</Link>
           </SectionCard>
 
           <SectionCard
@@ -218,7 +299,7 @@ export function OrgSpaceView() {
                     }
                     trailing={<Amount irrMinor={expense.total.amountMinor} />}
                     actions={
-                      canApprove ? (
+                      !readOnly && canApprove ? (
                         <Button
                           type="button"
                           variant="ghost"
@@ -251,7 +332,8 @@ export function OrgSpaceView() {
                     }
                     trailing={<Amount irrMinor={expense.total.amountMinor} />}
                     actions={
-                      expense.status === "draft" || expense.status === "submitted" ? (
+                      !readOnly &&
+                      (expense.status === "draft" || expense.status === "submitted") ? (
                         <Button
                           type="button"
                           variant="ghost"
@@ -279,44 +361,6 @@ export function OrgSpaceView() {
               ))}
             </DataList>
           </SectionCard>
-
-          {chrome.capabilities?.productFlags?.costCenter ? (
-            <CostCentersPanel workspaceId={workspace.id} />
-          ) : null}
-
-          {chrome.capabilities?.productFlags?.allowance &&
-          isFinanceManagerRole(myRole) ? (
-            <AllowancesPanel
-              workspaceId={workspace.id}
-              members={members}
-              onError={setError}
-              onSuccess={flashSuccess}
-            />
-          ) : null}
-
-          {chrome.capabilities?.productFlags &&
-          (chrome.capabilities.productFlags.reimbursement ||
-            chrome.capabilities.productFlags.categoryBudget ||
-            chrome.capabilities.productFlags.expenseImport ||
-            chrome.capabilities.productFlags.expensePolicy) ? (
-            <WaveFFinancePanel
-              workspaceId={workspace.id}
-              flags={chrome.capabilities.productFlags}
-              onError={setError}
-              onChanged={() => void refresh(workspace.id)}
-            />
-          ) : null}
-
-          {chrome.capabilities?.productFlags &&
-          (chrome.capabilities.productFlags.workspacePlans ||
-            chrome.capabilities.productFlags.planAdmin) ? (
-            <WorkspacePlanPanel
-              workspaceId={workspace.id}
-              flags={chrome.capabilities.productFlags}
-              myRole={myRole}
-              onError={setError}
-            />
-          ) : null}
 
           <WorkspaceReportsPanel
             workspaceId={workspace.id}

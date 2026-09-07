@@ -6,14 +6,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type {
-  CreateInviteResponse,
   ExpenseSummary,
   ExpenseVisibility,
   MembershipSummary,
   WorkspaceBalancesResponse,
   WorkspaceSummary,
 } from "@dang/contracts";
-import { isFinanceManagerRole } from "@dang/contracts";
+import { isFinanceManagerRole, isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -33,7 +32,7 @@ import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
 import { wPath } from "@/lib/workspace-paths";
 import { NAV_LABELS } from "@/lib/nav-labels";
-import { expenseStatusLabel, workspaceTemplateLabel } from "@/lib/status-labels";
+import { expenseStatusLabel, membershipRoleLabel, workspaceTemplateLabel } from "@/lib/status-labels";
 import { FlashMessages, useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
@@ -69,9 +68,6 @@ export function FriendsGroupView() {
   const [groupTemplate, setGroupTemplate] = useState<"friends_family" | "household">(
     "friends_family",
   );
-  const [friendEmail, setFriendEmail] = useState("");
-  const [friendRole, setFriendRole] = useState<"finance" | "member" | "guest">("finance");
-  const [createdInvite, setCreatedInvite] = useState<CreateInviteResponse | null>(null);
   const [outingTitle, setOutingTitle] = useState("");
   const [outings, setOutings] = useState<
     Array<{ id: string; title: string; total: { amountMinor: string }; expenseIds: string[] }>
@@ -89,9 +85,10 @@ export function FriendsGroupView() {
     ? wPath(slug, "settlements")
     : `${hubPathFor("/workspaces")}#settlement-panel`;
   const invoicesHref = slug ? wPath(slug, "invoices") : hubPathFor("/workspaces");
-  const canManageFinance = isFinanceManagerRole(
-    members.find((m) => m.userId === actorUserId)?.role,
-  );
+  const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
+  const myRole = members.find((m) => m.userId === actorUserId)?.role;
+  const canManageFinance = isFinanceManagerRole(myRole);
+  const readOnlySpace = isReadOnlyRole(myRole);
 
   async function refresh(workspaceId: string) {
     const [memberList, expenseList, balanceData, outingList] = await Promise.all([
@@ -187,35 +184,6 @@ export function FriendsGroupView() {
           await refresh(created.id);
         } catch (err: unknown) {
           setError(friendlyErrorMessage(err, "ساخت گروه ناموفق"));
-        }
-      })();
-    });
-  }
-
-  function onInviteFriend() {
-    if (!chrome.workspaceId) return;
-    const subject = friendEmail.trim();
-    if (!subject) {
-      setError("ایمیل یا شناسه دوست را وارد کنید");
-      return;
-    }
-    startTransition(() => {
-      void (async () => {
-        try {
-          const invite = await api.createInvite(chrome.workspaceId, {
-            role: friendRole,
-            invitedSubject: subject,
-          });
-          setCreatedInvite(invite);
-          setFriendEmail("");
-          setError(null);
-          flashSuccess(
-            invite.emailDelivered
-              ? "دعوت برای دوست ایمیل شد"
-              : "لینک دعوت آماده است — برای دوست بفرستید",
-          );
-        } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "دعوت ناموفق"));
         }
       })();
     });
@@ -406,6 +374,7 @@ export function FriendsGroupView() {
                 workspaceId={chrome.workspaceId}
                 memberLabel={memberLabel}
                 enabled
+                readOnly={readOnlySpace}
                 onError={setError}
                 onSuccess={flashSuccess}
                 onApplied={() => {
@@ -430,6 +399,7 @@ export function FriendsGroupView() {
               workspaceId={chrome.workspaceId}
               actorUserId={chrome.actor?.userId ?? null}
               members={members}
+              readOnly={readOnlySpace}
               onError={setError}
               onSuccess={flashSuccess}
             />
@@ -446,42 +416,23 @@ export function FriendsGroupView() {
             />
           ) : null}
 
-          <SectionCard title="افزودن دوست" badge={members.length} delayClass="delay2">
+          <SectionCard title="اعضا" badge={members.length} delayClass="delay2">
             {!chrome.workspaceId ? (
               <EmptyHint>اول گروه بسازید یا انتخاب کنید.</EmptyHint>
             ) : (
               <>
-                <FormStack>
-                  <SelectField
-                    label="نقش مهمان"
-                    value={friendRole}
-                    onChange={(event) =>
-                      setFriendRole(event.target.value as "finance" | "member" | "guest")
-                    }
-                  >
-                    <option value="finance">مادرخرج / پشتیبان</option>
-                    <option value="member">عضو</option>
-                    <option value="guest">مهمان موقت</option>
-                  </SelectField>
-                  <TextField
-                    label="ایمیل یا شناسه دوست"
-                    value={friendEmail}
-                    onChange={(e) => setFriendEmail(e.target.value)}
-                    hint="اگر Resend یا SMTP واقعی فعال باشد، دعوت ایمیل می‌شود"
-                  />
-                  <Button type="button" onClick={onInviteFriend} disabled={pending}>
-                    دعوت به گروه
-                  </Button>
-                </FormStack>
-                {createdInvite ? (
-                  <p className="liveSuccess">
-                    لینک دعوت:{" "}
-                    <a href={createdInvite.debugInviteUrl ?? createdInvite.acceptPath}>
-                      {createdInvite.acceptPath}
-                    </a>
-                    {createdInvite.emailDelivered ? " · ایمیل ارسال شد" : null}
-                  </p>
-                ) : null}
+                {readOnlySpace ? (
+                  <StatusLine>
+                    نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — دعوت از صفحهٔ اعضا برای
+                    مدیران.
+                  </StatusLine>
+                ) : (
+                  <div className="dataRowActions">
+                    <Button type="button" onClick={() => router.push(membersHref)}>
+                      {NAV_LABELS.invite}
+                    </Button>
+                  </div>
+                )}
                 {members.length === 0 ? (
                   <EmptyHint>عضوی نیست.</EmptyHint>
                 ) : (
@@ -492,10 +443,12 @@ export function FriendsGroupView() {
                         title={member.displayName}
                         meta={
                           workspace?.template === "household"
-                            ? `${member.role} · سهم پیش‌فرض ${member.defaultShares}`
-                            : member.role
+                            ? `${membershipRoleLabel(member.role)} · سهم پیش‌فرض ${member.defaultShares}`
+                            : membershipRoleLabel(member.role)
                         }
                         trailing={
+                          !readOnlySpace &&
+                          canManageFinance &&
                           workspace?.template === "household" ? (
                             <label className="liveHint" style={{ display: "flex", gap: 6, alignItems: "center" }}>
                               <span>وزن</span>
@@ -528,7 +481,7 @@ export function FriendsGroupView() {
                               />
                             </label>
                           ) : (
-                            <StatusPill tone="ok">عضو</StatusPill>
+                            <StatusPill tone="ok">{membershipRoleLabel(member.role)}</StatusPill>
                           )
                         }
                       />
@@ -547,6 +500,10 @@ export function FriendsGroupView() {
             <div className="reportDetails__body">
               {!chrome.workspaceId ? (
                 <EmptyHint>اول گروه را فعال کنید.</EmptyHint>
+              ) : readOnlySpace ? (
+                <EmptyHint>
+                  نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ساخت گردش فعال نیست.
+                </EmptyHint>
               ) : (
                 <FormStack density="compact">
                   <TextField

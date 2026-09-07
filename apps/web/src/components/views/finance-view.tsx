@@ -433,6 +433,7 @@ export function FinanceView({
               selectedId={selectedId}
               pending={pending}
               canManageFinance={canManageFinance}
+              readOnly={readOnlyFinance}
               onSubmitExpense={onSubmitExpense}
               onPostExpense={onPostExpense}
               onPromoteCompany={onPromoteCompany}
@@ -502,6 +503,7 @@ export function FinanceView({
               settlements={settlements}
               paymentLinks={paymentLinks}
               paymentsLive={paymentsLive}
+              readOnly={readOnlyFinance}
               pending={pending}
               settlementNps={settlementNps}
               onDismissNps={() => setSettlementNps(false)}

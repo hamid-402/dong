@@ -14,7 +14,7 @@ import {
   StatusPill,
 } from "@/components/ui-blocks";
 import { hubPathFor } from "@/lib/hub-links";
-import { settlementStatusLabel } from "@/lib/status-labels";
+import { membershipRoleLabel, settlementStatusLabel } from "@/lib/status-labels";
 
 type SettlementPanelProps = {
   members: MembershipSummary[];
@@ -25,6 +25,8 @@ type SettlementPanelProps = {
   settlements: SettlementSummary[];
   paymentLinks: PaymentLinkSummary[];
   paymentsLive: boolean;
+  /** Auditor/guest — list only, no claim/confirm/payment. */
+  readOnly?: boolean;
   pending: boolean;
   settlementNps: boolean;
   onDismissNps: () => void;
@@ -50,6 +52,7 @@ export function SettlementPanel({
   settlements,
   paymentLinks,
   paymentsLive,
+  readOnly = false,
   pending,
   settlementNps,
   onDismissNps,
@@ -64,30 +67,36 @@ export function SettlementPanel({
   return (
     <SectionCard title="تسویه و تأیید اعضا" delayClass="delay3">
       <div id="settlement-panel" />
-      <FormStack>
+      {readOnly ? (
         <StatusLine>
-          عضو بدهکار ادعا ثبت می‌کند یا طلبکار پیشنهاد می‌دهد؛ طرف مقابل تأیید می‌کند.
+          نقش شما فقط مشاهده دارد — ثبت ادعا، تأیید، اعتراض یا پرداخت فعال نیست.
         </StatusLine>
-        <SelectField
-          label="طرف مقابل"
-          value={settleToUserId}
-          onChange={(event) => onSettleToUserIdChange(event.target.value)}
-        >
-          {members.map((member) => (
-            <option key={member.userId} value={member.userId}>
-              {member.displayName} · {member.role}
-            </option>
-          ))}
-        </SelectField>
-        <TextField
-          label="مبلغ تسویه (تومان)"
-          value={settleAmountToman}
-          onChange={(event) => onSettleAmountTomanChange(event.target.value)}
-        />
-        <Button type="button" onClick={onCreateSettlement} disabled={pending || members.length < 2}>
-          ثبت ادعای تسویه
-        </Button>
-      </FormStack>
+      ) : (
+        <FormStack>
+          <StatusLine>
+            عضو بدهکار ادعا ثبت می‌کند یا طلبکار پیشنهاد می‌دهد؛ طرف مقابل تأیید می‌کند.
+          </StatusLine>
+          <SelectField
+            label="طرف مقابل"
+            value={settleToUserId}
+            onChange={(event) => onSettleToUserIdChange(event.target.value)}
+          >
+            {members.map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {member.displayName} · {membershipRoleLabel(member.role)}
+              </option>
+            ))}
+          </SelectField>
+          <TextField
+            label="مبلغ تسویه (تومان)"
+            value={settleAmountToman}
+            onChange={(event) => onSettleAmountTomanChange(event.target.value)}
+          />
+          <Button type="button" onClick={onCreateSettlement} disabled={pending || members.length < 2}>
+            ثبت ادعای تسویه
+          </Button>
+        </FormStack>
+      )}
       {members.length < 2 ? (
         <EmptyHint>
           برای تسویه حداقل دو عضو لازم است — از{" "}
@@ -95,7 +104,7 @@ export function SettlementPanel({
           استفاده کنید.
         </EmptyHint>
       ) : null}
-      {settlementNps ? (
+      {!readOnly && settlementNps ? (
         <div className="npsPrompt" role="group" aria-label="بازخورد تسویه">
           <span>این تسویه چطور بود؟</span>
           <div className="npsPrompt__actions">
@@ -131,18 +140,24 @@ export function SettlementPanel({
         {settlements.length === 0 && members.length >= 2 ? (
           <EmptyStateBlock
             title="هنوز تسویه‌ای ثبت نشده"
-            description="اگر بدهکار یا طلبکار هستید، یک ادعای تسویه ثبت کنید تا طرف مقابل تأیید کند."
+            description={
+              readOnly
+                ? "وقتی اعضا ادعا ثبت کنند اینجا دیده می‌شود."
+                : "اگر بدهکار یا طلبکار هستید، یک ادعای تسویه ثبت کنید تا طرف مقابل تأیید کند."
+            }
             action={
-              <Button
-                type="button"
-                onClick={() =>
-                  document
-                    .getElementById("settlement-panel")
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                }
-              >
-                ثبت ادعای تسویه
-              </Button>
+              readOnly ? undefined : (
+                <Button
+                  type="button"
+                  onClick={() =>
+                    document
+                      .getElementById("settlement-panel")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }
+                >
+                  ثبت ادعای تسویه
+                </Button>
+              )
             }
           />
         ) : null}
@@ -157,56 +172,59 @@ export function SettlementPanel({
             }
             trailing={<Amount irrMinor={settlement.amount.amountMinor} />}
             actions={
-              settlement.status === "claimed" ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => onConfirmSettlement(settlement.id)}
-                    disabled={pending}
-                  >
-                    تأیید
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => onDisputeSettlement(settlement.id)}
-                    disabled={pending}
-                  >
-                    اعتراض
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => onCancelSettlement(settlement.id)}
-                    disabled={pending}
-                  >
-                    لغو
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => onCreatePaymentLink(settlement)}
-                    disabled={pending || !paymentsLive}
-                    title={
-                      paymentsLive
-                        ? undefined
-                        : "پرداخت آنلاین وقتی PSP واقعی تنظیم شود فعال می‌شود"
-                    }
-                  >
-                    {paymentsLive ? "لینک پرداخت" : "پرداخت (غیرفعال)"}
-                  </Button>
-                </>
-              ) : settlement.status === "disputed" ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => onCancelSettlement(settlement.id)}
-                  disabled={pending}
-                >
-                  لغو
-                </Button>
-              ) : null
+              readOnly
+                ? null
+                : settlement.status === "claimed"
+                  ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => onConfirmSettlement(settlement.id)}
+                        disabled={pending}
+                      >
+                        تأیید
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => onDisputeSettlement(settlement.id)}
+                        disabled={pending}
+                      >
+                        اعتراض
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => onCancelSettlement(settlement.id)}
+                        disabled={pending}
+                      >
+                        لغو
+                      </Button>
+                      {paymentsLive ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => onCreatePaymentLink(settlement)}
+                          disabled={pending}
+                        >
+                          لینک پرداخت
+                        </Button>
+                      ) : null}
+                    </>
+                  )
+                  : settlement.status === "disputed"
+                    ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => onCancelSettlement(settlement.id)}
+                        disabled={pending}
+                      >
+                        لغو
+                      </Button>
+                    )
+                    : null
             }
           />
         ))}

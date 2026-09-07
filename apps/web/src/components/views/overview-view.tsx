@@ -369,37 +369,6 @@ export function OverviewView() {
           }
           icon={<ShellIconSvg name="receipt" />}
         />
-        <QuickAction
-          title={
-            spaceKind === "org"
-              ? NAV_LABELS.procurement
-              : spaceKind === "personal"
-                ? NAV_LABELS.space
-                : NAV_LABELS.ledger
-          }
-          description={
-            spaceKind === "org"
-              ? "نیاز و خرید سازمانی"
-              : spaceKind === "personal"
-                ? "خانهٔ فضای شخصی"
-                : "جدول مصرف روز×عضو"
-          }
-          delayClass="delay2"
-          onClick={() =>
-            router.push(
-              spaceKind === "org"
-                ? procurementHref
-                : spaceKind === "personal"
-                  ? spaceHref
-                  : ledgerHref,
-            )
-          }
-          icon={
-            <ShellIconSvg
-              name={spaceKind === "org" ? "cart" : spaceKind === "personal" ? "partners" : "receipt"}
-            />
-          }
-        />
       </div>
 
       <div className="lowerGrid">

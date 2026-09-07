@@ -5,6 +5,7 @@ import { newClientId } from "@/lib/id";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import type { AssetSummary, MembershipSummary } from "@dang/contracts";
+import { isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -15,12 +16,13 @@ import {
   PageHeader,
   ProductGrid,
   SectionCard,
+  StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
-import { assetStatusLabel, deliveryStatusLabel } from "@/lib/status-labels";
+import { assetStatusLabel, deliveryStatusLabel, membershipRoleLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 
@@ -78,6 +80,8 @@ export function AssetsView() {
   }, [chrome.workspaceId, chrome.ready]);
 
   const pageError = error ?? chrome.error;
+  const myRole = members.find((m) => m.userId === chrome.actor?.userId)?.role;
+  const readOnly = isReadOnlyRole(myRole);
 
   return (
     <AppShell
@@ -110,6 +114,11 @@ export function AssetsView() {
       ) : null}
       {!loading && workspaceId ? (
         <ProductGrid>
+          {readOnly ? (
+            <StatusLine>
+              نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ثبت دارایی فعال نیست.
+            </StatusLine>
+          ) : (
           <SectionCard title="ثبت دارایی از تحویل" delayClass="delay1">
             <FormStack>
               <TextField label="عنوان" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -158,6 +167,7 @@ export function AssetsView() {
               <EmptyHint>هنوز تحویلی نیست. از مسیر خرید، سفارش و تحویل را ثبت کنید.</EmptyHint>
             ) : null}
           </SectionCard>
+          )}
 
           <SectionCard title="فهرست دارایی‌ها" badge={assets.length} delayClass="delay2">
             {assets.length === 0 ? (

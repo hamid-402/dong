@@ -24,6 +24,8 @@ type ExpenseListPanelProps = {
   pending: boolean;
   /** When false, show short copy that API already scopes private expenses. */
   canManageFinance?: boolean;
+  /** Auditor/guest — no submit/post/promote/receipt upload. */
+  readOnly?: boolean;
   onSubmitExpense: (expenseId: string) => void;
   onPostExpense: (expenseId: string) => void;
   onPromoteCompany: (expenseId: string) => void;
@@ -42,6 +44,7 @@ export function ExpenseListPanel({
   selectedId,
   pending,
   canManageFinance = false,
+  readOnly = false,
   onSubmitExpense,
   onPostExpense,
   onPromoteCompany,
@@ -121,46 +124,48 @@ export function ExpenseListPanel({
             }
             trailing={<Amount irrMinor={expense.total.amountMinor} />}
             actions={
-              <>
-                {expense.status === "draft" ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => onSubmitExpense(expense.id)}
-                    disabled={pending}
-                  >
-                    ارسال
-                  </Button>
-                ) : null}
-                {expense.status === "draft" || expense.status === "submitted" ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => onPostExpense(expense.id)}
-                    disabled={pending}
-                  >
-                    ثبت در دفترکل
-                  </Button>
-                ) : null}
-                {supportsCompany &&
-                canApproveCompany &&
-                expense.visibility === "private" ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => onPromoteCompany(expense.id)}
-                    disabled={pending}
-                  >
-                    تأیید شرکتی
-                  </Button>
-                ) : null}
-                {selectedId ? (
-                  <ExpenseReceiptUpload
-                    workspaceId={selectedId}
-                    expenseId={expense.id}
-                  />
-                ) : null}
-              </>
+              readOnly ? null : (
+                <>
+                  {expense.status === "draft" ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => onSubmitExpense(expense.id)}
+                      disabled={pending}
+                    >
+                      ارسال
+                    </Button>
+                  ) : null}
+                  {expense.status === "draft" || expense.status === "submitted" ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => onPostExpense(expense.id)}
+                      disabled={pending}
+                    >
+                      ثبت در دفترکل
+                    </Button>
+                  ) : null}
+                  {supportsCompany &&
+                  canApproveCompany &&
+                  expense.visibility === "private" ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => onPromoteCompany(expense.id)}
+                      disabled={pending}
+                    >
+                      تأیید شرکتی
+                    </Button>
+                  ) : null}
+                  {selectedId ? (
+                    <ExpenseReceiptUpload
+                      workspaceId={selectedId}
+                      expenseId={expense.id}
+                    />
+                  ) : null}
+                </>
+              )
             }
           />
         ))}
