@@ -12,5 +12,5 @@ const FinanceView = dynamic(
 );
 
 export default function WorkspaceSettlementsPage() {
-  return <FinanceView focusPanel="settlement" />;
+  return <FinanceView section="settlements" focusPanel="settlement" />;
 }

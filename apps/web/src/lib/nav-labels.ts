@@ -27,6 +27,7 @@ export const NAV_LABELS = {
   whatsNew: "تغییرات اخیر",
   metrics: "متریک محصول",
   addExpense: "ثبت خرج",
+  approvals: "مرکز تأیید",
   sectionFinance: "مالی",
   sectionBuy: "خرید",
   sectionSpace: "مدیریت فضا",

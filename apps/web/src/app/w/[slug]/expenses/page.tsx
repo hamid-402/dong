@@ -12,5 +12,5 @@ const FinanceView = dynamic(
 );
 
 export default function WorkspaceExpensesPage() {
-  return <FinanceView />;
+  return <FinanceView section="expenses" focusPanel="expense" />;
 }

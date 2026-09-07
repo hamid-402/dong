@@ -14,7 +14,7 @@ import type {
   WorkspaceBalancesResponse,
   CostCenterSummary,
 } from "@dang/contracts";
-import { isFinanceManagerRole } from "@dang/contracts";
+import { isFinanceManagerRole, isReadOnlyRole } from "@dang/contracts";
 import { Button, TextField, formatToman } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -28,13 +28,15 @@ import {
   PageHeader,
   ProductGrid,
   SectionCard,
+  StatusLine,
 } from "@/components/ui-blocks";
 import { api, DEV_IDENTITY_DEFAULTS, getDevIdentity, setDevIdentity, type AuditEventDto } from "@/lib/api";
 import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
 import { hubPathFor } from "@/lib/hub-links";
 import { friendlyErrorMessage } from "@/lib/api-errors";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import { wPath } from "@/lib/workspace-paths";
-import { zeroSumHint } from "@/lib/status-labels";
+import { membershipRoleLabel, zeroSumHint } from "@/lib/status-labels";
 import { templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
@@ -54,13 +56,46 @@ import {
   type FinanceWorkspaceData,
 } from "@/components/views/finance/use-finance-data";
 import { useFinanceActions } from "@/components/views/finance/use-finance-actions";
+import { useRouter } from "next/navigation";
+
+export type FinanceSection =
+  | "expenses"
+  | "settlements"
+  | "invoices"
+  | "recurring";
+
+const SECTION_META: Record<
+  FinanceSection,
+  { title: string; description: string }
+> = {
+  expenses: {
+    title: NAV_LABELS.expenses,
+    description: "ثبت و پیگیری خرج‌های این فضا — تسویه و صورتحساب صفحهٔ جدا دارند.",
+  },
+  settlements: {
+    title: NAV_LABELS.settlements,
+    description: "ادعای تسویه، تأیید، اعتراض و لینک پرداخت.",
+  },
+  invoices: {
+    title: NAV_LABELS.invoices,
+    description: "دورهٔ هزینه و صورتحساب اعضا.",
+  },
+  recurring: {
+    title: NAV_LABELS.recurring,
+    description: "قواعد تکرار، گزارش بازه‌ای و نسخه‌بندی مبلغ.",
+  },
+};
 
 export function FinanceView({
+  section = "expenses",
   focusPanel,
 }: {
-  /** Scroll to expense or settlement panel after data loads (used by /settlements and hash links). */
+  /** Real destination — only that section’s panels render. */
+  section?: FinanceSection;
+  /** @deprecated Prefer `section`; kept for hash scroll inside a section. */
   focusPanel?: "expense" | "settlement" | "invoice" | "reports";
 } = {}) {
+  const router = useRouter();
   const chrome = useAppChrome();
   const scope = useOptionalWorkspaceScope();
   const selectedId = scope?.workspaceId || chrome.workspaceId;
@@ -302,6 +337,7 @@ export function FinanceView({
   );
   const myMembershipRole = members.find((m) => m.userId === session?.actor?.userId)?.role;
   const canManageFinance = isFinanceManagerRole(myMembershipRole);
+  const readOnlyFinance = isReadOnlyRole(myMembershipRole);
   const canApproveCompany =
     !!myMembershipRole &&
     ["owner", "admin", "approver", "finance"].includes(myMembershipRole);
@@ -312,6 +348,13 @@ export function FinanceView({
   const selectedWorkspace = workspaces.find((w) => w.id === selectedId);
   const slug = selectedWorkspace?.slug ?? null;
   const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
+  const settlementsHref = slug ? wPath(slug, "settlements") : hubPathFor("/workspaces");
+  const expensesHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
+  const invoicesHref = slug ? wPath(slug, "invoices") : hubPathFor("/workspaces");
+  const meta = SECTION_META[section];
+  const roleHint = myMembershipRole
+    ? `نقش شما: ${membershipRoleLabel(myMembershipRole)}`
+    : null;
 
   return (
     <AppShell
@@ -321,13 +364,13 @@ export function FinanceView({
       persistenceLabel={chrome.persistenceLabel}
     >
       <PageHeader
-        eyebrow="ماژول مالی"
-        title="خرج، مانده و تسویه"
+        eyebrow={NAV_LABELS.sectionFinance}
+        title={meta.title}
         description={
           selectedId
-            ? canManageFinance
-              ? `مدیر مالی / مادرخرج: خرج جمعی و خصوصی اعضا + ارسال صورتحساب · ${expenses.length} خرج · ${openSettlements} تسویه باز`
-              : `عضو: خرج‌های جمعی گروه و خرج خصوصی خودتان · ${expenses.length} خرج · ${openSettlements} تسویه باز`
+            ? [meta.description, roleHint, `${expenses.length} خرج · ${openSettlements} تسویه باز`]
+                .filter(Boolean)
+                .join(" · ")
             : "فضای کاری را انتخاب کنید یا بسازید تا جریان مالی زنده شود."
         }
       />
@@ -337,26 +380,25 @@ export function FinanceView({
           <button type="button" className="textButton" disabled={pending} onClick={refresh}>
             تازه‌سازی داده‌ها
           </button>
+          {section !== "expenses" ? (
+            <>
+              {" · "}
+              <Link href={expensesHref}>{NAV_LABELS.expenses}</Link>
+            </>
+          ) : null}
+          {section !== "settlements" ? (
+            <>
+              {" · "}
+              <Link href={settlementsHref}>{NAV_LABELS.settlements}</Link>
+            </>
+          ) : null}
+          {section !== "invoices" && canManageFinance ? (
+            <>
+              {" · "}
+              <Link href={invoicesHref}>{NAV_LABELS.invoices}</Link>
+            </>
+          ) : null}
         </p>
-      ) : null}
-
-      {selectedId && canManageFinance ? (
-        <SectionCard title="ارسال صورتحساب" delayClass="delay1" tone="quiet">
-          <p className="liveHint">
-            مادرخرج: دوره بسازید و صورتحساب اعضا را از پنل «دوره هزینه» بفرستید.
-          </p>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() =>
-              document
-                .getElementById("period-invoice-panel")
-                ?.scrollIntoView({ behavior: "smooth", block: "start" })
-            }
-          >
-            رفتن به ارسال صورتحساب
-          </Button>
-        </SectionCard>
       ) : null}
 
       {initialLoading ? (
@@ -367,24 +409,21 @@ export function FinanceView({
         </EmptyHint>
       ) : null}
 
-      {selectedId ? (
+      {selectedId && section === "expenses" ? (
         <>
           <div className="heroGrid">
             <HeroBalance
               label="مانده خالص شما"
               amount={formatToman(myNetToman)}
               subtitle={myNetToman >= 0 ? "تومان طلب دارید" : "تومان بدهکارید"}
-              actionLabel="رفتن به تسویه"
-              onAction={() => {
-                document.getElementById("settlement-panel")?.scrollIntoView({ behavior: "smooth" });
-              }}
+              actionLabel={NAV_LABELS.settlements}
+              onAction={() => router.push(settlementsHref)}
               hint={balances ? zeroSumHint(balances.zeroSum) : "…"}
             />
           </div>
 
           <ProductGrid cols={2}>
             <FinanceSummaryCard balances={balances} memberLabel={memberLabel} />
-
             <ExpenseListPanel
               filteredExpenses={filteredExpenses}
               expenseFilter={expenseFilter}
@@ -400,66 +439,60 @@ export function FinanceView({
             />
           </ProductGrid>
 
-          <ProductGrid cols={2}>
-            <PeriodInvoicePanels
-              periods={periods}
-              periodTitle={periodTitle}
-              onPeriodTitleChange={setPeriodTitle}
-              periodKind={periodKind}
-              onPeriodKindChange={setPeriodKind}
-              periodStartsOn={periodStartsOn}
-              onPeriodStartsOnChange={setPeriodStartsOn}
-              periodEndsOn={periodEndsOn}
-              onPeriodEndsOnChange={setPeriodEndsOn}
-              selectedPeriodId={selectedPeriodId}
-              onSelectPeriodId={onSelectPeriodId}
-              invoices={invoices}
-              paymentLinks={paymentLinks}
-              paymentsLive={paymentsLive}
-              pending={pending}
-              session={session}
-              memberLabel={memberLabel}
-              canManageInvoices={canManageFinance}
-              onCreatePeriod={onCreatePeriod}
-              onGenerateInvoices={onGenerateInvoices}
-              onClosePeriod={onClosePeriod}
-              onCancelPeriod={onCancelPeriod}
-              onApproveInvoice={onApproveInvoice}
-              onDisputeInvoice={onDisputeInvoice}
-              onIssueInvoice={onIssueInvoice}
-              onMarkInvoicePaid={onMarkInvoicePaid}
-            />
-          </ProductGrid>
+          {readOnlyFinance ? (
+            <SectionCard title={NAV_LABELS.addExpense} tone="quiet">
+              <StatusLine>
+                نقش {membershipRoleLabel(myMembershipRole)} فقط مشاهده دارد — ثبت خرج برای
+                شما فعال نیست.
+              </StatusLine>
+            </SectionCard>
+          ) : (
+            <ProductGrid>
+              <ExpenseFormPanel
+                title={title}
+                onTitleChange={setTitle}
+                amountToman={amountToman}
+                onAmountTomanChange={setAmountToman}
+                expenseDate={expenseDate}
+                onExpenseDateChange={setExpenseDate}
+                split={split}
+                onSplitChange={setSplit}
+                expensePeriodId={expensePeriodId}
+                onExpensePeriodIdChange={setExpensePeriodId}
+                periods={periods}
+                members={members}
+                supportsCompany={supportsCompany}
+                session={session}
+                offlineDrafts={offlineDrafts}
+                lastDraftSavedAt={lastDraftSavedAt}
+                pending={pending}
+                canAssignPrivateToOthers={canManageFinance}
+                costCenters={costCenters}
+                costCenterId={costCenterId}
+                onCostCenterIdChange={setCostCenterId}
+                onCreateExpense={onCreateExpense}
+                onSaveOfflineDraft={onSaveOfflineDraft}
+                onSyncOfflineDraft={onSyncOfflineDraft}
+                onRemoveOfflineDraft={onRemoveOfflineDraft}
+              />
+            </ProductGrid>
+          )}
+        </>
+      ) : null}
 
+      {selectedId && section === "settlements" ? (
+        <>
+          <div className="heroGrid">
+            <HeroBalance
+              label="مانده خالص شما"
+              amount={formatToman(myNetToman)}
+              subtitle={myNetToman >= 0 ? "تومان طلب دارید" : "تومان بدهکارید"}
+              actionLabel={NAV_LABELS.expenses}
+              onAction={() => router.push(expensesHref)}
+              hint={balances ? zeroSumHint(balances.zeroSum) : "…"}
+            />
+          </div>
           <ProductGrid>
-            <ExpenseFormPanel
-              title={title}
-              onTitleChange={setTitle}
-              amountToman={amountToman}
-              onAmountTomanChange={setAmountToman}
-              expenseDate={expenseDate}
-              onExpenseDateChange={setExpenseDate}
-              split={split}
-              onSplitChange={setSplit}
-              expensePeriodId={expensePeriodId}
-              onExpensePeriodIdChange={setExpensePeriodId}
-              periods={periods}
-              members={members}
-              supportsCompany={supportsCompany}
-              session={session}
-              offlineDrafts={offlineDrafts}
-              lastDraftSavedAt={lastDraftSavedAt}
-              pending={pending}
-              canAssignPrivateToOthers={canManageFinance}
-              costCenters={costCenters}
-              costCenterId={costCenterId}
-              onCostCenterIdChange={setCostCenterId}
-              onCreateExpense={onCreateExpense}
-              onSaveOfflineDraft={onSaveOfflineDraft}
-              onSyncOfflineDraft={onSyncOfflineDraft}
-              onRemoveOfflineDraft={onRemoveOfflineDraft}
-            />
-
             <SettlementPanel
               members={members}
               settleToUserId={settleToUserId}
@@ -481,7 +514,53 @@ export function FinanceView({
               onCreatePaymentLink={onCreatePaymentLink}
             />
           </ProductGrid>
+        </>
+      ) : null}
 
+      {selectedId && section === "invoices" ? (
+        <ProductGrid cols={2}>
+          <PeriodInvoicePanels
+            periods={periods}
+            periodTitle={periodTitle}
+            onPeriodTitleChange={setPeriodTitle}
+            periodKind={periodKind}
+            onPeriodKindChange={setPeriodKind}
+            periodStartsOn={periodStartsOn}
+            onPeriodStartsOnChange={setPeriodStartsOn}
+            periodEndsOn={periodEndsOn}
+            onPeriodEndsOnChange={setPeriodEndsOn}
+            selectedPeriodId={selectedPeriodId}
+            onSelectPeriodId={onSelectPeriodId}
+            invoices={invoices}
+            paymentLinks={paymentLinks}
+            paymentsLive={paymentsLive}
+            pending={pending}
+            session={session}
+            memberLabel={memberLabel}
+            canManageInvoices={canManageFinance}
+            onCreatePeriod={onCreatePeriod}
+            onGenerateInvoices={onGenerateInvoices}
+            onClosePeriod={onClosePeriod}
+            onCancelPeriod={onCancelPeriod}
+            onApproveInvoice={onApproveInvoice}
+            onDisputeInvoice={onDisputeInvoice}
+            onIssueInvoice={onIssueInvoice}
+            onMarkInvoicePaid={onMarkInvoicePaid}
+          />
+        </ProductGrid>
+      ) : null}
+
+      {selectedId && section === "recurring" ? (
+        <ProductGrid>
+          <div id="reports-panel">
+            <WorkspaceReportsPanel
+              workspaceId={selectedId}
+              defaultVisibility={supportsCompany ? "company" : "shared"}
+              onChanged={() => {
+                void loadWorkspaceData(selectedId, selectedPeriodId).then(applyWorkspaceData);
+              }}
+            />
+          </div>
           <ProductGrid cols={2}>
             <LedgerAuditPanels
               ledgerEntries={ledgerEntries}
@@ -489,21 +568,7 @@ export function FinanceView({
               memberLabel={memberLabel}
             />
           </ProductGrid>
-
-          {selectedId ? (
-            <ProductGrid>
-              <div id="reports-panel">
-                <WorkspaceReportsPanel
-                  workspaceId={selectedId}
-                  defaultVisibility={supportsCompany ? "company" : "shared"}
-                  onChanged={() => {
-                    void loadWorkspaceData(selectedId, selectedPeriodId).then(applyWorkspaceData);
-                  }}
-                />
-              </div>
-            </ProductGrid>
-          ) : null}
-        </>
+        </ProductGrid>
       ) : null}
 
       <details className="devtoolsDetails">

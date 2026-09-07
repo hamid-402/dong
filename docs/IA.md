@@ -44,7 +44,7 @@
 | کار | URL |
 |-----|-----|
 | فضای کاری (خانه) | `/w/[slug]/space` |
-| مالی / خرج‌ها | `/w/[slug]/finance` (و زیر‌مسیرهای additive بعدی) |
+| مالی / خرج‌ها | `/w/[slug]/expenses` (تسویه `/settlements` · صورتحساب `/invoices` · تکرار `/recurring`) |
 | دفتر روزانه | از تب‌ها / More همان slug |
 | دعوت | مسیر invite موجود + scope workspace |
 | پروفایل / تنظیمات | Shell More / settings |

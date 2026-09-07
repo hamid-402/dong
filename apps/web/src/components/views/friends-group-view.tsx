@@ -32,6 +32,7 @@ import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
 import { wPath } from "@/lib/workspace-paths";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import { expenseStatusLabel, workspaceTemplateLabel } from "@/lib/status-labels";
 import { FlashMessages, useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
@@ -87,6 +88,7 @@ export function FriendsGroupView() {
   const settlementsHref = slug
     ? wPath(slug, "settlements")
     : `${hubPathFor("/workspaces")}#settlement-panel`;
+  const invoicesHref = slug ? wPath(slug, "invoices") : hubPathFor("/workspaces");
   const canManageFinance = isFinanceManagerRole(
     members.find((m) => m.userId === actorUserId)?.role,
   );
@@ -264,9 +266,9 @@ export function FriendsGroupView() {
       persistenceLabel={chrome.persistenceLabel}
     >
       <PageHeader
-        eyebrow="فضای گروهی"
+        eyebrow={NAV_LABELS.spaceGroup}
         title="خانه گروه و خانواده"
-        description="مانده، اعضا و دعوت — ثبت خرج از FAB یا تب خرج‌ها."
+        description={`مانده و اعضا — ${NAV_LABELS.addExpense} از تب «${NAV_LABELS.expenses}» یا FAB.`}
       />
       <FlashMessages error={pageError} successMessage={successMessage} />
 
@@ -275,12 +277,12 @@ export function FriendsGroupView() {
       ) : (
         <ProductGrid>
           {workspace && canManageFinance ? (
-            <SectionCard title="ارسال صورتحساب" delayClass="delay1" tone="quiet">
+            <SectionCard title={NAV_LABELS.invoices} delayClass="delay1" tone="quiet">
               <p className="liveHint">
-                مادرخرج: از صفحه خرج‌ها دوره بسازید و صورتحساب را برای اعضا بفرستید.
+                مادرخرج: دوره و صورتحساب اعضا در صفحهٔ جداگانهٔ صورتحساب است.
               </p>
-              <Link href={expensesHref} className="textButton">
-                رفتن به ارسال صورتحساب
+              <Link href={invoicesHref} className="textButton">
+                رفتن به {NAV_LABELS.invoices}
               </Link>
             </SectionCard>
           ) : null}
@@ -375,7 +377,7 @@ export function FriendsGroupView() {
                     type="button"
                     onClick={() => router.push(`${expensesHref}#quick-expense`)}
                   >
-                    ثبت خرج گروه
+                    {NAV_LABELS.addExpense}
                   </Button>
                 }
               />
@@ -421,24 +423,12 @@ export function FriendsGroupView() {
                 type="button"
                 onClick={() => router.push(settlementsHref)}
               >
-                رفتن به تسویه
+                {NAV_LABELS.settlements}
               </Button>
             </div>
           </SectionCard>
 
-          <SectionCard title="ثبت خرج" delayClass="delay1" className="uxPrimaryPanel">
-            <div id="quick-expense">
-              <StatusLine>
-                ثبت خرج گروه فقط در بخش «خرج‌ها» است (همان FAB و منوی اصلی).
-              </StatusLine>
-              <Button
-                type="button"
-                onClick={() => router.push(`${expensesHref}#quick-expense`)}
-              >
-                ثبت خرج
-              </Button>
-            </div>
-          </SectionCard>
+          {/* Primary expense entry is tab/FAB — avoid a second competing CTA panel */}
 
           {chrome.capabilities?.productFlags?.addonAck && chrome.workspaceId ? (
             <AddonChargesPanel

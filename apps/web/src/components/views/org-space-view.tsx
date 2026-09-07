@@ -28,7 +28,7 @@ import { AllowancesPanel } from "@/components/allowances-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
-import { expenseStatusLabel, expenseVisibilityLabel } from "@/lib/status-labels";
+import { expenseStatusLabel, expenseVisibilityLabel, membershipRoleLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
@@ -158,7 +158,8 @@ export function OrgSpaceView() {
         <ProductGrid>
           <SectionCard title="فضای فعال" delayClass="delay1">
             <StatusLine>
-              <b>{workspace.name}</b> · {workspace.template} · نقش شما: {myRole || "—"}
+              <b>{workspace.name}</b> · {workspace.template} · نقش شما:{" "}
+              {membershipRoleLabel(myRole)}
             </StatusLine>
             {!templateSupportsCompanyExpenses(workspace.template) ? (
               <EmptyHint>این قالب خرج شرکتی ندارد.</EmptyHint>
@@ -270,7 +271,11 @@ export function OrgSpaceView() {
           <SectionCard title="اعضا" badge={members.length} delayClass="delay3">
             <DataList>
               {members.map((m) => (
-                <DataRow key={m.userId} title={m.displayName} meta={m.role} />
+                <DataRow
+                  key={m.userId}
+                  title={m.displayName}
+                  meta={membershipRoleLabel(m.role)}
+                />
               ))}
             </DataList>
           </SectionCard>

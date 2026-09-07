@@ -178,6 +178,31 @@ export function expenseVisibilityLabel(visibility: string): string {
   return "جمعی";
 }
 
+export function membershipRoleLabel(role: string | undefined | null): string {
+  switch (role) {
+    case "owner":
+      return "مالک";
+    case "admin":
+      return "ادمین";
+    case "finance":
+      return "مادرخرج / مدیر مالی";
+    case "approver":
+      return "تأییدکننده";
+    case "buyer":
+      return "خریدار";
+    case "asset_custodian":
+      return "امانت‌دار تجهیزات";
+    case "member":
+      return "عضو";
+    case "auditor":
+      return "ناظر";
+    case "guest":
+      return "مهمان";
+    default:
+      return role?.trim() ? role : "بدون نقش";
+  }
+}
+
 export function zeroSumHint(zeroSum: boolean): string {
   return zeroSum ? "مانده اعضا متعادل است" : "مانده اعضا متعادل نیست";
 }

@@ -16,6 +16,7 @@ import { api, getDevIdentity, setDevIdentity } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
 import { wPath } from "@/lib/workspace-paths";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import {
   expenseStatusLabel,
   needStatusLabel,
@@ -351,12 +352,12 @@ export function OverviewView() {
           label="مانده خالص شما"
           amount={balance}
           subtitle={(data?.balanceToman ?? 0) >= 0 ? "تومان طلب دارید" : "تومان بدهکارید"}
-          actionLabel="مشاهده جزئیات مالی"
-          onAction={() => router.push(financeHref)}
+          actionLabel={NAV_LABELS.settlements}
+          onAction={() => router.push(settlementsHref)}
           hint={data ? data.persistence : "در حال بارگذاری…"}
         />
         <QuickAction
-          title={spaceKind === "personal" ? "خرج خصوصی" : "ثبت خرج"}
+          title={spaceKind === "personal" ? "خرج خصوصی" : NAV_LABELS.addExpense}
           description={
             spaceKind === "personal"
               ? "ثبت در دفتر مالی من"
@@ -371,10 +372,10 @@ export function OverviewView() {
         <QuickAction
           title={
             spaceKind === "org"
-              ? "تدارکات"
+              ? NAV_LABELS.procurement
               : spaceKind === "personal"
-                ? "فضا"
-                : "دفتر روزانه"
+                ? NAV_LABELS.space
+                : NAV_LABELS.ledger
           }
           description={
             spaceKind === "org"

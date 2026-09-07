@@ -12,5 +12,5 @@ const FinanceView = dynamic(
 );
 
 export default function WorkspaceRecurringPage() {
-  return <FinanceView focusPanel="reports" />;
+  return <FinanceView section="recurring" focusPanel="reports" />;
 }
