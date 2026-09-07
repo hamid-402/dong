@@ -6,6 +6,7 @@ import type {
   ExpenseSummary,
   ExpenseSplitLine,
   RecurringRuleSummary,
+  ReviseRecurringRuleRequest,
 } from "@dang/contracts";
 import { apiFetch } from "./client";
 
@@ -69,6 +70,16 @@ export const expensesApi = {
   createRecurringRule: (workspaceId: string, body: CreateRecurringRuleRequest) =>
     apiFetch<RecurringRuleSummary>(
       `/workspaces/${workspaceId}/recurring-rules`,
+      { method: "POST", body: JSON.stringify(body) },
+      body.idempotencyKey,
+    ),
+  reviseRecurringRule: (
+    workspaceId: string,
+    ruleId: string,
+    body: ReviseRecurringRuleRequest,
+  ) =>
+    apiFetch<RecurringRuleSummary>(
+      `/workspaces/${workspaceId}/recurring-rules/${ruleId}/revise`,
       { method: "POST", body: JSON.stringify(body) },
       body.idempotencyKey,
     ),

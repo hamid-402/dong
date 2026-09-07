@@ -8,6 +8,8 @@ import type {
   ReimbursementSummary,
   UpdateWorkspaceExpensePolicyRequest,
   WorkspaceExpensePolicySummary,
+  WorkspacePlanName,
+  WorkspacePlanSummary,
 } from "@dang/contracts";
 import { apiFetch } from "./client";
 
@@ -71,6 +73,20 @@ export const waveFApi = {
     apiFetch<NotificationPreferenceSummary>("/me/notification-prefs", {
       method: "PUT",
       body: JSON.stringify({ emailDigest }),
+    }),
+  getWorkspacePlan: (workspaceId: string) =>
+    apiFetch<WorkspacePlanSummary>(`/workspaces/${workspaceId}/plan`),
+  putWorkspacePlan: (
+    workspaceId: string,
+    body: {
+      plan: WorkspacePlanName;
+      seatsLimit?: number | null;
+      features?: string[];
+    },
+  ) =>
+    apiFetch<WorkspacePlanSummary>(`/workspaces/${workspaceId}/plan`, {
+      method: "PUT",
+      body: JSON.stringify(body),
     }),
   importExpensesCsv: (workspaceId: string, body: ExpenseCsvImportRequest) =>
     apiFetch<{ imported: number }>(

@@ -9,11 +9,11 @@ Migration: `packages/db/migrations/0038_wave_f_finish_infra.sql`.
 | Category budgets | create/list/real posted usage + UI form | schema, RLS, org usage panel | `ENABLE_CATEGORY_BUDGET` |
 | Cost center on expense | optional `costCenterId` on draft form when centers exist | schema + cost-center CRUD | `ENABLE_COST_CENTER` |
 | Addon ↔ shared link | optional `linkedExpenseId` in addon UI | schema + API | `ENABLE_ADDON_ACK` |
-| Recurrence versions | revise endpoint | additive version lineage | existing recurrence controls |
+| Recurrence versions | revise endpoint + UI «نسخه از امروز» | additive version lineage | existing recurrence controls |
 | FX rates | authenticated table read/write | global system table; conversion deliberately not live | `ENABLE_FX_RATES` (write) |
 | Expense CSV import | creates real drafts | pure parser + test + org form | `ENABLE_EXPENSE_IMPORT` |
 | Weekly digest | opt-in prefs UI + worker/API tick | real workspace count; delivery follows Mailer capability | `ENABLE_WEEKLY_DIGEST` |
-| Workspace plans | get/owner-admin put | schema, RLS, `planAllows`; no charging | `ENABLE_WORKSPACE_PLANS`, `ENABLE_PLAN_ADMIN` |
+| Workspace plans | get + honest org UI; owner/admin put | schema, RLS, `planAllows`; no charging | `ENABLE_WORKSPACE_PLANS`, `ENABLE_PLAN_ADMIN` |
 | Approval steps | first approver step and queue projection | schema, RLS, expense submit/approve hooks | `ENABLE_APPROVAL_STEPS` |
 
 FX conversion, subscription charging, automatic exchange-rate acquisition, OCR marketplace depth, and synthetic

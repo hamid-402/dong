@@ -56,6 +56,7 @@ export function WorkspaceReportsPanel({
   const [ruleCadence, setRuleCadence] = useState<"weekly" | "monthly" | "yearly">(
     "monthly",
   );
+  const [reviseToman, setReviseToman] = useState("");
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -178,6 +179,32 @@ export function WorkspaceReportsPanel({
         } catch (err: unknown) {
           setInfo(null);
           setError(friendlyErrorMessage(err, "اجرای قواعد ناموفق"));
+        }
+      })();
+    });
+  }
+
+  function onReviseRule(ruleId: string) {
+    const amount = Number(reviseToman.replaceAll(",", ""));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("برای نسخه‌بندی، مبلغ تومان جدید را وارد کنید");
+      return;
+    }
+    startTransition(() => {
+      void (async () => {
+        try {
+          await api.reviseRecurringRule(workspaceId, ruleId, {
+            amountMinor: String(Math.round(amount) * 10),
+            effectiveFrom: todayIso(),
+            idempotencyKey: newClientId(),
+          });
+          setReviseToman("");
+          await refreshMeta();
+          setError(null);
+          setInfo("نسخهٔ جدید قاعده از امروز ثبت شد؛ تاریخچه حفظ می‌شود");
+        } catch (err: unknown) {
+          setInfo(null);
+          setError(friendlyErrorMessage(err, "نسخه‌بندی قاعده ناموفق"));
         }
       })();
     });
@@ -325,7 +352,15 @@ export function WorkspaceReportsPanel({
           <p className="liveHint">
             قواعد تکراری با دکمهٔ بالا پیش‌نویس می‌سازند. اگر ENABLE_RECURRENCE_WORKER=1 و worker
             روشن باشد، job‏ recurrence.tick هم می‌تواند همان مسیر را با تاریخ شبیه‌سازی‌شده اجرا کند.
+            برای تغییر مبلغ بدون خراب‌کردن تاریخچه، مبلغ جدید را بزنید و «نسخه از امروز» را روی قاعده بزنید.
           </p>
+          {recurring.length > 0 ? (
+            <TextField
+              label="مبلغ جدید برای نسخه‌بندی (تومان)"
+              value={reviseToman}
+              onChange={(e) => setReviseToman(e.target.value)}
+            />
+          ) : null}
           {recurring.length === 0 ? (
             <EmptyHint>قاعده‌ای نیست.</EmptyHint>
           ) : (
@@ -334,13 +369,26 @@ export function WorkspaceReportsPanel({
                 <DataRow
                   key={rule.id}
                   title={rule.title}
-                  meta={`${rule.cadence} · بعدی ${rule.nextRunOn}`}
+                  meta={`${rule.cadence} · v${rule.version} · بعدی ${rule.nextRunOn}${
+                    rule.active ? "" : " · غیرفعال"
+                  }`}
                   trailing={<Amount irrMinor={rule.amount.amountMinor} />}
+                  actions={
+                    rule.active ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={pending}
+                        onClick={() => onReviseRule(rule.id)}
+                      >
+                        نسخه از امروز
+                      </Button>
+                    ) : null
+                  }
                 />
               ))}
             </DataList>
-          )}
-        </div>
+          )}        </div>
       </details>
     </>
   );

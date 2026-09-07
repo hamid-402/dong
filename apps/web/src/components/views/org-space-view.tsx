@@ -34,6 +34,7 @@ import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
 import { WaveFFinancePanel } from "@/components/wave-f-finance-panel";
+import { WorkspacePlanPanel } from "@/components/workspace-plan-panel";
 
 const APPROVER_ROLES = new Set(["owner", "admin", "approver", "finance"]);
 
@@ -298,6 +299,17 @@ export function OrgSpaceView() {
               flags={chrome.capabilities.productFlags}
               onError={setError}
               onChanged={() => void refresh(workspace.id)}
+            />
+          ) : null}
+
+          {chrome.capabilities?.productFlags &&
+          (chrome.capabilities.productFlags.workspacePlans ||
+            chrome.capabilities.productFlags.planAdmin) ? (
+            <WorkspacePlanPanel
+              workspaceId={workspace.id}
+              flags={chrome.capabilities.productFlags}
+              myRole={myRole}
+              onError={setError}
             />
           ) : null}
 

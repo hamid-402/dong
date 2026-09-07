@@ -257,9 +257,9 @@
 - `costCenterId` اختیاری در قرارداد پیش‌نویس هزینه و فرم ثبت خرج (وقتی `productFlags.costCenter` و مراکز فعال وجود دارند) سیم‌کشی شد.
 - تکمیل 0038: FSM بازپرداخت، receipt enforcement، بودجه دسته، نسخه‌بندی recurrence،
   جدول FX بدون ادعای conversion، CSV import، digest opt-in، plan infra و approval steps.
-- UI polish نهایی: ایجاد/گذار بازپرداخت، ساخت بودجه دسته، تنظیم سیاست خرج، ترجیح digest در حساب، پیوند اختیاری add-on به خرج مشترک.
+- UI polish نهایی: ایجاد/گذار بازپرداخت، ساخت بودجه دسته، تنظیم سیاست خرج، ترجیح digest در حساب، پیوند اختیاری add-on به خرج مشترک، نسخه‌بندی recurrence در UI، نمایش/ذخیرهٔ صادقانهٔ workspace plan بدون شارژ.
 - مرز قابلیت‌های live و infra-only و flagهای خاموش پیش‌فرض در `DONG-2.0-FINISH.md` ثبت شده است.
 
 ---
 
-*آخرین به‌روزرسانی: موج‌های ۰–۶ + polish UI کامل؛ بخش‌های conversion/charging/OCR صریحاً infra-only هستند.*
+*آخرین به‌روزرسانی: موج‌های ۰–۶ + polish UI کامل (شامل plan و revise)؛ بخش‌های conversion/charging/OCR صریحاً infra-only هستند.*
