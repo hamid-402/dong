@@ -8,21 +8,29 @@ export type TenantContext = {
   userId?: string;
 };
 
-const sharedDatabases = new Map<
-  string,
-  {
-    db: ReturnType<typeof drizzle<typeof schema>>;
-    pool: Pool;
-    close: () => Promise<void>;
-  }
->();
+type SharedEntry = {
+  db: ReturnType<typeof drizzle<typeof schema>>;
+  pool: Pool;
+  refs: number;
+  close: () => Promise<void>;
+};
+
+const sharedDatabases = new Map<string, SharedEntry>();
+
+function poolIsEnded(pool: Pool): boolean {
+  return Boolean((pool as Pool & { ended?: boolean }).ended);
+}
 
 /**
  * One Pool/drizzle instance per connection string so Nest stores share connections.
+ * `close()` is ref-counted — health pings must not tear down the app pool.
  */
 export function getSharedDatabase(connectionString: string) {
   const existing = sharedDatabases.get(connectionString);
-  if (existing) return existing;
+  if (existing && !poolIsEnded(existing.pool)) {
+    existing.refs += 1;
+    return existing;
+  }
 
   const pool = new Pool({
     connectionString,
@@ -32,12 +40,19 @@ export function getSharedDatabase(connectionString: string) {
   });
   const db = drizzle(pool, { schema });
 
-  const entry = {
+  const entry: SharedEntry = {
     db,
     pool,
+    refs: 1,
     async close() {
-      sharedDatabases.delete(connectionString);
-      await pool.end();
+      entry.refs = Math.max(0, entry.refs - 1);
+      if (entry.refs > 0) return;
+      if (sharedDatabases.get(connectionString) === entry) {
+        sharedDatabases.delete(connectionString);
+      }
+      if (!poolIsEnded(pool)) {
+        await pool.end();
+      }
     },
   };
   sharedDatabases.set(connectionString, entry);

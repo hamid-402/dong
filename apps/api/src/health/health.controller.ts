@@ -142,13 +142,10 @@ export class HealthController {
     }
     try {
       const database = createDatabase(databaseUrl);
-      try {
-        await database.db.execute(sql`select 1`);
-        this.dbPingCache = { at: now, result: "ok" };
-        return "ok";
-      } finally {
-        await database.close();
-      }
+      await database.db.execute(sql`select 1`);
+      // Never close the shared app pool here — ping only.
+      this.dbPingCache = { at: now, result: "ok" };
+      return "ok";
     } catch {
       this.dbPingCache = { at: now, result: "fail" };
       return "fail";

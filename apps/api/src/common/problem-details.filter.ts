@@ -72,11 +72,20 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       }
     } else if (exception instanceof Error) {
       const isProduction = process.env.NODE_ENV === "production";
+      const causeMessage =
+        exception.cause instanceof Error
+          ? exception.cause.message
+          : typeof exception.cause === "string"
+            ? exception.cause
+            : undefined;
       detail = isProduction
         ? "An unexpected error occurred"
-        : exception.message;
+        : causeMessage
+          ? `${exception.message} | cause: ${causeMessage}`
+          : exception.message;
       logger.error("Unhandled exception", {
         detail: exception.message,
+        cause: causeMessage ?? "",
         path: request.url ?? "",
       });
     }
