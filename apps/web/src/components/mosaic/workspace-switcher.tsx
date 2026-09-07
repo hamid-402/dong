@@ -18,6 +18,7 @@ export function WorkspaceSwitcher() {
   const { workspaces, workspaceId, workspaceName, selectWorkspace, ready } = useAppChrome();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const listId = useId();
   const router = useRouter();
 
@@ -39,11 +40,24 @@ export function WorkspaceSwitcher() {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
     };
+    const focusTimer = window.setTimeout(() => {
+      const selected = rootRef.current?.querySelector<HTMLButtonElement>(
+        '[data-workspace-option][aria-selected="true"]',
+      );
+      const first = rootRef.current?.querySelector<HTMLButtonElement>(
+        "[data-workspace-option]",
+      );
+      (selected ?? first)?.focus();
+    }, 0);
     window.addEventListener("mousedown", onPointer);
     window.addEventListener("keydown", onKey);
     return () => {
+      window.clearTimeout(focusTimer);
       window.removeEventListener("mousedown", onPointer);
       window.removeEventListener("keydown", onKey);
     };
@@ -64,12 +78,19 @@ export function WorkspaceSwitcher() {
   return (
     <div className="mosaic-ws-switch" ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         className="mosaic-ws-switch__trigger"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
         onClick={() => setOpen((v) => !v)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            setOpen(true);
+          }
+        }}
       >
         <span className="mosaic-ws-switch__label">فضای کاری</span>
         <strong>{workspaceName || "انتخاب نشده"}</strong>
@@ -79,7 +100,31 @@ export function WorkspaceSwitcher() {
       </button>
 
       {open ? (
-        <ul className="mosaic-ws-switch__menu" id={listId} role="listbox" aria-label="فضاهای کاری">
+        <ul
+          className="mosaic-ws-switch__menu"
+          id={listId}
+          role="listbox"
+          aria-label="فضاهای کاری"
+          onKeyDown={(event) => {
+            const options = Array.from(
+              event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                "[data-workspace-option]",
+              ),
+            );
+            const current = options.indexOf(document.activeElement as HTMLButtonElement);
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              const delta = event.key === "ArrowDown" ? 1 : -1;
+              options[(current + delta + options.length) % options.length]?.focus();
+            } else if (event.key === "Home") {
+              event.preventDefault();
+              options[0]?.focus();
+            } else if (event.key === "End") {
+              event.preventDefault();
+              options.at(-1)?.focus();
+            }
+          }}
+        >
           {(["personal", "group", "org"] as const).map((kind) => {
             const list = grouped[kind];
             if (list.length === 0) return null;
@@ -90,9 +135,12 @@ export function WorkspaceSwitcher() {
                   {list.map((ws) => {
                     const active = ws.id === workspaceId;
                     return (
-                      <li key={ws.id} role="option" aria-selected={active}>
+                      <li key={ws.id} role="none">
                         <button
+                          data-workspace-option
                           type="button"
+                          role="option"
+                          aria-selected={active}
                           className={`mosaic-ws-switch__option${active ? " is-active" : ""}`}
                           onClick={() => {
                             selectWorkspace(ws.id);

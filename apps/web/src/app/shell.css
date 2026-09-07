@@ -501,6 +501,17 @@
   border-color: color-mix(in srgb, var(--primary) 40%, var(--line));
 }
 
+.shell-v2__search-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.shell-v2__search-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
 .shell-v2__search:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
@@ -1006,8 +1017,48 @@
 }
 
 .cmd-palette__title {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 0.95rem;
+}
+
+.cmd-palette__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.cmd-palette__head > div {
+  display: grid;
+  gap: 3px;
+}
+
+.cmd-palette__count {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.cmd-palette__close {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--fill-subtle);
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cmd-palette__close:hover {
+  border-color: var(--line-strong);
+  background: var(--fill-hover);
+  color: var(--text);
 }
 
 .cmd-palette__input {
@@ -1050,8 +1101,16 @@
   text-align: start;
 }
 
+.cmd-palette__item > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cmd-palette__item small {
   color: var(--muted);
+  flex: 0 0 auto;
 }
 
 .cmd-palette__item.is-active,

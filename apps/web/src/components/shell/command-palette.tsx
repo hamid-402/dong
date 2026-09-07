@@ -26,6 +26,7 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const router = useRouter();
@@ -136,6 +137,24 @@ export function CommandPalette() {
       if (event.key === "Escape") {
         event.preventDefault();
         setOpen(false);
+        return;
+      }
+      if (event.key === "Tab") {
+        const focusable = Array.from(
+          panelRef.current?.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+          ) ?? [],
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable.at(-1);
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -167,18 +186,37 @@ export function CommandPalette() {
         if (e.target === e.currentTarget) setOpen(false);
       }}
     >
-      <div className="cmd-palette__panel">
-        <h2 id={titleId} className="cmd-palette__title">
-          یافتن
-        </h2>
+      <div className="cmd-palette__panel" ref={panelRef}>
+        <div className="cmd-palette__head">
+          <div>
+            <h2 id={titleId} className="cmd-palette__title">
+              یافتن در دنگ
+            </h2>
+            <span className="cmd-palette__count" aria-live="polite">
+              {filtered.length.toLocaleString("fa-IR")} نتیجه
+            </span>
+          </div>
+          <button
+            type="button"
+            className="cmd-palette__close"
+            onClick={() => setOpen(false)}
+            aria-label="بستن جستجو"
+          >
+            ×
+          </button>
+        </div>
         <input
           ref={inputRef}
           className="cmd-palette__input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="صفحه، فضا یا اکشن…"
+          role="combobox"
+          aria-label="جستجوی صفحه، فضا یا اقدام"
+          aria-expanded="true"
           aria-autocomplete="list"
           aria-controls="cmd-palette-list"
+          aria-activedescendant={filtered[active] ? `cmd-palette-${filtered[active].id}` : undefined}
           onKeyDown={(e) => {
             if (e.key === "ArrowDown") {
               e.preventDefault();
@@ -197,9 +235,12 @@ export function CommandPalette() {
             <li className="cmd-palette__empty">موردی پیدا نشد</li>
           ) : (
             filtered.map((item, index) => (
-              <li key={item.id} role="option" aria-selected={index === active}>
+              <li key={item.id} role="none">
                 <button
+                  id={`cmd-palette-${item.id}`}
                   type="button"
+                  role="option"
+                  aria-selected={index === active}
                   className={`cmd-palette__item${index === active ? " is-active" : ""}`}
                   onClick={() => go(item.href)}
                   onMouseEnter={() => setActive(index)}

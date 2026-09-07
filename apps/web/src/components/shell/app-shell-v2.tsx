@@ -83,8 +83,11 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
               title="جستجو (Ctrl+K)"
               aria-label="باز کردن جستجو"
             >
+              <span className="shell-v2__search-icon" aria-hidden>
+                <ShellIconSvg name="search" />
+              </span>
               <span className="shell-v2__search-label">جستجو</span>
-              <kbd className="shell-v2__search-kbd">⌘K</kbd>
+              <kbd className="shell-v2__search-kbd">Ctrl K</kbd>
             </button>
             {desktop && fabHref ? (
               <Link href={fabHref} className="shell-v2__cta">
