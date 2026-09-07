@@ -42,7 +42,7 @@ import { wPath } from "@/lib/workspace-paths";
 const APPROVER_ROLES = new Set(["owner", "admin", "approver", "finance"]);
 
 function budgetStatusLabel(status: string): string {
-  if (status === "active") return "فعال";
+  if (status === "open" || status === "active") return "باز";
   if (status === "closed") return "بسته";
   if (status === "draft") return "پیش‌نویس";
   return status;
