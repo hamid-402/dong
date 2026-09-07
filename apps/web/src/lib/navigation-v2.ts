@@ -42,6 +42,7 @@ export type SpaceNavFlags = Partial<
     | "expensePolicy"
     | "workspacePlans"
     | "planAdmin"
+    | "fxRates"
   >
 >;
 
@@ -58,7 +59,8 @@ function orgFinanceLive(flags?: SpaceNavFlags): boolean {
       flags?.expenseImport ||
       flags?.expensePolicy ||
       flags?.workspacePlans ||
-      flags?.planAdmin,
+      flags?.planAdmin ||
+      flags?.fxRates,
   );
 }
 

@@ -33,6 +33,7 @@ import {
   createExpenseCategoryRequestSchema,
   createRecurringRuleRequestSchema,
   createReportExportRequestSchema,
+  isReadOnlyRole,
   readProductFeatureFlags,
   workspaceReportCompareQuerySchema,
   reviseRecurringRuleSchema,
@@ -188,7 +189,7 @@ export class ReportsController {
     @Body(new ZodValidationPipe(createExpenseCategoryRequestSchema))
     body: CreateExpenseCategoryRequest,
   ): Promise<ExpenseCategorySummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.requireWritableMember(workspaceId, actor.userId);
     if (!body.name?.trim()) throw new BadRequestException({ detail: "نام دسته لازم است" });
     return this.reports.createCategory(workspaceId, actor.userId, body);
   }
@@ -211,7 +212,7 @@ export class ReportsController {
     @Body(new ZodValidationPipe(createRecurringRuleRequestSchema))
     body: CreateRecurringRuleRequest,
   ): Promise<RecurringRuleSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.requireWritableMember(workspaceId, actor.userId);
     if (!body.title?.trim()) throw new BadRequestException({ detail: "عنوان لازم است" });
     return this.reports.createRecurring(workspaceId, actor.userId, body);
   }
@@ -224,7 +225,7 @@ export class ReportsController {
     @Param("ruleId") ruleId: string,
     @Body(new ZodValidationPipe(reviseRecurringRuleSchema)) body: ReviseRecurringRuleRequest,
   ): Promise<RecurringRuleSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.requireWritableMember(workspaceId, actor.userId);
     try {
       return await this.reports.reviseRecurring(workspaceId, actor.userId, ruleId, body);
     } catch (error) {
@@ -248,7 +249,7 @@ export class ReportsController {
     @Param("workspaceId") workspaceId: string,
     @Query("asOf") requestedAsOf?: string,
   ): Promise<{ createdExpenseIds: string[]; titles: string[] }> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.requireWritableMember(workspaceId, actor.userId);
     const asOf = requestedAsOf ?? new Date().toISOString().slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) {
       throw new BadRequestException({ detail: "asOf باید تاریخ YYYY-MM-DD باشد" });
@@ -297,5 +298,20 @@ export class ReportsController {
   private async requireMember(workspaceId: string, userId: string) {
     const members = await this.iam.listMembers(workspaceId, userId);
     if (!members) throw new NotFoundException({ detail: "عضویت یافت نشد" });
+  }
+
+  private async requireWritableMember(workspaceId: string, userId: string) {
+    const members = await this.iam.listMembers(workspaceId, userId);
+    if (!members) throw new NotFoundException({ detail: "عضویت یافت نشد" });
+    const me = members.find((m) => m.userId === userId);
+    if (!me) throw new NotFoundException({ detail: "عضویت یافت نشد" });
+    if (isReadOnlyRole(me.role)) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/read-only-role",
+        title: "Read-only role",
+        status: 403,
+        detail: "نقش ناظر/مهمان مجاز به تغییر گزارش، دسته یا قاعده تکراری نیست",
+      });
+    }
   }
 }

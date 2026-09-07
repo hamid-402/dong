@@ -101,12 +101,11 @@ describe("navigation-v2", () => {
     );
   });
 
-  it("does not show org-finance for friends template even with Wave F flags", () => {
-    const finance = spaceNav("friends_family", "g1", {
-      costCenter: true,
-      allowance: true,
-    }).find((s) => s.key === "finance");
-    expect(finance?.items.some((i) => i.key === "org-finance")).toBe(false);
+  it("shows org-finance when fxRates flag alone is on", () => {
+    const finance = spaceNav("small_team", "org", { fxRates: true }).find(
+      (s) => s.key === "finance",
+    );
+    expect(finance?.items.some((i) => i.key === "org-finance")).toBe(true);
   });
 
   it("builds more path for workspace tools launcher", () => {

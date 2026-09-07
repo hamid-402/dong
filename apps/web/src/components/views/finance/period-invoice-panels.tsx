@@ -17,7 +17,7 @@ import {
   SectionCard,
   StatusPill,
 } from "@/components/ui-blocks";
-import { invoiceStatusLabel, periodStatusLabel } from "@/lib/status-labels";
+import { invoiceStatusLabel, periodKindLabel, periodStatusLabel } from "@/lib/status-labels";
 
 type PeriodInvoicePanelsProps = {
   periods: ExpensePeriodSummary[];
@@ -133,7 +133,7 @@ export function PeriodInvoicePanels({
           >
             {periods.map((period) => (
               <option key={period.id} value={period.id}>
-                {period.title} · {period.kind} · {periodStatusLabel(period.status)}
+                {period.title} · {periodKindLabel(period.kind)} · {periodStatusLabel(period.status)}
               </option>
             ))}
           </SelectField>

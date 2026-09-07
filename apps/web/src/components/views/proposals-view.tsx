@@ -10,7 +10,7 @@ import type {
   ProposalSettingsSummary,
   ProposalSummary,
 } from "@dang/contracts";
-import { spaceKindForTemplate } from "@dang/contracts";
+import { spaceKindForTemplate, isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -26,7 +26,7 @@ import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
-import { proposalStatusLabel } from "@/lib/status-labels";
+import { membershipRoleLabel, proposalStatusLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 
@@ -81,6 +81,7 @@ export function ProposalsView() {
   const kindSpace = spaceKindForTemplate(workspace?.template);
   const myRole = members.find((m) => m.userId === meUserId)?.role;
   const canEditSettings = myRole === "owner" || myRole === "admin";
+  const readOnly = isReadOnlyRole(myRole);
 
   const open = useMemo(() => proposals.filter((p) => p.status === "open"), [proposals]);
   const accepted = useMemo(
@@ -273,6 +274,11 @@ export function ProposalsView() {
                 <span>{kindLabel(kind)}</span>
               </summary>
               <div className="reportDetails__body">
+                {readOnly ? (
+                  <StatusLine>
+                    نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ثبت پیشنهاد فعال نیست.
+                  </StatusLine>
+                ) : (
                 <FormStack density="compact">
                   <SelectField
                     label="نوع"
@@ -305,6 +311,7 @@ export function ProposalsView() {
                     ارسال برای رأی‌گیری
                   </Button>
                 </FormStack>
+                )}
               </div>
             </details>
 
@@ -390,6 +397,12 @@ export function ProposalsView() {
                       </p>
 
                       <div className="proposalCard__actions">
+                        {readOnly ? (
+                          <StatusLine>
+                            نقش {membershipRoleLabel(myRole)} فقط مشاهده — رأی فعال نیست.
+                          </StatusLine>
+                        ) : (
+                          <>
                         <Button
                           type="button"
                           size="sm"
@@ -419,6 +432,8 @@ export function ProposalsView() {
                             لغو
                           </Button>
                         ) : null}
+                          </>
+                        )}
                       </div>
                     </article>
                   );

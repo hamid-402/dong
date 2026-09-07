@@ -21,6 +21,7 @@ import { billingApi } from "./api/billing";
 import { costCentersApi } from "./api/cost-centers";
 import { dailyLedgerApi } from "./api/daily-ledger";
 import { expensesApi } from "./api/expenses";
+import { fxRatesApi } from "./api/fx-rates";
 import { waveFApi } from "./api/wave-f";
 import { partnershipApi } from "./api/partnership";
 import { personalFinanceApi } from "./api/personal-finance";
@@ -57,6 +58,7 @@ export const api = {
   ...allowancesApi,
   ...approvalQueueApi,
   ...expensesApi,
+  ...fxRatesApi,
   ...waveFApi,
   ...personalFinanceApi,
   ...workspacesApi,

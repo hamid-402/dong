@@ -365,6 +365,7 @@ export function OrgSpaceView() {
           <WorkspaceReportsPanel
             workspaceId={workspace.id}
             defaultVisibility="company"
+            readOnly={readOnly}
             onChanged={() => void refresh(workspace.id)}
           />
         </ProductGrid>

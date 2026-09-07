@@ -48,7 +48,7 @@
 | مالی سازمان (Wave F) | `/w/[slug]/org-finance` — فقط وقتی flagهای مربوط در capabilities روشن باشد |
 | add-on / تأیید | `/addons` · `/approvals` — فقط با `addonAck` / `approvalQueue` |
 | دفتر روزانه | از تب‌ها / More همان slug |
-| دعوت | مسیر invite موجود + scope workspace |
+| دعوت / اعضا | `/w/[slug]/members` — ساخت دعوت فقط owner/admin |
 | پروفایل / تنظیمات | Shell More / settings |
 
 مسیرهای `/hub/…` و classic → redirect به `/w` (حذف قابلیت نیست).

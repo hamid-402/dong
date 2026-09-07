@@ -240,7 +240,15 @@ export function PersonalSpaceView() {
           </SectionCard>
 
           <PersonalFinanceOverviewPanel />
-          <PersonalResourcesPanel />
+
+          <details className="reportDetails">
+            <summary>
+              <span>منابع و بودجه شخصی</span>
+            </summary>
+            <div className="reportDetails__body">
+              <PersonalResourcesPanel />
+            </div>
+          </details>
 
           <SectionCard title="خرج‌های من" badge={expenses.length} delayClass="delay2">
             {expenses.length === 0 ? (
@@ -264,11 +272,18 @@ export function PersonalSpaceView() {
           </SectionCard>
 
           {workspace ? (
-            <WorkspaceReportsPanel
-              workspaceId={workspace.id}
-              defaultVisibility="private"
-              onChanged={() => void refresh(workspace.id)}
-            />
+            <details className="reportDetails">
+              <summary>
+                <span>گزارش و خرج تکراری</span>
+              </summary>
+              <div className="reportDetails__body">
+                <WorkspaceReportsPanel
+                  workspaceId={workspace.id}
+                  defaultVisibility="private"
+                  onChanged={() => void refresh(workspace.id)}
+                />
+              </div>
+            </details>
           ) : null}
         </ProductGrid>
       )}

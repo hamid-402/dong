@@ -558,11 +558,11 @@ export function FinanceView({
             <WorkspaceReportsPanel
               workspaceId={selectedId}
               defaultVisibility={supportsCompany ? "company" : "shared"}
+              readOnly={readOnlyFinance}
               onChanged={() => {
                 void loadWorkspaceData(selectedId, selectedPeriodId).then(applyWorkspaceData);
               }}
-            />
-          </div>
+            />          </div>
           <ProductGrid cols={2}>
             <LedgerAuditPanels
               ledgerEntries={ledgerEntries}

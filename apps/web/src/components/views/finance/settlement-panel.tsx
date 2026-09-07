@@ -14,7 +14,7 @@ import {
   StatusPill,
 } from "@/components/ui-blocks";
 import { hubPathFor } from "@/lib/hub-links";
-import { membershipRoleLabel, settlementStatusLabel } from "@/lib/status-labels";
+import { membershipRoleLabel, paymentLinkStatusLabel, settlementStatusLabel } from "@/lib/status-labels";
 
 type SettlementPanelProps = {
   members: MembershipSummary[];
@@ -234,7 +234,7 @@ export function SettlementPanel({
           {paymentLinks.map((link) => (
             <DataRow
               key={link.id}
-              title={`پرداخت ${link.status}`}
+              title={`پرداخت ${paymentLinkStatusLabel(link.status)}`}
               meta={
                 paymentsLive ? (
                   <a href={link.checkoutUrl} target="_blank" rel="noreferrer">

@@ -23,6 +23,7 @@ import { JalaliDateField } from "@/components/jalali-date-field";
 import { ReportComparePanel } from "@/components/report-compare-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
+import { recurringCadenceLabel } from "@/lib/status-labels";
 import { useOptionalAppChrome } from "@/lib/use-app-chrome";
 
 function monthStart(): string {
@@ -37,10 +38,13 @@ function todayIso(): string {
 export function WorkspaceReportsPanel({
   workspaceId,
   defaultVisibility = "private",
+  readOnly = false,
   onChanged,
 }: {
   workspaceId: string;
   defaultVisibility?: "shared" | "private" | "company";
+  /** Auditor/guest — list/export only. */
+  readOnly?: boolean;
   onChanged?: () => void;
 }) {
   const chrome = useOptionalAppChrome();
@@ -294,16 +298,20 @@ export function WorkspaceReportsPanel({
           <span>{categories.length}</span>
         </summary>
         <div className="reportDetails__body">
-          <FormStack density="compact">
-            <TextField
-              label="نام دسته جدید"
-              value={categoryName}
-              onChange={(e) => setCategoryName(e.target.value)}
-            />
-            <Button type="button" onClick={onCreateCategory} disabled={pending}>
-              افزودن دسته
-            </Button>
-          </FormStack>
+          {readOnly ? (
+            <EmptyHint>نقش شما فقط مشاهده دارد — افزودن دسته فعال نیست.</EmptyHint>
+          ) : (
+            <FormStack density="compact">
+              <TextField
+                label="نام دسته جدید"
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+              />
+              <Button type="button" onClick={onCreateCategory} disabled={pending}>
+                افزودن دسته
+              </Button>
+            </FormStack>
+          )}
           {categories.length === 0 ? (
             <EmptyHint>دسته‌ای ثبت نشده.</EmptyHint>
           ) : (
@@ -322,45 +330,51 @@ export function WorkspaceReportsPanel({
           <span>{recurring.length}</span>
         </summary>
         <div className="reportDetails__body">
-          <FormStack density="compact">
-            <TextField label="عنوان" value={ruleTitle} onChange={(e) => setRuleTitle(e.target.value)} />
-            <TextField
-              label="مبلغ (تومان)"
-              value={ruleToman}
-              onChange={(e) => setRuleToman(e.target.value)}
-            />
-            <SelectField
-              label="دوره"
-              value={ruleCadence}
-              onChange={(e) =>
-                setRuleCadence(e.target.value as "weekly" | "monthly" | "yearly")
-              }
-            >
-              <option value="weekly">هفتگی</option>
-              <option value="monthly">ماهانه</option>
-              <option value="yearly">سالانه</option>
-            </SelectField>
-            <div className="formStack__actions">
-              <Button type="button" onClick={onCreateRecurring} disabled={pending}>
-                ثبت قاعده
-              </Button>
-              <Button type="button" variant="ghost" onClick={onRunDue} disabled={pending}>
-                اجرای سررسیدها (دستی)
-              </Button>
-            </div>
-          </FormStack>
-          <p className="liveHint">
-            قواعد تکراری با دکمهٔ بالا پیش‌نویس می‌سازند. اگر ENABLE_RECURRENCE_WORKER=1 و worker
-            روشن باشد، job‏ recurrence.tick هم می‌تواند همان مسیر را با تاریخ شبیه‌سازی‌شده اجرا کند.
-            برای تغییر مبلغ بدون خراب‌کردن تاریخچه، مبلغ جدید را بزنید و «نسخه از امروز» را روی قاعده بزنید.
-          </p>
-          {recurring.length > 0 ? (
-            <TextField
-              label="مبلغ جدید برای نسخه‌بندی (تومان)"
-              value={reviseToman}
-              onChange={(e) => setReviseToman(e.target.value)}
-            />
-          ) : null}
+          {readOnly ? (
+            <EmptyHint>نقش شما فقط مشاهده دارد — ثبت یا اجرای قاعده فعال نیست.</EmptyHint>
+          ) : (
+            <>
+              <FormStack density="compact">
+                <TextField label="عنوان" value={ruleTitle} onChange={(e) => setRuleTitle(e.target.value)} />
+                <TextField
+                  label="مبلغ (تومان)"
+                  value={ruleToman}
+                  onChange={(e) => setRuleToman(e.target.value)}
+                />
+                <SelectField
+                  label="دوره"
+                  value={ruleCadence}
+                  onChange={(e) =>
+                    setRuleCadence(e.target.value as "weekly" | "monthly" | "yearly")
+                  }
+                >
+                  <option value="weekly">هفتگی</option>
+                  <option value="monthly">ماهانه</option>
+                  <option value="yearly">سالانه</option>
+                </SelectField>
+                <div className="formStack__actions">
+                  <Button type="button" onClick={onCreateRecurring} disabled={pending}>
+                    ثبت قاعده
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={onRunDue} disabled={pending}>
+                    اجرای سررسیدها (دستی)
+                  </Button>
+                </div>
+              </FormStack>
+              <p className="liveHint">
+                قواعد تکراری با دکمهٔ بالا پیش‌نویس می‌سازند. اگر ENABLE_RECURRENCE_WORKER=1 و worker
+                روشن باشد، job‏ recurrence.tick هم می‌تواند همان مسیر را با تاریخ شبیه‌سازی‌شده اجرا کند.
+                برای تغییر مبلغ بدون خراب‌کردن تاریخچه، مبلغ جدید را بزنید و «نسخه از امروز» را روی قاعده بزنید.
+              </p>
+              {recurring.length > 0 ? (
+                <TextField
+                  label="مبلغ جدید برای نسخه‌بندی (تومان)"
+                  value={reviseToman}
+                  onChange={(e) => setReviseToman(e.target.value)}
+                />
+              ) : null}
+            </>
+          )}
           {recurring.length === 0 ? (
             <EmptyHint>قاعده‌ای نیست.</EmptyHint>
           ) : (
@@ -369,12 +383,12 @@ export function WorkspaceReportsPanel({
                 <DataRow
                   key={rule.id}
                   title={rule.title}
-                  meta={`${rule.cadence} · v${rule.version} · بعدی ${rule.nextRunOn}${
+                  meta={`${recurringCadenceLabel(rule.cadence)} · v${rule.version} · بعدی ${rule.nextRunOn}${
                     rule.active ? "" : " · غیرفعال"
                   }`}
                   trailing={<Amount irrMinor={rule.amount.amountMinor} />}
                   actions={
-                    rule.active ? (
+                    !readOnly && rule.active ? (
                       <Button
                         type="button"
                         variant="ghost"
@@ -388,7 +402,8 @@ export function WorkspaceReportsPanel({
                 />
               ))}
             </DataList>
-          )}        </div>
+          )}
+        </div>
       </details>
     </>
   );

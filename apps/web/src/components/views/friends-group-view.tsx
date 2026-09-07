@@ -336,12 +336,14 @@ export function FriendsGroupView() {
                 title="هنوز خرجی ثبت نشده"
                 description="با ثبت اولین خرج گروه، مانده هر عضو اینجا محاسبه و نمایش داده می‌شود."
                 action={
-                  <Button
-                    type="button"
-                    onClick={() => router.push(`${expensesHref}#quick-expense`)}
-                  >
-                    {NAV_LABELS.addExpense}
-                  </Button>
+                  readOnlySpace ? undefined : (
+                    <Button
+                      type="button"
+                      onClick={() => router.push(`${expensesHref}#quick-expense`)}
+                    >
+                      {NAV_LABELS.addExpense}
+                    </Button>
+                  )
                 }
               />
             ) : (

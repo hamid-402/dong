@@ -12,6 +12,7 @@ import {
 } from "@/components/ui-blocks";
 import { AllowancesPanel } from "@/components/allowances-panel";
 import { CostCentersPanel } from "@/components/cost-centers-panel";
+import { FxRatesPanel } from "@/components/fx-rates-panel";
 import { WaveFFinancePanel } from "@/components/wave-f-finance-panel";
 import { WorkspacePlanPanel } from "@/components/workspace-plan-panel";
 import { api } from "@/lib/api";
@@ -43,7 +44,8 @@ export function OrgFinanceView() {
     Boolean(flags?.expenseImport) ||
     Boolean(flags?.expensePolicy) ||
     Boolean(flags?.workspacePlans) ||
-    Boolean(flags?.planAdmin);
+    Boolean(flags?.planAdmin) ||
+    Boolean(flags?.fxRates);
 
   useEffect(() => {
     if (!chrome.workspaceId || !isOrg) {
@@ -127,6 +129,14 @@ export function OrgFinanceView() {
               workspaceId={chrome.workspaceId}
               flags={flags}
               myRole={myRole}
+              onError={setError}
+            />
+          ) : null}
+          {flags?.fxRates ? (
+            <FxRatesPanel
+              canWrite
+              conversionLive={chrome.capabilities?.conversionLive === true}
+              readOnly={readOnly}
               onError={setError}
             />
           ) : null}

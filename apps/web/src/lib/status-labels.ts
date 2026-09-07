@@ -203,6 +203,30 @@ export function membershipRoleLabel(role: string | undefined | null): string {
   }
 }
 
+export function recurringCadenceLabel(cadence: string): string {
+  if (cadence === "weekly") return "هفتگی";
+  if (cadence === "monthly") return "ماهانه";
+  if (cadence === "yearly") return "سالانه";
+  return cadence;
+}
+
+export function paymentLinkStatusLabel(status: string): string {
+  if (status === "pending") return "در انتظار";
+  if (status === "paid" || status === "completed") return "پرداخت‌شده";
+  if (status === "failed") return "ناموفق";
+  if (status === "cancelled" || status === "canceled") return "لغو";
+  if (status === "expired") return "منقضی";
+  return status;
+}
+
+export function periodKindLabel(kind: string): string {
+  if (kind === "month") return "ماه";
+  if (kind === "week") return "هفته";
+  if (kind === "year") return "سال";
+  if (kind === "custom") return "بازه سفارشی";
+  return kind;
+}
+
 export function zeroSumHint(zeroSum: boolean): string {
   return zeroSum ? "مانده اعضا متعادل است" : "مانده اعضا متعادل نیست";
 }
