@@ -21,6 +21,8 @@ import type {
   ReportGroupBy,
   WorkspaceReportResponse,
 } from "@dang/contracts";
+import { createLogger } from "@dang/observability";
+import { createPersistenceStore } from "../common/postgres-store.factory.js";
 
 function formatDate(value: string | Date): string {
   return typeof value === "string" ? value : value.toISOString().slice(0, 10);
@@ -685,15 +687,16 @@ function isoWeekKey(isoDate: string): string {
 }
 
 export function createReportsStore(expenseReader?: MemoryReportsStore["expenseReader"]): ReportsStore {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (databaseUrl) {
-    try {
-      return PostgresReportsStore.fromConnectionString(databaseUrl);
-    } catch {
-      /* fall through */
-    }
-  }
-  const mem = new MemoryReportsStore();
-  mem.expenseReader = expenseReader;
-  return mem;
+  const logger = createLogger("dang-api-reports");
+  return createPersistenceStore<ReportsStore>({
+    name: "reports store",
+    databaseUrl: process.env.DATABASE_URL,
+    logger,
+    createPostgres: (url) => PostgresReportsStore.fromConnectionString(url),
+    createMemory: () => {
+      const mem = new MemoryReportsStore();
+      mem.expenseReader = expenseReader;
+      return mem;
+    },
+  });
 }

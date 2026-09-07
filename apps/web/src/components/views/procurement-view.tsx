@@ -1,4 +1,6 @@
-"use client";
+﻿"use client";
+
+import { newClientId } from "@/lib/id";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -180,7 +182,7 @@ export function ProcurementView() {
                       await api.createNeed(workspaceId, {
                         workspaceId,
                         title: needTitle,
-                        idempotencyKey: crypto.randomUUID(),
+                        idempotencyKey: newClientId(),
                       });
                       await refresh(workspaceId);
                       setError(null);
@@ -228,7 +230,7 @@ export function ProcurementView() {
                         workspaceId,
                         title: prTitle,
                         amount,
-                        idempotencyKey: crypto.randomUUID(),
+                        idempotencyKey: newClientId(),
                       });
                       await refresh(workspaceId);
                       setError(null);
@@ -301,7 +303,7 @@ export function ProcurementView() {
                       await api.createVendor(workspaceId, {
                         workspaceId,
                         name: vendorName,
-                        idempotencyKey: crypto.randomUUID(),
+                        idempotencyKey: newClientId(),
                       });
                       await refresh(workspaceId);
                       setError(null);
@@ -326,7 +328,7 @@ export function ProcurementView() {
                           workspaceId,
                           purchaseRequestId: pr.id,
                           vendorId: vendors[0].id,
-                          idempotencyKey: crypto.randomUUID(),
+                          idempotencyKey: newClientId(),
                         });
                         await refresh(workspaceId);
                         setError(null);
@@ -372,7 +374,7 @@ export function ProcurementView() {
                                 purchaseOrderId: o.id,
                                 expectedQuantity: 1,
                                 receivedQuantity: 1,
-                                idempotencyKey: crypto.randomUUID(),
+                                idempotencyKey: newClientId(),
                               })
                               .then(() => refresh(workspaceId));
                           }}
@@ -408,7 +410,7 @@ export function ProcurementView() {
                               workspaceId,
                               deliveryId: d.id,
                               title: "تجهیز تحویلی",
-                              idempotencyKey: crypto.randomUUID(),
+                              idempotencyKey: newClientId(),
                             })
                             .then(() => refresh(workspaceId));
                         }}
@@ -451,7 +453,7 @@ export function ProcurementView() {
                         ceiling,
                         periodStart: today,
                         periodEnd: `${today.slice(0, 4)}-12-29`,
-                        idempotencyKey: crypto.randomUUID(),
+                        idempotencyKey: newClientId(),
                       });
                       await refresh(workspaceId);
                       setError(null);

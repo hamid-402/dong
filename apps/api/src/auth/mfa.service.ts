@@ -1,10 +1,11 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
-import { loadAppEnv } from "@dang/config";
+import { isRedisConfigured, loadAppEnv } from "@dang/config";
 import type {
   AuthActionResponse,
   AuthActor,
@@ -17,6 +18,7 @@ import type {
 } from "@dang/contracts";
 import * as OTPAuth from "otpauth";
 import { randomBytes } from "node:crypto";
+import { getRedisClient } from "../jobs/redis-queue.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import {
   ACCOUNT_STORE,
@@ -29,6 +31,7 @@ import {
   type AccountStore,
 } from "./account.types.js";
 import { hashToken, newOpaqueToken, verifyPassword } from "./password.js";
+import { createAdaptiveRateLimit } from "./rate-limit.factory.js";
 
 const SENSITIVE_ROLES: ReadonlySet<MembershipRole> = new Set([
   "owner",
@@ -38,6 +41,10 @@ const SENSITIVE_ROLES: ReadonlySet<MembershipRole> = new Set([
 
 const RECOVERY_CODE_COUNT = 10;
 const ISSUER = "دنگ";
+const MFA_CHALLENGE_REDIS_PREFIX = "mfa:chal:";
+const MFA_CHALLENGE_TTL_SEC = Math.floor(MFA_CHALLENGE_TTL_MS / 1000);
+
+const mfaVerifyRate = createAdaptiveRateLimit(20, 15 * 60_000);
 
 type MfaChallenge = {
   userId: string;
@@ -54,6 +61,7 @@ type CookieReply = {
 
 @Injectable()
 export class MfaService {
+  /** In-process fallback when Redis is not configured or unavailable. */
   private readonly challenges = new Map<string, MfaChallenge>();
 
   constructor(
@@ -84,13 +92,53 @@ export class MfaService {
     return roles.some((role) => SENSITIVE_ROLES.has(role));
   }
 
-  createChallenge(userId: string): string {
-    this.pruneChallenges();
-    const challengeId = newOpaqueToken();
-    this.challenges.set(challengeId, {
-      userId,
-      expiresAt: Date.now() + MFA_CHALLENGE_TTL_MS,
+  /**
+   * Lightweight gate for finance-manager actions (invoice generate / settlement confirm).
+   * Matches system capabilities.mfa — skip when MFA capability is off or user already enrolled.
+   */
+  mfaCapabilityEnabled(): boolean {
+    return true;
+  }
+
+  async assertMfaEnrolledForFinanceAction(userId: string): Promise<void> {
+    if (!this.mfaCapabilityEnabled()) return;
+    if (!(await this.userNeedsMfaEnrollment(userId))) return;
+    throw new ForbiddenException({
+      type: "https://dang.local/problems/mfa-enrollment-required",
+      title: "MFA enrollment required",
+      status: 403,
+      detail:
+        "برای عملیات مالی حساس ابتدا احراز هویت دو مرحله‌ای را در حساب فعال کنید",
     });
+  }
+
+  /**
+   * Prefer Redis + TTL when available; fall back to in-process Map (dev / Redis down).
+   */
+  async createChallenge(userId: string): Promise<string> {
+    const challengeId = newOpaqueToken();
+    const expiresAt = Date.now() + MFA_CHALLENGE_TTL_MS;
+    const payload = { userId };
+
+    if (isRedisConfigured(loadAppEnv())) {
+      const redis = await getRedisClient();
+      if (redis) {
+        try {
+          await redis.set(
+            `${MFA_CHALLENGE_REDIS_PREFIX}${challengeId}`,
+            JSON.stringify(payload),
+            "EX",
+            MFA_CHALLENGE_TTL_SEC,
+          );
+          return challengeId;
+        } catch {
+          /* fall through to Map */
+        }
+      }
+    }
+
+    this.pruneChallenges();
+    this.challenges.set(challengeId, { userId, expiresAt });
     return challengeId;
   }
 
@@ -159,11 +207,19 @@ export class MfaService {
     reply: CookieReply,
     meta?: { ip?: string; userAgent?: string },
   ): Promise<AuthActionResponse> {
-    this.pruneChallenges();
     const challengeId = body.challengeId.trim();
-    const challenge = this.challenges.get(challengeId);
-    if (!challenge || challenge.expiresAt <= Date.now()) {
-      this.challenges.delete(challengeId);
+    const rateKey = `mfa:${meta?.ip ?? "unknown"}:${challengeId}`;
+    if (!(await mfaVerifyRate.allow(rateKey))) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/rate-limited",
+        title: "Too many MFA attempts",
+        status: 429,
+        detail: "تعداد تلاش تأیید MFA زیاد است؛ کمی بعد دوباره امتحان کنید",
+      });
+    }
+
+    const challenge = await this.loadChallenge(challengeId);
+    if (!challenge) {
       throw this.unauthorized("MFA_CHALLENGE_INVALID");
     }
     const user = await this.accounts.findById(challenge.userId);
@@ -179,7 +235,7 @@ export class MfaService {
     }
     if (!ok) throw this.unauthorized("MFA_INVALID_CODE");
 
-    this.challenges.delete(challengeId);
+    await this.deleteChallenge(challengeId);
     await this.issueSession(user.userId, reply, meta);
     await this.iam.ensurePersonalWorkspace(user.userId).catch(() => undefined);
     return {
@@ -187,6 +243,48 @@ export class MfaService {
       profile: toProfile(user, authModeForUser(user)),
       actor: toActor(user, authModeForUser(user)),
     };
+  }
+
+  private async loadChallenge(challengeId: string): Promise<MfaChallenge | null> {
+    if (isRedisConfigured(loadAppEnv())) {
+      const redis = await getRedisClient();
+      if (redis) {
+        try {
+          const raw = await redis.get(`${MFA_CHALLENGE_REDIS_PREFIX}${challengeId}`);
+          if (raw) {
+            const parsed = JSON.parse(raw) as { userId?: string };
+            if (typeof parsed.userId === "string" && parsed.userId) {
+              return {
+                userId: parsed.userId,
+                expiresAt: Date.now() + MFA_CHALLENGE_TTL_MS,
+              };
+            }
+          }
+        } catch {
+          /* fall through to Map */
+        }
+      }
+    }
+
+    this.pruneChallenges();
+    const local = this.challenges.get(challengeId);
+    if (!local || local.expiresAt <= Date.now()) {
+      this.challenges.delete(challengeId);
+      return null;
+    }
+    return local;
+  }
+
+  private async deleteChallenge(challengeId: string): Promise<void> {
+    this.challenges.delete(challengeId);
+    if (!isRedisConfigured(loadAppEnv())) return;
+    const redis = await getRedisClient();
+    if (!redis) return;
+    try {
+      await redis.del(`${MFA_CHALLENGE_REDIS_PREFIX}${challengeId}`);
+    } catch {
+      /* best-effort */
+    }
   }
 
   private async issueSession(

@@ -1,7 +1,7 @@
 "use client";
 
-import { ClassicToHubRedirect } from "@/components/mosaic/classic-to-hub-redirect";
+import { ClassicToWorkspaceRedirect } from "@/components/shell/classic-to-workspace-redirect";
 
 export default function HomeRedirect() {
-  return <ClassicToHubRedirect />;
+  return <ClassicToWorkspaceRedirect page="home" />;
 }

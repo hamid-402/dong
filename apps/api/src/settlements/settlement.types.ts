@@ -36,6 +36,11 @@ export type SettlementStore = {
     workspaceId: string,
     actorUserId: string,
   ): Promise<SettlementSummary[]>;
+  get(
+    workspaceId: string,
+    settlementId: string,
+    actorUserId: string,
+  ): Promise<StoredSettlement | null>;
 };
 
 export const SETTLEMENT_STORE = Symbol("SETTLEMENT_STORE");

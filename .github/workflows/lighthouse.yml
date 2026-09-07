@@ -1,0 +1,79 @@
+name: lighthouse
+
+# Honest, opt-in Lighthouse audit (dong-50 #38).
+# Runs only against a real, reachable URL supplied via the `url` input or the
+# LIGHTHOUSE_URL secret. With no URL it skips (emits a notice) instead of faking a pass.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Public URL to audit (overrides the LIGHTHOUSE_URL secret)"
+        required: false
+        type: string
+  schedule:
+    # Weekly, Monday 06:00 UTC — no-ops unless LIGHTHOUSE_URL is configured.
+    - cron: "0 6 * * 1"
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: resolve target url
+        id: target
+        env:
+          INPUT_URL: ${{ github.event.inputs.url }}
+          SECRET_URL: ${{ secrets.LIGHTHOUSE_URL }}
+        run: |
+          URL="${INPUT_URL:-$SECRET_URL}"
+          if [ -z "$URL" ]; then
+            echo "has_url=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Lighthouse skipped::No URL provided (workflow input or LIGHTHOUSE_URL secret). Skipping honestly."
+            {
+              echo "## Lighthouse skipped"
+              echo ""
+              echo "No target URL provided via the \`url\` input or \`LIGHTHOUSE_URL\` secret."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "has_url=true" >> "$GITHUB_OUTPUT"
+            echo "url=$URL" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.target.outputs.has_url == 'true'
+        with:
+          node-version: 24
+
+      # Real gate: when a URL exists this step must pass (no continue-on-error).
+      - name: run lighthouse
+        if: steps.target.outputs.has_url == 'true'
+        env:
+          TARGET_URL: ${{ steps.target.outputs.url }}
+        run: |
+          npx --yes lighthouse "$TARGET_URL" \
+            --preset=desktop \
+            --output=json --output=html \
+            --output-path=./lighthouse-report \
+            --chrome-flags="--headless --no-sandbox --disable-gpu"
+          node -e '
+            const r = require("./lighthouse-report.report.json");
+            const perf = r.categories.performance.score;
+            console.log("Lighthouse performance score:", perf);
+            const min = Number(process.env.LH_MIN_PERF || "0.8");
+            if (perf < min) {
+              console.error(`::error::Lighthouse performance ${perf} below minimum ${min}`);
+              process.exit(1);
+            }
+          '
+
+      - name: upload lighthouse report
+        if: steps.target.outputs.has_url == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: |
+            lighthouse-report.report.html
+            lighthouse-report.report.json
+          if-no-files-found: ignore

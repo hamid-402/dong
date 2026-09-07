@@ -17,9 +17,41 @@ export const Text: Story = {
   },
 };
 
+export const Required: Story = {
+  args: {
+    label: "ایمیل",
+    type: "email",
+    required: true,
+    placeholder: "you@example.com",
+  },
+};
+
+export const WithError: Story = {
+  args: {
+    label: "ایمیل",
+    type: "email",
+    required: true,
+    defaultValue: "not-an-email",
+    hint: "آدرس ایمیل معتبر وارد کنید.",
+    error: "فرمت ایمیل نادرست است.",
+  },
+};
+
 export const Select: StoryObj<typeof SelectField> = {
   render: () => (
     <SelectField label="نقش" defaultValue="member">
+      <option value="member">عضو</option>
+      <option value="admin">ادمین</option>
+    </SelectField>
+  ),
+};
+
+export const SelectWithError: StoryObj<typeof SelectField> = {
+  render: () => (
+    <SelectField label="نقش" required error="انتخاب نقش الزامی است." defaultValue="">
+      <option value="" disabled>
+        انتخاب کنید
+      </option>
       <option value="member">عضو</option>
       <option value="admin">ادمین</option>
     </SelectField>

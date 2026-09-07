@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { spaceKindForTemplate } from "@dang/contracts";
-import { hubPathFor } from "@/lib/hub-links";
 import { workspaceTemplateLabel } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { wPath } from "@/lib/workspace-paths";
 
 const KIND_LABEL = {
   personal: "شخصی",
@@ -18,6 +19,7 @@ export function WorkspaceSwitcher() {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const listId = useId();
+  const router = useRouter();
 
   const grouped = useMemo(() => {
     const buckets: Record<"personal" | "group" | "org", typeof workspaces> = {
@@ -53,7 +55,7 @@ export function WorkspaceSwitcher() {
 
   if (workspaces.length === 0) {
     return (
-      <Link href={hubPathFor("/onboarding")} className="mosaic-ws-switch mosaic-ws-switch--empty">
+      <Link href="/spaces/new" className="mosaic-ws-switch mosaic-ws-switch--empty">
         ساخت فضای کاری
       </Link>
     );
@@ -95,6 +97,7 @@ export function WorkspaceSwitcher() {
                           onClick={() => {
                             selectWorkspace(ws.id);
                             setOpen(false);
+                            router.push(wPath(ws.slug));
                           }}
                         >
                           <b>{ws.name}</b>
@@ -108,8 +111,11 @@ export function WorkspaceSwitcher() {
             );
           })}
           <li className="mosaic-ws-switch__footer">
-            <Link href={hubPathFor("/onboarding")} onClick={() => setOpen(false)}>
+            <Link href="/spaces/new" onClick={() => setOpen(false)}>
               + فضای کاری جدید
+            </Link>
+            <Link href="/spaces" onClick={() => setOpen(false)}>
+              همه فضاها
             </Link>
           </li>
         </ul>

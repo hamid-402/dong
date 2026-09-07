@@ -20,6 +20,11 @@ const HOP_BY_HOP = new Set([
   "content-length",
 ]);
 
+/** Drop Domain= so session cookies bind to the web host (LAN IP or localhost). */
+function sanitizeSetCookie(cookie: string): string {
+  return cookie.replace(/;\s*Domain=[^;]*/gi, "");
+}
+
 async function proxy(
   req: NextRequest,
   context: { params: Promise<{ path?: string[] }> },
@@ -34,14 +39,20 @@ async function proxy(
     headers.set(key, value);
   });
 
-  const init: RequestInit = {
+  // Never forward browser Host — undici would target the wrong upstream on POST.
+  headers.delete("host");
+  headers.delete("connection");
+
+  const init: RequestInit & { duplex?: "half" } = {
     method: req.method,
     headers,
     redirect: "manual",
   };
 
   if (req.method !== "GET" && req.method !== "HEAD") {
-    init.body = await req.arrayBuffer();
+    const buf = Buffer.from(await req.arrayBuffer());
+    init.body = buf;
+    headers.set("content-length", String(buf.byteLength));
   }
 
   try {
@@ -58,10 +69,10 @@ async function proxy(
       upstream.headers as Headers & { getSetCookie?: () => string[] }
     ).getSetCookie?.();
     if (getSetCookie?.length) {
-      for (const cookie of getSetCookie) out.append("set-cookie", cookie);
+      for (const cookie of getSetCookie) out.append("set-cookie", sanitizeSetCookie(cookie));
     } else {
       const single = upstream.headers.get("set-cookie");
-      if (single) out.append("set-cookie", single);
+      if (single) out.append("set-cookie", sanitizeSetCookie(single));
     }
 
     return new NextResponse(upstream.body, {
@@ -70,12 +81,10 @@ async function proxy(
       headers: out,
     });
   } catch (error: unknown) {
-    const detail =
-      error instanceof Error && /ECONNREFUSED|fetch failed|ENOTFOUND/i.test(error.message)
-        ? "سرویس API روی پورت 3006 در دسترس نیست. در ترمینال جدا: pnpm dev:api"
-        : error instanceof Error
-          ? error.message
-          : "API proxy failed";
+    const raw = error instanceof Error ? error.message : "API proxy failed";
+    const detail = /ECONNREFUSED|fetch failed|ENOTFOUND/i.test(raw)
+      ? `سرویس API روی پورت 3006 در دسترس نیست (${raw}). ترمینال: pnpm dev:api`
+      : raw;
     return NextResponse.json(
       {
         type: "https://dang.local/problems/api-unreachable",

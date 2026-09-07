@@ -16,6 +16,7 @@ import {
 import { api, getDevIdentity, setDevIdentity } from "@/lib/api";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { hubPathFor } from "@/lib/hub-links";
+import { wPath } from "@/lib/workspace-paths";
 
 export function WorkspaceInviteView() {
   const chrome = useAppChrome();
@@ -67,6 +68,9 @@ export function WorkspaceInviteView() {
   }
 
   const pageError = error ?? chrome.error;
+  const selected = workspaces.find((w) => w.id === workspaceId);
+  const slug = selected?.slug ?? null;
+  const groupHref = slug ? wPath(slug, "space") : hubPathFor("/group");
 
   return (
     <AppShell
@@ -81,8 +85,8 @@ export function WorkspaceInviteView() {
         description="ایمیل یا شناسه دوست را وارد کنید؛ لینک دعوت بسازید و در صورت تنظیم ایمیل، خودکار ارسال می‌شود."
         actions={
           <>
-            <Link href={hubPathFor("/group")}>گروه و دوستان</Link>
-            <Link href={hubPathFor("/invite")}>صفحه پذیرش</Link>
+            <Link href={groupHref}>گروه و دوستان</Link>
+            <Link href="/invite">صفحه پذیرش</Link>
           </>
         }
       />
@@ -92,7 +96,7 @@ export function WorkspaceInviteView() {
         <SectionCard title="ساخت دعوت" delayClass="delay1">
           {workspaces.length === 0 ? (
             <EmptyHint>
-              ابتدا یک فضا بسازید — <Link href={hubPathFor("/onboarding")}>شروع فضای کاری</Link>
+              ابتدا یک فضا بسازید — <Link href="/spaces/new">شروع فضای کاری</Link>
             </EmptyHint>
           ) : null}
           <FormStack>
@@ -117,12 +121,18 @@ export function WorkspaceInviteView() {
               onChange={(event) => setRole(event.target.value)}
             >
               <option value="member">عضو</option>
-              <option value="finance">مالی</option>
+              <option value="finance">مالی (مادرخرج)</option>
               <option value="approver">تأییدکننده</option>
               <option value="buyer">خریدار</option>
               <option value="admin">ادمین</option>
               <option value="auditor">حسابرس</option>
             </SelectField>
+            {role === "finance" ? (
+              <p className="emptyHint" style={{ border: "none", padding: 0, marginTop: -4 }}>
+                مادرخرج می‌تواند صورتحساب بسازد، تسویه را تأیید کند و دوره‌های مالی را ببندد —
+                برای نقش‌های حساس فعال‌سازی MFA توصیه می‌شود.
+              </p>
+            ) : null}
             <TextField
               label="شناسه/ایمیل مدعو (اختیاری)"
               value={invitedSubject}

@@ -20,8 +20,11 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        // Prefer system Chrome when Playwright CDN browser download is blocked.
-        channel: process.env.PLAYWRIGHT_CHANNEL ?? "chrome",
+        // Default: Playwright-bundled Chromium. Set PLAYWRIGHT_CHANNEL=chrome only when
+        // using a system browser (e.g. local CDN install blocked).
+        ...(process.env.PLAYWRIGHT_CHANNEL
+          ? { channel: process.env.PLAYWRIGHT_CHANNEL }
+          : {}),
       },
     },
   ],

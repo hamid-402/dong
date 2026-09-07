@@ -28,3 +28,23 @@ test("unknown zarinpal authority returns null", async () => {
   const store = new MemoryPaymentStore();
   assert.equal(await store.findPendingZarinpal("missing"), null);
 });
+
+test("markLinkPaid is idempotent and updates status", async () => {
+  const store = new MemoryPaymentStore();
+  const link = await store.create("stub", {
+    workspaceId: "ws1",
+    amount: { amountMinor: "1000", currency: "IRR" },
+    description: "test",
+    returnUrl: "https://dang.local/return",
+    idempotencyKey: "idem-1",
+    invoiceId: "inv-1",
+  });
+  assert.equal(link.status, "created");
+
+  const paid = await store.markLinkPaid("ws1", link.id);
+  assert.equal(paid.status, "paid");
+  assert.equal(paid.invoiceId, "inv-1");
+
+  const again = await store.markLinkPaid("ws1", link.id);
+  assert.equal(again.status, "paid");
+});

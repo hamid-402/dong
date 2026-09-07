@@ -1,15 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import { newClientId } from "@/lib/id";
+
 import { useEffect, useState, useTransition } from "react";
 import {
-  JALALI_MONTH_FA,
   formatJalaliIso,
-  parseIsoToJalali,
   resolveDailyLedgerRange,
   shiftDailyLedgerRange,
-  suggestMinimalSettlements,
-  weekdayFaSatFirst,
 } from "@dang/contracts";
 import type {
   DailyLedgerItem,
@@ -25,64 +22,22 @@ import {
   FormStack,
   SectionCard,
   StatusLine,
-  StatusPill,
 } from "@/components/ui-blocks";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
-import { hubPathFor } from "@/lib/hub-links";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useIsNarrow } from "@/lib/use-viewport";
-
-function formatTomanMinor(minor: string): string {
-  const toman = Number(minor) / 10;
-  if (!Number.isFinite(toman)) return "0";
-  return new Intl.NumberFormat("fa-IR").format(toman);
-}
-
-function todayIsoLocal(): string {
-  const n = new Date();
-  const y = n.getFullYear();
-  const m = String(n.getMonth() + 1).padStart(2, "0");
-  const d = String(n.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function rangeHeadline(from: string, to: string, preset: DailyLedgerRangePreset): string {
-  if (from === to) return formatJalaliIso(from);
-  if (preset === "month") {
-    const j = parseIsoToJalali(from);
-    if (j) return `${JALALI_MONTH_FA[j.jm - 1]} ${j.jy}`;
-  }
-  if (preset === "year") {
-    const j = parseIsoToJalali(from);
-    if (j) return `سال ${j.jy}`;
-  }
-  if (preset === "week") {
-    return `هفته ${formatJalaliIso(from)} تا ${formatJalaliIso(to)}`;
-  }
-  return `${formatJalaliIso(from)} تا ${formatJalaliIso(to)}`;
-}
-
-function dayItemCount(ledger: DailyLedgerResponse, date: string): number {
-  const row = ledger.days.find((d) => d.date === date);
-  if (!row) return 0;
-  let n = row.shared.items.length;
-  for (const m of ledger.members) {
-    n += row.members[m.userId]?.items.length ?? 0;
-  }
-  return n;
-}
-
-type DraftTarget =
-  | {
-      kind: "member";
-      date: string;
-      userId: string;
-      displayName: string;
-      expenseId?: string;
-    }
-  | { kind: "shared"; date: string; expenseId?: string };
+import { DailyLedgerLockPanel } from "@/components/views/daily-ledger/daily-ledger-lock-panel";
+import { DailyLedgerToolbar } from "@/components/views/daily-ledger/daily-ledger-toolbar";
+import { DailyLedgerGrid } from "@/components/views/daily-ledger/daily-ledger-grid";
+import { DailyLedgerSidePanels } from "@/components/views/daily-ledger/daily-ledger-side-panels";
+import {
+  dayItemCount,
+  rangeHeadline,
+  todayIsoLocal,
+  type DraftTarget,
+} from "@/components/views/daily-ledger/daily-ledger-utils";
 
 /** Professional day×member consumption ledger — API-backed only. */
 export function DailyLedgerView() {
@@ -245,7 +200,7 @@ export function DailyLedgerView() {
               amount,
               date: draftDate,
               memberUserId,
-              idempotencyKey: crypto.randomUUID(),
+              idempotencyKey: newClientId(),
             });
           } else {
             await api.createDailyLedgerEntry(workspaceId, {
@@ -253,7 +208,7 @@ export function DailyLedgerView() {
               itemName: itemName.trim(),
               amount,
               memberUserId,
-              idempotencyKey: crypto.randomUUID(),
+              idempotencyKey: newClientId(),
             });
           }
           setDraft(null);
@@ -332,7 +287,7 @@ export function DailyLedgerView() {
             from,
             to,
             reason: lockReason.trim() || undefined,
-            idempotencyKey: crypto.randomUUID(),
+            idempotencyKey: newClientId(),
           });
           setInfo("بازه قفل شد — ثبت/ویرایش قلم در این روزها بسته است");
           setLockReason("");
@@ -391,7 +346,7 @@ export function DailyLedgerView() {
         try {
           const result = await api.importDailyLedgerCsv(workspaceId, {
             csv: importCsv,
-            idempotencyKey: crypto.randomUUID(),
+            idempotencyKey: newClientId(),
           });
           setInfo(`ورود: ${result.imported} قلم · رد شده: ${result.skipped}`);
           setImportCsv("");
@@ -432,145 +387,40 @@ export function DailyLedgerView() {
         ) : null}
 
         <div className="dlShell">
-          <div className="dlToolbar">
-            <SelectField
-              label="فضا / گروه"
-              value={workspaceId}
-              onChange={(e) => setWorkspaceId(e.target.value)}
-            >
-              {workspaces.length === 0 ? <option value="">فضایی نیست</option> : null}
-              {workspaces.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </SelectField>
-
-            <div className="dlPeriodNav" role="group" aria-label="جابه‌جایی بازه">
-              <button type="button" className="dlNavBtn" onClick={() => shiftPeriod(-1)} aria-label="بازه قبل">
-                ›
-              </button>
-              <div className="dlPeriodMeta">
-                <strong>{rangeHeadline(from, to, preset)}</strong>
-                <span>
-                  {preset === "week"
-                    ? "شنبه تا جمعه"
-                    : preset === "month"
-                      ? "ماه شمسی"
-                      : preset === "year"
-                        ? "سال شمسی"
-                        : `${Math.max(1, Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1)} روز`}
-                </span>
-              </div>
-              <button type="button" className="dlNavBtn" onClick={() => shiftPeriod(1)} aria-label="بازه بعد">
-                ‹
-              </button>
-              <button type="button" className="pfFocusChip" onClick={goTodayPeriod}>
-                برو به امروز
-              </button>
-            </div>
-
-            <div className="dlPresets" role="group" aria-label="بازه">
-              {(
-                [
-                  ["day", "امروز"],
-                  ["week", "هفته"],
-                  ["month", "ماه"],
-                  ["year", "سال"],
-                ] as const
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={preset === id ? "pfFocusChip isActive" : "pfFocusChip"}
-                  onClick={() => applyPreset(id)}
-                >
-                  {label}
-                </button>
-              ))}
-              <label className={preset === "days" ? "dlDaysChip isActive" : "dlDaysChip"}>
-                <span>آخر</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={93}
-                  value={daysCount}
-                  onChange={(e) => applyDaysCount(Number(e.target.value))}
-                  aria-label="تعداد روز"
-                />
-                <span>روز</span>
-              </label>
-              <button
-                type="button"
-                className={showCustomRange || preset === "custom" ? "pfFocusChip isActive" : "pfFocusChip"}
-                onClick={() => setShowCustomRange((v) => !v)}
-              >
-                بازه دستی
-              </button>
-            </div>
-
-            {showCustomRange || preset === "custom" ? (
-              <div className="dlCustomRange">
-                <JalaliDateField
-                  label="از"
-                  value={from}
-                  onChange={(iso) => {
-                    setPreset("custom");
-                    setFrom(iso);
-                  }}
-                />
-                <JalaliDateField
-                  label="تا"
-                  value={to}
-                  onChange={(iso) => {
-                    setPreset("custom");
-                    setTo(iso);
-                  }}
-                />
-                <Button type="button" onClick={load} disabled={pending || !workspaceId}>
-                  {pending ? "…" : "اعمال"}
-                </Button>
-              </div>
-            ) : null}
-
-            <div className="dlToolbarActions">
-              <div className="dlPresets" role="group" aria-label="نمایش">
-                <button
-                  type="button"
-                  className={viewMode === "table" ? "pfFocusChip isActive" : "pfFocusChip"}
-                  onClick={() => {
-                    setViewModeTouched(true);
-                    setViewMode("table");
-                  }}
-                >
-                  جدول
-                </button>
-                <button
-                  type="button"
-                  className={viewMode === "cards" ? "pfFocusChip isActive" : "pfFocusChip"}
-                  onClick={() => {
-                    setViewModeTouched(true);
-                    setViewMode("cards");
-                  }}
-                >
-                  کارت
-                </button>
-                <button
-                  type="button"
-                  className={showGregorian ? "pfFocusChip isActive" : "pfFocusChip"}
-                  onClick={() => setShowGregorian((v) => !v)}
-                >
-                  میلادی
-                </button>
-              </div>
-              <Button type="button" onClick={exportCsv} disabled={!workspaceId || !ledger}>
-                خروجی CSV
-              </Button>
-              <Link className="dlLinkBtn" href={`${hubPathFor("/workspaces")}#settlement-panel`}>
-                تسویه
-              </Link>
-            </div>
-          </div>
+          <DailyLedgerToolbar
+            workspaces={workspaces}
+            workspaceId={workspaceId}
+            onWorkspaceChange={setWorkspaceId}
+            preset={preset}
+            from={from}
+            to={to}
+            daysCount={daysCount}
+            showCustomRange={showCustomRange}
+            viewMode={viewMode}
+            showGregorian={showGregorian}
+            pending={pending}
+            hasLedger={!!ledger}
+            onShiftPeriod={shiftPeriod}
+            onGoToday={goTodayPeriod}
+            onApplyPreset={applyPreset}
+            onApplyDaysCount={applyDaysCount}
+            onToggleCustomRange={() => setShowCustomRange((v) => !v)}
+            onCustomFrom={(iso) => {
+              setPreset("custom");
+              setFrom(iso);
+            }}
+            onCustomTo={(iso) => {
+              setPreset("custom");
+              setTo(iso);
+            }}
+            onApplyCustom={load}
+            onSelectViewMode={(mode) => {
+              setViewModeTouched(true);
+              setViewMode(mode);
+            }}
+            onToggleGregorian={() => setShowGregorian((v) => !v)}
+            onExportCsv={exportCsv}
+          />
 
           {error ? <p className="liveError">{error}</p> : null}
           {info ? <p className="liveSuccess">{info}</p> : null}
@@ -603,105 +453,28 @@ export function DailyLedgerView() {
           ) : null}
 
         {ledger?.canManageLocks ? (
-          <details className="reportDetails">
-            <summary>
-              <span>قفل بازه (بستن ماه/دوره)</span>
-              <span>{ledger.rangeLocks.filter((l) => l.active).length} فعال</span>
-            </summary>
-            <div className="reportDetails__body">
-              <StatusLine>
-                فقط owner/admin/finance — پس از قفل، ثبت و ویرایش قلم در بازه بسته می‌شود.
-              </StatusLine>
-              <TextField
-                label="دلیل (اختیاری)"
-                value={lockReason}
-                onChange={(e) => setLockReason(e.target.value)}
-                placeholder="بستن ماه شهریور"
-              />
-              <div className="dlModalActions">
-                <Button type="button" onClick={lockRange} disabled={pending}>
-                  قفل {formatJalaliIso(from)} تا {formatJalaliIso(to)}
-                </Button>
-              </div>
-              {ledger.rangeLocks.filter((l) => l.active).length > 0 ? (
-                <ul className="dlLockList">
-                  {ledger.rangeLocks
-                    .filter((l) => l.active)
-                    .map((l) => (
-                      <li key={l.id}>
-                        <span>
-                          {formatJalaliIso(l.from)} → {formatJalaliIso(l.to)}
-                          {l.reason ? ` · ${l.reason}` : ""}
-                        </span>
-                        <button type="button" className="dlItemBtn" onClick={() => unlockLock(l.id)}>
-                          باز کردن
-                        </button>
-                      </li>
-                    ))}
-                </ul>
-              ) : null}
-            </div>
-          </details>
+          <DailyLedgerLockPanel
+            rangeLocks={ledger.rangeLocks}
+            from={from}
+            to={to}
+            lockReason={lockReason}
+            onLockReasonChange={setLockReason}
+            onLockRange={lockRange}
+            onUnlock={unlockLock}
+            pending={pending}
+          />
         ) : null}
 
-        {balances && balances.lines.length > 0 ? (
-          <details className="reportDetails">
-            <summary>
-              <span>پیشنهاد تسویه از مانده واقعی</span>
-              <span>{balances.source}</span>
-            </summary>
-            <div className="reportDetails__body">
-              <StatusLine>
-                از ژورنال مانده‌ها (نه فقط مصرف دفتر) — برای ثبت به صفحه مالی بروید.
-              </StatusLine>
-              <ul className="dlSettleList">
-                {suggestMinimalSettlements(balances.lines).map((s, i) => {
-                  const nameOf = (id: string) =>
-                    ledger?.members.find((m) => m.userId === id)?.displayName ?? id.slice(0, 8);
-                  return (
-                    <li key={`${s.fromUserId}-${s.toUserId}-${i}`}>
-                      <span>
-                        {nameOf(s.fromUserId)} → {nameOf(s.toUserId)}
-                      </span>
-                      <Amount irrMinor={s.amount.amountMinor} />
-                    </li>
-                  );
-                })}
-              </ul>
-              {suggestMinimalSettlements(balances.lines).length === 0 ? (
-                <EmptyHint>مانده‌ای برای تسویه نیست.</EmptyHint>
-              ) : (
-                <Link className="dlLinkBtn" href={`${hubPathFor("/workspaces")}#settlement-panel`}>
-                  ثبت تسویه در مالی
-                </Link>
-              )}
-            </div>
-          </details>
-        ) : null}
+        <DailyLedgerSidePanels
+          balances={balances}
+          members={ledger?.members ?? []}
+          importCsv={importCsv}
+          onImportCsvChange={setImportCsv}
+          onRunImport={runImport}
+          pending={pending}
+        />
 
-        <details className="reportDetails">
-          <summary>
-            <span>ورود CSV</span>
-            <span>date,column,item,toman</span>
-          </summary>
-          <div className="reportDetails__body">
-            <StatusLine>
-              ستون: نام عضو یا <code>shared</code> · مبلغ به تومان · فقط روزهای غیرتعطیل
-            </StatusLine>
-            <textarea
-              className="dlImportArea"
-              rows={5}
-              value={importCsv}
-              onChange={(e) => setImportCsv(e.target.value)}
-              placeholder={"2026-09-12,حمید,چای,5000\n2026-09-12,shared,نان,20000"}
-            />
-            <Button type="button" onClick={runImport} disabled={pending || !importCsv.trim()}>
-              ورود به دفتر
-            </Button>
-          </div>
-        </details>
-
-        {!ledger && !error ? <EmptyHint>در حال بارگذاری دفتر…</EmptyHint> : null}
+        {!ledger && !error ? <EmptyHint loading>در حال بارگذاری دفتر…</EmptyHint> : null}
 
         {ledger ? (
           <>
@@ -750,373 +523,17 @@ export function DailyLedgerView() {
               </ul>
             </div>
 
-            <div className={viewMode === "cards" ? "dlCards" : "dlScroll"}>
-              {viewMode === "cards" ? (
-                <div className="dlCardList">
-                  {ledger.days.map((row) => (
-                    <article
-                      key={row.date}
-                      className={
-                        row.isHoliday
-                          ? "dlDayCard dlHoliday"
-                          : row.isRangeLocked
-                            ? "dlDayCard dlLocked"
-                            : "dlDayCard"
-                      }
-                    >
-                      <header>
-                        <div>
-                          <b>{formatJalaliIso(row.date)}</b>
-                          {showGregorian ? (
-                            <small className="dlGregorian">{row.date}</small>
-                          ) : null}
-                        </div>
-                        <span className={row.weekday === 6 ? "dlWeekdayStart" : undefined}>
-                          {weekdayFaSatFirst(row.weekday)}
-                        </span>
-                      </header>
-                      {row.isHoliday || row.isRangeLocked ? (
-                        <p className="dlMuted">
-                          {row.isHoliday ? "تعطیل — ثبت قلم بسته است" : "قفل بازه — ثبت قلم بسته است"}
-                        </p>
-                      ) : (
-                        <>
-                          {ledger.members.map((m) => {
-                            const cell = row.members[m.userId];
-                            return (
-                              <div key={m.userId} className="dlCardBlock">
-                                <strong>{m.displayName}</strong>
-                                {cell?.items.map((it) => (
-                                  <div key={it.expenseId} className="dlItem">
-                                    <div className="dlItemMain">
-                                      <span className="dlItemTitle">{it.title}</span>
-                                      <b className="dlItemAmt">{formatTomanMinor(it.amount.amountMinor)}</b>
-                                    </div>
-                                    <div className="dlItemActions">
-                                      <button
-                                        type="button"
-                                        className="dlItemBtn"
-                                        onClick={() =>
-                                          openDraft(
-                                            {
-                                              kind: "member",
-                                              date: row.date,
-                                              userId: m.userId,
-                                              displayName: m.displayName,
-                                              expenseId: it.expenseId,
-                                            },
-                                            it,
-                                          )
-                                        }
-                                      >
-                                        ویرایش
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="dlItemBtn isDanger"
-                                        onClick={() => deleteItem(it.expenseId)}
-                                      >
-                                        حذف
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                                <button
-                                  type="button"
-                                  className="dlAdd"
-                                  onClick={() =>
-                                    openDraft({
-                                      kind: "member",
-                                      date: row.date,
-                                      userId: m.userId,
-                                      displayName: m.displayName,
-                                    })
-                                  }
-                                >
-                                  + کالا
-                                </button>
-                              </div>
-                            );
-                          })}
-                          <div className="dlCardBlock">
-                            <strong>هزینه مشترک</strong>
-                            {row.shared.items.map((it) => (
-                              <div key={it.expenseId} className="dlItem">
-                                <div className="dlItemMain">
-                                  <span className="dlItemTitle">{it.title}</span>
-                                  <b className="dlItemAmt">{formatTomanMinor(it.amount.amountMinor)}</b>
-                                </div>
-                                <div className="dlItemActions">
-                                  <button
-                                    type="button"
-                                    className="dlItemBtn"
-                                    onClick={() =>
-                                      openDraft(
-                                        {
-                                          kind: "shared",
-                                          date: row.date,
-                                          expenseId: it.expenseId,
-                                        },
-                                        it,
-                                      )
-                                    }
-                                  >
-                                    ویرایش
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="dlItemBtn isDanger"
-                                    onClick={() => deleteItem(it.expenseId)}
-                                  >
-                                    حذف
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                            <button
-                              type="button"
-                              className="dlAdd"
-                              onClick={() => openDraft({ kind: "shared", date: row.date })}
-                            >
-                              + مشترک
-                            </button>
-                          </div>
-                          <footer>
-                            جمع: <Amount irrMinor={row.dayTotal.amountMinor} />
-                          </footer>
-                        </>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              ) : (
-              <table className="dlTable">
-                <thead>
-                  <tr>
-                    <th>ردیف</th>
-                    <th>روز</th>
-                    <th>تاریخ</th>
-                    {ledger.members.map((m) => (
-                      <th key={m.userId}>{m.displayName}</th>
-                    ))}
-                    <th>هزینه مشترک</th>
-                    <th>جمع روز</th>
-                    <th>توضیحات</th>
-                    <th>وضعیت</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ledger.days.map((row, idx) => {
-                    const isSat = row.weekday === 6;
-                    const isToday = row.date === todayIso;
-                    return (
-                    <tr
-                      key={row.date}
-                      className={
-                        row.isHoliday
-                          ? "dlHoliday"
-                          : row.isRangeLocked
-                            ? "dlLocked"
-                            : isToday
-                              ? "dlToday"
-                              : isSat
-                                ? "dlSat"
-                                : idx % 2
-                                  ? "dlAlt"
-                                  : undefined
-                      }
-                    >
-                      <td>{idx + 1}</td>
-                      <td className="dlWeekday">
-                        <span className={isSat ? "dlWeekdayStart" : undefined}>
-                          {weekdayFaSatFirst(row.weekday)}
-                        </span>
-                        {isToday ? <small className="dlTodayBadge">امروز</small> : null}
-                      </td>
-                      <td className="dlDate">
-                        <span className="dlJalali">{formatJalaliIso(row.date)}</span>
-                        {showGregorian ? (
-                          <small className="dlGregorian">{row.date}</small>
-                        ) : null}
-                        {row.isRangeLocked ? (
-                          <small className="dlLockBadge">قفل</small>
-                        ) : null}
-                      </td>
-                      {ledger.members.map((m) => {
-                        const cell = row.members[m.userId];
-                        return (
-                          <td key={m.userId}>
-                            {row.isHoliday || row.isRangeLocked ? (
-                              <span className="dlMuted">
-                                {row.isHoliday ? "تعطیل" : "قفل"}
-                              </span>
-                            ) : (
-                              <div className="dlCell">
-                                {cell?.items.map((it) => (
-                                  <div key={it.expenseId} className="dlItem">
-                                    <div className="dlItemMain">
-                                      <span className="dlItemTitle">{it.title}</span>
-                                      <b className="dlItemAmt">{formatTomanMinor(it.amount.amountMinor)}</b>
-                                    </div>
-                                    <div className="dlItemActions">
-                                      <button
-                                        type="button"
-                                        className="dlItemBtn"
-                                        onClick={() =>
-                                          openDraft(
-                                            {
-                                              kind: "member",
-                                              date: row.date,
-                                              userId: m.userId,
-                                              displayName: m.displayName,
-                                              expenseId: it.expenseId,
-                                            },
-                                            it,
-                                          )
-                                        }
-                                      >
-                                        ویرایش
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="dlItemBtn isDanger"
-                                        onClick={() => deleteItem(it.expenseId)}
-                                      >
-                                        حذف
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                                <button
-                                  type="button"
-                                  className="dlAdd"
-                                  onClick={() =>
-                                    openDraft({
-                                      kind: "member",
-                                      date: row.date,
-                                      userId: m.userId,
-                                      displayName: m.displayName,
-                                    })
-                                  }
-                                >
-                                  + کالا
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })}
-                      <td>
-                        {row.isHoliday || row.isRangeLocked ? (
-                          <span className="dlMuted">
-                            {row.isHoliday ? "تعطیل" : "قفل"}
-                          </span>
-                        ) : (
-                          <div className="dlCell">
-                            {row.shared.items.map((it) => (
-                              <div key={it.expenseId} className="dlItem">
-                                <div className="dlItemMain">
-                                  <span className="dlItemTitle">{it.title}</span>
-                                  <b className="dlItemAmt">{formatTomanMinor(it.amount.amountMinor)}</b>
-                                </div>
-                                <div className="dlItemActions">
-                                  <button
-                                    type="button"
-                                    className="dlItemBtn"
-                                    onClick={() =>
-                                      openDraft(
-                                        {
-                                          kind: "shared",
-                                          date: row.date,
-                                          expenseId: it.expenseId,
-                                        },
-                                        it,
-                                      )
-                                    }
-                                  >
-                                    ویرایش
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="dlItemBtn isDanger"
-                                    onClick={() => deleteItem(it.expenseId)}
-                                  >
-                                    حذف
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                            <button
-                              type="button"
-                              className="dlAdd"
-                              onClick={() =>
-                                openDraft({
-                                  kind: "shared",
-                                  date: row.date,
-                                })
-                              }
-                            >
-                              + مشترک
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                      <td className="dlTotal">
-                        {row.isHoliday ? (
-                          "—"
-                        ) : (
-                          <Amount irrMinor={row.dayTotal.amountMinor} />
-                        )}
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="dlNoteBtn"
-                          onClick={() =>
-                            setDayNote({ date: row.date, note: row.note ?? "" })
-                          }
-                        >
-                          {row.note?.trim() || (row.isHoliday ? "تعطیل" : "…")}
-                        </button>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="dlHolidayBtn"
-                          onClick={() => toggleHoliday(row.date, row.isHoliday)}
-                          disabled={pending}
-                        >
-                          {row.isHoliday ? (
-                            <StatusPill tone="warn">تعطیل — کلیک برای عادی</StatusPill>
-                          ) : (
-                            <span className="dlStatusNormal">عادی — کلیک برای تعطیل</span>
-                          )}
-                        </button>
-                      </td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colSpan={3}>جمع بازه ({ledger.days.length} روز)</td>
-                    {ledger.members.map((m) => (
-                      <td key={m.userId}>
-                        <Amount irrMinor={ledger.totals.members[m.userId]?.amountMinor ?? "0"} />
-                      </td>
-                    ))}
-                    <td>
-                      <Amount irrMinor={ledger.totals.shared.amountMinor} />
-                    </td>
-                    <td>
-                      <Amount irrMinor={ledger.totals.grand.amountMinor} />
-                    </td>
-                    <td colSpan={2} />
-                  </tr>
-                </tfoot>
-              </table>
-              )}
-            </div>
+            <DailyLedgerGrid
+              ledger={ledger}
+              viewMode={viewMode}
+              showGregorian={showGregorian}
+              todayIso={todayIso}
+              pending={pending}
+              onOpenDraft={openDraft}
+              onDeleteItem={deleteItem}
+              onToggleHoliday={toggleHoliday}
+              onEditNote={(date, note) => setDayNote({ date, note })}
+            />
           </>
         ) : null}
         </div>

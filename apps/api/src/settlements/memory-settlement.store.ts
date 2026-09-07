@@ -78,6 +78,19 @@ export class MemorySettlementStore implements SettlementStore {
     return Promise.resolve(result);
   }
 
+  get(
+    workspaceId: string,
+    settlementId: string,
+    _actorUserId: string,
+  ): Promise<StoredSettlement | null> {
+    void _actorUserId;
+    const existing = this.settlements.get(settlementId);
+    if (!existing || existing.workspaceId !== workspaceId) {
+      return Promise.resolve(null);
+    }
+    return Promise.resolve(existing);
+  }
+
   private transition(
     workspaceId: string,
     settlementId: string,

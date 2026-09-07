@@ -22,20 +22,20 @@ export class JobsController {
 
   @Post()
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: "Run background job in-process (dev)" })
+  @ApiOperation({ summary: "Run background job (member of workspace)" })
   run(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
     @Body(new ZodValidationPipe(runJobRequestSchema)) body: RunJobRequest,
-  ): JobRunResult {
-    void actor;
-    return this.jobs.run(body.name, workspaceId);
+  ): Promise<JobRunResult> {
+    return this.jobs.runForMember(actor, body.name, workspaceId);
   }
 
   @Get("dlq")
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: "List Redis job dead-letter queue (owner/admin; requires Redis)",
+    summary:
+      "List Redis job dead-letter queue for this workspace (owner/admin; requires Redis)",
   })
   listDlq(
     @CurrentActor() actor: AuthActor,
@@ -50,7 +50,7 @@ export class JobsController {
   @UseGuards(AuthGuard)
   @ApiOperation({
     summary:
-      "Replay one DLQ item (RPOP → LPUSH main queue). Owner/admin; requires Redis.",
+      "Replay one DLQ item for this workspace (filtered by job.workspaceId). Owner/admin; requires Redis.",
   })
   replayDlq(
     @CurrentActor() actor: AuthActor,
@@ -61,9 +61,11 @@ export class JobsController {
 
   @Get()
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: "Recent job runs (dev)" })
-  list(@CurrentActor() actor: AuthActor): JobRunResult[] {
-    void actor;
-    return this.jobs.listRecent();
+  @ApiOperation({ summary: "Recent job runs for this workspace" })
+  list(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+  ): Promise<JobRunResult[]> {
+    return this.jobs.listRecentForMember(actor, workspaceId);
   }
 }

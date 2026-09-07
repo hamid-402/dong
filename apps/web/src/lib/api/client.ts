@@ -1,3 +1,4 @@
+import { newClientId } from "@/lib/id";
 import type {
   AuthActionResponse,
   AuthMeResponse,
@@ -5,6 +6,10 @@ import type {
   ForgotPasswordResponse,
   LoginRequest,
   LoginResponse,
+  MfaConfirmRequest,
+  MfaConfirmResponse,
+  MfaDisableRequest,
+  MfaSetupResponse,
   MfaVerifyRequest,
   RegisterRequest,
   SessionSummary,
@@ -13,6 +18,20 @@ import type {
 } from "@dang/contracts";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
+
+export type AuditEventDto = {
+  id: string;
+  workspaceId: string;
+  actorUserId?: string;
+  action: string;
+  targetType: string;
+  targetId?: string;
+  result: "success" | "failure" | "denied";
+  reason?: string;
+  requestId?: string;
+  occurredAt: string;
+  metadata?: Record<string, string | number | boolean | null>;
+};
 
 const DEV_SUBJECT_KEY = "dang.dev.subject";
 const DEV_NAME_KEY = "dang.dev.displayName";
@@ -43,7 +62,13 @@ export function clearClientSession() {
 
 /** Fetch Headers reject non-ISO-8859-1; encode Unicode for transport. */
 export function encodeDevHeader(value: string): string {
-  return `b64:${btoa(unescape(encodeURIComponent(value)))}`;
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  if (typeof btoa !== "function") {
+    throw new Error("base64 encoding unavailable in this browser");
+  }
+  return `b64:${btoa(binary)}`;
 }
 
 export function getDevIdentity() {
@@ -82,28 +107,37 @@ export async function apiFetch<T>(
   init: RequestInit = {},
   idempotencyKey?: string,
 ): Promise<T> {
-  const headers = new Headers(init.headers);
-  headers.set("Accept", "application/json");
-  if (getAuthClientMode() === "dev") {
-    const identity = getDevIdentity();
-    headers.set("x-dang-subject", encodeDevHeader(identity.subject));
-    headers.set("x-dang-display-name", encodeDevHeader(identity.displayName));
-  }
-  if (!headers.has("x-request-id")) {
-    headers.set("x-request-id", crypto.randomUUID());
-  }
-  if (idempotencyKey) {
-    headers.set("idempotency-key", idempotencyKey);
-  }
-  if (init.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
+  const attempt = async (): Promise<Response> => {
+    const headers = new Headers(init.headers);
+    headers.set("Accept", "application/json");
+    if (getAuthClientMode() === "dev") {
+      const identity = getDevIdentity();
+      headers.set("x-dang-subject", encodeDevHeader(identity.subject));
+      headers.set("x-dang-display-name", encodeDevHeader(identity.displayName));
+    }
+    if (!headers.has("x-request-id")) {
+      headers.set("x-request-id", newClientId());
+    }
+    if (idempotencyKey) {
+      headers.set("idempotency-key", idempotencyKey);
+    }
+    if (init.body && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers,
-    credentials: "include",
-  });
+    return fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers,
+      credentials: "include",
+    });
+  };
+
+  // One retry on transient proxy/API blips (common on LAN / cold start).
+  let response = await attempt();
+  if (response.status === 503) {
+    await new Promise((r) => setTimeout(r, 350));
+    response = await attempt();
+  }
 
   if (!response.ok) {
     const detail = await response.text();
@@ -118,13 +152,23 @@ export async function apiFetch<T>(
     } catch {
       /* plain-text error body */
     }
-    if (response.status === 503 && /API|3006|dev:api/i.test(message) === false) {
-      message = "سرویس API در دسترس نیست. ترمینال: pnpm dev:api";
+    if (response.status === 503) {
+      message =
+        /API|3006|dev:api|unreachable/i.test(message)
+          ? message
+          : "سرویس API در دسترس نیست. ترمینال: pnpm dev:api";
     }
     throw new ApiError(message, response.status);
   }
 
-  return (await response.json()) as T;
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  const text = await response.text();
+  if (!text.trim()) {
+    return undefined as T;
+  }
+  return JSON.parse(text) as T;
 }
 
 /** Auth endpoints — first slice of the api.ts domain split. */
@@ -143,6 +187,21 @@ export const authApi = {
     }),
   mfaVerify: (body: MfaVerifyRequest) =>
     apiFetch<AuthActionResponse>("/auth/mfa/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  mfaSetup: () =>
+    apiFetch<MfaSetupResponse>("/auth/mfa/setup", {
+      method: "POST",
+      body: "{}",
+    }),
+  mfaConfirm: (body: MfaConfirmRequest) =>
+    apiFetch<MfaConfirmResponse>("/auth/mfa/confirm", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  mfaDisable: (body: MfaDisableRequest) =>
+    apiFetch<{ ok: true }>("/auth/mfa/disable", {
       method: "POST",
       body: JSON.stringify(body),
     }),

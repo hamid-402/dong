@@ -121,6 +121,29 @@ export class MemoryPaymentStore implements PaymentStore {
     this.pendingZarinpal.set(authority.trim(), next);
     return next;
   }
+
+  async getLink(
+    workspaceId: string,
+    paymentLinkId: string,
+  ): Promise<PaymentLinkSummary | null> {
+    const row = this.links.get(paymentLinkId);
+    if (!row || row.workspaceId !== workspaceId) return null;
+    return toSummary(row);
+  }
+
+  async markLinkPaid(
+    workspaceId: string,
+    paymentLinkId: string,
+  ): Promise<PaymentLinkSummary> {
+    const row = this.links.get(paymentLinkId);
+    if (!row || row.workspaceId !== workspaceId) {
+      throw new Error("PAYMENT_LINK_NOT_FOUND");
+    }
+    if (row.status === "paid") return toSummary(row);
+    const next: StoredLink = { ...row, status: "paid" };
+    this.links.set(paymentLinkId, next);
+    return toSummary(next);
+  }
 }
 
 export type PaymentStore = {
@@ -131,6 +154,8 @@ export type PaymentStore = {
     options?: { checkoutUrl?: string; providerRef?: string },
   ): Promise<PaymentLinkSummary>;
   list(workspaceId: string): Promise<PaymentLinkSummary[]>;
+  getLink(workspaceId: string, paymentLinkId: string): Promise<PaymentLinkSummary | null>;
+  markLinkPaid(workspaceId: string, paymentLinkId: string): Promise<PaymentLinkSummary>;
   savePendingZarinpal(input: {
     authority: string;
     amountMinor: string;

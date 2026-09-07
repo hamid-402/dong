@@ -1,3 +1,4 @@
+// Zod body-validation exempt: GET/body-less read controller. See docs/adr/ADR-zod-get-exemptions.md
 import { Controller, Get, Inject, ServiceUnavailableException } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { isRedisConfigured, loadAppEnv } from "@dang/config";
@@ -16,6 +17,8 @@ type ReadinessResponse = {
   version: string;
   checks: {
     iam: "memory" | "postgres";
+    /** When DANG_REQUIRE_POSTGRES=1, ready fails if iam is memory or DB ping fails. */
+    requirePostgres: boolean;
     databaseConfigured: boolean;
     database: "ok" | "skip" | "fail";
     redisConfigured: boolean;
@@ -75,6 +78,7 @@ export class HealthController {
     const requireRedis = process.env.DANG_REQUIRE_REDIS === "1";
     const hardFail =
       (requirePg && ready.checks.database !== "ok") ||
+      (requirePg && ready.checks.iam === "memory") ||
       (requireRedis && ready.checks.redis !== "ok");
     if (hardFail || (ready.status === "degraded" && requirePg)) {
       throw new ServiceUnavailableException({
@@ -93,16 +97,18 @@ export class HealthController {
     const databaseConfigured = Boolean(env.databaseUrl);
     const redisConfigured = isRedisConfigured(env);
     const oidcConfigured = Boolean(env.oidcIssuerUrl && env.oidcClientId);
+    const requirePg = process.env.DANG_REQUIRE_POSTGRES === "1";
+    const requireRedis = process.env.DANG_REQUIRE_REDIS === "1";
+    const iamPersistence = this.iam.persistence;
 
     const [database, redis] = await Promise.all([
       this.pingDatabase(env.databaseUrl),
       this.pingRedis(redisConfigured),
     ]);
 
-    const requirePg = process.env.DANG_REQUIRE_POSTGRES === "1";
-    const requireRedis = process.env.DANG_REQUIRE_REDIS === "1";
     const degraded =
       (requirePg && database !== "ok") ||
+      (requirePg && iamPersistence === "memory") ||
       (requireRedis && redis !== "ok") ||
       (databaseConfigured && database === "fail") ||
       (redisConfigured && redis === "fail");
@@ -112,7 +118,8 @@ export class HealthController {
       service: "dang-api",
       version: "0.1.0",
       checks: {
-        iam: this.iam.persistence,
+        iam: iamPersistence,
+        requirePostgres: requirePg,
         databaseConfigured,
         database,
         redisConfigured,

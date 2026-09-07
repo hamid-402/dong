@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { hubPathFor } from "@/lib/hub-links";
 import { useAppChrome } from "@/lib/use-app-chrome";
 
-/** Header profile control — gold monogram + account identity. */
+/** Header avatar — حساب از پروفایل؛ ابزارها از تب «بیشتر». */
 export function HeaderProfileButton() {
   const chrome = useAppChrome();
   const name = chrome.userName?.trim() || "پروفایل";
@@ -13,9 +12,9 @@ export function HeaderProfileButton() {
 
   return (
     <Link
-      href={hubPathFor("/profile")}
+      href="/account"
       className={`header-profile${online ? " is-online" : ""}`}
-      title="پروفایل کاربری"
+      title={name}
       aria-label={`پروفایل ${name}`}
     >
       <span className="header-profile__orb" aria-hidden>
@@ -25,11 +24,7 @@ export function HeaderProfileButton() {
         <span className="header-profile__pulse" />
       </span>
       <span className="header-profile__meta">
-        <small>حساب من</small>
         <b>{name}</b>
-      </span>
-      <span className="header-profile__chev" aria-hidden>
-        ‹
       </span>
     </Link>
   );

@@ -2,6 +2,7 @@ import { Global, Module } from "@nestjs/common";
 import { loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
 import { AuthModule } from "../auth/auth.module.js";
+import { createPersistenceStore } from "../common/postgres-store.factory.js";
 import {
   MemoryNotificationStore,
   NOTIFICATION_STORE,
@@ -15,20 +16,13 @@ const logger = createLogger("dang-api-notifications");
 
 function buildNotificationStore(): NotificationStore {
   const env = loadAppEnv();
-  if (!env.databaseUrl) {
-    logger.warn("DATABASE_URL unset; using in-memory notification store");
-    return new MemoryNotificationStore();
-  }
-  try {
-    logger.info("Using PostgreSQL notification store");
-    return PostgresNotificationStore.fromConnectionString(env.databaseUrl);
-  } catch (error: unknown) {
-    const detail = error instanceof Error ? error.message : "unknown";
-    logger.error("Failed to initialize PostgreSQL notification store; falling back to memory", {
-      detail,
-    });
-    return new MemoryNotificationStore();
-  }
+  return createPersistenceStore<NotificationStore>({
+    name: "notification store",
+    databaseUrl: env.databaseUrl,
+    logger,
+    createPostgres: (url) => PostgresNotificationStore.fromConnectionString(url),
+    createMemory: () => new MemoryNotificationStore(),
+  });
 }
 
 @Global()

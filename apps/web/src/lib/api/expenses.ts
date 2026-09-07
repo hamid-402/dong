@@ -1,7 +1,11 @@
 import type {
+  CreateExpenseCategoryRequest,
   CreateExpenseDraftRequest,
+  CreateRecurringRuleRequest,
+  ExpenseCategorySummary,
   ExpenseSummary,
   ExpenseSplitLine,
+  RecurringRuleSummary,
 } from "@dang/contracts";
 import { apiFetch } from "./client";
 
@@ -46,6 +50,26 @@ export const expensesApi = {
   promoteExpenseCompany: (workspaceId: string, expenseId: string) =>
     apiFetch<ExpenseSummary>(
       `/workspaces/${workspaceId}/expenses/${expenseId}/promote-company`,
+      { method: "POST", body: "{}" },
+    ),
+  listCategories: (workspaceId: string) =>
+    apiFetch<ExpenseCategorySummary[]>(`/workspaces/${workspaceId}/categories`),
+  createCategory: (workspaceId: string, body: CreateExpenseCategoryRequest) =>
+    apiFetch<ExpenseCategorySummary>(`/workspaces/${workspaceId}/categories`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  listRecurringRules: (workspaceId: string) =>
+    apiFetch<RecurringRuleSummary[]>(`/workspaces/${workspaceId}/recurring-rules`),
+  createRecurringRule: (workspaceId: string, body: CreateRecurringRuleRequest) =>
+    apiFetch<RecurringRuleSummary>(
+      `/workspaces/${workspaceId}/recurring-rules`,
+      { method: "POST", body: JSON.stringify(body) },
+      body.idempotencyKey,
+    ),
+  runRecurringDue: (workspaceId: string) =>
+    apiFetch<{ createdExpenseIds: string[]; titles: string[] }>(
+      `/workspaces/${workspaceId}/recurring-rules/run-due`,
       { method: "POST", body: "{}" },
     ),
 };

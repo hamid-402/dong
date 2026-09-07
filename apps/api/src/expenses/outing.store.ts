@@ -8,6 +8,8 @@ import {
   type AppDatabase,
 } from "@dang/db";
 import type { CreateOutingRequest, OutingSummary } from "@dang/contracts";
+import { createLogger } from "@dang/observability";
+import { createPersistenceStore } from "../common/postgres-store.factory.js";
 
 export type OutingStore = {
   readonly persistence: "memory" | "postgres";
@@ -202,9 +204,12 @@ export class PostgresOutingStore implements OutingStore {
 }
 
 export function createOutingStore(): OutingStore {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (databaseUrl) {
-    return PostgresOutingStore.fromConnectionString(databaseUrl);
-  }
-  return new MemoryOutingStore();
+  const logger = createLogger("dang-api-outings");
+  return createPersistenceStore<OutingStore>({
+    name: "outing store",
+    databaseUrl: process.env.DATABASE_URL,
+    logger,
+    createPostgres: (url) => PostgresOutingStore.fromConnectionString(url),
+    createMemory: () => new MemoryOutingStore(),
+  });
 }

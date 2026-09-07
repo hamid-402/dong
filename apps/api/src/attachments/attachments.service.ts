@@ -48,10 +48,12 @@ export class AttachmentsService {
       }
       // Fail-closed: never OCR when quarantine is blocked or error (scan errors persist as error).
       if (current.ocrJobId && mayStartOcr(current.quarantineStatus)) {
-        this.jobs.run("ocr.receipt", workspaceId, {
-          attachmentId: current.id,
-          fileName: current.fileName,
-        });
+        void this.jobs
+          .run("ocr.receipt", workspaceId, {
+            attachmentId: current.id,
+            fileName: current.fileName,
+          })
+          .catch(() => undefined);
       }
       return current;
     } catch (error: unknown) {
@@ -100,7 +102,9 @@ export class AttachmentsService {
         status: 404,
       });
     }
-    this.jobs.run("quarantine.scan", workspaceId, { attachmentId });
+    void this.jobs
+      .run("quarantine.scan", workspaceId, { attachmentId })
+      .catch(() => undefined);
     const blob = await this.blobs.read(workspaceId, attachmentId);
     const evaluated = await scanAttachmentContent({
       fileName: attachment.fileName,
@@ -145,7 +149,7 @@ export class AttachmentsService {
         status: 400,
       });
     }
-    const job = this.jobs.run("ocr.receipt", workspaceId, {
+    const job = await this.jobs.run("ocr.receipt", workspaceId, {
       attachmentId,
       fileName: attachment.fileName,
     });

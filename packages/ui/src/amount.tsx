@@ -29,10 +29,13 @@ export function Amount({
   };
 
   return (
-    <span style={amountStyle} {...rest}>
+    <span style={amountStyle} dir="ltr" {...rest}>
       {formatted}
       {showUnit ? (
-        <i style={{ fontStyle: "normal", fontWeight: 500, marginInlineStart: 6, opacity: 0.8 }}>
+        <i
+          style={{ fontStyle: "normal", fontWeight: 500, marginInlineStart: 6, opacity: 0.8 }}
+          dir="rtl"
+        >
           تومان
         </i>
       ) : null}

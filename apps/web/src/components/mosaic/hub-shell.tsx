@@ -11,6 +11,7 @@ import { HubEmbedProvider } from "@/components/mosaic/hub-embed";
 import { useMosaicNav } from "@/components/mosaic/mosaic-nav-context";
 import { getHubPage } from "@/lib/hub-page-registry";
 import { hubPathFor } from "@/lib/hub-links";
+import { wPath } from "@/lib/workspace-paths";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import type { NavNode } from "@/lib/navigation-types";
 import { spaceKindForTemplate } from "@dang/contracts";
@@ -42,18 +43,24 @@ export function HubShell() {
   } = useMosaicNav();
   const chrome = useAppChrome();
   const ws = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
+  const slug = ws?.slug ?? null;
   const kind = spaceKindForTemplate(ws?.template);
   const journeyHint =
     kind === "personal"
-      ? { text: "سفر شخصی: ثبت خرج خصوصی از دکمهٔ اصلی یا تب «من».", href: hubPathFor("/me") }
+      ? {
+          text: "سفر شخصی: ثبت خرج از دکمهٔ «＋» یا تب «خرج‌ها».",
+          href: slug ? wPath(slug, "space") : hubPathFor("/me"),
+        }
       : kind === "org"
         ? {
-            text: "سفر سازمان: بودجه و تأیید مطالبات در خانهٔ سازمان؛ خرید در «بیشتر» / تدارکات.",
-            href: hubPathFor("/orgs"),
+            text: "سفر سازمان: بودجه و تأیید در خانهٔ فضا؛ خرید از تب «بیشتر» یا تدارکات.",
+            href: slug ? wPath(slug, "space") : hubPathFor("/orgs"),
           }
         : {
-            text: "مادرخرج: از «ثبت خرج گروه» سهم اعضا را بنویسید؛ تسویه همان مسیر مالی است.",
-            href: `${hubPathFor("/group")}#quick-expense`,
+            text: "مادرخرج: با «ثبت خرج» سهم اعضا را بنویسید؛ تسویه در همان بخش خرج‌هاست.",
+            href: slug
+              ? `${wPath(slug, "expenses")}#quick-expense`
+              : `${hubPathFor("/group")}#quick-expense`,
           };
   const [greeting, setGreeting] = useState("سلام");
   const [today, setToday] = useState("");
@@ -98,7 +105,7 @@ export function HubShell() {
     direction === "back" ? "mosaic-stage is-back" : "mosaic-stage is-forward";
   const isRoot = stack.length === 0;
   const sectionTitle = isRoot
-    ? "همه ابزارها"
+    ? "فهرست قابلیت‌ها"
     : (breadcrumbTrail[breadcrumbTrail.length - 1]?.label ?? "پوشه");
 
   if (isContentMode && contentRoute) {
@@ -178,8 +185,8 @@ export function HubShell() {
         >
           <summary className="mosaic-all-tools__summary">
             <span>
-              <b>همه ابزارها</b>
-              <small>یافتن، مالیه من، ماژول‌ها — بدون حذف</small>
+              <b>فهرست قابلیت‌ها</b>
+              <small>یافتن، مالیه من، ماژول‌ها</small>
             </span>
             <span className="mosaic-all-tools__count">{currentNodes.length}</span>
           </summary>

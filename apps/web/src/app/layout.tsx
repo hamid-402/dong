@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Vazirmatn } from "next/font/google";
 import "@dang/ui/tokens.css";
 import "./globals.css";
-import "./mosaic.css";
+import "./shell.css";
 import { PwaRegister } from "../components/pwa-register";
 import { ThemeProvider } from "../lib/theme";
 
@@ -50,13 +50,11 @@ export default function RootLayout({
       </head>
       <body className={vazirmatn.className}>
         <ThemeProvider>
-          <a className="skip-link" href="#main-content">
-            پرش به محتوای اصلی
+          <a className="skip-link" href="#main">
+            پرش به محتوا
           </a>
           <PwaRegister />
-          <div id="main-content" tabIndex={-1}>
-            {children}
-          </div>
+          {children}
         </ThemeProvider>
       </body>
     </html>

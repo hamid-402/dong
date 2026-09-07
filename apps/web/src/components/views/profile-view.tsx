@@ -17,8 +17,9 @@ import {
 } from "@/components/ui-blocks";
 import { validateDisplayName, validatePassword } from "@/lib/auth-validation";
 import { api, ApiError, clearClientSession, getDevIdentity, setDevIdentity } from "@/lib/api";
-import { hubPathFor } from "@/lib/hub-links";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { FlashMessages } from "@/lib/use-flash-message";
+import { MfaSettingsPanel } from "@/components/shell/mfa-settings-panel";
 
 function authModeLabel(mode: UserProfile["authMode"]): string {
   if (mode === "password") return "ورود با ایمیل";
@@ -52,7 +53,7 @@ export function ProfileView() {
         setAvatarUrl(next.avatarUrl ?? "");
       } catch (err: unknown) {
         if (err instanceof ApiError && err.status === 401) {
-          router.push("/login?next=/profile");
+          router.push("/login?next=/account");
           return;
         }
         setError(err instanceof Error ? err.message : "بارگذاری پروفایل ناموفق");
@@ -169,14 +170,8 @@ export function ProfileView() {
         eyebrow="آتلیه حساب"
         title="پروفایل حرفه‌ای"
         description="هویت نمایشی، ترجیحات و امنیت — همه از داده‌های واقعی حساب شما."
-        actions={
-          <>
-            <Link href="/hub">خانه</Link>
-          </>
-        }
       />
-      {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
-      {info ? <AuthAlert tone="success">{info}</AuthAlert> : null}
+      <FlashMessages error={error} successMessage={info} />
       {debugVerifyUrl ? (
         <AuthAlert tone="info">
           <a href={debugVerifyUrl}>تأیید ایمیل</a>
@@ -353,17 +348,13 @@ export function ProfileView() {
             >
               خروج از همه دستگاه‌ها
             </Button>
-            <Link href={hubPathFor("/me")} className="profileLinks__chip">
-              فضای شخصی
-            </Link>
-            <Link href={hubPathFor("/onboarding")} className="profileLinks__chip">
-              ساخت فضای جدید
-            </Link>
             <button type="button" className="profileLinks__chip is-danger" onClick={onLogout} disabled={pending}>
               خروج از حساب
             </button>
           </div>
         </SectionCard>
+
+        <MfaSettingsPanel profile={profile} onProfileChange={setProfile} />
       </ProductGrid>
     </AppShell>
   );

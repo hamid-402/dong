@@ -46,7 +46,7 @@ test("login challenge path: MFA enabled returns challenge without session", asyn
   await accounts.setTotpSecret(user.userId, secret);
   await accounts.enableTotp(user.userId);
 
-  const challengeId = mfa.createChallenge(user.userId);
+  const challengeId = await mfa.createChallenge(user.userId);
   assert.ok(challengeId.length > 10);
 
   const totp = new OTPAuth.TOTP({
@@ -73,7 +73,7 @@ test("login challenge path: MFA enabled returns challenge without session", asyn
   assert.equal(cookieSet, true);
 });
 
-test("userNeedsMfaEnrollment true for owner without MFA", async () => {
+test("assertMfaEnrolledForFinanceAction blocks until MFA enabled", async () => {
   const { accounts, iam, mfa } = makeMfaService();
   const passwordHash = await hashPassword("StrongPass1!");
   const user = await accounts.createLocalUser({
@@ -89,8 +89,14 @@ test("userNeedsMfaEnrollment true for owner without MFA", async () => {
   });
   assert.equal(await mfa.userNeedsMfaEnrollment(user.userId), true);
 
+  await assert.rejects(() => mfa.assertMfaEnrolledForFinanceAction(user.userId), (err: unknown) => {
+    const e = err as { getStatus?: () => number; getResponse?: () => { type?: string } };
+    return e.getStatus?.() === 403 && e.getResponse?.()?.type?.includes("mfa-enrollment") === true;
+  });
+
   const secret = mfa.generateSecret();
   await accounts.setTotpSecret(user.userId, secret);
   await accounts.enableTotp(user.userId);
   assert.equal(await mfa.userNeedsMfaEnrollment(user.userId), false);
+  await mfa.assertMfaEnrolledForFinanceAction(user.userId);
 });

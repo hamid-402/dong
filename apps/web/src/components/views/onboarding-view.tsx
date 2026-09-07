@@ -27,11 +27,12 @@ import { authModeLabel, workspaceTemplateLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { hubPathFor } from "@/lib/hub-links";
+import { wPath } from "@/lib/workspace-paths";
 
 const ONBOARDING_STEPS = [
   "نام و قالب فضا را انتخاب کنید (شخصی / گروه / سازمان)",
   "فضا ساخته می‌شود و به‌عنوان زمینهٔ فعال تنظیم می‌گردد",
-  "از خانه: یک کار بعدی (ثبت خرج) — بقیه ابزارها در «بیشتر» و «همه ابزارها»",
+  "از خانه: یک کار بعدی (ثبت خرج) — بقیه ابزارها در تب «بیشتر» یا تب فضا",
 ] as const;
 
 export function OnboardingView() {
@@ -40,8 +41,8 @@ export function OnboardingView() {
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
   const [me, setMe] = useState<AuthMeResponse | null>(null);
   const [templates, setTemplates] = useState<WorkspaceTemplateCatalogItem[]>([]);
-  const [name, setName] = useState("پروژه ویلا");
-  const [slug, setSlug] = useState("villa-partners");
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
   const [template, setTemplate] = useState<WorkspaceTemplate>("friends_family");
   const [subject, setSubject] = useState<string>(DEV_IDENTITY_DEFAULTS.subject);
   const [displayName, setDisplayName] = useState<string>(DEV_IDENTITY_DEFAULTS.displayName);
@@ -95,6 +96,12 @@ export function OnboardingView() {
     });
   }
 
+  function goToWorkspaceFinance(workspace: WorkspaceSummary) {
+    chrome.selectWorkspace(workspace.id);
+    chrome.refreshChrome();
+    router.push(wPath(workspace.slug, "expenses"));
+  }
+
   function onCreate(event: FormEvent) {
     event.preventDefault();
     const trimmedName = name.trim();
@@ -131,6 +138,9 @@ export function OnboardingView() {
 
   const pageError = error ?? chrome.error;
   const selectedTemplate = templates.find((item) => item.id === template);
+  const createdFinanceHref = created
+    ? wPath(created.slug, "expenses")
+    : hubPathFor("/workspaces");
 
   return (
     <AppShell
@@ -146,7 +156,7 @@ export function OnboardingView() {
         actions={
           <>
             <Link href="/">خانه</Link>
-            {created ? <Link href={hubPathFor("/workspaces")}>رفتن به مالی</Link> : null}
+            {created ? <Link href={createdFinanceHref}>رفتن به مالی</Link> : null}
           </>
         }
       />
@@ -154,7 +164,7 @@ export function OnboardingView() {
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
 
       {initialLoading ? (
-        <EmptyHint>در حال بارگذاری…</EmptyHint>
+        <EmptyHint loading>در حال بارگذاری…</EmptyHint>
       ) : (
         <ProductGrid>
           <SectionCard title="راهنمای شروع" delayClass="delay1">
@@ -208,13 +218,15 @@ export function OnboardingView() {
                   label="نام فضا"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
+                  placeholder="مثلاً گروه دوستان"
                   required
                 />
                 <TextField
                   label="شناسه یکتا (slug)"
                   value={slug}
                   onChange={(event) => setSlug(event.target.value)}
-                  hint="مثال: villa-partners — فقط a-z، 0-9 و خط تیره"
+                  placeholder="friends-group"
+                  hint="فقط a-z، 0-9 و خط تیره"
                   required
                 />
                 <SelectField
@@ -254,7 +266,7 @@ export function OnboardingView() {
                 <button
                   type="button"
                   className="textButton"
-                  onClick={() => router.push(hubPathFor("/workspaces"))}
+                  onClick={() => goToWorkspaceFinance(created)}
                 >
                   ادامه در مالی
                 </button>
@@ -281,11 +293,7 @@ export function OnboardingView() {
                       <Button
                         type="button"
                         variant="ghost"
-                        onClick={() => {
-                          chrome.selectWorkspace(workspace.id);
-                          chrome.refreshChrome();
-                          router.push(hubPathFor("/workspaces"));
-                        }}
+                        onClick={() => goToWorkspaceFinance(workspace)}
                       >
                         انتخاب
                       </Button>

@@ -56,7 +56,14 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ["@dang/ui"],
-  allowedDevOrigins: lanDevOrigins(),
+  allowedDevOrigins: [
+    ...new Set([
+      "127.0.0.1",
+      "localhost",
+      "192.168.140.105",
+      ...lanDevOrigins(),
+    ]),
+  ],
   output: "standalone",
   // API proxy: apps/web/src/app/api/v1/[...path]/route.ts
 };

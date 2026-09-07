@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import { newClientId } from "@/lib/id";
+
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type { ExpenseSummary, MembershipSummary, WorkspaceSummary } from "@dang/contracts";
 import { spaceKindForTemplate } from "@dang/contracts";
@@ -27,7 +28,6 @@ import { PersonalResourcesPanel } from "@/components/personal-resources-panel";
 import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
-import { hubPathFor } from "@/lib/hub-links";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
 import { expenseStatusLabel, spaceKindForTemplateLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
@@ -146,7 +146,7 @@ export function PersonalSpaceView() {
             occurredOn: new Date().toISOString().slice(0, 10),
             visibility: "private",
             categoryId: categoryId || undefined,
-            idempotencyKey: crypto.randomUUID(),
+            idempotencyKey: newClientId(),
           });
           await api.submitExpense(workspace.id, created.id);
           await api.postExpense(workspace.id, created.id);
@@ -173,16 +173,7 @@ export function PersonalSpaceView() {
       <PageHeader
         eyebrow="فضای شخصی"
         title="دفتر مالی من"
-        description="کار اصلی: ثبت خرج خصوصی. گروه‌ها و سازمان‌ها از سوئیچر یا میانبرها."
-        actions={
-          <>
-            <a href="#personal-expense">ثبت خرج خصوصی</a>
-            <span className="uxSecondaryActions">
-              <Link href={hubPathFor("/group")}>گروه‌ها</Link>
-              <Link href={hubPathFor("/orgs")}>سازمان‌ها</Link>
-            </span>
-          </>
-        }
+        description="خرج خصوصی همین‌جاست. گروه‌ها و سازمان‌ها از سوئیچر فضا."
       />
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}

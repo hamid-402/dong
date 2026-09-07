@@ -7,12 +7,14 @@ import { Button, TextField } from "@dang/ui";
 import { AuthAlert, AuthDevLink, AuthLinkRow, AuthShell } from "@/components/auth-shell";
 import { FormStack } from "@/components/ui-blocks";
 import {
+  normalizeEmail,
   validateDisplayName,
   validateEmail,
   validatePassword,
 } from "@/lib/auth-validation";
 import { authErrorMessage } from "@/lib/api-errors";
-import { api, setDevIdentity, markClientSession } from "@/lib/api";
+import { api } from "@/lib/api";
+import { completeClientAuth } from "@/lib/auth-session";
 
 export function RegisterView() {
   const router = useRouter();
@@ -29,8 +31,9 @@ export function RegisterView() {
 
   function onSubmit(event: React.FormEvent) {
     event.preventDefault();
+    const normalizedEmail = normalizeEmail(email);
     const nextDisplayNameError = validateDisplayName(displayName);
-    const nextEmailError = validateEmail(email);
+    const nextEmailError = validateEmail(normalizedEmail);
     const nextPasswordError = validatePassword(password);
     setDisplayNameError(nextDisplayNameError);
     setEmailError(nextEmailError);
@@ -43,9 +46,12 @@ export function RegisterView() {
     startTransition(() => {
       void (async () => {
         try {
-          const result = await api.register({ email, password, displayName });
-          markClientSession("password");
-          setDevIdentity(result.actor.externalSubject, result.actor.displayName);
+          const result = await api.register({
+            email: normalizedEmail,
+            password,
+            displayName: displayName.trim(),
+          });
+          completeClientAuth("password", result.actor);
           if (result.debugVerifyUrl) {
             setSuccess("حساب ساخته شد. لینک تأیید ایمیل (حالت توسعه) را باز کنید.");
             setDebugVerifyUrl(result.debugVerifyUrl);
@@ -53,7 +59,7 @@ export function RegisterView() {
             return;
           }
           setFormError(null);
-          router.push("/hub");
+          router.replace("/spaces");
         } catch (err: unknown) {
           setSuccess(null);
           setDebugVerifyUrl(null);
@@ -82,7 +88,7 @@ export function RegisterView() {
           <a href={debugVerifyUrl}>تأیید ایمیل</a>
         </AuthAlert>
       ) : null}
-      <form onSubmit={onSubmit} className="authLayout__form">
+      <form onSubmit={onSubmit} className="authLayout__form" noValidate>
         <FormStack>
           <TextField
             id="register-display-name"
@@ -93,8 +99,7 @@ export function RegisterView() {
               setDisplayNameError(null);
               setFormError(null);
             }}
-            hint={displayNameError ?? undefined}
-            aria-invalid={displayNameError ? true : undefined}
+            error={displayNameError ?? undefined}
             required
           />
           <TextField
@@ -108,8 +113,8 @@ export function RegisterView() {
               setEmailError(null);
               setFormError(null);
             }}
-            hint={emailError ?? undefined}
-            aria-invalid={emailError ? true : undefined}
+            hint="ایمیل واقعی حساب — بعداً برای ورود همین را وارد کنید"
+            error={emailError ?? undefined}
             required
           />
           <TextField
@@ -123,19 +128,16 @@ export function RegisterView() {
               setPasswordError(null);
               setFormError(null);
             }}
-            hint={
-              passwordError ??
-              "حداقل ۱۰ کاراکتر، شامل حرف و عدد (فارسی یا انگلیسی)"
-            }
-            aria-invalid={passwordError ? true : undefined}
+            hint="حداقل ۱۰ کاراکتر، شامل حرف و عدد (فارسی یا انگلیسی)"
+            error={passwordError ?? undefined}
             required
           />
           <Button type="submit" disabled={pending} className="authLayout__submit">
             {pending ? "در حال ساخت…" : "ساخت حساب"}
           </Button>
           {debugVerifyUrl ? (
-            <Button type="button" variant="ghost" onClick={() => router.push("/hub")}>
-              ادامه به داشبورد
+            <Button type="button" variant="ghost" onClick={() => router.replace("/spaces")}>
+              ادامه به فضاها
             </Button>
           ) : null}
         </FormStack>

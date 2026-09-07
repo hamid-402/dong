@@ -132,16 +132,7 @@ export function OrgSpaceView() {
       <PageHeader
         eyebrow="سازمان"
         title="فضای سازمانی"
-        description="کار بعدی: ثبت یا تأیید خرج شرکتی. خرید، دفتر و تسویه در میانبرها."
-        actions={
-          <>
-            <Link href={hubPathFor("/workspaces")}>خرج و تسویه</Link>
-            <span className="uxSecondaryActions">
-              <Link href={hubPathFor("/workspaces/procurement")}>تدارکات</Link>
-              <Link href={hubPathFor("/daily-ledger")}>دفتر روزانه</Link>
-            </span>
-          </>
-        }
+        description="بودجه و تأیید مطالبات شرکتی. خرید و دفتر از منوی کنار."
       />
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
@@ -198,7 +189,7 @@ export function OrgSpaceView() {
                 ))}
               </DataList>
             )}
-            <Link href={hubPathFor("/workspaces/procurement")}>مدیریت بودجه و خرید</Link>
+            <Link href={hubPathFor("/workspaces/procurement")}>رفتن به تدارکات</Link>
           </SectionCard>
 
           <SectionCard

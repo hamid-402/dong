@@ -3,18 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { Button, TextField } from "@dang/ui";
-import { AppShell } from "@/components/app-shell";
 import {
-  EmptyHint,
-  FormStack,
-  PageHeader,
-  ProductGrid,
-  SectionCard,
-  StatusPill,
-} from "@/components/ui-blocks";
+  AuthAlert,
+  AuthLinkRow,
+  AuthShell,
+} from "@/components/auth-shell";
+import { EmptyHint, FormStack, StatusPill } from "@/components/ui-blocks";
 import { api, DEV_IDENTITY_DEFAULTS, getDevIdentity, setDevIdentity } from "@/lib/api";
-import { useAppChrome } from "@/lib/use-app-chrome";
-import { hubPathFor } from "@/lib/hub-links";
 
 function readTokenFromLocation(): string {
   if (typeof window === "undefined") return "";
@@ -22,7 +17,6 @@ function readTokenFromLocation(): string {
 }
 
 export function InviteAcceptView() {
-  const chrome = useAppChrome();
   const [token, setToken] = useState("");
   const [subject, setSubject] = useState<string>(DEV_IDENTITY_DEFAULTS.subject);
   const [displayName, setDisplayName] = useState<string>(DEV_IDENTITY_DEFAULTS.displayName);
@@ -53,59 +47,47 @@ export function InviteAcceptView() {
     });
   }
 
-  const pageError = error ?? chrome.error;
-
   return (
-    <AppShell
-      workspaceId={chrome.workspaceId}
-      workspaceName={chrome.workspaceName || undefined}
-      userName={chrome.userName || undefined}
-      persistenceLabel={chrome.persistenceLabel}
+    <AuthShell
+      eyebrow="دعوت"
+      title="پیوستن به فضای کاری"
+      description="توکن دعوت را وارد کنید یا از لینک دعوت بازشده استفاده کنید."
+      footer={
+        <AuthLinkRow>
+          <Link href="/login">ورود</Link>
+          <span aria-hidden>·</span>
+          <Link href="/register">ساخت حساب</Link>
+        </AuthLinkRow>
+      }
     >
-      <PageHeader
-        eyebrow="دعوت"
-        title="پیوستن به فضای کاری"
-        description="توکن دعوت را وارد کنید یا از لینک دعوت بازشده استفاده کنید."
-        actions={
-          <>
-            <Link href={hubPathFor("/onboarding")}>ساخت فضای کاری</Link>
-            <Link href={hubPathFor("/workspaces/invite")}>ساخت دعوت</Link>
-          </>
-        }
-      />
-      {pageError ? <p className="liveError">{pageError}</p> : null}
-
-      <ProductGrid>
-        <SectionCard title="پذیرش دعوت" delayClass="delay1">
-          <FormStack>
-            <TextField
-              label="شناسه محلی مدعو"
-              value={subject}
-              onChange={(event) => setSubject(event.target.value)}
-            />
-            <TextField
-              label="نام نمایشی"
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-            />
-            <TextField
-              label="توکن دعوت"
-              value={token}
-              onChange={(event) => setToken(event.target.value)}
-            />
-            <Button onClick={onAccept} disabled={pending || !token.trim()}>
-              پذیرش دعوت
-            </Button>
-          </FormStack>
-          {message ? (
-            <p className="emptyHint" style={{ border: "none", padding: 0 }}>
-              <StatusPill tone="ok">{message}</StatusPill>
-            </p>
-          ) : !token.trim() ? (
-            <EmptyHint>توکن را از لینک دعوت بگیرید یا دستی وارد کنید.</EmptyHint>
-          ) : null}
-        </SectionCard>
-      </ProductGrid>
-    </AppShell>
+      {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
+      <FormStack>
+        <TextField
+          label="شناسه محلی مدعو"
+          value={subject}
+          onChange={(event) => setSubject(event.target.value)}
+        />
+        <TextField
+          label="نام نمایشی"
+          value={displayName}
+          onChange={(event) => setDisplayName(event.target.value)}
+        />
+        <TextField
+          label="توکن دعوت"
+          value={token}
+          onChange={(event) => setToken(event.target.value)}
+        />
+        <Button onClick={onAccept} disabled={pending || !token.trim()}>
+          پذیرش دعوت
+        </Button>
+      </FormStack>
+      {message ? (
+        <p className="emptyHint" style={{ border: "none", padding: 0 }}>
+          <StatusPill tone="ok">{message}</StatusPill>
+        </p>
+      ) : !token.trim() ? (
+        <EmptyHint>توکن را از لینک دعوت بگیرید یا دستی وارد کنید.</EmptyHint>
+      ) : null}
+    </AuthShell>
   );
 }

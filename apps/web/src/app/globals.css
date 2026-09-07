@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   color-scheme: light;
   /* Alias shared tokens from @dang/ui — one palette for hub + modules */
   --bg: var(--dang-bg, #f4f7f6);
@@ -92,7 +92,7 @@ textarea:focus-visible,
   top: 12px;
 }
 
-#main-content:focus {
+#main:focus {
   outline: none;
 }
 
@@ -996,11 +996,18 @@ button { color: inherit; font: inherit; }
 .devtoolsDetails > summary::-webkit-details-marker { display: none; }
 .devtoolsDetails[open] > summary { color: var(--text); }
 
-/* Module chrome inside hub (title owned by mosaic frame) */
+/* Module chrome inside product shell — keep real page heading */
 .moduleChrome {
   display: grid;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
+}
+.moduleChrome__title {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+  font-weight: 750;
+  line-height: 1.3;
+  color: var(--text);
 }
 .moduleChrome__desc {
   margin: 0;
@@ -1338,6 +1345,132 @@ button { color: inherit; font: inherit; }
   color: var(--muted);
   font-size: 14px;
   line-height: 1.7;
+}
+.emptyHint--loading {
+  display: grid;
+  gap: 10px;
+  border-style: solid;
+  border-color: var(--line);
+}
+.emptyHint__skeleton {
+  display: block;
+  height: 12px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--line) 70%, transparent),
+    color-mix(in srgb, var(--line) 35%, transparent),
+    color-mix(in srgb, var(--line) 70%, transparent)
+  );
+  background-size: 200% 100%;
+  animation: dang-skeleton 1.2s ease-in-out infinite;
+}
+.emptyHint__skeleton--short {
+  width: 55%;
+}
+@keyframes dang-skeleton {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .emptyHint__skeleton { animation: none; }
+}
+.emptyStateBlock {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 18px 16px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--surface) 80%, var(--bg));
+}
+.emptyStateBlock p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+.emptyStateBlock__action {
+  margin-top: 4px;
+}
+/* Expense form step indicator (dong-50 #17) */
+.expenseStepper {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+}
+.expenseStepper .expenseStepper__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.expenseStepper .expenseStepper__item > span[aria-hidden]:first-child {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.expenseStepper__label {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.expenseStepper__item[aria-current="step"] .expenseStepper__label {
+  color: var(--text, inherit);
+  font-weight: 700;
+}
+/* Optional post-settlement satisfaction prompt (dong-50 #40) */
+.npsPrompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--surface) 80%, var(--bg));
+  font-size: 13px;
+}
+.npsPrompt__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.npsPrompt__btn {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+}
+.npsPrompt__btn:hover {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.dirIconRtl {
+  display: inline-flex;
+}
+[dir="rtl"] .dirIconRtl--flip {
+  transform: scaleX(-1);
 }
 .statusLine {
   margin: 0;

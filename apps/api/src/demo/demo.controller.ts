@@ -1,3 +1,4 @@
+// Zod body-validation exempt: body-less POST (actor-scoped seed, no request body). See docs/adr/ADR-zod-get-exemptions.md
 import { Controller, Inject, Post, UseGuards } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { AuthActor } from "@dang/contracts";

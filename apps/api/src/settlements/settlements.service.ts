@@ -8,8 +8,11 @@ import {
 import type {
   AuthActor,
   CreateSettlementClaimRequest,
+  MembershipRole,
   SettlementSummary,
 } from "@dang/contracts";
+import { isFinanceManagerRole, isReadOnlyRole } from "@dang/contracts";
+import { MfaService } from "../auth/mfa.service.js";
 import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
 import { IdempotencyService } from "../common/idempotency.service.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
@@ -19,6 +22,7 @@ import {
   SETTLEMENT_STORE,
   toSettlementSummary,
   type SettlementStore,
+  type StoredSettlement,
 } from "./settlement.types.js";
 
 @Injectable()
@@ -30,6 +34,7 @@ export class SettlementsService {
     @Inject(AUDIT_STORE) private readonly audit: AuditStore,
     @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
     @Inject(NotificationsService) private readonly notifications: NotificationsService,
+    @Inject(MfaService) private readonly mfa: MfaService,
   ) {}
 
   async createClaim(
@@ -37,7 +42,15 @@ export class SettlementsService {
     workspaceId: string,
     body: CreateSettlementClaimRequest,
   ): Promise<SettlementSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    const role = await this.requireMemberRole(workspaceId, actor.userId);
+    if (isReadOnlyRole(role)) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "نقش ناظر فقط خواندنی است",
+        status: 403,
+        detail: "Auditor cannot create settlement claims",
+      });
+    }
 
     const payload: CreateSettlementClaimRequest = {
       ...body,
@@ -77,7 +90,12 @@ export class SettlementsService {
     workspaceId: string,
     settlementId: string,
   ): Promise<SettlementSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    const role = await this.requireMemberRole(workspaceId, actor.userId);
+    const existing = await this.requireSettlement(workspaceId, settlementId, actor.userId);
+    this.assertPartyAction(actor.userId, existing, role, "confirm");
+    if (isFinanceManagerRole(role)) {
+      await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
+    }
 
     try {
       const confirmed = await this.settlements.confirm(
@@ -98,6 +116,7 @@ export class SettlementsService {
           amountMinor: confirmed.amount.amountMinor,
           journalEntryId: journal.id,
           ledger: this.ledger.persistence === "postgres" ? "postgres_journal" : "memory_journal",
+          financeOverride: isFinanceManagerRole(role) && actor.userId !== existing.toUserId,
         },
       });
       await this.notifications.notifySettlementConfirmed(
@@ -118,7 +137,9 @@ export class SettlementsService {
     workspaceId: string,
     settlementId: string,
   ): Promise<SettlementSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    const role = await this.requireMemberRole(workspaceId, actor.userId);
+    const existing = await this.requireSettlement(workspaceId, settlementId, actor.userId);
+    this.assertPartyAction(actor.userId, existing, role, "dispute");
     try {
       const disputed = await this.settlements.dispute(
         workspaceId,
@@ -144,7 +165,9 @@ export class SettlementsService {
     workspaceId: string,
     settlementId: string,
   ): Promise<SettlementSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    const role = await this.requireMemberRole(workspaceId, actor.userId);
+    const existing = await this.requireSettlement(workspaceId, settlementId, actor.userId);
+    this.assertPartyAction(actor.userId, existing, role, "cancel");
     try {
       const cancelled = await this.settlements.cancel(
         workspaceId,
@@ -166,19 +189,72 @@ export class SettlementsService {
   }
 
   async list(actor: AuthActor, workspaceId: string): Promise<SettlementSummary[]> {
-    await this.requireMember(workspaceId, actor.userId);
+    await this.requireMemberRole(workspaceId, actor.userId);
     return this.settlements.listForWorkspace(workspaceId, actor.userId);
   }
 
-  private async requireMember(workspaceId: string, userId: string): Promise<void> {
-    const membership = await this.iam.getWorkspaceForUser(workspaceId, userId);
-    if (!membership) {
+  private async requireSettlement(
+    workspaceId: string,
+    settlementId: string,
+    userId: string,
+  ): Promise<StoredSettlement> {
+    const existing = await this.settlements.get(workspaceId, settlementId, userId);
+    if (!existing) {
+      throw new NotFoundException({
+        type: "https://dang.local/problems/not-found",
+        title: "Settlement not found",
+        status: 404,
+      });
+    }
+    return existing;
+  }
+
+  /**
+   * confirm → فقط طلبکار (to) یا مدیر مالی
+   * dispute → هر یک از طرفین یا مدیر مالی
+   * cancel → بدهکار/ایجادکننده یا مدیر مالی
+   */
+  private assertPartyAction(
+    actorUserId: string,
+    settlement: StoredSettlement,
+    role: MembershipRole,
+    action: "confirm" | "dispute" | "cancel",
+  ): void {
+    if (isFinanceManagerRole(role)) return;
+    const allowed =
+      action === "confirm"
+        ? actorUserId === settlement.toUserId
+        : action === "dispute"
+          ? actorUserId === settlement.toUserId || actorUserId === settlement.fromUserId
+          : actorUserId === settlement.fromUserId ||
+            actorUserId === settlement.createdByUserId;
+    if (!allowed) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "اجازهٔ این عملیات روی تسویه را ندارید",
+        status: 403,
+      });
+    }
+  }
+
+  private async requireMemberRole(
+    workspaceId: string,
+    userId: string,
+  ): Promise<MembershipRole> {
+    const members = (await this.iam.listMembers(workspaceId, userId)) ?? [];
+    const me = members.find((m) => m.userId === userId);
+    if (!me) {
       throw new ForbiddenException({
         type: "https://dang.local/problems/forbidden",
         title: "Not a workspace member",
         status: 403,
       });
     }
+    return me.role;
+  }
+
+  private async requireMember(workspaceId: string, userId: string): Promise<void> {
+    await this.requireMemberRole(workspaceId, userId);
   }
 
   private rethrowLifecycle(error: unknown): never {
@@ -187,6 +263,13 @@ export class SettlementsService {
         type: "https://dang.local/problems/not-found",
         title: "Settlement not found",
         status: 404,
+      });
+    }
+    if (error instanceof Error && error.message === "SETTLEMENT_FORBIDDEN") {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "اجازهٔ این عملیات روی تسویه را ندارید",
+        status: 403,
       });
     }
     this.rethrowValidation(error);

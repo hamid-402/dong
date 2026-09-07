@@ -1,4 +1,6 @@
-"use client";
+﻿"use client";
+
+import { newClientId } from "@/lib/id";
 
 import { useMemo } from "react";
 import type {
@@ -38,6 +40,8 @@ type Props = {
   supportsCompany?: boolean;
   personalOnly?: boolean;
   currentUserId?: string;
+  /** مادرخرج / مدیر مالی — می‌تواند خرج خصوصی عضو دیگر را ثبت کند. */
+  canAssignPrivateToOthers?: boolean;
   /** When true, hide total field dependency for itemized (total derived). */
   onDerivedTotalToman?: (toman: string) => void;
 };
@@ -83,6 +87,7 @@ export function SplitComposer({
   supportsCompany = false,
   personalOnly = false,
   currentUserId,
+  canAssignPrivateToOthers = false,
   onDerivedTotalToman,
 }: Props) {
   const preview = useMemo(() => {
@@ -150,7 +155,11 @@ export function SplitComposer({
   }, [totalToman, value, members, onDerivedTotalToman]);
 
   function toggleParticipant(userId: string) {
-    if (value.visibility === "private") return;
+    if (value.visibility === "private" && !canAssignPrivateToOthers) return;
+    if (value.visibility === "private" && canAssignPrivateToOthers) {
+      onChange({ ...value, participantUserIds: [userId] });
+      return;
+    }
     const exists = value.participantUserIds.includes(userId);
     const participantUserIds = exists
       ? value.participantUserIds.filter((id) => id !== userId)
@@ -189,7 +198,7 @@ export function SplitComposer({
       items: [
         ...value.items,
         {
-          key: crypto.randomUUID(),
+          key: newClientId(),
           title: "",
           toman: "",
           assigneeUserIds: members.map((m) => m.userId),
@@ -224,7 +233,11 @@ export function SplitComposer({
           onChange={(event) => setVisibility(event.target.value as ExpenseVisibility)}
         >
           <option value="shared">جمعی گروه — وارد مانده می‌شود (مناسب مادرخرج)</option>
-          <option value="private">خصوصی من — فقط خودم می‌بینم</option>
+          <option value="private">
+            {canAssignPrivateToOthers
+              ? "خصوصی عضو — فقط همان عضو و مدیر مالی می‌بینند"
+              : "خصوصی من — فقط خودم می‌بینم"}
+          </option>
           {supportsCompany ? (
             <option value="company">جاری شرکت — هزینه عملیاتی تیم</option>
           ) : null}
@@ -328,6 +341,28 @@ export function SplitComposer({
             />
           </div>
         </div>
+      ) : null}
+
+      {value.visibility === "private" && canAssignPrivateToOthers ? (
+        <fieldset className="splitComposer__fieldset">
+          <legend className="splitComposer__legend">این خرج خصوصی مال کیست؟</legend>
+          <p className="liveHint">
+            فقط همان عضو و شما (مدیر مالی / مادرخرج) این خرج را می‌بینند — بقیه اعضا نه.
+          </p>
+          <div className="formStack formStack--compact">
+            {members.map((member) => (
+              <label key={member.userId} className="splitComposer__check">
+                <input
+                  type="radio"
+                  name="private-assignee"
+                  checked={value.participantUserIds[0] === member.userId}
+                  onChange={() => toggleParticipant(member.userId)}
+                />
+                <span>{member.displayName}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
       ) : null}
 
       {value.visibility !== "private" && value.splitMethod !== "itemized" ? (

@@ -1,8 +1,10 @@
+// Zod body-validation exempt: GET callback with server-side amount lookup. See docs/adr/ADR-zod-get-exemptions.md
 import { Controller, Get, Inject, Query } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { isZarinpalLive, loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
 import { PAYMENT_STORE, type PaymentStore } from "./payment.store.js";
+import { PaymentsService } from "./payments.service.js";
 import { zarinpalVerifyPayment } from "./zarinpal.client.js";
 
 const logger = createLogger("dang-api-zarinpal-callback");
@@ -14,7 +16,10 @@ const logger = createLogger("dang-api-zarinpal-callback");
 @ApiTags("payments")
 @Controller("payments/zarinpal")
 export class ZarinpalCallbackController {
-  constructor(@Inject(PAYMENT_STORE) private readonly payments: PaymentStore) {}
+  constructor(
+    @Inject(PAYMENT_STORE) private readonly payments: PaymentStore,
+    @Inject(PaymentsService) private readonly paymentsService: PaymentsService,
+  ) {}
 
   @Get("callback")
   @ApiOperation({ summary: "Zarinpal payment callback (verify when live)" })
@@ -44,6 +49,11 @@ export class ZarinpalCallbackController {
     }
 
     if (pending.status === "verified") {
+      // Re-run follow-on so a prior verify that failed mid-follow-on can heal.
+      await this.paymentsService.completeZarinpalVerification(
+        pending.authority,
+        pending.refId ?? "",
+      );
       return { ok: true, status: "OK", refId: pending.refId };
     }
 
@@ -52,9 +62,12 @@ export class ZarinpalCallbackController {
         authority: pending.authority,
         amountMinor: pending.amountMinor,
       });
-      await this.payments.markZarinpalVerified(pending.authority, verified.refId);
-      logger.info("Zarinpal verified", { refId: verified.refId });
-      return { ok: true, status: "OK", refId: verified.refId };
+      const completed = await this.paymentsService.completeZarinpalVerification(
+        pending.authority,
+        verified.refId,
+      );
+      logger.info("Zarinpal verified", { refId: completed.refId });
+      return { ok: true, status: "OK", refId: completed.refId };
     } catch (err: unknown) {
       const detail = err instanceof Error ? err.message : String(err);
       logger.error("Zarinpal verify failed", { detail });

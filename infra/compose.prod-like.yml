@@ -1,0 +1,94 @@
+# Prod-like stack for local smoke (not a cloud deploy).
+# Usage:
+#   docker compose -f infra/compose.prod-like.yml up -d --build postgres valkey
+#   # then run api/web/worker via pnpm, OR build images:
+#   docker compose -f infra/compose.prod-like.yml up -d --build
+# Smoke:
+#   node scripts/smoke-health.mjs
+
+name: dang-prod-like
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: dang
+      POSTGRES_USER: dang
+      POSTGRES_PASSWORD: dang-prodlike
+    ports:
+      - "5435:5432"
+    volumes:
+      - dang-prodlike-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dang -d dang"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    ports:
+      - "6382:6379"
+    command: ["valkey-server", "--appendonly", "yes"]
+    volumes:
+      - dang-prodlike-valkey:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: "3006"
+      DATABASE_URL: postgresql://dang:dang-prodlike@postgres:5432/dang
+      REDIS_URL: redis://valkey:6379
+      DANG_REQUIRE_POSTGRES: "1"
+      ALLOW_DEV_AUTH: "0"
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: "3005"
+      HOSTNAME: "0.0.0.0"
+      # Browser hits host-mapped API; adjust if reverse-proxied.
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3006
+    ports:
+      - "3005:3005"
+    depends_on:
+      - api
+
+  worker:
+    build:
+      context: ..
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://dang:dang-prodlike@postgres:5432/dang
+      REDIS_URL: redis://valkey:6379
+      DANG_API_INTERNAL_URL: http://api:3006
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+volumes:
+  dang-prodlike-pg:
+  dang-prodlike-valkey:

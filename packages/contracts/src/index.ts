@@ -33,6 +33,29 @@ export type MembershipRole =
   | "member"
   | "auditor";
 
+/**
+ * مادرخرج / مدیر مالی گروه یا سازمان — نه ادمین سراسری محصول.
+ * می‌تواند خرج خصوصی اعضا را ببیند و صورتحساب بفرستد.
+ */
+export const FINANCE_MANAGER_ROLES = ["owner", "admin", "finance"] as const satisfies readonly MembershipRole[];
+
+export type FinanceManagerRole = (typeof FINANCE_MANAGER_ROLES)[number];
+
+export function isFinanceManagerRole(
+  role: string | null | undefined,
+): role is FinanceManagerRole {
+  return (
+    role === "owner" || role === "admin" || role === "finance"
+  );
+}
+
+/** Auditor may be invited/assigned but must not mutate finance records. */
+export function isReadOnlyRole(
+  role: string | null | undefined,
+): role is "auditor" {
+  return role === "auditor";
+}
+
 export type WorkspaceTemplateCatalogItem = {
   id: WorkspaceTemplate;
   titleFa: string;
@@ -216,4 +239,5 @@ export * from "./proposals.js";
 export * from "./personal-finance.js";
 export * from "./daily-ledger.js";
 export * from "./reports.js";
+export * from "./product-metrics.js";
 export * from "./schemas/index.js";

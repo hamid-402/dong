@@ -2,7 +2,7 @@
 
 import { useOptionalTheme } from "@/lib/theme";
 
-/** Header control — falls back to no-op if provider missing. */
+/** Icon-only theme control — label stays in aria/title for a11y. */
 export function ThemeToggleButton({ className = "" }: { className?: string }) {
   const themeApi = useOptionalTheme();
   if (!themeApi) return null;
@@ -21,7 +21,6 @@ export function ThemeToggleButton({ className = "" }: { className?: string }) {
       <span className="theme-toggle__icon" aria-hidden>
         {theme === "light" ? "◐" : "◑"}
       </span>
-      <span className="theme-toggle__label">{theme === "light" ? "تیره" : "روشن"}</span>
     </button>
   );
 }

@@ -1,4 +1,6 @@
-"use client";
+﻿"use client";
+
+import { newClientId } from "@/lib/id";
 
 import { useEffect, useState, useTransition } from "react";
 import type {
@@ -219,7 +221,7 @@ export function PersonalResourcesPanel() {
         name: accountName.trim(),
         kind: accountKind,
         openingBalance: { amountMinor: openingMinor || "0", currency: "IRR" },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: newClientId(),
       });
       setAccountName("");
       setOpeningToman("0");
@@ -265,7 +267,7 @@ export function PersonalResourcesPanel() {
         linkedWorkspaceId: linkWorkspaceId || undefined,
         linkedExpenseId: linkExpenseId || undefined,
         linkedSettlementId: linkSettlementId || undefined,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: newClientId(),
       });
       setTxnToman("");
       setTxnNote("");
@@ -290,7 +292,7 @@ export function PersonalResourcesPanel() {
         toAccountId,
         amount: { amountMinor: minor, currency: "IRR" },
         occurredOn: transferDate,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: newClientId(),
       });
       setTransferToman("");
     });
@@ -317,7 +319,7 @@ export function PersonalResourcesPanel() {
         limit: { amountMinor: minor, currency: "IRR" },
         alertPercent: Math.floor(alertPct),
         note: budgetNote.trim() || undefined,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: newClientId(),
       });
       setBudgetToman("");
       setBudgetNote("");
@@ -332,7 +334,7 @@ export function PersonalResourcesPanel() {
     run("دسته افزوده شد", async () => {
       await api.createPersonalCategory({
         name: categoryName.trim(),
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: newClientId(),
       });
       setCategoryName("");
     });
@@ -350,7 +352,7 @@ export function PersonalResourcesPanel() {
         from: exportFrom,
         to: exportTo,
         kind: "transactions",
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: newClientId(),
       });
       if (!created.hasFile) throw new Error(created.errorDetail || "فایل آماده نشد");
       window.open(api.downloadPersonalFinanceExportUrl(created.id), "_blank");

@@ -165,4 +165,47 @@ export class PostgresPaymentStore implements PaymentStore {
     if (!row) throw new Error("ZARINPAL_UNKNOWN_AUTHORITY");
     return mapPending(row);
   }
+
+  getLink(
+    workspaceId: string,
+    paymentLinkId: string,
+  ): Promise<PaymentLinkSummary | null> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(paymentLink)
+        .where(
+          and(eq(paymentLink.id, paymentLinkId), eq(paymentLink.workspaceId, workspaceId)),
+        )
+        .limit(1);
+      return rows[0] ? mapPaymentLink(rows[0]) : null;
+    });
+  }
+
+  markLinkPaid(
+    workspaceId: string,
+    paymentLinkId: string,
+  ): Promise<PaymentLinkSummary> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const existing = await tx
+        .select()
+        .from(paymentLink)
+        .where(
+          and(eq(paymentLink.id, paymentLinkId), eq(paymentLink.workspaceId, workspaceId)),
+        )
+        .limit(1);
+      const row = existing[0];
+      if (!row) throw new Error("PAYMENT_LINK_NOT_FOUND");
+      if (row.status === "paid") return mapPaymentLink(row);
+
+      const updated = await tx
+        .update(paymentLink)
+        .set({ status: "paid" })
+        .where(eq(paymentLink.id, paymentLinkId))
+        .returning();
+      const next = updated[0];
+      if (!next) throw new Error("PAYMENT_LINK_NOT_FOUND");
+      return mapPaymentLink(next);
+    });
+  }
 }

@@ -16,12 +16,14 @@ export function PageHeader({
 }) {
   const embedded = useHubEmbed();
 
-  /* Inside hub the mosaic content-frame already owns the page title. */
+  /* Shell v2: keep real page heading; only trim duplicate chrome affordances via CSS if needed. */
   if (embedded) {
     return (
       <div className="moduleChrome">
+        <span className="eyebrow">{eyebrow}</span>
+        <h1 className="moduleChrome__title">{title}</h1>
         {description ? <p className="moduleChrome__desc">{description}</p> : null}
-        {actions ? <div className="moduleChrome__actions productHeaderActions">{actions}</div> : null}
+        {actions ? <div className="productHeaderActions">{actions}</div> : null}
       </div>
     );
   }
@@ -45,6 +47,7 @@ export function SectionCard({
   delayClass,
   className = "",
   tone = "default",
+  id,
 }: {
   title: string;
   badge?: ReactNode;
@@ -53,9 +56,11 @@ export function SectionCard({
   className?: string;
   /** quiet = secondary panels (reports) — lighter visual weight */
   tone?: "default" | "quiet";
+  id?: string;
 }) {
   return (
     <section
+      id={id}
       className={`sectionCard card animated sectionCard--${tone} ${delayClass ?? ""} ${className}`.trim()}
     >
       <div className="sectionCardHead">
@@ -104,8 +109,42 @@ export function StatusPill({
   return <span className={`statusPill tone-${tone}`}>{children}</span>;
 }
 
-export function EmptyHint({ children }: { children: ReactNode }) {
+export function EmptyHint({
+  children,
+  loading = false,
+}: {
+  children: ReactNode;
+  /** When true, render skeleton instead of empty copy. */
+  loading?: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="emptyHint emptyHint--loading" role="status" aria-live="polite" aria-busy="true">
+        <span className="visually-hidden">در حال بارگذاری…</span>
+        <span className="emptyHint__skeleton" aria-hidden />
+        <span className="emptyHint__skeleton emptyHint__skeleton--short" aria-hidden />
+      </div>
+    );
+  }
   return <p className="emptyHint">{children}</p>;
+}
+
+export function EmptyStateBlock({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="emptyStateBlock" role="status">
+      <strong>{title}</strong>
+      {description ? <p>{description}</p> : null}
+      {action ? <div className="emptyStateBlock__action">{action}</div> : null}
+    </div>
+  );
 }
 
 /** Short live status line — not a dashed empty state. */

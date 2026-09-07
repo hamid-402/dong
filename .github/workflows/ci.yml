@@ -34,6 +34,7 @@ jobs:
           fetch-depth: 0
 
       - name: secret scan
+        id: gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -50,7 +51,27 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: dependency audit (high+)
+        id: audit
         run: pnpm audit --audit-level=high
+
+      # Soft alert companion: hard-fail is preserved above (steps still fail the job).
+      # This only runs when an earlier step failed, to surface an explicit maintainer notice.
+      - name: security finding notice (audit/gitleaks)
+        if: failure()
+        run: |
+          gitleaks_outcome="${{ steps.gitleaks.outcome }}"
+          audit_outcome="${{ steps.audit.outcome }}"
+          if [ "$gitleaks_outcome" = "failure" ] || [ "$audit_outcome" = "failure" ]; then
+            echo "::warning title=Security finding::secret-scan or dependency audit failed — notify maintainers (gitleaks=$gitleaks_outcome, audit=$audit_outcome)"
+            {
+              echo "## ⚠️ Security finding — notify maintainers"
+              echo ""
+              echo "- gitleaks (secret scan): \`$gitleaks_outcome\`"
+              echo "- pnpm audit (high+): \`$audit_outcome\`"
+              echo ""
+              echo "Review the failing step logs above and triage before merge."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: migrate schema
         run: pnpm --filter @dang/db db:migrate
@@ -75,18 +96,55 @@ jobs:
 
       - name: license check (fail on AGPL/GPL-only)
         run: pnpm license:check
-        # Soft until Linux pnpm license map is allowlisted; script still runs for visibility.
-        continue-on-error: true
 
       - name: bundle size budget
         run: pnpm bundle:check
 
-      - name: a11y login smoke (skip if no Chrome)
-        continue-on-error: false
+      - name: view line budget (warn >800, fail >1600)
+        run: pnpm views:line-budget
+
+      - name: a11y smoke (Playwright Chromium)
         run: |
-          if command -v google-chrome >/dev/null 2>&1 || command -v chromium-browser >/dev/null 2>&1 || command -v chromium >/dev/null 2>&1; then
-            pnpm --filter @dang/web exec playwright install --with-deps chrome || true
-            PLAYWRIGHT_CHANNEL=chrome pnpm --filter @dang/web test:a11y
-          else
-            echo "a11y: no system Chrome/Chromium — skipping gracefully"
-          fi
+          pnpm --filter @dang/web exec playwright install chromium --with-deps
+          # Bundled Chromium — do not rely on system Chrome / PLAYWRIGHT_CHANNEL
+          unset PLAYWRIGHT_CHANNEL || true
+          pnpm --filter @dang/web test:a11y
+
+      - name: e2e smoke (auth pages)
+        run: |
+          unset PLAYWRIGHT_CHANNEL || true
+          # webServer in playwright.config starts next after build (from pnpm check)
+          pnpm --filter @dang/web exec playwright test e2e/login.spec.ts
+
+      - name: i18n scaffold key parity
+        run: node scripts/i18n-scaffold-check.mjs
+
+      - name: CI gate summary
+        if: always()
+        run: |
+          echo "## CI gates" >> "$GITHUB_STEP_SUMMARY"
+          echo "- secret-scan, audit, migrate, check, tests, coverage, license, bundle, a11y, e2e-login, i18n-scaffold" >> "$GITHUB_STEP_SUMMARY"
+
+  storybook:
+    name: storybook build (soft)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: build Storybook (@dang/ui)
+        run: pnpm --filter @dang/ui build-storybook
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: storybook-static
+          path: packages/ui/storybook-static
+          retention-days: 7

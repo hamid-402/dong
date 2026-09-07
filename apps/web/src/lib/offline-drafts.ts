@@ -1,3 +1,4 @@
+﻿import { newClientId } from "@/lib/id";
 export type OfflineExpenseDraft = {
   id: string;
   workspaceId: string;
@@ -40,7 +41,7 @@ export function saveOfflineExpenseDraft(
   draft: Omit<OfflineExpenseDraft, "id" | "updatedAt"> & { id?: string },
 ): OfflineExpenseDraft {
   const all = readAll();
-  const id = draft.id ?? crypto.randomUUID();
+  const id = draft.id ?? newClientId();
   const row: OfflineExpenseDraft = {
     ...draft,
     id,

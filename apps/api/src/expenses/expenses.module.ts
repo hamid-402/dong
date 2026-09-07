@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
 import { AuthModule } from "../auth/auth.module.js";
+import { createPersistenceStore } from "../common/postgres-store.factory.js";
 import { IamModule } from "../iam/iam.module.js";
 import { LedgerModule } from "../ledger/ledger.module.js";
 import { ProcurementModule } from "../procurement/procurement.module.js";
@@ -34,59 +35,36 @@ const logger = createLogger("dang-api-expenses");
 
 export function createExpenseStore(): ExpenseStore {
   const env = loadAppEnv();
-  if (!env.databaseUrl) {
-    logger.warn("DATABASE_URL unset; using in-memory expense store");
-    return new MemoryExpenseStore();
-  }
-
-  try {
-    logger.info("Using PostgreSQL expense store");
-    return PostgresExpenseStore.fromConnectionString(env.databaseUrl);
-  } catch (error: unknown) {
-    const detail = error instanceof Error ? error.message : "unknown";
-    logger.error("Failed to initialize PostgreSQL expense store; falling back to memory", {
-      detail,
-    });
-    return new MemoryExpenseStore();
-  }
+  return createPersistenceStore<ExpenseStore>({
+    name: "expense store",
+    databaseUrl: env.databaseUrl,
+    logger,
+    createPostgres: (url) => PostgresExpenseStore.fromConnectionString(url),
+    createMemory: () => new MemoryExpenseStore(),
+  });
 }
 
 function createWorkspaceDayStore(): WorkspaceDayStore {
   const env = loadAppEnv();
-  if (!env.databaseUrl) {
-    logger.warn("DATABASE_URL unset; using in-memory workspace day store");
-    return new MemoryWorkspaceDayStore();
-  }
-  try {
-    logger.info("Using PostgreSQL workspace day store");
-    return PostgresWorkspaceDayStore.fromConnectionString(env.databaseUrl);
-  } catch (error: unknown) {
-    const detail = error instanceof Error ? error.message : "unknown";
-    logger.error(
-      "Failed to initialize PostgreSQL workspace day store; falling back to memory",
-      { detail },
-    );
-    return new MemoryWorkspaceDayStore();
-  }
+  return createPersistenceStore<WorkspaceDayStore>({
+    name: "workspace day store",
+    databaseUrl: env.databaseUrl,
+    logger,
+    createPostgres: (url) => PostgresWorkspaceDayStore.fromConnectionString(url),
+    createMemory: () => new MemoryWorkspaceDayStore(),
+  });
 }
 
 function createWorkspaceRangeLockStore(): WorkspaceRangeLockStore {
   const env = loadAppEnv();
-  if (!env.databaseUrl) {
-    logger.warn("DATABASE_URL unset; using in-memory range lock store");
-    return new MemoryWorkspaceRangeLockStore();
-  }
-  try {
-    logger.info("Using PostgreSQL workspace range lock store");
-    return PostgresWorkspaceRangeLockStore.fromConnectionString(env.databaseUrl);
-  } catch (error: unknown) {
-    const detail = error instanceof Error ? error.message : "unknown";
-    logger.error(
-      "Failed to initialize PostgreSQL range lock store; falling back to memory",
-      { detail },
-    );
-    return new MemoryWorkspaceRangeLockStore();
-  }
+  return createPersistenceStore<WorkspaceRangeLockStore>({
+    name: "range lock store",
+    databaseUrl: env.databaseUrl,
+    logger,
+    createPostgres: (url) =>
+      PostgresWorkspaceRangeLockStore.fromConnectionString(url),
+    createMemory: () => new MemoryWorkspaceRangeLockStore(),
+  });
 }
 
 @Module({

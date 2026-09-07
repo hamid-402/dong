@@ -5,7 +5,8 @@ import { useState, useTransition } from "react";
 import { Button, TextField } from "@dang/ui";
 import { AuthAlert, AuthLinkRow, AuthShell } from "@/components/auth-shell";
 import { FormStack } from "@/components/ui-blocks";
-import { validateEmail } from "@/lib/auth-validation";
+import { validateEmail, normalizeEmail } from "@/lib/auth-validation";
+import { authErrorMessage } from "@/lib/api-errors";
 import { api } from "@/lib/api";
 
 export function ForgotPasswordView() {
@@ -17,7 +18,8 @@ export function ForgotPasswordView() {
 
   function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const validationError = validateEmail(email);
+    const normalizedEmail = normalizeEmail(email);
+    const validationError = validateEmail(normalizedEmail);
     if (validationError) {
       setError(validationError);
       setMessage(null);
@@ -26,12 +28,12 @@ export function ForgotPasswordView() {
     startTransition(() => {
       void (async () => {
         try {
-          const result = await api.forgotPassword(email);
+          const result = await api.forgotPassword(normalizedEmail);
           setMessage("اگر این ایمیل ثبت شده باشد، لینک بازیابی ارسال می‌شود.");
           setDebugUrl(result.debugResetUrl ?? null);
           setError(null);
         } catch (err: unknown) {
-          setError(err instanceof Error ? err.message : "خطا");
+          setError(authErrorMessage(err, "ارسال لینک ناموفق بود"));
           setMessage(null);
         }
       })();

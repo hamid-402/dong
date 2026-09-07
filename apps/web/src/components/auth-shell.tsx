@@ -42,20 +42,18 @@ const FEATURES = [
 const HEADER_NAV = [
   { href: "#features", label: "امکانات" },
   { href: "#security", label: "امنیت" },
-  { href: "/hub", label: "داشبورد" },
 ] as const;
 
+/** فقط مقصدهای عمومی — بدون لینک به صفحات نیازمند نشست. */
 const FOOTER_PRODUCT = [
-  { href: "/hub/finance", label: "مدیریت مالی" },
-  { href: "/hub/buy", label: "خرید و تأمین" },
-  { href: "/hub/~workspaces--partnership", label: "حساب شرکا" },
-  { href: "/hub/buy/~workspaces--assets", label: "تجهیزات" },
+  { href: "#features", label: "امکانات" },
+  { href: "#security", label: "امنیت و اعتماد" },
+  { href: "/register", label: "شروع با ثبت‌نام" },
 ] as const;
 
 const FOOTER_ACCOUNT = [
   { href: "/login", label: "ورود" },
   { href: "/register", label: "ثبت‌نام" },
-  { href: "/profile", label: "پروفایل" },
   { href: "/forgot-password", label: "فراموشی رمز" },
 ] as const;
 
@@ -218,6 +216,7 @@ function AuthSiteFooter() {
   const year = new Date().getFullYear();
   const { caps } = useAuthStatus();
   const healthUrl = `${API_PUBLIC_BASE.replace(/\/api\/v1\/?$/, "")}/api/v1/health/ready`;
+  const allowDev = Boolean(caps?.allowDevAuth);
 
   return (
     <footer className="authLayout__siteFooter">
@@ -265,9 +264,18 @@ function AuthSiteFooter() {
               <li>
                 <a href="mailto:support@dang.local">support@dang.local</a>
               </li>
-              <li>
-                <Link href="/hub/onboarding">راه‌اندازی اولیه</Link>
-              </li>
+              {allowDev ? (
+                <li>
+                  <Link
+                    href="/spaces/new"
+                    onClick={() => {
+                      markClientSession("dev");
+                    }}
+                  >
+                    حالت توسعه
+                  </Link>
+                </li>
+              ) : null}
               <li>
                 <a href={healthUrl} target="_blank" rel="noreferrer">
                   وضعیت سرویس (API)
@@ -344,7 +352,7 @@ function AuthShellFrame({
             ) : null}
           </aside>
 
-          <main className="authLayout__panel card animated">
+          <main className="authLayout__panel card animated" id="main" tabIndex={-1}>
             <header className="authLayout__panelHead">
               <PageTrailBar homeHref="/login" homeLabel="ورود" />
               <span className="eyebrow">{eyebrow}</span>
@@ -395,7 +403,7 @@ export function AuthDevLink() {
     <>
       <span aria-hidden>·</span>
       <Link
-        href="/hub/onboarding"
+        href="/spaces/new"
         className="authLayout__devLink"
         onClick={() => {
           markClientSession("dev");

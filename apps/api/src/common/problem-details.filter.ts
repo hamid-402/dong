@@ -71,9 +71,12 @@ export class ProblemDetailsFilter implements ExceptionFilter {
             : `https://dang.local/problems/http-${status}`;
       }
     } else if (exception instanceof Error) {
-      detail = exception.message;
+      const isProduction = process.env.NODE_ENV === "production";
+      detail = isProduction
+        ? "An unexpected error occurred"
+        : exception.message;
       logger.error("Unhandled exception", {
-        detail,
+        detail: exception.message,
         path: request.url ?? "",
       });
     }

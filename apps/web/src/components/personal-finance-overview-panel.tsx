@@ -1,4 +1,6 @@
-"use client";
+﻿"use client";
+
+import { newClientId } from "@/lib/id";
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
@@ -109,7 +111,7 @@ export function PersonalFinanceOverviewPanel() {
                       from,
                       to,
                       kind: "overview",
-                      idempotencyKey: crypto.randomUUID(),
+                      idempotencyKey: newClientId(),
                     });
                     if (!created.hasFile) {
                       setError(created.errorDetail || "فایل CSV آماده نشد");

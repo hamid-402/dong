@@ -6,15 +6,16 @@ import { useEffect, useState, useTransition } from "react";
 import { Button, TextField } from "@dang/ui";
 import { AuthAlert, AuthDevLink, AuthDivider, AuthLinkRow, AuthShell } from "@/components/auth-shell";
 import { FormStack } from "@/components/ui-blocks";
-import { validateEmail } from "@/lib/auth-validation";
+import { normalizeEmail, validateEmail } from "@/lib/auth-validation";
 import { authErrorMessage } from "@/lib/api-errors";
-import { api, setDevIdentity, markClientSession, api as apiClient } from "@/lib/api";
+import { api, api as apiClient, markClientSession } from "@/lib/api";
+import { completeClientAuth, safeAppPath } from "@/lib/auth-session";
 import { t } from "@/lib/i18n";
 
 export function LoginView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") ?? "/hub";
+  const nextPath = safeAppPath(searchParams.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
@@ -50,10 +51,9 @@ export function LoginView() {
         void (async () => {
           try {
             const result = await api.mfaVerify({ challengeId, code });
-            markClientSession("password");
-            setDevIdentity(result.actor.externalSubject, result.actor.displayName);
+            completeClientAuth("password", result.actor);
             setFormError(null);
-            router.push(nextPath);
+            router.replace(nextPath);
           } catch (err: unknown) {
             setFormError(authErrorMessage(err, "تأیید MFA ناموفق بود"));
           }
@@ -62,7 +62,8 @@ export function LoginView() {
       return;
     }
 
-    const nextEmailError = validateEmail(email);
+    const normalizedEmail = normalizeEmail(email);
+    const nextEmailError = validateEmail(normalizedEmail);
     const nextPasswordError = !password ? "رمز عبور را وارد کنید" : null;
     setEmailError(nextEmailError);
     setPasswordError(nextPasswordError);
@@ -73,7 +74,7 @@ export function LoginView() {
     startTransition(() => {
       void (async () => {
         try {
-          const result = await api.login({ email, password });
+          const result = await api.login({ email: normalizedEmail, password });
           if ("mfaRequired" in result && result.mfaRequired) {
             setChallengeId(result.challengeId);
             setFormError(null);
@@ -83,10 +84,9 @@ export function LoginView() {
             setFormError("ورود ناموفق بود");
             return;
           }
-          markClientSession("password");
-          setDevIdentity(result.actor.externalSubject, result.actor.displayName);
+          completeClientAuth("password", result.actor);
           setFormError(null);
-          router.push(nextPath);
+          router.replace(nextPath);
         } catch (err: unknown) {
           setFormError(authErrorMessage(err, "ورود ناموفق بود"));
         }
@@ -108,7 +108,7 @@ export function LoginView() {
       }
     >
       {formError ? <AuthAlert tone="error">{formError}</AuthAlert> : null}
-      <form onSubmit={onSubmit} className="authLayout__form">
+      <form onSubmit={onSubmit} className="authLayout__form" noValidate>
         <FormStack>
           {challengeId ? (
             <TextField
@@ -122,8 +122,7 @@ export function LoginView() {
                 setMfaError(null);
                 setFormError(null);
               }}
-              hint={mfaError ?? undefined}
-              aria-invalid={mfaError ? true : undefined}
+              error={mfaError ?? undefined}
               required
             />
           ) : (
@@ -140,8 +139,8 @@ export function LoginView() {
                   setEmailError(null);
                   setFormError(null);
                 }}
-                hint={emailError ?? undefined}
-                aria-invalid={emailError ? true : undefined}
+                hint="با ایمیل حساب وارد شوید (نام کاربری پذیرفته نمی‌شود)"
+                error={emailError ?? undefined}
                 required
               />
               <div className="authLayout__passwordRow">
@@ -156,8 +155,7 @@ export function LoginView() {
                     setPasswordError(null);
                     setFormError(null);
                   }}
-                  hint={passwordError ?? undefined}
-                  aria-invalid={passwordError ? true : undefined}
+                  error={passwordError ?? undefined}
                   required
                 />
                 <Link href="/forgot-password" className="authLayout__inlineLink">
@@ -201,6 +199,7 @@ export function LoginView() {
             disabled={pending}
             className="authLayout__ssoBtn"
             onClick={() => {
+              // Cookie gate only — real actor arrives after OIDC callback.
               markClientSession("oidc");
               window.location.href = apiClient.oidcLoginUrl();
             }}

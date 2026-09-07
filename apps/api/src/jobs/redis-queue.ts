@@ -151,27 +151,57 @@ export async function listDlqItems(limit = 50): Promise<DeadLetterJob[] | null> 
 }
 
 /**
- * Replay one dead-letter job: RPOP from DLQ, LPUSH back to main queue.
- * Returns the entry, or null if empty / Redis down.
+ * Replay one dead-letter job: remove from DLQ, LPUSH back to main queue.
+ * When `workspaceId` is set, only replay an entry whose job.workspaceId matches
+ * (or is missing — legacy / opaque payloads visible to owner/admin callers).
+ * Returns the entry, or null if empty / no match / Redis down.
  */
-export async function replayDlqJob(): Promise<DeadLetterJob | null> {
+export async function replayDlqJob(
+  workspaceId?: string,
+): Promise<DeadLetterJob | null> {
   const client = await getRedisClient();
   if (!client) return null;
   try {
-    const raw = await client.rpop(DANG_JOB_DLQ_KEY);
-    if (!raw) return null;
-    const entry = parseDeadLetter(raw);
-    if (!entry) {
-      // Malformed — do not re-queue; leave dropped (already popped).
-      return null;
+    if (!workspaceId) {
+      const raw = await client.rpop(DANG_JOB_DLQ_KEY);
+      if (!raw) return null;
+      const entry = parseDeadLetter(raw);
+      if (!entry) {
+        // Malformed — do not re-queue; leave dropped (already popped).
+        return null;
+      }
+      await client.lpush(DANG_JOB_QUEUE_KEY, JSON.stringify(entry.job));
+      return entry;
     }
-    await client.lpush(DANG_JOB_QUEUE_KEY, JSON.stringify(entry.job));
-    return entry;
+
+    const rawItems = await client.lrange(DANG_JOB_DLQ_KEY, 0, -1);
+    // RPOP order: scan from the right (tail).
+    for (let i = rawItems.length - 1; i >= 0; i -= 1) {
+      const raw = rawItems[i];
+      if (!raw) continue;
+      const entry = parseDeadLetter(raw);
+      if (!entry || !dlqEntryMatchesWorkspace(entry, workspaceId)) continue;
+      const removed = await client.lrem(DANG_JOB_DLQ_KEY, 1, raw);
+      if (removed === 0) continue;
+      await client.lpush(DANG_JOB_QUEUE_KEY, JSON.stringify(entry.job));
+      return entry;
+    }
+    return null;
   } catch {
     lastFailAt = Date.now();
     shared = null;
     return null;
   }
+}
+
+/** True when job.workspaceId matches, or payload has no workspaceId (legacy). */
+export function dlqEntryMatchesWorkspace(
+  entry: DeadLetterJob,
+  workspaceId: string,
+): boolean {
+  const jobWs = entry.job?.workspaceId;
+  if (jobWs == null || jobWs === "") return true;
+  return jobWs === workspaceId;
 }
 
 /** Mirror of worker push — useful for tests / ops tooling. */

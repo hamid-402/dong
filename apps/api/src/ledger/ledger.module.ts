@@ -2,6 +2,7 @@ import { Global, Module } from "@nestjs/common";
 import { loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
 import { AuthModule } from "../auth/auth.module.js";
+import { createPersistenceStore } from "../common/postgres-store.factory.js";
 import { LedgerController } from "./ledger.controller.js";
 import { LedgerService } from "./ledger.service.js";
 import { LEDGER_STORE, type LedgerStore } from "./ledger.types.js";
@@ -12,21 +13,13 @@ const logger = createLogger("dang-api-ledger");
 
 export function createLedgerStore(): LedgerStore {
   const env = loadAppEnv();
-  if (!env.databaseUrl) {
-    logger.warn("DATABASE_URL unset; using in-memory ledger store");
-    return new MemoryLedgerStore();
-  }
-
-  try {
-    logger.info("Using PostgreSQL ledger store");
-    return PostgresLedgerStore.fromConnectionString(env.databaseUrl);
-  } catch (error: unknown) {
-    const detail = error instanceof Error ? error.message : "unknown";
-    logger.error("Failed to initialize PostgreSQL ledger; falling back to memory", {
-      detail,
-    });
-    return new MemoryLedgerStore();
-  }
+  return createPersistenceStore<LedgerStore>({
+    name: "ledger store",
+    databaseUrl: env.databaseUrl,
+    logger,
+    createPostgres: (url) => PostgresLedgerStore.fromConnectionString(url),
+    createMemory: () => new MemoryLedgerStore(),
+  });
 }
 
 @Global()

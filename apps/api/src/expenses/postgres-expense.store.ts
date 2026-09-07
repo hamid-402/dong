@@ -13,10 +13,12 @@ import {
 import type { CreateExpenseDraftRequest, ExpenseItemSummary, ExpenseSummary } from "@dang/contracts";
 import {
   asSplitMethod,
+  assertCanMutateExpense,
   canActorViewExpense,
   toExpenseSummary,
   validateExpenseDraftInput,
   type ExpenseStore,
+  type ExpenseViewOptions,
   type StoredExpense,
 } from "./expense.types.js";
 
@@ -237,6 +239,7 @@ export class PostgresExpenseStore implements ExpenseStore {
   async listForWorkspace(
     workspaceId: string,
     actorUserId: string,
+    options?: ExpenseViewOptions,
   ): Promise<ExpenseSummary[]> {
     return withTenantContext(
       this.db,
@@ -250,10 +253,30 @@ export class PostgresExpenseStore implements ExpenseStore {
         const result: ExpenseSummary[] = [];
         for (const row of rows) {
           const stored = await this.loadExpense(tx, row.id, workspaceId);
-          if (!canActorViewExpense(stored, actorUserId)) continue;
+          if (!canActorViewExpense(stored, actorUserId, options)) continue;
           result.push(toExpenseSummary(stored));
         }
         return result;
+      },
+    );
+  }
+
+  async get(
+    workspaceId: string,
+    expenseId: string,
+    actorUserId: string,
+  ): Promise<StoredExpense | null> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const rows = await tx
+          .select()
+          .from(expense)
+          .where(and(eq(expense.id, expenseId), eq(expense.workspaceId, workspaceId)))
+          .limit(1);
+        if (!rows[0]) return null;
+        return this.loadExpense(tx, expenseId, workspaceId);
       },
     );
   }
@@ -262,33 +285,51 @@ export class PostgresExpenseStore implements ExpenseStore {
     workspaceId: string,
     expenseId: string,
     actorUserId: string,
+    options?: ExpenseViewOptions,
   ): Promise<StoredExpense> {
-    return this.updateStatus(workspaceId, expenseId, actorUserId, "submitted", [
-      "draft",
-    ]);
+    return this.updateStatus(
+      workspaceId,
+      expenseId,
+      actorUserId,
+      "submitted",
+      ["draft"],
+      "submit",
+      options,
+    );
   }
 
   async post(
     workspaceId: string,
     expenseId: string,
     actorUserId: string,
+    options?: ExpenseViewOptions,
   ): Promise<StoredExpense> {
-    return this.updateStatus(workspaceId, expenseId, actorUserId, "posted", [
-      "draft",
-      "submitted",
-    ]);
+    return this.updateStatus(
+      workspaceId,
+      expenseId,
+      actorUserId,
+      "posted",
+      ["draft", "submitted"],
+      "post",
+      options,
+    );
   }
 
   async reverse(
     workspaceId: string,
     expenseId: string,
     actorUserId: string,
+    options?: ExpenseViewOptions,
   ): Promise<StoredExpense> {
-    return this.updateStatus(workspaceId, expenseId, actorUserId, "reversed", [
-      "draft",
-      "submitted",
-      "posted",
-    ]);
+    return this.updateStatus(
+      workspaceId,
+      expenseId,
+      actorUserId,
+      "reversed",
+      ["draft", "submitted", "posted"],
+      "reverse",
+      options,
+    );
   }
 
   async updateVisibility(
@@ -296,11 +337,14 @@ export class PostgresExpenseStore implements ExpenseStore {
     expenseId: string,
     visibility: "shared" | "private" | "company",
     actorUserId: string,
+    options?: ExpenseViewOptions,
   ): Promise<StoredExpense> {
     return withTenantContext(
       this.db,
       { workspaceId, userId: actorUserId },
       async (tx) => {
+        const stored = await this.loadExpense(tx, expenseId, workspaceId);
+        assertCanMutateExpense(stored, actorUserId, "promote", options);
         const updated = await tx
           .update(expense)
           .set({
@@ -323,22 +367,16 @@ export class PostgresExpenseStore implements ExpenseStore {
     actorUserId: string,
     nextStatus: StoredExpense["status"],
     allowedFrom: StoredExpense["status"][],
+    action: "submit" | "post" | "reverse",
+    options?: ExpenseViewOptions,
   ): Promise<StoredExpense> {
     return withTenantContext(
       this.db,
       { workspaceId, userId: actorUserId },
       async (tx) => {
-        const existing = await tx
-          .select()
-          .from(expense)
-          .where(and(eq(expense.id, expenseId), eq(expense.workspaceId, workspaceId)))
-          .limit(1);
-
-        const row = existing[0];
-        if (!row) {
-          throw new Error("EXPENSE_NOT_FOUND");
-        }
-        if (!allowedFrom.includes(row.status)) {
+        const stored = await this.loadExpense(tx, expenseId, workspaceId);
+        assertCanMutateExpense(stored, actorUserId, action, options);
+        if (!allowedFrom.includes(stored.status)) {
           throw new Error("EXPENSE_STATUS");
         }
 

@@ -1,4 +1,6 @@
-"use client";
+﻿"use client";
+
+import { newClientId } from "@/lib/id";
 
 import { useEffect, useState, useTransition } from "react";
 import type {
@@ -93,7 +95,7 @@ export function WorkspaceReportsPanel({
             to,
             groupBy,
             format: "csv",
-            idempotencyKey: crypto.randomUUID(),
+            idempotencyKey: newClientId(),
           });
           if (!created.hasFile) {
             setError("فایل CSV آماده نشد");
@@ -144,7 +146,7 @@ export function WorkspaceReportsPanel({
             cadence: ruleCadence,
             nextRunOn: todayIso(),
             visibility: defaultVisibility,
-            idempotencyKey: crypto.randomUUID(),
+            idempotencyKey: newClientId(),
           });
           setRuleTitle("");
           setRuleToman("");

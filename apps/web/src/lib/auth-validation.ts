@@ -1,5 +1,9 @@
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 export function validateEmail(email: string): string | null {
-  const normalized = email.trim().toLowerCase();
+  const normalized = normalizeEmail(email);
   if (
     !normalized ||
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) ||

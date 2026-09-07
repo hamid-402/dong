@@ -49,3 +49,44 @@ test("processQueuedJobWithRetries succeeds without DLQ on first success", async 
   assert.equal(result, "ok");
   assert.equal(pushed.length, 0);
 });
+
+test("processQueuedJobWithRetries recovers on a later attempt (no DLQ)", async () => {
+  const pushed: DeadLetterJob[] = [];
+  let calls = 0;
+
+  // Fails on attempts 1 and 2, succeeds on attempt 3 — must NOT reach the DLQ.
+  const result = await processQueuedJobWithRetries(sampleJob, {
+    maxAttempts: 3,
+    process: async () => {
+      calls += 1;
+      if (calls < 3) {
+        throw new Error(`transient failure #${calls}`);
+      }
+      // third attempt succeeds
+    },
+    pushDlq: async (entry) => {
+      pushed.push(entry);
+      return true;
+    },
+  });
+
+  assert.equal(result, "ok");
+  assert.equal(calls, 3);
+  assert.equal(pushed.length, 0);
+});
+
+test("ledger.rebuild_balances completes with structured result", async () => {
+  const { processQueuedJob } = await import("./consumer.js");
+  const job: QueuedWorkerJob = {
+    jobId: "j-rebuild-1",
+    name: "ledger.rebuild_balances",
+    workspaceId: "ws-rebuild",
+    enqueuedAt: "2026-01-01T00:00:00.000Z",
+  };
+  const result = await processQueuedJob(job);
+  assert.ok(result);
+  assert.equal(result.ok, true);
+  assert.equal(result.workspaceId, "ws-rebuild");
+  assert.equal(result.result.action, "rebuild_balances");
+  assert.equal(result.result.mode, "local_ack");
+});

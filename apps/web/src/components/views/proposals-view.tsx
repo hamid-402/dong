@@ -1,4 +1,6 @@
-"use client";
+﻿"use client";
+
+import { newClientId } from "@/lib/id";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -140,7 +142,7 @@ export function ProposalsView() {
             title: name,
             description: description.trim() || undefined,
             estimatedAmount: tomanNum ?? undefined,
-            idempotencyKey: crypto.randomUUID(),
+            idempotencyKey: newClientId(),
           });
           setTitle("");
           setDescription("");

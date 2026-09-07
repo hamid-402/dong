@@ -140,6 +140,28 @@ export class PostgresSettlementStore implements SettlementStore {
     );
   }
 
+  async get(
+    workspaceId: string,
+    settlementId: string,
+    actorUserId: string,
+  ): Promise<StoredSettlement | null> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const rows = await tx
+          .select()
+          .from(settlement)
+          .where(
+            and(eq(settlement.id, settlementId), eq(settlement.workspaceId, workspaceId)),
+          )
+          .limit(1);
+        const row = rows[0];
+        return row ? mapSettlement(row) : null;
+      },
+    );
+  }
+
   private async transition(
     workspaceId: string,
     settlementId: string,

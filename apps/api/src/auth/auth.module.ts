@@ -7,6 +7,7 @@ import { ACCOUNT_STORE, type AccountStore } from "./account.types.js";
 import { AuthController } from "./auth.controller.js";
 import { AuthOidcController } from "./auth-oidc.controller.js";
 import { SessionAuthGuard } from "./auth.guard.js";
+import { createPersistenceStore } from "../common/postgres-store.factory.js";
 import { MailerService } from "./mailer.service.js";
 import { MemoryAccountStore } from "./memory-account.store.js";
 import { MfaService } from "./mfa.service.js";
@@ -17,20 +18,13 @@ const logger = createLogger("dang-api-account-store");
 
 function createAccountStore(): AccountStore {
   const env = loadAppEnv();
-  if (!env.databaseUrl) {
-    logger.warn("DATABASE_URL unset; using in-memory account store");
-    return new MemoryAccountStore();
-  }
-  try {
-    logger.info("Using PostgreSQL account store");
-    return PostgresAccountStore.fromConnectionString(env.databaseUrl);
-  } catch (error: unknown) {
-    const detail = error instanceof Error ? error.message : "unknown";
-    logger.error("Failed to initialize PostgreSQL account store; falling back to memory", {
-      detail,
-    });
-    return new MemoryAccountStore();
-  }
+  return createPersistenceStore<AccountStore>({
+    name: "account store",
+    databaseUrl: env.databaseUrl,
+    logger,
+    createPostgres: (url) => PostgresAccountStore.fromConnectionString(url),
+    createMemory: () => new MemoryAccountStore(),
+  });
 }
 
 @Module({

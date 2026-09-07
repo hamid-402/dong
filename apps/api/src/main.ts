@@ -83,13 +83,17 @@ async function bootstrap() {
   app.setGlobalPrefix("api/v1");
   app.enableShutdownHooks();
 
-  const openApiConfig = new DocumentBuilder()
-    .setTitle("Dang Hamkari API")
-    .setDescription("Contract for the Dang Hamkari operational ledger")
-    .setVersion("0.1.0")
-    .build();
-  const document = SwaggerModule.createDocument(app, openApiConfig);
-  SwaggerModule.setup("api/docs", app, document);
+  const swaggerEnabled =
+    env.nodeEnv !== "production" || process.env.DANG_SWAGGER === "1";
+  if (swaggerEnabled) {
+    const openApiConfig = new DocumentBuilder()
+      .setTitle("Dang Hamkari API")
+      .setDescription("Contract for the Dang Hamkari operational ledger")
+      .setVersion("0.1.0")
+      .build();
+    const document = SwaggerModule.createDocument(app, openApiConfig);
+    SwaggerModule.setup("api/docs", app, document);
+  }
 
   await app.listen(env.apiPort, "0.0.0.0");
   logger.info("API listening", {

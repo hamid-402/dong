@@ -176,3 +176,17 @@ Read-only دارد و در Storybook ثبت می‌شود.
 - خطای تقسیم سهم < 3٪
 - تشخیص درست بدهی ≥ 90٪
 - SUS ≥ 80
+
+## 11. قوانین اجرایی (dong-50)
+
+- حداقل هدف لمسی **۴۸×۴۸px** برای کنترل‌های تعاملی سفارشی (علاوه بر `Field` مرکزی).
+- خطا روی فیلد: فقط از prop `error` در `TextField`/`SelectField` (`aria-invalid` + `aria-describedby`).
+- بارگذاری ≠ خالی: `EmptyHint loading` / `Skeleton` در مقابل `EmptyState` با CTA.
+- مودال: فقط `Modal` مشترک (`focus-trap`، Escape، بازگشت فوکوس).
+- اعداد پول: `Amount` با `dir="ltr"` روی رقم.
+- آیکون جهت‌دار: کلاس `dirIconRtl dirIconRtl--flip`.
+- i18n: فعلاً تک‌زبانه فارسی — `docs/I18N.md`.
+
+## 12. بازبینی مسیرهای classic (IA)
+
+هر ۶ ماه مسیرهای redirect کلاسیک (`/workspaces`, `/hub`, …) با analytics واقعی بازبینی می‌شوند؛ بدون دادهٔ استفاده، حذف نمی‌شوند (سیاست additive). متریک هدف: نرخ تکمیل onboarding (قدم ۱→۴) وقتی رویدادنگاری محصول فعال شد.

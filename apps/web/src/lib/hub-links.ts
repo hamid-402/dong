@@ -1,7 +1,10 @@
-import { RAW_MENU_ITEMS } from "@/lib/app-navigation";
-import { routeToHubContentPath } from "@/lib/hub-nav-url";
-
-/** Resolve a classic app path to its mosaic hub URL. */
+/**
+ * Resolve product links to classic paths.
+ * Classic routes redirect to `/w/[slug]/…` (or /account, /spaces) via ClassicToWorkspaceRedirect.
+ * Keeps deep links shareable and avoids opaque `/hub/~…` URLs in the product chrome.
+ */
 export function hubPathFor(pathname: string): string {
-  return routeToHubContentPath(pathname, RAW_MENU_ITEMS);
+  let normalized = pathname.replace(/\/$/, "") || "/";
+  if (normalized === "/groups") normalized = "/group";
+  return normalized;
 }

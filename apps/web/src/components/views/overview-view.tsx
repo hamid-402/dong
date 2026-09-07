@@ -6,7 +6,6 @@ import { useEffect, useState, useTransition } from "react";
 import { spaceKindForTemplate } from "@dang/contracts";
 import { formatToman } from "@dang/ui";
 import { AppShell, ShellIconSvg } from "@/components/app-shell";
-import { useHubEmbed } from "@/components/mosaic/hub-embed";
 import {
   HeroBalance,
   PageHeader,
@@ -16,11 +15,13 @@ import {
 import { api, getDevIdentity, setDevIdentity } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
+import { wPath } from "@/lib/workspace-paths";
 import {
   expenseStatusLabel,
   needStatusLabel,
 } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { FlashMessages } from "@/lib/use-flash-message";
 
 function useAnimatedBalance(target: number, motionEnabled: boolean, ready: boolean) {
   const [mounted, setMounted] = useState(false);
@@ -62,11 +63,13 @@ function MobileExpensePreview({
   payerName,
   title,
   members,
+  financeHref,
 }: {
   amountLabel: string;
   payerName: string;
   title: string;
   members: string[];
+  financeHref: string;
 }) {
   return (
     <aside className="phoneWrap" aria-label="پیش‌نمایش فرم موبایل">
@@ -129,7 +132,7 @@ function MobileExpensePreview({
             </div>
             <Link
               className="primaryButton"
-              href={hubPathFor("/workspaces")}
+              href={financeHref}
               style={{ display: "grid", placeItems: "center", textDecoration: "none" }}
             >
               ادامه در مالی
@@ -162,13 +165,23 @@ type DashboardState = {
 
 export function OverviewView() {
   const router = useRouter();
-  const embedded = useHubEmbed();
   const chrome = useAppChrome();
   const [motionEnabled, setMotionEnabled] = useState(true);
   const [data, setData] = useState<DashboardState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [allowDemoSeed, setAllowDemoSeed] = useState(false);
   const [pending, startTransition] = useTransition();
   const balance = useAnimatedBalance(data?.balanceToman ?? 0, motionEnabled, Boolean(data));
+  const activeWs = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
+  const slug = activeWs?.slug ?? null;
+  const expensesHref = slug ? `${wPath(slug, "expenses")}#quick-expense` : hubPathFor("/workspaces");
+  const financeHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
+  const spaceHref = slug ? wPath(slug, "space") : hubPathFor("/group");
+  const ledgerHref = slug ? wPath(slug, "ledger") : hubPathFor("/daily-ledger");
+  const procurementHref = slug ? wPath(slug, "procurement") : hubPathFor("/workspaces/procurement");
+  const settlementsHref = slug
+    ? wPath(slug, "settlements")
+    : `${hubPathFor("/workspaces")}#settlement-panel`;
 
   function load() {
     startTransition(() => {
@@ -176,10 +189,12 @@ export function OverviewView() {
         try {
           const identity = getDevIdentity();
           setDevIdentity(identity.subject, identity.displayName);
-          const [session, workspaces] = await Promise.all([
+          const [session, workspaces, caps] = await Promise.all([
             api.session(),
             api.listWorkspaces(),
+            api.capabilities().catch(() => null),
           ]);
+          setAllowDemoSeed(Boolean(caps?.allowDevAuth));
           const list = workspaces;
           if (list.length === 0) {
             setError("فضای کاری ندارید — یک فضا بسازید یا از دعوت استفاده کنید.");
@@ -270,7 +285,6 @@ export function OverviewView() {
     load();
   }, [chrome.workspaceId]);
 
-  const activeWs = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const spaceKind = spaceKindForTemplate(activeWs?.template);
 
   return (
@@ -287,6 +301,7 @@ export function OverviewView() {
           payerName={data?.userName ?? "—"}
           title={data?.previewExpenseTitle ?? "—"}
           members={data?.memberNames ?? []}
+          financeHref={financeHref}
         />
       }
     >
@@ -300,99 +315,93 @@ export function OverviewView() {
         }
         actions={
           <>
-            {!embedded ? <time suppressHydrationWarning>{todayLabel || "—"}</time> : null}
+            <time suppressHydrationWarning>{todayLabel || "—"}</time>
             <button type="button" disabled={pending} onClick={load}>
               نوسازی
             </button>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                startTransition(() => {
-                  void (async () => {
-                    try {
-                      await api.seedDemo();
-                      load();
-                    } catch (err: unknown) {
-                      setError(err instanceof Error ? err.message : "خطای seed");
-                    }
-                  })();
-                });
-              }}
-            >
-              دادهٔ نمونه (دمو)
-            </button>
-            {!embedded ? (
-              <button type="button" onClick={() => setMotionEnabled((c) => !c)}>
-                {motionEnabled ? "توقف حرکت" : "فعال‌کردن حرکت"}
+            {allowDemoSeed ? (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  startTransition(() => {
+                    void (async () => {
+                      try {
+                        await api.seedDemo();
+                        load();
+                      } catch (err: unknown) {
+                        setError(err instanceof Error ? err.message : "خطای seed");
+                      }
+                    })();
+                  });
+                }}
+              >
+                دادهٔ نمونه (دمو)
               </button>
             ) : null}
+            <button type="button" onClick={() => setMotionEnabled((c) => !c)}>
+              {motionEnabled ? "توقف حرکت" : "فعال‌کردن حرکت"}
+            </button>
           </>
         }
       />
 
-      {error ? <p className="liveError">{error}</p> : null}
+      <FlashMessages error={error} />
 
-      {!embedded ? (
-        <div className="heroGrid">
-          <HeroBalance
-            label="مانده خالص شما"
-            amount={balance}
-            subtitle={(data?.balanceToman ?? 0) >= 0 ? "تومان طلب دارید" : "تومان بدهکارید"}
-            actionLabel="مشاهده جزئیات مالی"
-            onAction={() => router.push(hubPathFor("/workspaces"))}
-            hint={data ? data.persistence : "در حال بارگذاری…"}
-          />
-          <QuickAction
-            title={spaceKind === "personal" ? "خرج خصوصی" : "ثبت خرج"}
-            description={
-              spaceKind === "personal"
-                ? "ثبت در دفتر مالی من"
-                : "هزینه جدید را در کمتر از یک دقیقه ثبت کنید."
-            }
-            delayClass="delay1"
-            onClick={() =>
-              router.push(
-                spaceKind === "personal"
-                  ? hubPathFor("/me")
-                  : `${hubPathFor("/workspaces")}#expense-panel`,
-              )
-            }
-            icon={<ShellIconSvg name="receipt" />}
-          />
-          <QuickAction
-            title={
+      <div className="heroGrid">
+        <HeroBalance
+          label="مانده خالص شما"
+          amount={balance}
+          subtitle={(data?.balanceToman ?? 0) >= 0 ? "تومان طلب دارید" : "تومان بدهکارید"}
+          actionLabel="مشاهده جزئیات مالی"
+          onAction={() => router.push(financeHref)}
+          hint={data ? data.persistence : "در حال بارگذاری…"}
+        />
+        <QuickAction
+          title={spaceKind === "personal" ? "خرج خصوصی" : "ثبت خرج"}
+          description={
+            spaceKind === "personal"
+              ? "ثبت در دفتر مالی من"
+              : "خرج جدید را در کمتر از یک دقیقه ثبت کنید."
+          }
+          delayClass="delay1"
+          onClick={() =>
+            router.push(spaceKind === "personal" ? spaceHref : expensesHref)
+          }
+          icon={<ShellIconSvg name="receipt" />}
+        />
+        <QuickAction
+          title={
+            spaceKind === "org"
+              ? "تدارکات"
+              : spaceKind === "personal"
+                ? "فضا"
+                : "دفتر روزانه"
+          }
+          description={
+            spaceKind === "org"
+              ? "نیاز و خرید سازمانی"
+              : spaceKind === "personal"
+                ? "خانهٔ فضای شخصی"
+                : "جدول مصرف روز×عضو"
+          }
+          delayClass="delay2"
+          onClick={() =>
+            router.push(
               spaceKind === "org"
-                ? "تدارکات"
+                ? procurementHref
                 : spaceKind === "personal"
-                  ? "گروه‌ها"
-                  : "دفتر روزانه"
-            }
-            description={
-              spaceKind === "org"
-                ? "نیاز و خرید سازمانی"
-                : spaceKind === "personal"
-                  ? "رفتن به فضای گروهی"
-                  : "جدول مصرف روز×عضو"
-            }
-            delayClass="delay2"
-            onClick={() =>
-              router.push(
-                spaceKind === "org"
-                  ? hubPathFor("/workspaces/procurement")
-                  : spaceKind === "personal"
-                    ? hubPathFor("/group")
-                    : hubPathFor("/daily-ledger"),
-              )
-            }
-            icon={
-              <ShellIconSvg
-                name={spaceKind === "org" ? "cart" : spaceKind === "personal" ? "partners" : "receipt"}
-              />
-            }
-          />
-        </div>
-      ) : null}
+                  ? spaceHref
+                  : ledgerHref,
+            )
+          }
+          icon={
+            <ShellIconSvg
+              name={spaceKind === "org" ? "cart" : spaceKind === "personal" ? "partners" : "receipt"}
+            />
+          }
+        />
+      </div>
 
       <div className="lowerGrid">
         <PanelList
@@ -410,10 +419,10 @@ export function OverviewView() {
               onClick={() =>
                 router.push(
                   spaceKind === "org"
-                    ? hubPathFor("/workspaces/procurement")
+                    ? procurementHref
                     : spaceKind === "personal"
-                      ? hubPathFor("/me")
-                      : hubPathFor("/daily-ledger"),
+                      ? spaceHref
+                      : ledgerHref,
                 )
               }
             >
@@ -515,7 +524,7 @@ export function OverviewView() {
               </>
             )}
           </div>
-          <button className="textButton" type="button" onClick={() => router.push(hubPathFor("/workspaces"))}>
+          <button className="textButton" type="button" onClick={() => router.push(settlementsHref)}>
             مشاهده همه فعالیت‌ها ←
           </button>
         </section>

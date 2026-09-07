@@ -1,43 +1,23 @@
 "use client";
 
-import { Suspense, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
-import { MosaicLayout } from "@/components/mosaic/mosaic-layout";
-import { MosaicNavProvider } from "@/components/mosaic/mosaic-nav-context";
-import { HubShell } from "@/components/mosaic/hub-shell";
-import { markClientSession } from "@/lib/api";
-import { useAppChrome } from "@/lib/use-app-chrome";
-import { buildNavForTemplate } from "@/lib/workspace-modules";
+import { useParams } from "next/navigation";
+import { ClassicToWorkspaceRedirect } from "@/components/shell/classic-to-workspace-redirect";
+import { parseHubLocation } from "@/lib/hub-nav-url";
+import { classicPathToWorkspacePage } from "@/lib/workspace-paths";
 
-function HubOidcCallback() {
-  const params = useSearchParams();
-  useEffect(() => {
-    if (params.get("login") === "ok") {
-      markClientSession("oidc");
-    }
-  }, [params]);
-  return null;
-}
-
-function HubNavTree() {
-  const chrome = useAppChrome();
-  const template = chrome.workspaces.find((w) => w.id === chrome.workspaceId)?.template;
-  const rootNodes = useMemo(() => buildNavForTemplate(template), [template]);
-
-  return (
-    <MosaicNavProvider rootNodes={rootNodes}>
-      <HubShell />
-    </MosaicNavProvider>
-  );
-}
-
+/** `/hub` and nested mosaic URLs land on the readable `/w/[slug]` IA. */
 export default function HubPage() {
-  return (
-    <MosaicLayout>
-      <Suspense fallback={null}>
-        <HubOidcCallback />
-      </Suspense>
-      <HubNavTree />
-    </MosaicLayout>
-  );
+  const params = useParams<{ slug?: string[] }>();
+  const splat = Array.isArray(params.slug) ? params.slug.join("/") : "";
+  const { contentRoute, groupKeys } = parseHubLocation(splat);
+
+  let page = classicPathToWorkspacePage(contentRoute ?? "") ?? null;
+  if (!page && groupKeys.includes("finance")) page = "expenses";
+  if (!page && groupKeys.includes("buy")) page = "procurement";
+  if (!page && groupKeys.includes("spaces")) page = "space";
+  if (!page && groupKeys.includes("manage")) page = "account";
+  if (!page && !contentRoute && groupKeys.length === 0) page = "home";
+  if (!page) page = "home";
+
+  return <ClassicToWorkspaceRedirect page={page} />;
 }

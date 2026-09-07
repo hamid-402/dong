@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
 import { AuthModule } from "../auth/auth.module.js";
+import { createPersistenceStore } from "../common/postgres-store.factory.js";
 import { IamModule } from "../iam/iam.module.js";
 import { MemoryPartnershipStore } from "./memory-partnership.store.js";
 import { PartnershipController } from "./partnership.controller.js";
@@ -13,20 +14,13 @@ const logger = createLogger("dang-api-partnership");
 
 export function createPartnershipStore(): PartnershipStore {
   const env = loadAppEnv();
-  if (!env.databaseUrl) {
-    logger.warn("DATABASE_URL unset; using in-memory partnership store");
-    return new MemoryPartnershipStore();
-  }
-  try {
-    logger.info("Using PostgreSQL partnership store");
-    return PostgresPartnershipStore.fromConnectionString(env.databaseUrl);
-  } catch (error: unknown) {
-    const detail = error instanceof Error ? error.message : "unknown";
-    logger.error("Failed to initialize PostgreSQL partnership store; falling back to memory", {
-      detail,
-    });
-    return new MemoryPartnershipStore();
-  }
+  return createPersistenceStore<PartnershipStore>({
+    name: "partnership store",
+    databaseUrl: env.databaseUrl,
+    logger,
+    createPostgres: (url) => PostgresPartnershipStore.fromConnectionString(url),
+    createMemory: () => new MemoryPartnershipStore(),
+  });
 }
 
 @Module({

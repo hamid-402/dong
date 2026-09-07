@@ -8,6 +8,7 @@ import {
   aggregateExpenseSpendInRange,
   defaultDashboardDateRange,
   irrMoney,
+  isFinanceManagerRole,
   spaceKindForTemplate,
   sumActorExpensesInRange,
   zeroIrr,
@@ -58,12 +59,15 @@ export class DashboardService {
 
     const { from, to } = this.resolveRange(fromRaw, toRaw);
 
-    const [expenses, settlementRows, notificationRows, members, balanceSnapshot] =
+    const members = (await this.iam.listMembers(workspaceId, actor.userId)) ?? [];
+    const myRole = members.find((m) => m.userId === actor.userId)?.role;
+    const [expenses, settlementRows, notificationRows, balanceSnapshot] =
       await Promise.all([
-        this.expenses.listForWorkspace(workspaceId, actor.userId),
+        this.expenses.listForWorkspace(workspaceId, actor.userId, {
+          viewAllPrivate: isFinanceManagerRole(myRole),
+        }),
         this.settlements.listForWorkspace(workspaceId, actor.userId),
         this.notifications.listForUser(workspaceId, actor.userId),
-        this.iam.listMembers(workspaceId, actor.userId),
         this.balances.getProvisional(actor, workspaceId),
       ]);
 

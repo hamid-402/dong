@@ -22,13 +22,13 @@
     "test": "pnpm --filter @dang/contracts test && pnpm --filter @dang/db test && pnpm --filter @dang/api test && pnpm --filter @dang/worker test && pnpm --filter @dang/observability test && pnpm --filter @dang/web test",
     "test:a11y": "pnpm --filter @dang/web test:a11y",
     "bundle:check": "node scripts/check-bundle-budget.mjs",
+    "views:line-budget": "node scripts/view-line-budget.mjs",
     "license:check": "node scripts/license-check.mjs",
     "test:coverage": "pnpm --filter @dang/contracts test:coverage-check",
     "test:e2e": "pnpm --filter @dang/web test:e2e",
+    "smoke:health": "node scripts/smoke-health.mjs",
+    "i18n:check": "node scripts/i18n-scaffold-check.mjs",
     "prepare": "husky"
-  },
-  "lint-staged": {
-    "*.{ts,tsx}": ["eslint --fix --max-warnings=0 --no-warn-ignored"]
   },
   "devDependencies": {
     "eslint": "^9.39.5",

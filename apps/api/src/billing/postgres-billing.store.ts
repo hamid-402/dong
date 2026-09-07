@@ -348,7 +348,7 @@ export class PostgresBillingStore implements BillingStore {
   ): Promise<MemberInvoiceSummary> {
     return this.transitionInvoice(workspaceId, invoiceId, actorUserId, "issued", {
       requireOwner: false,
-      from: ["approved", "pending_approval"],
+      from: ["approved", "pending_approval", "draft"],
       issuedAt: true,
     });
   }

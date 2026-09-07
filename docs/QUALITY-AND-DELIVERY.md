@@ -1,5 +1,7 @@
 # کیفیت، تست و تحویل
 
+> **Honesty note:** بخش‌هایی از این سند (به‌ویژه CD، Canary، DAST، SBOM امضا‌شده، Preview ephemeral و SLO عملیاتی) **هدف/aspirational** هستند. آنچه امروز در CI و عملیات واقعاً اجرا می‌شود در [`STATUS.md`](./STATUS.md) و `.github/workflows/ci.yml` است — آنجا را منبع حقیقت جاری بدانید.
+
 ## 1. قواعد Repository
 
 - Branch Protection و Pull Request اجباری

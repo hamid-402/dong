@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useHubEmbed } from "@/components/mosaic/hub-embed";
+import { useShellV2 } from "@/components/shell/shell-v2-context";
 import { NotificationBell } from "@/components/notification-bell";
 import { PageTrailBar } from "@/components/page-trail-bar";
 import { useOptionalAppChrome } from "@/lib/use-app-chrome";
 import { classicNavForTemplate, type HubTab } from "@/lib/workspace-modules";
 import { hubPathFor } from "@/lib/hub-links";
+import { NAV_LABELS } from "@/lib/nav-labels";
 
 export type ShellIcon =
   | "home"
@@ -23,12 +25,12 @@ export type ShellIcon =
 
 /** Fallback when AppChrome is absent — same tree roots as mosaic RAW_MENU_ITEMS. */
 const FALLBACK_NAV: HubTab[] = [
-  { key: "home", path: "/hub", label: "خانه", icon: "home" },
-  { key: "spaces", path: "/hub/spaces", label: "فضاها", icon: "home" },
-  { key: "finance", path: "/hub/finance", label: "خرج‌ها و تسویه", icon: "wallet" },
-  { key: "buy", path: "/hub/buy", label: "خرید", icon: "cart" },
-  { key: "partners", path: hubPathFor("/workspaces/partnership"), label: "شرکا", icon: "partners" },
-  { key: "manage", path: "/hub/manage", label: "مدیریت", icon: "settings" },
+  { key: "home", path: "/hub", label: NAV_LABELS.home, icon: "home" },
+  { key: "spaces", path: "/hub/spaces", label: NAV_LABELS.spacesList, icon: "home" },
+  { key: "finance", path: "/hub/finance", label: NAV_LABELS.expenses, icon: "wallet" },
+  { key: "buy", path: "/hub/buy", label: NAV_LABELS.sectionBuy, icon: "cart" },
+  { key: "partners", path: hubPathFor("/workspaces/partnership"), label: NAV_LABELS.partners, icon: "partners" },
+  { key: "manage", path: "/hub/manage", label: NAV_LABELS.account, icon: "settings" },
 ];
 
 export function ShellIconSvg({ name }: { name: ShellIcon }) {
@@ -148,11 +150,13 @@ export function AppShell({
   notificationUnreadCount?: number;
 }) {
   const embedded = useHubEmbed();
+  const inShellV2 = useShellV2();
   const pathname = usePathname();
   const router = useRouter();
   const nav = useShellNav();
 
-  if (embedded) {
+  /* Inside hub embed or unified Shell V2 — no second chrome. */
+  if (embedded || inShellV2) {
     return <div className={motionOff ? "hub-embed motionOff" : "hub-embed"}>{children}</div>;
   }
 

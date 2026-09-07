@@ -5,6 +5,7 @@ const AUTH_MESSAGES: Record<number, string> = {
   403: "دسترسی مجاز نیست",
   409: "این ایمیل قبلاً ثبت شده است",
   429: "درخواست زیاد — چند لحظه بعد دوباره تلاش کنید",
+  503: "ارتباط با سرور API قطع است — چند لحظه بعد دوباره تلاش کنید",
 };
 
 const UPLOAD_MESSAGES: Record<number, string> = {

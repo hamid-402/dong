@@ -4,7 +4,7 @@ import { createContext, useContext, type ReactNode } from "react";
 
 const HubEmbedContext = createContext(false);
 
-/** When true, AppShell renders children only (no sidebar chrome). */
+/** When true, child views are inside product shell (AppShellV2) — keep titles, avoid double app chrome. */
 export function HubEmbedProvider({ children }: { children: ReactNode }) {
   return <HubEmbedContext.Provider value={true}>{children}</HubEmbedContext.Provider>;
 }

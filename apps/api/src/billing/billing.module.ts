@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
 import { AuthModule } from "../auth/auth.module.js";
+import { createPersistenceStore } from "../common/postgres-store.factory.js";
 import { ExpensesModule } from "../expenses/expenses.module.js";
 import { EXPENSE_STORE, type ExpenseStore } from "../expenses/expense.types.js";
 import { BillingController } from "./billing.controller.js";
@@ -14,20 +15,13 @@ const logger = createLogger("dang-api-billing");
 
 function buildBillingStore(expenses: ExpenseStore): BillingStore {
   const env = loadAppEnv();
-  if (!env.databaseUrl) {
-    logger.warn("DATABASE_URL unset; using in-memory billing store");
-    return new MemoryBillingStore(expenses);
-  }
-  try {
-    logger.info("Using PostgreSQL billing store");
-    return PostgresBillingStore.fromConnectionString(env.databaseUrl);
-  } catch (error: unknown) {
-    const detail = error instanceof Error ? error.message : "unknown";
-    logger.error("Failed to initialize PostgreSQL billing store; falling back to memory", {
-      detail,
-    });
-    return new MemoryBillingStore(expenses);
-  }
+  return createPersistenceStore<BillingStore>({
+    name: "billing store",
+    databaseUrl: env.databaseUrl,
+    logger,
+    createPostgres: (url) => PostgresBillingStore.fromConnectionString(url),
+    createMemory: () => new MemoryBillingStore(expenses),
+  });
 }
 
 @Module({

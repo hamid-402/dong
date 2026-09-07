@@ -5,8 +5,9 @@ import {
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
-import { isOidcConfigured, loadAppEnv } from "@dang/config";
+import { isOidcConfigured, isRedisConfigured, loadAppEnv } from "@dang/config";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { getRedisClient } from "../jobs/redis-queue.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { ACCOUNT_STORE, type AccountStore } from "./account.types.js";
 import { newOpaqueToken } from "./password.js";
@@ -18,6 +19,15 @@ type OidcDiscovery = {
   userinfo_endpoint?: string;
 };
 
+type OidcPendingState = {
+  codeVerifier: string;
+  expiresAt: number;
+};
+
+const OIDC_STATE_REDIS_PREFIX = "oidc:state:";
+const OIDC_STATE_TTL_MS = 10 * 60 * 1000;
+const OIDC_STATE_TTL_SEC = Math.floor(OIDC_STATE_TTL_MS / 1000);
+
 function sha256Url(input: string): string {
   return createHash("sha256").update(input).digest("base64url");
 }
@@ -25,10 +35,8 @@ function sha256Url(input: string): string {
 @Injectable()
 export class OidcService {
   private discoveryCache: { issuer: string; doc: OidcDiscovery } | null = null;
-  private readonly pendingStates = new Map<
-    string,
-    { codeVerifier: string; expiresAt: number }
-  >();
+  /** In-process fallback when Redis is not configured or unavailable. */
+  private readonly pendingStates = new Map<string, OidcPendingState>();
 
   constructor(
     @Inject(ACCOUNT_STORE) private readonly accounts: AccountStore,
@@ -52,9 +60,9 @@ export class OidcService {
     const discovery = await this.discover(env.oidcIssuerUrl!);
     const state = newOpaqueToken(16);
     const codeVerifier = newOpaqueToken(48);
-    this.pendingStates.set(state, {
+    await this.savePendingState(state, {
       codeVerifier,
-      expiresAt: Date.now() + 10 * 60 * 1000,
+      expiresAt: Date.now() + OIDC_STATE_TTL_MS,
     });
     const redirectUri = `${env.apiBaseUrl.replace(/\/$/, "")}/auth/oidc/callback`;
     const url = new URL(discovery.authorization_endpoint);
@@ -80,8 +88,7 @@ export class OidcService {
         status: 400,
       });
     }
-    const pending = this.pendingStates.get(state);
-    this.pendingStates.delete(state);
+    const pending = await this.consumePendingState(state);
     if (!pending || pending.expiresAt < Date.now()) {
       throw new UnauthorizedException({
         type: "https://dang.local/problems/auth",
@@ -181,5 +188,76 @@ export class OidcService {
     const doc = (await res.json()) as OidcDiscovery;
     this.discoveryCache = { issuer, doc };
     return doc;
+  }
+
+  /**
+   * Prefer Redis + TTL when available; fall back to in-process Map (dev / Redis down).
+   */
+  private async savePendingState(
+    state: string,
+    pending: OidcPendingState,
+  ): Promise<void> {
+    if (isRedisConfigured(loadAppEnv())) {
+      const redis = await getRedisClient();
+      if (redis) {
+        try {
+          await redis.set(
+            `${OIDC_STATE_REDIS_PREFIX}${state}`,
+            JSON.stringify({ codeVerifier: pending.codeVerifier }),
+            "EX",
+            OIDC_STATE_TTL_SEC,
+          );
+          return;
+        } catch {
+          /* fall through to Map */
+        }
+      }
+    }
+    this.prunePendingStates();
+    this.pendingStates.set(state, pending);
+  }
+
+  private async consumePendingState(
+    state: string,
+  ): Promise<OidcPendingState | null> {
+    if (isRedisConfigured(loadAppEnv())) {
+      const redis = await getRedisClient();
+      if (redis) {
+        try {
+          const key = `${OIDC_STATE_REDIS_PREFIX}${state}`;
+          const raw =
+            typeof redis.getdel === "function"
+              ? await redis.getdel(key)
+              : await (async () => {
+                  const value = await redis.get(key);
+                  if (value) await redis.del(key);
+                  return value;
+                })();
+          if (raw) {
+            const parsed = JSON.parse(raw) as { codeVerifier?: string };
+            if (typeof parsed.codeVerifier === "string" && parsed.codeVerifier) {
+              return {
+                codeVerifier: parsed.codeVerifier,
+                expiresAt: Date.now() + OIDC_STATE_TTL_MS,
+              };
+            }
+          }
+        } catch {
+          /* fall through to Map */
+        }
+      }
+    }
+
+    this.prunePendingStates();
+    const local = this.pendingStates.get(state) ?? null;
+    this.pendingStates.delete(state);
+    return local;
+  }
+
+  private prunePendingStates(): void {
+    const now = Date.now();
+    for (const [id, pending] of this.pendingStates) {
+      if (pending.expiresAt <= now) this.pendingStates.delete(id);
+    }
   }
 }

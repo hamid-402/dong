@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assertIrrMoney, tomanInputToIrrMinor } from "./irr-money";
+import { formatToman } from "@dang/ui";
 
 describe("tomanInputToIrrMinor", () => {
   it("converts positive toman to IRR minor (×10)", () => {
@@ -32,5 +33,15 @@ describe("assertIrrMoney", () => {
     expect(assertIrrMoney({ amountMinor: "10", currency: "USD" as "IRR" })).toBe(
       false,
     );
+  });
+});
+
+describe("formatToman (from @dang/ui)", () => {
+  it("produces fa-IR digits; LTR wrapper is an Amount concern not the format string", () => {
+    const s = formatToman(1_250_000);
+    expect(s).toMatch(/[۰-۹]/);
+    expect(s).not.toMatch(/[0-9]/);
+    // Plain format string has no dir attribute — Amount component adds dir="ltr".
+    expect(s.includes("dir=")).toBe(false);
   });
 });

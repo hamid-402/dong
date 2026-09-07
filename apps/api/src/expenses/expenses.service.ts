@@ -9,7 +9,9 @@ import type {
   AuthActor,
   CreateExpenseDraftRequest,
   ExpenseSummary,
+  MembershipRole,
 } from "@dang/contracts";
+import { isReadOnlyRole } from "@dang/contracts";
 import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
 import { IdempotencyService } from "../common/idempotency.service.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
@@ -19,6 +21,7 @@ import {
   PROCUREMENT_STORE,
   type ProcurementStore,
 } from "../procurement/procurement.types.js";
+import { resolveExpenseListOptions } from "./expense-list-options.js";
 import {
   EXPENSE_STORE,
   toExpenseSummary,
@@ -45,7 +48,15 @@ export class ExpensesService {
     workspaceId: string,
     body: CreateExpenseDraftRequest,
   ): Promise<ExpenseSummary> {
-    await this.requireMember(workspaceId, actor.userId);
+    const role = await this.requireMemberRole(workspaceId, actor.userId);
+    if (isReadOnlyRole(role)) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "نقش ناظر فقط خواندنی است",
+        status: 403,
+        detail: "Auditor cannot create expense drafts",
+      });
+    }
 
     const payload: CreateExpenseDraftRequest = {
       ...body,
@@ -109,19 +120,26 @@ export class ExpensesService {
   ): Promise<ExpenseSummary> {
     await this.requireMember(workspaceId, actor.userId);
     try {
-      const members = await this.iam.listMembers(workspaceId, actor.userId);
-      const me = members?.find((m) => m.userId === actor.userId);
-      const listed = await this.expenses.listForWorkspace(workspaceId, actor.userId);
+      const { viewAllPrivate, role } = await resolveExpenseListOptions(
+        this.iam,
+        workspaceId,
+        actor.userId,
+      );
+      const listed = await this.expenses.listForWorkspace(workspaceId, actor.userId, {
+        viewAllPrivate,
+      });
       const current = listed.find((e) => e.id === expenseId);
       if (!current) throw new Error("EXPENSE_NOT_FOUND");
       if (current.visibility === "company") {
-        if (!me || !COMPANY_POST_ROLES.has(me.role)) {
+        if (!role || !COMPANY_POST_ROLES.has(role)) {
           throw new ForbiddenException({
             detail: "ثبت نهایی خرج شرکتی فقط با نقش تأییدکننده/مدیر مجاز است",
           });
         }
       }
-      const updated = await this.expenses.post(workspaceId, expenseId, actor.userId);
+      const updated = await this.expenses.post(workspaceId, expenseId, actor.userId, {
+        viewAllPrivate,
+      });
       const summary = toExpenseSummary(updated);
       const journal = await this.ledger.postExpense(actor.userId, summary);
       if (summary.visibility === "company") {
@@ -164,11 +182,20 @@ export class ExpensesService {
   ): Promise<ExpenseSummary> {
     await this.requireMember(workspaceId, actor.userId);
     try {
-      const listed = await this.expenses.listForWorkspace(workspaceId, actor.userId);
+      const { viewAllPrivate } = await resolveExpenseListOptions(
+        this.iam,
+        workspaceId,
+        actor.userId,
+      );
+      const listed = await this.expenses.listForWorkspace(workspaceId, actor.userId, {
+        viewAllPrivate,
+      });
       const current = listed.find((e) => e.id === expenseId);
       if (!current) throw new Error("EXPENSE_NOT_FOUND");
       if (current.status === "reversed") throw new Error("EXPENSE_STATUS");
-      const updated = await this.expenses.reverse(workspaceId, expenseId, actor.userId);
+      const updated = await this.expenses.reverse(workspaceId, expenseId, actor.userId, {
+        viewAllPrivate,
+      });
       if (current.status === "posted") {
         await this.ledger.reverseExpense(workspaceId, actor.userId, expenseId);
       }
@@ -193,14 +220,19 @@ export class ExpensesService {
     expenseId: string,
   ): Promise<ExpenseSummary> {
     await this.requireMember(workspaceId, actor.userId);
-    const members = await this.iam.listMembers(workspaceId, actor.userId);
-    const me = members?.find((m) => m.userId === actor.userId);
-    if (!me || !COMPANY_POST_ROLES.has(me.role)) {
+    const { viewAllPrivate, role } = await resolveExpenseListOptions(
+      this.iam,
+      workspaceId,
+      actor.userId,
+    );
+    if (!role || !COMPANY_POST_ROLES.has(role)) {
       throw new ForbiddenException({
         detail: "تبدیل به خرج شرکتی فقط برای تأییدکننده/مدیر مجاز است",
       });
     }
-    const listed = await this.expenses.listForWorkspace(workspaceId, actor.userId);
+    const listed = await this.expenses.listForWorkspace(workspaceId, actor.userId, {
+      viewAllPrivate,
+    });
     const current = listed.find((e) => e.id === expenseId);
     if (!current) throw new NotFoundException({ detail: "خرج پیدا نشد" });
     if (current.visibility !== "private") {
@@ -212,10 +244,10 @@ export class ExpensesService {
         expenseId: string,
         visibility: "company",
         actorUserId: string,
+        options?: { viewAllPrivate?: boolean },
       ) => Promise<StoredExpense>;
     };
     if (!store.updateVisibility) {
-      // Fallback: recreate path not available — mark via memory/postgres helper below
       throw new BadRequestException({ detail: "به‌روزرسانی visibility در این store فعال نیست" });
     }
     const updated = await store.updateVisibility(
@@ -223,6 +255,7 @@ export class ExpensesService {
       expenseId,
       "company",
       actor.userId,
+      { viewAllPrivate },
     );
     await this.audit.append({
       workspaceId,
@@ -238,18 +271,34 @@ export class ExpensesService {
 
   async list(actor: AuthActor, workspaceId: string): Promise<ExpenseSummary[]> {
     await this.requireMember(workspaceId, actor.userId);
-    return this.expenses.listForWorkspace(workspaceId, actor.userId);
+    const { viewAllPrivate } = await resolveExpenseListOptions(
+      this.iam,
+      workspaceId,
+      actor.userId,
+    );
+    return this.expenses.listForWorkspace(workspaceId, actor.userId, {
+      viewAllPrivate,
+    });
   }
 
-  private async requireMember(workspaceId: string, userId: string): Promise<void> {
-    const membership = await this.iam.getWorkspaceForUser(workspaceId, userId);
-    if (!membership) {
+  private async requireMemberRole(
+    workspaceId: string,
+    userId: string,
+  ): Promise<MembershipRole> {
+    const members = (await this.iam.listMembers(workspaceId, userId)) ?? [];
+    const me = members.find((m) => m.userId === userId);
+    if (!me) {
       throw new ForbiddenException({
         type: "https://dang.local/problems/forbidden",
         title: "Not a workspace member",
         status: 403,
       });
     }
+    return me.role;
+  }
+
+  private async requireMember(workspaceId: string, userId: string): Promise<void> {
+    await this.requireMemberRole(workspaceId, userId);
   }
 
   private rethrowLifecycle(error: unknown): never {
@@ -258,6 +307,14 @@ export class ExpensesService {
         type: "https://dang.local/problems/not-found",
         title: "Expense not found",
         status: 404,
+      });
+    }
+    if (error instanceof Error && error.message === "EXPENSE_FORBIDDEN") {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "Expense action not allowed",
+        status: 403,
+        detail: "You cannot mutate this expense",
       });
     }
     if (error instanceof Error && error.message === "EXPENSE_STATUS") {

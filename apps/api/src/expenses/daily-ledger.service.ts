@@ -23,6 +23,7 @@ import {
   type WorkspaceRangeLockSummary,
 } from "@dang/contracts";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { resolveExpenseListOptions } from "./expense-list-options.js";
 import { EXPENSE_STORE, type ExpenseStore } from "./expense.types.js";
 import { ExpensesService } from "./expenses.service.js";
 import {
@@ -270,7 +271,7 @@ export class DailyLedgerService {
       throw new BadRequestException({ detail: "idempotencyKey لازم است" });
     }
 
-    const listed = await this.expenses.listForWorkspace(workspaceId, actor.userId);
+    const listed = await this.listVisibleExpenses(workspaceId, actor.userId);
     const current = listed.find((e) => e.id === expenseId && e.status !== "reversed");
     if (!current) throw new NotFoundException({ detail: "قلم پیدا نشد" });
 
@@ -325,7 +326,7 @@ export class DailyLedgerService {
     expenseId: string,
   ): Promise<DailyLedgerResponse> {
     await this.requireMember(workspaceId, actor.userId);
-    const listed = await this.expenses.listForWorkspace(workspaceId, actor.userId);
+    const listed = await this.listVisibleExpenses(workspaceId, actor.userId);
     const current = listed.find((e) => e.id === expenseId);
     if (!current || current.status === "reversed") {
       throw new NotFoundException({ detail: "قلم پیدا نشد" });
@@ -421,7 +422,7 @@ export class DailyLedgerService {
     workspaceId: string,
     date: string,
   ): Promise<string[]> {
-    const listed = await this.expenses.listForWorkspace(workspaceId, actor.userId);
+    const listed = await this.listVisibleExpenses(workspaceId, actor.userId);
     const targets = listed.filter(
       (e) =>
         e.occurredOn === date &&
@@ -442,7 +443,7 @@ export class DailyLedgerService {
     expenseIds: readonly string[],
   ): Promise<{ restored: number; failed: number }> {
     if (!expenseIds.length) return { restored: 0, failed: 0 };
-    const listed = await this.expenses.listForWorkspace(workspaceId, actor.userId);
+    const listed = await this.listVisibleExpenses(workspaceId, actor.userId);
     const byId = new Map(listed.map((e) => [e.id, e]));
     let restored = 0;
     let failed = 0;
@@ -498,7 +499,7 @@ export class DailyLedgerService {
     const me = members.find((m) => m.userId === actor.userId);
     const canManageLocks = Boolean(me && LOCK_ROLES.has(me.role));
     const [expenses, dayMeta, rangeLocks] = await Promise.all([
-      this.expenses.listForWorkspace(workspaceId, actor.userId),
+      this.listVisibleExpenses(workspaceId, actor.userId),
       this.days.listDays(workspaceId, actor.userId, from, to),
       this.locks.list(workspaceId, actor.userId, { activeOnly: true }),
     ]);
@@ -554,6 +555,15 @@ export class DailyLedgerService {
     if (!ws) {
       throw new ForbiddenException({ detail: "عضویت فضای کاری پیدا نشد" });
     }
+  }
+
+  private async listVisibleExpenses(workspaceId: string, userId: string) {
+    const { viewAllPrivate } = await resolveExpenseListOptions(
+      this.iam,
+      workspaceId,
+      userId,
+    );
+    return this.expenses.listForWorkspace(workspaceId, userId, { viewAllPrivate });
   }
 
   async requireLockManager(workspaceId: string, userId: string): Promise<void> {

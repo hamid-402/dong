@@ -1,5 +1,7 @@
 "use client";
 
+import { newClientId } from "@/lib/id";
+
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import type { AssetSummary, MembershipSummary } from "@dang/contracts";
@@ -99,7 +101,7 @@ export function AssetsView() {
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
 
       {loading ? (
-        <EmptyHint>در حال بارگذاری تجهیزات…</EmptyHint>
+        <EmptyHint loading>در حال بارگذاری تجهیزات…</EmptyHint>
       ) : null}
       {!loading && !workspaceId ? (
         <EmptyHint>
@@ -137,7 +139,7 @@ export function AssetsView() {
                           title,
                           ownerUserId: owner,
                           custodianUserId: owner,
-                          idempotencyKey: crypto.randomUUID(),
+                          idempotencyKey: newClientId(),
                         });
                         await refresh(workspaceId);
                         setError(null);

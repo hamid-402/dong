@@ -39,6 +39,76 @@ test("private expense is hidden from other members in list", async () => {
   );
 });
 
+test("finance manager (مادرخرج) can list others' private expenses when elevated", async () => {
+  const store = new MemoryExpenseStore();
+  const created = await store.createDraft("alice", {
+    workspaceId: "ws1",
+    title: "خرج خصوصی آلیس",
+    total: { amountMinor: "2000", currency: "IRR" },
+    paidByUserId: "alice",
+    splitMethod: "equal",
+    participantUserIds: ["alice"],
+    occurredOn: "2026-09-01",
+    visibility: "private",
+    idempotencyKey: "priv-finance-1",
+  });
+  const forFinance = await store.listForWorkspace("ws1", "finance-user", {
+    viewAllPrivate: true,
+  });
+  const forMember = await store.listForWorkspace("ws1", "bob", {
+    viewAllPrivate: false,
+  });
+  assert.equal(forFinance.some((e) => e.id === created.id), true);
+  assert.equal(forMember.some((e) => e.id === created.id), false);
+  assert.equal(
+    canActorViewExpense(
+      {
+        visibility: "private",
+        paidByUserId: "alice",
+        participantUserIds: ["alice"],
+        createdByUserId: "alice",
+        paymentLines: [{ userId: "alice", amount: { amountMinor: "2000", currency: "IRR" } }],
+      },
+      "finance-user",
+      { viewAllPrivate: true },
+    ),
+    true,
+  );
+});
+
+test("submit of private expense rejects non-creator; post allows elevated finance", async () => {
+  const store = new MemoryExpenseStore();
+  const created = await store.createDraft("alice", {
+    workspaceId: "ws1",
+    title: "خصوصی",
+    total: { amountMinor: "3000", currency: "IRR" },
+    paidByUserId: "alice",
+    splitMethod: "equal",
+    participantUserIds: ["alice"],
+    occurredOn: "2026-09-01",
+    visibility: "private",
+    idempotencyKey: "priv-mutate-1",
+  });
+
+  await assert.rejects(
+    () => store.submit("ws1", created.id, "bob"),
+    (error: unknown) => error instanceof Error && error.message === "EXPENSE_FORBIDDEN",
+  );
+
+  const submitted = await store.submit("ws1", created.id, "alice");
+  assert.equal(submitted.status, "submitted");
+
+  await assert.rejects(
+    () => store.post("ws1", created.id, "bob"),
+    (error: unknown) => error instanceof Error && error.message === "EXPENSE_FORBIDDEN",
+  );
+
+  const posted = await store.post("ws1", created.id, "finance-user", {
+    viewAllPrivate: true,
+  });
+  assert.equal(posted.status, "posted");
+});
+
 test("private self-expense does not change peer net balances", () => {
   const total = { amountMinor: "5000", currency: "IRR" as const };
   const splits = allocateExpenseSplit({

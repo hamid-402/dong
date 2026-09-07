@@ -1,3 +1,4 @@
+// Zod body-validation exempt: GET/body-less OIDC redirect + status controller. See docs/adr/ADR-zod-get-exemptions.md
 import { Controller, Get, Inject, Req, Res } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { isOidcConfigured, loadAppEnv } from "@dang/config";

@@ -1,4 +1,6 @@
-"use client";
+﻿"use client";
+
+import { newClientId } from "@/lib/id";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -144,7 +146,7 @@ export function PartnershipView() {
                         workspaceId,
                         title: agreementTitle,
                         effectiveFrom: new Date().toISOString().slice(0, 10),
-                        idempotencyKey: crypto.randomUUID(),
+                        idempotencyKey: newClientId(),
                       });
                       await refresh(workspaceId);
                       setError(null);
@@ -197,7 +199,7 @@ export function PartnershipView() {
                             amountMinor: String(Math.round(toman) * 10),
                             currency: "IRR",
                           },
-                          idempotencyKey: crypto.randomUUID(),
+                          idempotencyKey: newClientId(),
                         });
                         await refresh(workspaceId);
                         setError(null);
@@ -302,7 +304,7 @@ export function PartnershipView() {
                         periodStart: `${today.slice(0, 7)}-01`,
                         periodEnd: today,
                         reason: "بستن ماه جاری",
-                        idempotencyKey: crypto.randomUUID(),
+                        idempotencyKey: newClientId(),
                       });
                       await refresh(workspaceId);
                       setError(null);

@@ -1,4 +1,14 @@
-import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
+"use client";
+
+import {
+  useEffect,
+  useId,
+  useRef,
+  type CSSProperties,
+  type HTMLAttributes,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 
 export type ModalProps = HTMLAttributes<HTMLDivElement> & {
   open: boolean;
@@ -7,9 +17,66 @@ export type ModalProps = HTMLAttributes<HTMLDivElement> & {
   onClose?: () => void;
 };
 
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
+function getFocusable(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (el) => !el.hasAttribute("disabled") && el.getAttribute("aria-hidden") !== "true",
+  );
+}
+
 /** Accessible dialog shell for forms (not decorative card chrome). */
 export function Modal({ open, title, children, onClose, style, ...rest }: ModalProps) {
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    const panel = panelRef.current;
+    if (panel) {
+      const focusable = getFocusable(panel);
+      const target = focusable[0] ?? titleRef.current ?? panel;
+      target.focus();
+    }
+
+    return () => {
+      const previous = previousFocusRef.current;
+      if (previous && typeof previous.focus === "function") {
+        previous.focus();
+      }
+      previousFocusRef.current = null;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !onClose) return;
+
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
+
   const backdrop: CSSProperties = {
     position: "fixed",
     inset: 0,
@@ -29,17 +96,66 @@ export function Modal({ open, title, children, onClose, style, ...rest }: ModalP
     boxShadow: "var(--dang-elev-2, 0 8px 24px rgba(0,0,0,.12))",
     ...style,
   };
+
+  const trapTab = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab" || !panelRef.current) return;
+
+    const focusable = getFocusable(panelRef.current);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      panelRef.current.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!first || !last) {
+      event.preventDefault();
+      panelRef.current.focus();
+      return;
+    }
+
+    const active = document.activeElement;
+    const onFocusable = active instanceof HTMLElement && focusable.includes(active);
+
+    if (event.shiftKey) {
+      if (!onFocusable || active === first) {
+        event.preventDefault();
+        last.focus();
+      }
+    } else if (!onFocusable || active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
     <div style={backdrop} role="presentation" onClick={onClose}>
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-labelledby={titleId}
+        tabIndex={-1}
         style={panel}
-        onClick={(e) => e.stopPropagation()}
         {...rest}
+        onClick={(e) => {
+          e.stopPropagation();
+          rest.onClick?.(e);
+        }}
+        onKeyDown={(e) => {
+          trapTab(e);
+          rest.onKeyDown?.(e);
+        }}
       >
-        <h2 style={{ margin: "0 0 1rem", fontSize: "1.125rem" }}>{title}</h2>
+        <h2
+          ref={titleRef}
+          id={titleId}
+          tabIndex={-1}
+          style={{ margin: "0 0 1rem", fontSize: "1.125rem", outline: "none" }}
+        >
+          {title}
+        </h2>
         {children}
       </div>
     </div>

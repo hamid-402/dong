@@ -3,6 +3,8 @@ import { AuthModule } from "../auth/auth.module.js";
 import { ExpensesModule } from "../expenses/expenses.module.js";
 import { IamModule } from "../iam/iam.module.js";
 import { EXPENSE_STORE, type ExpenseStore } from "../expenses/expense.types.js";
+import { resolveExpenseListOptions } from "../expenses/expense-list-options.js";
+import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { ReportsController } from "./reports.controller.js";
 import { createReportsStore, REPORTS_STORE, type ReportsStore } from "./reports.store.js";
 
@@ -12,10 +14,17 @@ import { createReportsStore, REPORTS_STORE, type ReportsStore } from "./reports.
   providers: [
     {
       provide: REPORTS_STORE,
-      inject: [EXPENSE_STORE],
-      useFactory: (expenses: ExpenseStore): ReportsStore =>
+      inject: [EXPENSE_STORE, IAM_STORE],
+      useFactory: (expenses: ExpenseStore, iam: IamStore): ReportsStore =>
         createReportsStore(async (workspaceId, actorUserId) => {
-          const list = await expenses.listForWorkspace(workspaceId, actorUserId);
+          const { viewAllPrivate } = await resolveExpenseListOptions(
+            iam,
+            workspaceId,
+            actorUserId,
+          );
+          const list = await expenses.listForWorkspace(workspaceId, actorUserId, {
+            viewAllPrivate,
+          });
           return list.map((e) => ({
             id: e.id,
             title: e.title,

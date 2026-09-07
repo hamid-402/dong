@@ -51,6 +51,7 @@ type CookieReply = {
 };
 
 const loginRate = createAdaptiveRateLimit(20, 15 * 60_000);
+const registerRate = createAdaptiveRateLimit(20, 15 * 60_000);
 const forgotRate = createAdaptiveRateLimit(8, 15 * 60_000);
 
 @Injectable()
@@ -90,6 +91,15 @@ export class AccountService {
     reply: CookieReply,
     meta?: { ip?: string; userAgent?: string },
   ): Promise<AuthActionResponse> {
+    const rateKey = `register:${meta?.ip ?? "unknown"}:${(body.email ?? "").toLowerCase()}`;
+    if (!(await registerRate.allow(rateKey))) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/rate-limited",
+        title: "Too many register attempts",
+        status: 429,
+        detail: "تعداد تلاش ثبت‌نام زیاد است؛ کمی بعد دوباره امتحان کنید",
+      });
+    }
     try {
       const email = assertEmail(body.email);
       assertPasswordPolicy(body.password);
@@ -148,7 +158,7 @@ export class AccountService {
       }
 
       if (user.totpEnabledAt) {
-        const challengeId = this.mfa.createChallenge(user.userId);
+        const challengeId = await this.mfa.createChallenge(user.userId);
         return { mfaRequired: true, challengeId };
       }
 

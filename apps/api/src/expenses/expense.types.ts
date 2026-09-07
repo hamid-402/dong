@@ -17,6 +17,8 @@ export type StoredExpense = ExpenseSummary & {
   createdByUserId: string;
 };
 
+export type ExpenseViewOptions = { viewAllPrivate?: boolean };
+
 export type ExpenseStore = {
   readonly persistence: "memory" | "postgres";
   createDraft(
@@ -26,27 +28,38 @@ export type ExpenseStore = {
   listForWorkspace(
     workspaceId: string,
     actorUserId: string,
+    options?: ExpenseViewOptions,
   ): Promise<ExpenseSummary[]>;
+  /** Raw load without visibility filter — callers must apply canActorViewExpense. */
+  get(
+    workspaceId: string,
+    expenseId: string,
+    actorUserId: string,
+  ): Promise<StoredExpense | null>;
   submit(
     workspaceId: string,
     expenseId: string,
     actorUserId: string,
+    options?: ExpenseViewOptions,
   ): Promise<StoredExpense>;
   post(
     workspaceId: string,
     expenseId: string,
     actorUserId: string,
+    options?: ExpenseViewOptions,
   ): Promise<StoredExpense>;
   reverse(
     workspaceId: string,
     expenseId: string,
     actorUserId: string,
+    options?: ExpenseViewOptions,
   ): Promise<StoredExpense>;
   updateVisibility?(
     workspaceId: string,
     expenseId: string,
     visibility: "shared" | "private" | "company",
     actorUserId: string,
+    options?: ExpenseViewOptions,
   ): Promise<StoredExpense>;
 };
 
@@ -183,21 +196,50 @@ export function toExpenseSummary(expense: StoredExpense): ExpenseSummary {
   };
 }
 
-/** Private expenses are visible only to payer, assignee, and creator. */
+/**
+ * Shared/company: all workspace members.
+ * Private: party (creator/payer/participant) — or finance manager (مادرخرج) when elevated.
+ */
 export function canActorViewExpense(
   expense: Pick<
     StoredExpense,
     "visibility" | "paidByUserId" | "participantUserIds" | "createdByUserId" | "paymentLines"
   >,
   actorUserId: string,
+  options?: ExpenseViewOptions,
 ): boolean {
   const visibility = expense.visibility ?? "shared";
   if (visibility !== "private") return true;
+  if (options?.viewAllPrivate) return true;
   if (expense.createdByUserId === actorUserId) return true;
   if (expense.paidByUserId === actorUserId) return true;
   if (expense.participantUserIds.includes(actorUserId)) return true;
   if (expense.paymentLines.some((line) => line.userId === actorUserId)) return true;
   return false;
+}
+
+/**
+ * submit: creator only.
+ * post / reverse / promote: must be able to view (incl. finance elevation).
+ */
+export function assertCanMutateExpense(
+  expense: Pick<
+    StoredExpense,
+    "visibility" | "paidByUserId" | "participantUserIds" | "createdByUserId" | "paymentLines"
+  >,
+  actorUserId: string,
+  action: "submit" | "post" | "reverse" | "promote",
+  options?: ExpenseViewOptions,
+): void {
+  if (action === "submit") {
+    if (expense.createdByUserId !== actorUserId) {
+      throw new Error("EXPENSE_FORBIDDEN");
+    }
+    return;
+  }
+  if (!canActorViewExpense(expense, actorUserId, options)) {
+    throw new Error("EXPENSE_FORBIDDEN");
+  }
 }
 
 export function assertExpenseStatusTransition(

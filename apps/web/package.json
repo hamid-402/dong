@@ -12,12 +12,13 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
-    "test:a11y": "playwright test e2e/a11y-login.spec.ts"
+    "test:a11y": "playwright test e2e/a11y-login.spec.ts e2e/a11y-shell.spec.ts"
   },
   "dependencies": {
     "@dang/contracts": "workspace:*",
     "@dang/ui": "workspace:*",
     "next": "^16.3.3",
+    "qrcode": "^1.5.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
@@ -28,6 +29,7 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^26.4.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^6.1.1",

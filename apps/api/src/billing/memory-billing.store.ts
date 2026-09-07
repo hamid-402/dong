@@ -87,7 +87,11 @@ export class MemoryBillingStore implements BillingStore {
     const period = await this.getPeriod(workspaceId, periodId, _actorUserId);
     if (!period) throw new Error("PERIOD_NOT_FOUND");
 
-    const expenses = (await this.expenses.listForWorkspace(workspaceId, _actorUserId)).filter(
+    const expenses = (
+      await this.expenses.listForWorkspace(workspaceId, _actorUserId, {
+        viewAllPrivate: true,
+      })
+    ).filter(
       (e) => e.periodId === periodId && (e.status === "posted" || e.status === "submitted" || e.status === "draft"),
     );
 
@@ -240,7 +244,7 @@ export class MemoryBillingStore implements BillingStore {
     if (!invoice || invoice.workspaceId !== workspaceId) {
       return Promise.reject(new Error("INVOICE_NOT_FOUND"));
     }
-    if (invoice.status !== "approved" && invoice.status !== "pending_approval") {
+    if (invoice.status !== "approved" && invoice.status !== "pending_approval" && invoice.status !== "draft") {
       return Promise.reject(new Error("INVOICE_STATUS"));
     }
     const updated = {

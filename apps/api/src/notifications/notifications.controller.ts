@@ -1,3 +1,4 @@
+// Zod body-validation exempt: GET + body-less POST (mark-read via path param). See docs/adr/ADR-zod-get-exemptions.md
 import { Controller, Get, Inject, Param, Post, UseGuards } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { AuthActor, NotificationSummary } from "@dang/contracts";

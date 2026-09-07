@@ -4,7 +4,7 @@
 
 ## اجرای محلی کامل (وب + API + Postgres)
 
-پیش‌نیاز: Node.js 24+، pnpm، PostgreSQL محلی روی `5432`.
+پیش‌نیاز: Node.js 24+، pnpm، PostgreSQL. با `infra/compose.local.yml` پورت میزبان `5435` است؛ نصب محلی ویندوز معمولاً `5432`.
 
 ```powershell
 pnpm install
@@ -14,7 +14,7 @@ pnpm dev:api    # http://localhost:3006
 pnpm dev:web    # http://localhost:3005
 ```
 
-سپس `http://localhost:3005` را باز کنید. اگر فضای کاری خالی باشد، داشبورد خودکار «دادهٔ نمونه» می‌سازد.
+سپس `http://localhost:3005` را باز کنید. دادهٔ نمونه (دمو) خودکار ساخته نمی‌شود — فقط با اقدام صریح کاربر (دکمهٔ برچسب‌دار «دمو» در UI یا `POST /api/v1/demo/seed`) و وقتی `ALLOW_DEV_AUTH=true` (و غیر production) فعال باشد.
 
 - خانه: داشبورد زنده (مانده، هزینه، نیاز)
 - مالی: `/workspaces`
@@ -23,7 +23,7 @@ pnpm dev:web    # http://localhost:3005
 - شرکا: `/workspaces/partnership`
 - Health: `http://localhost:3006/api/v1/health`
 - Capabilities: `http://localhost:3006/api/v1/system/capabilities`
-- Demo seed: `POST /api/v1/demo/seed`
+- Demo seed (صریح + برچسب دمو + `ALLOW_DEV_AUTH`): `POST /api/v1/demo/seed`
 
 ## کنترل کیفیت
 

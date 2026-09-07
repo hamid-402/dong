@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
 import { AuthModule } from "../auth/auth.module.js";
+import { createPersistenceStore } from "../common/postgres-store.factory.js";
 import { JobsModule } from "../jobs/jobs.module.js";
 import {
   ATTACHMENT_STORE,
@@ -17,20 +18,13 @@ const logger = createLogger("dang-api-attachments");
 
 export function createAttachmentStore(): AttachmentStore {
   const env = loadAppEnv();
-  if (!env.databaseUrl) {
-    logger.warn("DATABASE_URL unset; using in-memory attachment store");
-    return new MemoryAttachmentStore();
-  }
-  try {
-    logger.info("Using PostgreSQL attachment store");
-    return PostgresAttachmentStore.fromConnectionString(env.databaseUrl);
-  } catch (error: unknown) {
-    const detail = error instanceof Error ? error.message : "unknown";
-    logger.error("Failed to initialize PostgreSQL attachment store; falling back to memory", {
-      detail,
-    });
-    return new MemoryAttachmentStore();
-  }
+  return createPersistenceStore<AttachmentStore>({
+    name: "attachment store",
+    databaseUrl: env.databaseUrl,
+    logger,
+    createPostgres: (url) => PostgresAttachmentStore.fromConnectionString(url),
+    createMemory: () => new MemoryAttachmentStore(),
+  });
 }
 
 @Module({

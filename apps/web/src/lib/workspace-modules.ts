@@ -5,8 +5,8 @@ import { RAW_MENU_ITEMS } from "@/lib/app-navigation";
 import { hubPathFor } from "@/lib/hub-links";
 
 const MODULE_KEYS = {
-  expenses: ["finance", "/workspaces", "/daily-ledger"],
-  settlements: ["finance", "/workspaces", "/daily-ledger"],
+  expenses: ["finance", "/workspaces", "/daily-ledger", "settlements"],
+  settlements: ["finance", "/workspaces", "/daily-ledger", "settlements"],
   invites: ["finance", "/workspaces/invite", "group", "spaces"],
   procurement: ["buy", "/workspaces/procurement"],
   proposals: ["buy", "/proposals"],
@@ -104,7 +104,10 @@ export function bottomTabsForTemplate(template: WorkspaceTemplate | undefined): 
   });
 }
 
-/** Flat classic sidebar links derived from the same filtered tree (no divergent menu). */
+/**
+ * Flat classic sidebar links derived from the same filtered tree (no divergent menu).
+ * @deprecated Canonical product navigation is `/w/[slug]/…` (shell v2); keep for hub/classic shells.
+ */
 export function classicNavForTemplate(template: WorkspaceTemplate | undefined): HubTab[] {
   const tree = buildNavForTemplate(template);
   const links: HubTab[] = [{ key: "home", path: "/hub", label: "خانه", icon: "home" }];

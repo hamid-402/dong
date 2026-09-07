@@ -1,7 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import { newClientId } from "@/lib/id";
+
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type {
   CreateInviteResponse,
@@ -11,20 +13,14 @@ import type {
   WorkspaceBalancesResponse,
   WorkspaceSummary,
 } from "@dang/contracts";
-import { suggestMinimalSettlements } from "@dang/contracts";
+import { isFinanceManagerRole, suggestMinimalSettlements } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
-import { JalaliDateField } from "@/components/jalali-date-field";
-import {
-  SplitComposer,
-  buildSplitPayloadFromComposer,
-  emptySplitComposer,
-  type SplitComposerValue,
-} from "@/components/split-composer";
 import {
   DataList,
   DataRow,
   EmptyHint,
+  EmptyStateBlock,
   FormStack,
   PageHeader,
   ProductGrid,
@@ -35,8 +31,9 @@ import {
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
+import { wPath } from "@/lib/workspace-paths";
 import { expenseStatusLabel, workspaceTemplateLabel } from "@/lib/status-labels";
-import { useFlashMessage } from "@/lib/use-flash-message";
+import { FlashMessages, useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
 
@@ -54,8 +51,6 @@ function visibilityTone(visibility: ExpenseVisibility): "ok" | "gold" | "warn" {
   return "ok";
 }
 
-const initialSplit: SplitComposerValue = emptySplitComposer("shared");
-
 export function FriendsGroupView() {
   const router = useRouter();
   const chrome = useAppChrome();
@@ -65,7 +60,6 @@ export function FriendsGroupView() {
   const [members, setMembers] = useState<MembershipSummary[]>([]);
   const [expenses, setExpenses] = useState<ExpenseSummary[]>([]);
   const [balances, setBalances] = useState<WorkspaceBalancesResponse | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string>("");
   const [filter, setFilter] = useState<ExpenseFilter>("all");
   const [groupName, setGroupName] = useState("");
   const [groupTemplate, setGroupTemplate] = useState<"friends_family" | "household">(
@@ -73,25 +67,31 @@ export function FriendsGroupView() {
   );
   const [friendEmail, setFriendEmail] = useState("");
   const [createdInvite, setCreatedInvite] = useState<CreateInviteResponse | null>(null);
-  const [expenseTitle, setExpenseTitle] = useState("");
-  const [expenseToman, setExpenseToman] = useState("");
-  const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [split, setSplit] = useState<SplitComposerValue>(initialSplit);
   const [outingTitle, setOutingTitle] = useState("");
   const [outings, setOutings] = useState<
     Array<{ id: string; title: string; total: { amountMinor: string }; expenseIds: string[] }>
   >([]);
   const [selectedOutingId, setSelectedOutingId] = useState("");
   const [pending, startTransition] = useTransition();
-
+  const [actorUserId, setActorUserId] = useState<string | null>(null);
   const supportsCompany = templateSupportsCompanyExpenses(workspace?.template);
+  const slug =
+    workspace?.slug ??
+    chrome.workspaces.find((w) => w.id === chrome.workspaceId)?.slug ??
+    null;
+  const expensesHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
+  const settlementsHref = slug
+    ? wPath(slug, "settlements")
+    : `${hubPathFor("/workspaces")}#settlement-panel`;
+  const canManageFinance = isFinanceManagerRole(
+    members.find((m) => m.userId === actorUserId)?.role,
+  );
 
   async function refresh(workspaceId: string) {
-    const [memberList, expenseList, balanceData, me, outingList] = await Promise.all([
+    const [memberList, expenseList, balanceData, outingList] = await Promise.all([
       api.listMembers(workspaceId),
       api.listExpenses(workspaceId),
       api.getBalances(workspaceId),
-      api.me(),
       api.listOutings(workspaceId).catch(() => []),
     ]);
     const current = chrome.workspaces.find((item) => item.id === workspaceId) ?? null;
@@ -100,15 +100,15 @@ export function FriendsGroupView() {
     setExpenses(expenseList);
     setBalances(balanceData);
     setOutings(outingList);
-    setCurrentUserId(me.actor.userId);
-    setSplit((prev) => ({
-      ...prev,
-      participantUserIds:
-        prev.participantUserIds.length > 0
-          ? prev.participantUserIds.filter((id) => memberList.some((m) => m.userId === id))
-          : memberList.map((m) => m.userId),
-    }));
   }
+
+  useEffect(() => {
+    if (!chrome.ready) return;
+    void api
+      .me()
+      .then((me) => setActorUserId(me.actor.userId))
+      .catch(() => setActorUserId(null));
+  }, [chrome.ready]);
 
   useEffect(() => {
     if (!chrome.ready) return;
@@ -171,7 +171,7 @@ export function FriendsGroupView() {
               slug,
               template: groupTemplate,
             },
-            crypto.randomUUID(),
+            newClientId(),
           );
           chrome.selectWorkspace(created.id);
           chrome.refreshChrome();
@@ -220,84 +220,6 @@ export function FriendsGroupView() {
     });
   }
 
-  function onQuickExpense() {
-    if (!chrome.workspaceId) return;
-    const title = expenseTitle.trim();
-    if (!title) {
-      setError("عنوان خرج را وارد کنید");
-      return;
-    }
-    startTransition(() => {
-      void (async () => {
-        try {
-          const me = await api.me();
-          const payload = buildSplitPayloadFromComposer(
-            split.visibility === "private"
-              ? { ...split, splitMethod: "equal", participantUserIds: [me.actor.userId] }
-              : split,
-          );
-          const totalMinor =
-            payload.totalMinor ??
-            (() => {
-              const toman = Number(expenseToman.replaceAll(",", ""));
-              if (!Number.isFinite(toman) || toman <= 0) throw new Error("AMOUNT");
-              return String(Math.round(toman) * 10);
-            })();
-          const participants =
-            split.visibility === "private"
-              ? [me.actor.userId]
-              : payload.participantUserIds;
-          if (participants.length === 0) {
-            setError("حداقل یک عضو لازم است — اول دوست دعوت کنید");
-            return;
-          }
-          await api.createExpenseDraft(chrome.workspaceId, {
-            workspaceId: chrome.workspaceId,
-            title,
-            total: { amountMinor: totalMinor, currency: "IRR" },
-            paidByUserId: me.actor.userId,
-            splitMethod: payload.splitMethod,
-            participantUserIds: participants,
-            splitLines: payload.splitLines,
-            items: payload.items,
-            tip: payload.tip,
-            tax: payload.tax,
-            discount: payload.discount,
-            outingId: selectedOutingId || undefined,
-            occurredOn: expenseDate,
-            visibility: split.visibility,
-            idempotencyKey: crypto.randomUUID(),
-          }).then(async (created) => {
-            // Shared/private group expenses: post so balances update (company stays draft if approval required).
-            if (split.visibility === "company") {
-              await api.submitExpense(chrome.workspaceId, created.id);
-              return created;
-            }
-            await api.submitExpense(chrome.workspaceId, created.id);
-            await api.postExpense(chrome.workspaceId, created.id);
-            return created;
-          });
-          setExpenseTitle("");
-          setExpenseToman("");
-          setExpenseDate(new Date().toISOString().slice(0, 10));
-          setError(null);
-          flashSuccess(
-            split.visibility === "company"
-              ? "خرج شرکتی ثبت شد و منتظر تأیید است"
-              : `خرج ثبت شد · اعضا سهم را در مانده می‌بینند · برای دریافت پول به تسویه بروید`,
-          );
-          await refresh(chrome.workspaceId);
-        } catch (err: unknown) {
-          if (err instanceof Error && err.message === "AMOUNT") {
-            setError("مبلغ نامعتبر است");
-            return;
-          }
-          setError(friendlyErrorMessage(err, "ثبت خرج ناموفق"));
-        }
-      })();
-    });
-  }
-
   function onCreateOuting() {
     if (!chrome.workspaceId) return;
     const title = outingTitle.trim();
@@ -311,7 +233,7 @@ export function FriendsGroupView() {
           const created = await api.createOuting(chrome.workspaceId, {
             title,
             occurredOn: new Date().toISOString().slice(0, 10),
-            idempotencyKey: crypto.randomUUID(),
+            idempotencyKey: newClientId(),
           });
           setOutingTitle("");
           setSelectedOutingId(created.id);
@@ -340,26 +262,25 @@ export function FriendsGroupView() {
       <PageHeader
         eyebrow="فضای گروهی"
         title="خانه گروه و خانواده"
-        description="نقش مادرخرج: خرج را ثبت کنید تا اعضا جزئیات و سهم را ببینند، بعد تأیید و تسویه کنند."
-        actions={
-          <>
-            <a href="#quick-expense">ثبت خرج گروه</a>
-            <span className="uxSecondaryActions">
-              <a href="#group-settle">تسویه</a>
-              <Link href={hubPathFor("/daily-ledger")}>دفتر روزانه</Link>
-              <Link href={hubPathFor("/workspaces")}>مالی کامل</Link>
-              <Link href={hubPathFor("/workspaces/invite")}>دعوت عضو</Link>
-            </span>
-          </>
-        }
+        description="مانده، اعضا و دعوت — ثبت خرج از FAB یا تب خرج‌ها."
       />
-      {pageError ? <p className="liveError">{pageError}</p> : null}
-      {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
+      <FlashMessages error={pageError} successMessage={successMessage} />
 
       {loading ? (
-        <EmptyHint>در حال بارگذاری گروه…</EmptyHint>
+        <EmptyHint loading>در حال بارگذاری گروه…</EmptyHint>
       ) : (
         <ProductGrid>
+          {workspace && canManageFinance ? (
+            <SectionCard title="ارسال صورتحساب" delayClass="delay1" tone="quiet">
+              <p className="liveHint">
+                مادرخرج: از صفحه خرج‌ها دوره بسازید و صورتحساب را برای اعضا بفرستید.
+              </p>
+              <Link href={expensesHref} className="textButton">
+                رفتن به ارسال صورتحساب
+              </Link>
+            </SectionCard>
+          ) : null}
+
           {workspace ? (
             <div className="motherSpendJourney" aria-label="مسیر مادرخرج">
               <div>
@@ -442,7 +363,18 @@ export function FriendsGroupView() {
           <SectionCard title="مانده اعضا" badge={balances?.lines.length} delayClass="delay1">
             <div id="group-settle" />
             {!balances || balances.lines.length === 0 ? (
-              <EmptyHint>هنوز خرج ثبت‌شده‌ای نیست — از «ثبت خرج گروه» شروع کنید.</EmptyHint>
+              <EmptyStateBlock
+                title="هنوز خرجی ثبت نشده"
+                description="با ثبت اولین خرج گروه، مانده هر عضو اینجا محاسبه و نمایش داده می‌شود."
+                action={
+                  <Button
+                    type="button"
+                    onClick={() => router.push(`${expensesHref}#quick-expense`)}
+                  >
+                    ثبت خرج گروه
+                  </Button>
+                }
+              />
             ) : (
               <DataList>
                 {balances.lines.map((line) => {
@@ -484,71 +416,24 @@ export function FriendsGroupView() {
             <div className="dataRowActions">
               <Button
                 type="button"
-                onClick={() => router.push(`${hubPathFor("/workspaces")}#settlement-panel`)}
+                onClick={() => router.push(settlementsHref)}
               >
-                ثبت و تأیید تسویه
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => router.push(hubPathFor("/daily-ledger"))}
-              >
-                دفتر مصرف روزانه
+                رفتن به تسویه
               </Button>
             </div>
           </SectionCard>
 
-          <SectionCard
-            title="ثبت خرج گروه (مادرخرج)"
-            delayClass="delay1"
-            className="uxPrimaryPanel"
-          >
+          <SectionCard title="ثبت خرج" delayClass="delay1" className="uxPrimaryPanel">
             <div id="quick-expense">
-            {!chrome.workspaceId ? (
-              <EmptyHint>برای ثبت خرج، گروه را فعال کنید.</EmptyHint>
-            ) : (
-              <FormStack>
-                <StatusLine>
-                  پول را شما می‌دهید؛ سهم اعضا را مشخص کنید تا در سامانه خودشان ببینند و بعداً
-                  تسویه کنند.
-                </StatusLine>
-                <TextField
-                  label="عنوان خرج"
-                  value={expenseTitle}
-                  onChange={(e) => setExpenseTitle(e.target.value)}
-                  hint="مثلاً خرید هفته، ناهار جمعه، قبض اینترنت"
-                />
-                <JalaliDateField label="تاریخ خرج" value={expenseDate} onChange={setExpenseDate} />
-                {split.splitMethod !== "itemized" ? (
-                  <TextField
-                    label="مبلغ کل (تومان)"
-                    value={expenseToman}
-                    onChange={(e) => setExpenseToman(e.target.value)}
-                  />
-                ) : (
-                  <p className="liveHint">
-                    مبلغ کل از جمع آیتم‌ها + انعام/مالیات/تخفیف محاسبه می‌شود
-                    {expenseToman ? ` · ${expenseToman} تومان` : ""}
-                  </p>
-                )}
-                <SplitComposer
-                  members={members}
-                  totalToman={expenseToman}
-                  value={split}
-                  onChange={setSplit}
-                  supportsCompany={supportsCompany}
-                  currentUserId={currentUserId}
-                  onDerivedTotalToman={setExpenseToman}
-                />
-                <Button type="button" onClick={onQuickExpense} disabled={pending}>
-                  ثبت و اعمال روی مانده
-                </Button>
-                <p className="liveHint">
-                  برای مصرف روزبه‌روز هر نفر (بدون تسویه یک‌جا) از{" "}
-                  <Link href={hubPathFor("/daily-ledger")}>دفتر روزانه</Link> استفاده کنید.
-                </p>
-              </FormStack>
-            )}
+              <StatusLine>
+                ثبت خرج گروه فقط در بخش «خرج‌ها» است (همان FAB و منوی اصلی).
+              </StatusLine>
+              <Button
+                type="button"
+                onClick={() => router.push(`${expensesHref}#quick-expense`)}
+              >
+                ثبت خرج
+              </Button>
             </div>
           </SectionCard>
 
@@ -698,6 +583,11 @@ export function FriendsGroupView() {
                 </button>
               ))}
             </div>
+            {!canManageFinance ? (
+              <p className="liveHint">
+                پیش‌فرض «همه» است — جمعی‌های گروه به‌علاوه خرج خصوصی خودتان؛ خصوصی دیگران را نمی‌بینید.
+              </p>
+            ) : null}
             {filteredExpenses.length === 0 ? (
               <EmptyHint>خرجی در این دسته نیست.</EmptyHint>
             ) : (
@@ -730,9 +620,9 @@ export function FriendsGroupView() {
             <Button
               type="button"
               variant="ghost"
-              onClick={() => router.push(hubPathFor("/workspaces"))}
+              onClick={() => router.push(`${expensesHref}#expense-panel`)}
             >
-              مشاهده همه در مالی
+              مشاهده در خرج‌ها
             </Button>
           </SectionCard>
         </ProductGrid>

@@ -1,6 +1,9 @@
 import type { NavNode } from "@/lib/navigation-types";
 
-/** Product menu tree for mosaic hub (from classic sidebar NAV). Additive space section. */
+/**
+ * Product menu tree for mosaic hub (from classic sidebar NAV). Additive space section.
+ * @deprecated Prefer `/w/[slug]/…` workspace routes — this tree feeds hub/classic fallbacks only.
+ */
 export const RAW_MENU_ITEMS: NavNode[] = [
   {
     key: "spaces",
@@ -178,7 +181,7 @@ export function resolveStack(
 
 export const HUB_BOTTOM_TABS = [
   { key: "home", path: "/hub", label: "خانه", icon: "home" as const },
-  { key: "space", path: "/hub/spaces", label: "زمینه", icon: "partners" as const },
+  { key: "space", path: "/hub/spaces", label: "فضا", icon: "partners" as const },
   { key: "finance", path: "/hub/finance", label: "خرج‌ها", icon: "wallet" as const },
-  { key: "more", path: "/hub/manage", label: "بیشتر", icon: "settings" as const },
+  { key: "more", path: "/hub/manage", label: "حساب من", icon: "settings" as const },
 ];
