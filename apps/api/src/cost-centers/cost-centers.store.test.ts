@@ -1,5 +1,10 @@
+import "reflect-metadata";
 import assert from "node:assert/strict";
 import test from "node:test";
+import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
+import { CostCentersController } from "./cost-centers.controller.js";
+import { CostCentersService } from "./cost-centers.service.js";
+import { COST_CENTER_STORE } from "./cost-centers.types.js";
 import { MemoryCostCenterStore } from "./memory-cost-center.store.js";
 
 test("cost center codes are unique per workspace", async () => {
@@ -26,4 +31,21 @@ test("cost center codes are unique per workspace", async () => {
     name: "همان کد در فضای دیگر",
     code: "NORTH",
   });
+});
+
+test("cost center controller and service declare every runtime injection explicitly", () => {
+  const controllerDeps = Reflect.getMetadata(
+    "self:paramtypes",
+    CostCentersController,
+  ) as Array<{ index: number; param: unknown }> | undefined;
+  const serviceDeps = Reflect.getMetadata(
+    "self:paramtypes",
+    CostCentersService,
+  ) as Array<{ index: number; param: unknown }> | undefined;
+
+  assert.deepEqual(controllerDeps, [{ index: 0, param: CostCentersService }]);
+  assert.deepEqual(serviceDeps?.toSorted((a, b) => a.index - b.index), [
+    { index: 0, param: COST_CENTER_STORE },
+    { index: 1, param: WorkspaceAccessService },
+  ]);
 });

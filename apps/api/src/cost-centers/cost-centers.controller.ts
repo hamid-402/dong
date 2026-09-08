@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Inject,
   Param,
   Post,
   UseGuards,
@@ -21,7 +22,9 @@ import { CostCentersService } from "./cost-centers.service.js";
 @Controller("workspaces/:workspaceId/cost-centers")
 @UseGuards(AuthGuard)
 export class CostCentersController {
-  constructor(private readonly service: CostCentersService) {}
+  constructor(
+    @Inject(CostCentersService) private readonly service: CostCentersService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: "List workspace cost centers" })

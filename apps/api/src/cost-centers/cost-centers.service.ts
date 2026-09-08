@@ -21,6 +21,7 @@ export class CostCentersService {
   constructor(
     @Inject(COST_CENTER_STORE)
     private readonly store: CostCenterStore,
+    @Inject(WorkspaceAccessService)
     private readonly access: WorkspaceAccessService,
   ) {}
 
