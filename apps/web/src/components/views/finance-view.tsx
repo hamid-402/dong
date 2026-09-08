@@ -522,7 +522,7 @@ export function FinanceView({
                   workspaceId={selectedId}
                   memberLabel={memberLabel}
                   enabled
-                  readOnly={readOnlyFinance}
+                  readOnly={!canManageFinance}
                   onError={setError}
                   onSuccess={showSuccess}
                   onApplied={() => {

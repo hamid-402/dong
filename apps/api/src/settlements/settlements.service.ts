@@ -52,6 +52,20 @@ export class SettlementsService {
   ): Promise<SettlementSummary> {
     const role = await this.access.requireMemberRole(workspaceId, actor.userId);
     this.access.assertNotReadOnly(role);
+    await Promise.all([
+      this.access.requireMember(workspaceId, body.fromUserId),
+      this.access.requireMember(workspaceId, body.toUserId),
+    ]);
+    if (body.fromUserId !== actor.userId) {
+      if (!isFinanceManagerRole(role)) {
+        throw new ForbiddenException({
+          type: "https://dang.local/problems/forbidden",
+          title: "ثبت تسویه فقط از حساب خودتان مجاز است",
+          status: 403,
+        });
+      }
+      await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
+    }
 
     const payload: CreateSettlementClaimRequest = {
       ...body,
@@ -217,7 +231,14 @@ export class SettlementsService {
     }
 
     const role = await this.access.requireMemberRole(workspaceId, actor.userId);
-    this.access.assertNotReadOnly(role);
+    if (!isFinanceManagerRole(role)) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "ساده‌سازی بدهی فقط برای مدیر مالی مجاز است",
+        status: 403,
+      });
+    }
+    await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
 
     return this.idempotency.run(
       `settlement.simplify:${workspaceId}`,
