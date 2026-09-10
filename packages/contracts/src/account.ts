@@ -20,6 +20,16 @@ export type UserProfile = {
   createdAt: string;
 };
 
+/** Active account session metadata. Never exposes the bearer token or its hash. */
+export type AccountSessionSummary = {
+  id: string;
+  current: boolean;
+  ip?: string;
+  userAgent?: string;
+  createdAt: string;
+  expiresAt: string;
+};
+
 export type RegisterRequest = {
   email: string;
   password: string;

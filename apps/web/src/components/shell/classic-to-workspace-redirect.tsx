@@ -21,10 +21,22 @@ function RedirectInner({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const mapped = page ?? classicPathToWorkspacePage(pathname);
       const search = typeof window !== "undefined" ? window.location.search : "";
       const hash = typeof window !== "undefined" ? window.location.hash : "";
       const suffix = `${search}${hash}`;
+
+      // Finance panel hashes must win over a coarse hub/page prop (e.g. expenses).
+      const panelFromHash = classicPathToWorkspacePage("/workspaces", hash);
+      const isFinancePanelHash =
+        hash === "#settlement-panel" ||
+        hash === "#period-invoice-panel" ||
+        hash === "#reports-panel" ||
+        hash === "#expense-panel" ||
+        hash === "#quick-expense";
+      const mapped =
+        isFinancePanelHash && panelFromHash
+          ? panelFromHash
+          : (page ?? classicPathToWorkspacePage(pathname, hash));
 
       if (mapped === "invite") {
         router.replace(`/invite${suffix}`);

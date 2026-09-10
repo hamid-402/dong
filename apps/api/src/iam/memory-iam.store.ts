@@ -15,6 +15,7 @@ import type {
   CreateInviteInput,
   CreateWorkspaceInput,
   IamStore,
+  UpdateWorkspaceProfileInput,
   UpsertDevActorInput,
 } from "./iam.types.js";
 import { INVITE_OWNER_ROLES } from "./iam.types.js";
@@ -171,6 +172,34 @@ export class MemoryIamStore implements IamStore {
       template: workspace.template,
       timezone: workspace.timezone,
       displayUnit: workspace.displayUnit,
+    });
+  }
+
+  updateWorkspaceProfile(
+    input: UpdateWorkspaceProfileInput,
+  ): Promise<WorkspaceSummary | undefined> {
+    const membership = this.memberships.get(
+      `${input.workspaceId}:${input.actorUserId}`,
+    );
+    if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+      return Promise.reject(new Error("WORKSPACE_UPDATE_FORBIDDEN"));
+    }
+    const current = this.workspaces.get(input.workspaceId);
+    if (!current) return Promise.resolve(undefined);
+    const updated: StoredWorkspace = {
+      ...current,
+      name: input.name,
+      timezone: input.timezone,
+      displayUnit: input.displayUnit,
+    };
+    this.workspaces.set(updated.id, updated);
+    return Promise.resolve({
+      id: updated.id,
+      name: updated.name,
+      slug: updated.slug,
+      template: updated.template,
+      timezone: updated.timezone,
+      displayUnit: updated.displayUnit,
     });
   }
 

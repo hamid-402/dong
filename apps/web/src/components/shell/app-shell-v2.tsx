@@ -46,7 +46,10 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
               <ShellIconSvg name="wallet" />
             </span>
             <div className="shell-v2__brand-text">
-              <b>دنگ همکاری</b>
+              <span className="shell-v2__product">
+                <b>دنگ همکاری</b>
+                <small>اتاق عملیات</small>
+              </span>
               <WorkspaceSwitcher />
             </div>
           </div>
@@ -86,7 +89,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
               <span className="shell-v2__search-icon" aria-hidden>
                 <ShellIconSvg name="search" />
               </span>
-              <span className="shell-v2__search-label">جستجو</span>
+              <span className="shell-v2__search-label">جستجو یا اجرای فرمان</span>
               <kbd className="shell-v2__search-kbd">Ctrl K</kbd>
             </button>
             {desktop && fabHref ? (

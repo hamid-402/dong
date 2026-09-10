@@ -1,0 +1,111 @@
+.masterDetail {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.75fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.funnelList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.funnelList button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  padding: 13px 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-elevated) 70%, transparent);
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.funnelList button span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.funnelList small {
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.funnelList .selected button {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--line));
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 58%),
+    color-mix(in srgb, var(--surface-elevated) 78%, transparent);
+}
+
+.inspector {
+  position: sticky;
+  top: 88px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--line) 86%, transparent);
+  border-radius: 17px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 42%),
+    var(--surface);
+  box-shadow: 0 16px 46px rgb(0 0 0 / 14%);
+}
+
+.inspector > span {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.inspector h3 {
+  margin: 8px 0 6px;
+  font-size: 1rem;
+}
+
+.inspector dl {
+  display: grid;
+  gap: 0;
+  margin: 14px 0;
+}
+
+.inspector dl div {
+  display: grid;
+  gap: 3px;
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 68%, transparent);
+}
+
+.inspector dt {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.inspector dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+}
+
+.inspector p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.8;
+}
+
+@media (max-width: 920px) {
+  .masterDetail {
+    grid-template-columns: 1fr;
+  }
+
+  .inspector {
+    position: static;
+  }
+}

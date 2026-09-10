@@ -1,0 +1,117 @@
+.sessions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.sessions article {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--surface-elevated) 78%, transparent);
+}
+
+.sessions article.currentSession {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--line));
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 52%),
+    color-mix(in srgb, var(--surface-elevated) 78%, transparent);
+}
+
+.sessionHeading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.sessionHeading > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.sessionHeading small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessions dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.sessions dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.78rem;
+}
+
+.sessions dt {
+  color: var(--text-muted);
+}
+
+.sessions dd {
+  margin: 0;
+  text-align: end;
+}
+
+.sessions button {
+  justify-self: start;
+}
+
+.posture {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.posture > div {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 132px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 15px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 50%),
+    color-mix(in srgb, var(--surface-elevated) 78%, transparent);
+}
+
+.posture span:first-child {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.posture b {
+  line-height: 1.75;
+}
+
+.posture button {
+  justify-self: start;
+  margin-top: 2px;
+}
+
+.profileLink {
+  display: inline-flex;
+  font-weight: 760;
+}
+
+@media (max-width: 820px) {
+  .posture {
+    grid-template-columns: 1fr;
+  }
+
+  .posture > div {
+    min-height: auto;
+  }
+}

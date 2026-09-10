@@ -17,22 +17,24 @@ import {
   DataRow,
   EmptyHint,
   FormStack,
-  PageHeader,
   ProductGrid,
   SectionCard,
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
+import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import { PersonalFinanceOverviewPanel } from "@/components/personal-finance-overview-panel";
 import { PersonalResourcesPanel } from "@/components/personal-resources-panel";
 import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import { expenseStatusLabel, spaceKindForTemplateLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
+import { wPath } from "@/lib/workspace-paths";
 
 const initialSplit: SplitComposerValue = emptySplitComposer("private");
 
@@ -159,6 +161,9 @@ export function PersonalSpaceView() {
   }
 
   const pageError = error ?? chrome.error;
+  const slug = workspace?.slug ?? scope?.slug ?? null;
+  const privateCount = expenses.filter((expense) => expense.visibility === "private").length;
+  const postedCount = expenses.filter((expense) => expense.status === "posted").length;
 
   return (
     <AppShell
@@ -167,11 +172,51 @@ export function PersonalSpaceView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <PageHeader
-        eyebrow="فضای شخصی"
-        title="دفتر مالی من"
-        description="خرج خصوصی همین‌جاست. گروه‌ها و سازمان‌ها از سوئیچر فضا."
-      />
+      {slug ? (
+        <OperationsModuleHeader
+          ariaLabel="خانه فضای شخصی"
+          destinations={[
+            { key: "space", label: "دفتر من", href: wPath(slug, "space"), active: true },
+            { key: "expenses", label: NAV_LABELS.expenses, href: wPath(slug, "expenses"), active: false },
+            { key: "ledger", label: NAV_LABELS.ledger, href: wPath(slug, "ledger"), active: false },
+            { key: "settings", label: "تنظیمات", href: wPath(slug, "settings"), active: false },
+          ]}
+          metrics={[
+            {
+              label: "خرج ثبت‌شده",
+              value: new Intl.NumberFormat("fa-IR").format(expenses.length),
+              detail: "از API همین فضا",
+            },
+            {
+              label: "خصوصی",
+              value: new Intl.NumberFormat("fa-IR").format(privateCount),
+              detail: "visibility=private",
+            },
+            {
+              label: "posted",
+              value: new Intl.NumberFormat("fa-IR").format(postedCount),
+              detail: "اعمال‌شده در دفتر",
+              tone: postedCount > 0 ? "positive" : "neutral",
+            },
+            {
+              label: "اعضا",
+              value: new Intl.NumberFormat("fa-IR").format(members.length),
+              detail: spaceKindForTemplateLabel("personal"),
+            },
+          ]}
+          roleLabel={null}
+          persistenceLabel={chrome.persistenceLabel}
+          pending={pending || loading}
+          onRefresh={() => {
+            if (!workspace) return;
+            startTransition(() => {
+              void refresh(workspace.id)
+                .then(() => setError(null))
+                .catch((err: unknown) => setError(friendlyErrorMessage(err, "تازه‌سازی ناموفق")));
+            });
+          }}
+        />
+      ) : null}
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
 

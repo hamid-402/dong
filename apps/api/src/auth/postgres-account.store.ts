@@ -38,6 +38,19 @@ function mapUser(row: typeof userAccount.$inferSelect): AccountRecord {
   };
 }
 
+function mapSession(row: typeof authSession.$inferSelect): SessionRecord {
+  return {
+    id: row.id,
+    userId: row.userId,
+    tokenHash: row.tokenHash,
+    expiresAt: row.expiresAt,
+    revokedAt: row.revokedAt ?? null,
+    ip: row.ip ?? undefined,
+    userAgent: row.userAgent ?? undefined,
+    createdAt: row.createdAt,
+  };
+}
+
 export class PostgresAccountStore implements AccountStore {
   readonly persistence = "postgres" as const;
 
@@ -191,13 +204,7 @@ export class PostgresAccountStore implements AccountStore {
       .returning();
     const row = inserted[0];
     if (!row) throw new Error("SESSION_CREATE_FAILED");
-    return {
-      id: row.id,
-      userId: row.userId,
-      tokenHash: row.tokenHash,
-      expiresAt: row.expiresAt,
-      revokedAt: row.revokedAt ?? null,
-    };
+    return mapSession(row);
   }
 
   async findSessionByTokenHash(tokenHash: string): Promise<SessionRecord | null> {
@@ -214,13 +221,22 @@ export class PostgresAccountStore implements AccountStore {
       .limit(1);
     const row = rows[0];
     if (!row) return null;
-    return {
-      id: row.id,
-      userId: row.userId,
-      tokenHash: row.tokenHash,
-      expiresAt: row.expiresAt,
-      revokedAt: row.revokedAt ?? null,
-    };
+    return mapSession(row);
+  }
+
+  async listActiveSessions(userId: string): Promise<SessionRecord[]> {
+    const rows = await this.db
+      .select()
+      .from(authSession)
+      .where(
+        and(
+          eq(authSession.userId, userId),
+          isNull(authSession.revokedAt),
+          sql`${authSession.expiresAt} > now()`,
+        ),
+      )
+      .orderBy(sql`${authSession.createdAt} desc`);
+    return rows.map(mapSession);
   }
 
   async revokeSession(sessionId: string): Promise<void> {
@@ -228,6 +244,21 @@ export class PostgresAccountStore implements AccountStore {
       .update(authSession)
       .set({ revokedAt: new Date() })
       .where(eq(authSession.id, sessionId));
+  }
+
+  async revokeSessionForUser(sessionId: string, userId: string): Promise<boolean> {
+    const rows = await this.db
+      .update(authSession)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(authSession.id, sessionId),
+          eq(authSession.userId, userId),
+          isNull(authSession.revokedAt),
+        ),
+      )
+      .returning({ id: authSession.id });
+    return Boolean(rows[0]);
   }
 
   async revokeAllSessions(userId: string): Promise<void> {

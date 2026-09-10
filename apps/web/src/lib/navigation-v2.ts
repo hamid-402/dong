@@ -21,6 +21,21 @@ export type NavSectionV2 = {
   items: NavItemV2[];
 };
 
+export type ContextualMosaicIntent =
+  | "record"
+  | "decide"
+  | "monitor"
+  | "manage";
+
+export type ContextualMosaicItem = NavItemV2 & {
+  summary: string;
+  intent: ContextualMosaicIntent;
+};
+
+export type ContextualMosaicSection = Omit<NavSectionV2, "items"> & {
+  items: ContextualMosaicItem[];
+};
+
 export type BottomTabV2 = {
   key: "home" | "expenses" | "space" | "more";
   label: string;
@@ -62,6 +77,95 @@ function orgFinanceLive(flags?: SpaceNavFlags): boolean {
       flags?.planAdmin ||
       flags?.fxRates,
   );
+}
+
+const CONTEXTUAL_MOSAIC_META: Readonly<
+  Record<string, Pick<ContextualMosaicItem, "summary" | "intent">>
+> = {
+  expenses: {
+    summary: "ثبت، جستجو و پیگیری خرج‌های جمعی، خصوصی و شرکتی",
+    intent: "record",
+  },
+  settlements: {
+    summary: "مانده اعضا، ادعاهای باز، اختلاف و تسویه بدهی",
+    intent: "decide",
+  },
+  invoices: {
+    summary: "دوره‌های مالی، صدور صورتحساب و پیگیری اختلاف",
+    intent: "monitor",
+  },
+  recurring: {
+    summary: "قواعد دوره‌ای، دسته‌بندی و گزارش بازه‌ای",
+    intent: "manage",
+  },
+  addons: {
+    summary: "هزینه افزوده برای عضو هدف و وضعیت تأیید دریافت",
+    intent: "decide",
+  },
+  approvals: {
+    summary: "صف یکپارچه تصمیم‌های خرج، صورتحساب و اضافه شخصی",
+    intent: "decide",
+  },
+  "org-finance": {
+    summary: "مرکز هزینه، سقف، بودجه، سیاست، بازپرداخت و نرخ ارز",
+    intent: "monitor",
+  },
+  ledger: {
+    summary: "دفتر روزانه، قلم‌ها، تعطیلی، خروجی و پیشنهاد تسویه",
+    intent: "record",
+  },
+  procurement: {
+    summary: "نیاز، درخواست خرید، فروشنده، سفارش و تحویل",
+    intent: "record",
+  },
+  proposals: {
+    summary: "پیشنهاد، رأی، حدنصاب و انتقال تصمیم به خرید",
+    intent: "decide",
+  },
+  assets: {
+    summary: "دارایی، تخصیص، انتقال، تحویل و ثبت خرابی",
+    intent: "manage",
+  },
+  invite: {
+    summary: "اعضا، نقش‌ها، سهم‌ها و دعوت امن به فضای کاری",
+    intent: "manage",
+  },
+  partners: {
+    summary: "قرارداد، آورده، قرض، مالکیت و قفل دوره",
+    intent: "monitor",
+  },
+  settings: {
+    summary: "مشخصات، واحد نمایش، الگو و تنظیمات فضای کاری",
+    intent: "manage",
+  },
+  audit: {
+    summary: "رخدادهای واقعی، نتیجه عملیات، عامل اجرا و فراداده ثبت‌شده",
+    intent: "monitor",
+  },
+  metrics: {
+    summary: "قیف محصول از رویدادهای audit واقعی همین فضا",
+    intent: "monitor",
+  },
+  security: {
+    summary: "رمز عبور، نشست‌های فعال و تأیید دومرحله‌ای",
+    intent: "manage",
+  },
+  "whats-new": {
+    summary: "قابلیت‌های تحویل‌شده و تغییرات واقعی محصول",
+    intent: "monitor",
+  },
+  profile: {
+    summary: "مشخصات حساب، زبان، منطقه زمانی و خروج امن",
+    intent: "manage",
+  },
+};
+
+function contextualItem(item: NavItemV2): ContextualMosaicItem {
+  const metadata = CONTEXTUAL_MOSAIC_META[item.key] ?? {
+    summary: "دسترسی به ابزارهای مجاز این فضای کاری",
+    intent: "manage" as const,
+  };
+  return { ...item, ...metadata };
 }
 
 /** Account-level destinations — no tab duplicates (حساب/فضا) and no spaces list
@@ -219,6 +323,18 @@ export function spaceNav(
         module: "partnerships",
       },
       {
+        key: "audit",
+        label: NAV_LABELS.audit,
+        href: scoped(slug, "audit", "/spaces"),
+        icon: "receipt" as const,
+      },
+      {
+        key: "metrics",
+        label: NAV_LABELS.metrics,
+        href: scoped(slug, "metrics", "/spaces"),
+        icon: "receipt" as const,
+      },
+      {
         key: "settings",
         label: "تنظیمات فضا",
         href: scoped(slug, "settings", "/spaces"),
@@ -238,6 +354,77 @@ export function spaceNav(
     sections.push({ key: "space", label: NAV_LABELS.sectionSpace, items: spaceItems });
   }
   return sections;
+}
+
+/**
+ * Contextual mosaic destinations use the exact same module/flag-filtered tree as
+ * shell navigation. The home variant is a concise mission launcher (max eight);
+ * the all variant preserves every available destination in section order.
+ */
+export function contextualMosaicSections(
+  template: WorkspaceTemplate | undefined,
+  slug: string | null = null,
+  flags?: SpaceNavFlags,
+  variant: "home" | "all" = "all",
+): ContextualMosaicSection[] {
+  const sections = spaceNav(template, slug, flags);
+  if (variant === "all") {
+    return sections.map((section) => ({
+      ...section,
+      items: section.items.map(contextualItem),
+    }));
+  }
+
+  const modules = modulesForTemplate(template);
+  const allItems = sections.flatMap((section) => section.items);
+  const byKey = new Map(allItems.map((item) => [item.key, item]));
+  const missions: NavItemV2[] = [];
+
+  if (modules.has("expenses")) {
+    missions.push({
+      key: "expenses",
+      label: NAV_LABELS.expenses,
+      href: scoped(slug, "expenses", hubPathFor("/workspaces")),
+      icon: "wallet",
+      module: "expenses",
+    });
+  }
+
+  for (const key of [
+    "approvals",
+    "settlements",
+    "procurement",
+    "proposals",
+    "ledger",
+    "assets",
+    "invite",
+    "partners",
+  ]) {
+    const item = byKey.get(key);
+    if (item) missions.push(item);
+  }
+
+  return missions.length
+    ? [
+        {
+          key: "missions",
+          label: "ماموریت‌های این فضا",
+          items: missions.slice(0, 8).map(contextualItem),
+        },
+      ]
+    : [];
+}
+
+export function contextualAccountNav(): ContextualMosaicItem[] {
+  return [
+    contextualItem({
+      key: "profile",
+      label: NAV_LABELS.profile,
+      href: "/account",
+      icon: "settings",
+    }),
+    ...accountNav().map(contextualItem),
+  ];
 }
 
 /** Mobile/desktop primary tabs — fixed four concepts. */

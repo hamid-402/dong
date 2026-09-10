@@ -1,13 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { RouteLoadingHint } from "@/components/shell/route-loading-hint";
 
 const ProposalsView = dynamic(
   () =>
-    import("@/components/views/proposals-view").then((mod) => ({ default: mod.ProposalsView })),
+    import("@/components/views/proposals-view").then((mod) => ({
+      default: mod.ProposalsView,
+    })),
   {
     ssr: false,
-    loading: () => <p className="liveHint">در حال بارگذاری…</p>,
+    loading: () => <RouteLoadingHint label="در حال بارگذاری پیشنهادها…" />,
   },
 );
 

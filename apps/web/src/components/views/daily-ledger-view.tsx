@@ -27,6 +27,7 @@ import {
 } from "@/components/ui-blocks";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
+import { hubPathFor } from "@/lib/hub-links";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
 import { membershipRoleLabel } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
@@ -36,12 +37,16 @@ import { DailyLedgerLockPanel } from "@/components/views/daily-ledger/daily-ledg
 import { DailyLedgerToolbar } from "@/components/views/daily-ledger/daily-ledger-toolbar";
 import { DailyLedgerGrid } from "@/components/views/daily-ledger/daily-ledger-grid";
 import { DailyLedgerSidePanels } from "@/components/views/daily-ledger/daily-ledger-side-panels";
+import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import {
   dayItemCount,
+  formatTomanMinor,
   rangeHeadline,
   todayIsoLocal,
   type DraftTarget,
 } from "@/components/views/daily-ledger/daily-ledger-utils";
+import { wPath } from "@/lib/workspace-paths";
+import styles from "./daily-ledger-view.module.css";
 
 /** Professional day×member consumption ledger — API-backed only. */
 export function DailyLedgerView() {
@@ -73,6 +78,7 @@ export function DailyLedgerView() {
   const [lockReason, setLockReason] = useState("");
   const [showCustomRange, setShowCustomRange] = useState(false);
   const [myRole, setMyRole] = useState("");
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const todayIso = todayIsoLocal();
   const readOnly = isReadOnlyRole(myRole);
 
@@ -170,6 +176,11 @@ export function DailyLedgerView() {
             api.getBalances(workspaceId).catch(() => null),
           ]);
           setLedger(data);
+          setSelectedDate((current) =>
+            current && data.days.some((day) => day.date === current)
+              ? current
+              : data.days[0]?.date ?? null,
+          );
           setBalances(bal);
           setError(null);
           chrome.selectWorkspace(workspaceId);
@@ -383,9 +394,56 @@ export function DailyLedgerView() {
         1,
       )
     : 1;
+  const selectedDay = ledger?.days.find((day) => day.date === selectedDate) ?? null;
+  const selectedWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
+  const settlementsHref = selectedWorkspace
+    ? wPath(selectedWorkspace.slug, "settlements")
+    : `${hubPathFor("/workspaces")}#settlement-panel`;
+  const totalItems = ledger
+    ? ledger.days.reduce((sum, day) => sum + dayItemCount(ledger, day.date), 0)
+    : 0;
 
   return (
-    <SectionCard title="دفتر روزانه گروه" delayClass="delay1">
+    <>
+      {selectedWorkspace ? (
+        <OperationsModuleHeader
+          ariaLabel="دفتر روزانه"
+          destinations={[
+            { key: "ledger", label: "دفتر روزانه", href: wPath(selectedWorkspace.slug, "ledger"), active: true },
+            { key: "expenses", label: "خرج‌ها", href: wPath(selectedWorkspace.slug, "expenses"), active: false },
+            { key: "settlements", label: "تسویه", href: wPath(selectedWorkspace.slug, "settlements"), active: false },
+            { key: "audit", label: "تاریخچه", href: wPath(selectedWorkspace.slug, "audit"), active: false },
+          ]}
+          metrics={[
+            {
+              label: "جمع بازه",
+              value: ledger ? `${formatTomanMinor(ledger.totals.grand.amountMinor)} تومان` : "—",
+              detail: ledger ? rangeHeadline(ledger.from, ledger.to, preset) : "در حال بارگذاری",
+            },
+            {
+              label: "تعداد قلم",
+              value: ledger ? new Intl.NumberFormat("fa-IR").format(totalItems) : "—",
+              detail: "از ردیف‌های واقعی دفتر",
+            },
+            {
+              label: "روز تعطیل",
+              value: ledger ? new Intl.NumberFormat("fa-IR").format(ledger.days.filter((day) => day.isHoliday).length) : "—",
+              detail: "در بازه انتخابی",
+            },
+            {
+              label: "قفل فعال",
+              value: ledger ? new Intl.NumberFormat("fa-IR").format(ledger.rangeLocks.filter((lock) => lock.active).length) : "—",
+              detail: ledger?.canManageLocks ? "قابل مدیریت با نقش جاری" : "فقط مشاهده",
+              tone: ledger?.rangeLocks.some((lock) => lock.active) ? "attention" : "neutral",
+            },
+          ]}
+          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
+          persistenceLabel={chrome.persistenceLabel}
+          pending={pending}
+          onRefresh={load}
+        />
+      ) : null}
+      <SectionCard title="دفتر روزانه گروه" delayClass="delay1">
       <FormStack>
         {showTip ? (
           <div className="dlOnboard" role="note">
@@ -405,6 +463,7 @@ export function DailyLedgerView() {
           <DailyLedgerToolbar
             workspaces={workspaces}
             workspaceId={workspaceId}
+            settlementsHref={settlementsHref}
             onWorkspaceChange={setWorkspaceId}
             preset={preset}
             from={from}
@@ -483,6 +542,7 @@ export function DailyLedgerView() {
         <DailyLedgerSidePanels
           balances={balances}
           members={ledger?.members ?? []}
+          settlementsHref={settlementsHref}
           importCsv={importCsv}
           onImportCsvChange={setImportCsv}
           onRunImport={runImport}
@@ -539,18 +599,66 @@ export function DailyLedgerView() {
               </ul>
             </div>
 
-            <DailyLedgerGrid
-              ledger={ledger}
-              viewMode={viewMode}
-              showGregorian={showGregorian}
-              todayIso={todayIso}
-              pending={pending}
-              readOnly={readOnly}
-              onOpenDraft={openDraft}
-              onDeleteItem={deleteItem}
-              onToggleHoliday={toggleHoliday}
-              onEditNote={(date, note) => setDayNote({ date, note })}
-            />
+            <div className={styles.masterDetail}>
+              <DailyLedgerGrid
+                ledger={ledger}
+                viewMode={viewMode}
+                showGregorian={showGregorian}
+                todayIso={todayIso}
+                pending={pending}
+                readOnly={readOnly}
+                selectedDate={selectedDate}
+                onSelectDay={setSelectedDate}
+                onOpenDraft={openDraft}
+                onDeleteItem={deleteItem}
+                onToggleHoliday={toggleHoliday}
+                onEditNote={(date, note) => setDayNote({ date, note })}
+              />
+              <aside className={styles.inspector} aria-label="جزئیات روز انتخاب‌شده">
+                {selectedDay ? (
+                  <>
+                    <header>
+                      <span>روز انتخاب‌شده</span>
+                      <h3>{formatJalaliIso(selectedDay.date)}</h3>
+                      <small>{selectedDay.date}</small>
+                    </header>
+                    <dl>
+                      <div>
+                        <dt>جمع روز</dt>
+                        <dd><Amount irrMinor={selectedDay.dayTotal.amountMinor} /></dd>
+                      </div>
+                      <div>
+                        <dt>قلم‌ها</dt>
+                        <dd>{new Intl.NumberFormat("fa-IR").format(dayItemCount(ledger, selectedDay.date))}</dd>
+                      </div>
+                      <div>
+                        <dt>هزینه مشترک</dt>
+                        <dd><Amount irrMinor={selectedDay.shared.total.amountMinor} /></dd>
+                      </div>
+                      <div>
+                        <dt>وضعیت روز</dt>
+                        <dd>{selectedDay.isHoliday ? "تعطیل" : selectedDay.isRangeLocked ? "قفل بازه" : "عادی"}</dd>
+                      </div>
+                      <div>
+                        <dt>یادداشت</dt>
+                        <dd>{selectedDay.note?.trim() || "ثبت نشده"}</dd>
+                      </div>
+                    </dl>
+                    <section>
+                      <b>توزیع اعضا</b>
+                      {ledger.members.map((member) => (
+                        <div key={member.userId}>
+                          <span>{member.displayName}</span>
+                          <Amount irrMinor={selectedDay.members[member.userId]?.total.amountMinor ?? "0"} />
+                        </div>
+                      ))}
+                    </section>
+                  </>
+                ) : (
+                  <EmptyHint>برای مشاهده جزئیات، یک روز را انتخاب کنید.</EmptyHint>
+                )}
+              </aside>
+            </div>
           </>
         ) : null}
         </div>
@@ -635,6 +743,7 @@ export function DailyLedgerView() {
           </div>
         ) : null}
       </FormStack>
-    </SectionCard>
+      </SectionCard>
+    </>
   );
 }

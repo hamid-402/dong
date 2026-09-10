@@ -22,6 +22,9 @@ export type SessionRecord = {
   tokenHash: string;
   expiresAt: Date;
   revokedAt: Date | null;
+  ip?: string;
+  userAgent?: string;
+  createdAt: Date;
 };
 
 export type PasswordResetRecord = {
@@ -74,7 +77,9 @@ export type AccountStore = {
     userAgent?: string;
   }): Promise<SessionRecord>;
   findSessionByTokenHash(tokenHash: string): Promise<SessionRecord | null>;
+  listActiveSessions(userId: string): Promise<SessionRecord[]>;
   revokeSession(sessionId: string): Promise<void>;
+  revokeSessionForUser(sessionId: string, userId: string): Promise<boolean>;
   revokeAllSessions(userId: string): Promise<void>;
   createPasswordReset(input: {
     userId: string;

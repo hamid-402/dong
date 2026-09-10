@@ -1,6 +1,7 @@
 import { newClientId } from "@/lib/id";
 import type {
   AuthActionResponse,
+  AccountSessionSummary,
   AuthMeResponse,
   ChangePasswordRequest,
   ForgotPasswordResponse,
@@ -222,6 +223,12 @@ export const authApi = {
       method: "POST",
       body: "{}",
     }),
+  listSessions: () => apiFetch<AccountSessionSummary[]>("/auth/sessions"),
+  revokeSession: (sessionId: string) =>
+    apiFetch<{ ok: true; currentRevoked: boolean }>(
+      `/auth/sessions/${encodeURIComponent(sessionId)}`,
+      { method: "DELETE" },
+    ),
   profile: () => apiFetch<UserProfile>("/auth/profile"),
   updateProfile: (body: UpdateProfileRequest) =>
     apiFetch<UserProfile>("/auth/profile", {

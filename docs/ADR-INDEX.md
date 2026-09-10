@@ -28,6 +28,7 @@
 | ADR-021 | OCR Provider پس از Benchmark فارسی | در انتظار داده |
 | ADR-022 | Payment Provider پس از Legal/SLA Review | در انتظار داده |
 | ADR-023 | Hosting/Data Residency | در انتظار ارزیابی |
+| ADR-024 | Operations Room + Contextual Mosaic Hubs | تصویب‌شده |
 
 ## شرایط تغییر تصمیم
 

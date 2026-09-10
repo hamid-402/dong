@@ -21,12 +21,12 @@ import {
   EmptyHint,
   EmptyStateBlock,
   FormStack,
-  PageHeader,
   ProductGrid,
   SectionCard,
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
+import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
@@ -220,6 +220,10 @@ export function FriendsGroupView() {
   }
 
   const pageError = error ?? chrome.error;
+  const openBalances = balances
+    ? balances.lines.filter((line) => line.net.amountMinor !== "0").length
+    : 0;
+  const postedExpenses = expenses.filter((expense) => expense.status === "posted").length;
 
   return (
     <AppShell
@@ -228,11 +232,54 @@ export function FriendsGroupView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <PageHeader
-        eyebrow={NAV_LABELS.spaceGroup}
-        title="خانه گروه و خانواده"
-        description={`مانده و اعضا — ${NAV_LABELS.addExpense} از تب «${NAV_LABELS.expenses}» یا FAB.`}
-      />
+      {slug ? (
+        <OperationsModuleHeader
+          ariaLabel="خانه گروه و خانواده"
+          destinations={[
+            { key: "space", label: NAV_LABELS.spaceGroup, href: wPath(slug, "space"), active: true },
+            { key: "expenses", label: NAV_LABELS.expenses, href: expensesHref, active: false },
+            { key: "settlements", label: NAV_LABELS.settlements, href: settlementsHref, active: false },
+            { key: "members", label: NAV_LABELS.invite, href: membersHref, active: false },
+            { key: "ledger", label: NAV_LABELS.ledger, href: wPath(slug, "ledger"), active: false },
+          ]}
+          metrics={[
+            {
+              label: "اعضا",
+              value: new Intl.NumberFormat("fa-IR").format(members.length),
+              detail: workspace ? workspaceTemplateLabel(workspace.template) : "از عضویت",
+            },
+            {
+              label: "خرج‌ها",
+              value: new Intl.NumberFormat("fa-IR").format(expenses.length),
+              detail: `${new Intl.NumberFormat("fa-IR").format(postedExpenses)} posted`,
+            },
+            {
+              label: "مانده غیرصفر",
+              value: balances
+                ? new Intl.NumberFormat("fa-IR").format(openBalances)
+                : "—",
+              detail: "از balances API",
+              tone: openBalances > 0 ? "attention" : "positive",
+            },
+            {
+              label: "گردش‌ها",
+              value: new Intl.NumberFormat("fa-IR").format(outings.length),
+              detail: "از listOutings",
+            },
+          ]}
+          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
+          persistenceLabel={chrome.persistenceLabel}
+          pending={pending || loading}
+          onRefresh={() => {
+            if (!chrome.workspaceId) return;
+            startTransition(() => {
+              void refresh(chrome.workspaceId)
+                .then(() => setError(null))
+                .catch((err: unknown) => setError(friendlyErrorMessage(err, "تازه‌سازی ناموفق")));
+            });
+          }}
+        />
+      ) : null}
       <FlashMessages error={pageError} successMessage={successMessage} />
 
       {loading ? (

@@ -44,7 +44,7 @@ test("cost center controller and service declare every runtime injection explici
   ) as Array<{ index: number; param: unknown }> | undefined;
 
   assert.deepEqual(controllerDeps, [{ index: 0, param: CostCentersService }]);
-  assert.deepEqual(serviceDeps?.toSorted((a, b) => a.index - b.index), [
+  assert.deepEqual(serviceDeps?.slice().sort((a, b) => a.index - b.index), [
     { index: 0, param: COST_CENTER_STORE },
     { index: 1, param: WorkspaceAccessService },
   ]);

@@ -5,6 +5,7 @@ import type {
   CreateWorkspaceRequest,
   MembershipSummary,
   OutingSummary,
+  UpdateWorkspaceRequest,
   WorkspaceSummary,
   WorkspaceTemplateCatalogItem,
 } from "@dang/contracts";
@@ -14,6 +15,8 @@ import { apiFetch } from "./client";
 export const workspacesApi = {
   templates: () => apiFetch<WorkspaceTemplateCatalogItem[]>("/workspaces/templates"),
   listWorkspaces: () => apiFetch<WorkspaceSummary[]>("/workspaces"),
+  getWorkspace: (workspaceId: string) =>
+    apiFetch<WorkspaceSummary>(`/workspaces/${workspaceId}`),
   createWorkspace: (body: CreateWorkspaceRequest, idempotencyKey?: string) =>
     apiFetch<WorkspaceSummary>(
       "/workspaces",
@@ -23,6 +26,11 @@ export const workspacesApi = {
       },
       idempotencyKey,
     ),
+  updateWorkspace: (workspaceId: string, body: UpdateWorkspaceRequest) =>
+    apiFetch<WorkspaceSummary>(`/workspaces/${workspaceId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
   listMembers: (workspaceId: string) =>
     apiFetch<MembershipSummary[]>(`/workspaces/${workspaceId}/members`),
   setMemberDefaultShares: (workspaceId: string, userId: string, defaultShares: number) =>

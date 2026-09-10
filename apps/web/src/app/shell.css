@@ -443,6 +443,21 @@
   gap: 2px;
 }
 
+.shell-v2__product {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
+
+.shell-v2__product small {
+  color: var(--primary);
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
 .shell-v2__brand-text b {
   font-size: 0.95rem;
   line-height: 1.2;
@@ -1381,6 +1396,10 @@
 
   .shell-v2__user {
     gap: 6px;
+  }
+
+  .shell-v2__product small {
+    display: none;
   }
 
   .shell-v2__search {

@@ -4,12 +4,14 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
   forwardRef,
 } from "@nestjs/common";
 import { loadAppEnv } from "@dang/config";
 import type {
   AuthActionResponse,
+  AccountSessionSummary,
   AuthActor,
   ChangePasswordRequest,
   ForgotPasswordResponse,
@@ -235,6 +237,55 @@ export class AccountService {
   async revokeAllSessions(actor: AuthActor): Promise<{ ok: true }> {
     await this.accounts.revokeAllSessions(actor.userId);
     return { ok: true };
+  }
+
+  async listSessions(
+    actor: AuthActor,
+    rawToken?: string,
+  ): Promise<AccountSessionSummary[]> {
+    const currentHash = rawToken?.trim() ? hashToken(rawToken.trim()) : null;
+    const sessions = await this.accounts.listActiveSessions(actor.userId);
+    return sessions.map((session) => ({
+      id: session.id,
+      current: currentHash === session.tokenHash,
+      ip: session.ip,
+      userAgent: session.userAgent,
+      createdAt: session.createdAt.toISOString(),
+      expiresAt: session.expiresAt.toISOString(),
+    }));
+  }
+
+  async revokeSession(
+    actor: AuthActor,
+    sessionId: string,
+    rawToken?: string,
+  ): Promise<{ ok: true; currentRevoked: boolean }> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "Invalid session id",
+        status: 400,
+      });
+    }
+    const sessions = await this.accounts.listActiveSessions(actor.userId);
+    const target = sessions.find((session) => session.id === sessionId);
+    if (!target) {
+      throw new NotFoundException({
+        type: "https://dang.local/problems/not-found",
+        title: "Active session not found",
+        status: 404,
+      });
+    }
+    const revoked = await this.accounts.revokeSessionForUser(sessionId, actor.userId);
+    if (!revoked) {
+      throw new NotFoundException({
+        type: "https://dang.local/problems/not-found",
+        title: "Active session not found",
+        status: 404,
+      });
+    }
+    const currentHash = rawToken?.trim() ? hashToken(rawToken.trim()) : null;
+    return { ok: true, currentRevoked: currentHash === target.tokenHash };
   }
 
   async forgotPassword(body: { email: string }): Promise<ForgotPasswordResponse> {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type {
   ExpensePeriodSummary,
   MemberInvoiceSummary,
@@ -18,6 +19,7 @@ import {
   StatusPill,
 } from "@/components/ui-blocks";
 import { invoiceStatusLabel, periodKindLabel, periodStatusLabel } from "@/lib/status-labels";
+import styles from "./period-invoice-panels.module.css";
 
 type PeriodInvoicePanelsProps = {
   periods: ExpensePeriodSummary[];
@@ -81,6 +83,21 @@ export function PeriodInvoicePanels({
   onMarkInvoicePaid,
   canManageInvoices = false,
 }: PeriodInvoicePanelsProps) {
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
+  const selectedInvoice =
+    invoices.find((invoice) => invoice.id === selectedInvoiceId) ??
+    invoices[0] ??
+    null;
+
+  useEffect(() => {
+    if (
+      selectedInvoiceId &&
+      !invoices.some((invoice) => invoice.id === selectedInvoiceId)
+    ) {
+      setSelectedInvoiceId(invoices[0]?.id ?? "");
+    }
+  }, [invoices, selectedInvoiceId]);
+
   return (
     <>
       {canManageInvoices ? (
@@ -188,6 +205,7 @@ export function PeriodInvoicePanels({
         badge={invoices.length}
         delayClass="delay2"
       >
+        <div className={styles.masterDetail}>
         <DataList>
           {invoices.length === 0 ? (
             <EmptyHint>
@@ -237,6 +255,14 @@ export function PeriodInvoicePanels({
                 trailing={<Amount irrMinor={invoice.total.amountMinor} />}
                 actions={
                   <>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      aria-pressed={selectedInvoice?.id === invoice.id}
+                      onClick={() => setSelectedInvoiceId(invoice.id)}
+                    >
+                      جزئیات
+                    </Button>
                     {isMine && invoice.status === "pending_approval" ? (
                       <>
                         <Button
@@ -302,6 +328,25 @@ export function PeriodInvoicePanels({
             );
           })}
         </DataList>
+        {selectedInvoice ? (
+          <aside className={styles.inspector} aria-label="جزئیات صورتحساب انتخاب‌شده">
+            <span>INVOICE INSPECTOR</span>
+            <h3>{memberLabel(selectedInvoice.memberUserId)}</h3>
+            <Amount irrMinor={selectedInvoice.total.amountMinor} />
+            <dl>
+              <div><dt>وضعیت</dt><dd>{invoiceStatusLabel(selectedInvoice.status)}</dd></div>
+              <div><dt>عمومی</dt><dd><Amount irrMinor={selectedInvoice.sharedTotal.amountMinor} /></dd></div>
+              <div><dt>خصوصی</dt><dd><Amount irrMinor={selectedInvoice.privateTotal.amountMinor} /></dd></div>
+              <div><dt>تعداد ردیف</dt><dd>{selectedInvoice.lines.length}</dd></div>
+              <div><dt>صدور</dt><dd>{selectedInvoice.issuedAt ? new Date(selectedInvoice.issuedAt).toLocaleDateString("fa-IR") : "هنوز صادر نشده"}</dd></div>
+              <div><dt>پرداخت</dt><dd>{selectedInvoice.paidAt ? new Date(selectedInvoice.paidAt).toLocaleDateString("fa-IR") : "ثبت نشده"}</dd></div>
+            </dl>
+            {selectedInvoice.disputeNote ? (
+              <p><b>یادداشت اختلاف</b>{selectedInvoice.disputeNote}</p>
+            ) : null}
+          </aside>
+        ) : null}
+        </div>
       </SectionCard>
     </>
   );

@@ -36,6 +36,16 @@ export const createWorkspaceRequestSchema = z
 
 export type CreateWorkspaceRequestInput = z.infer<typeof createWorkspaceRequestSchema>;
 
+export const updateWorkspaceRequestSchema = z
+  .object({
+    name: z.string().trim().min(2).max(80),
+    timezone: z.string().trim().min(1).max(64),
+    displayUnit: z.enum(["toman", "rial"]),
+  })
+  .strict();
+
+export type UpdateWorkspaceRequestInput = z.infer<typeof updateWorkspaceRequestSchema>;
+
 export const createInviteRequestSchema = z
   .object({
     role: membershipRoleSchema,

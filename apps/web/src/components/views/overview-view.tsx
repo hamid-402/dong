@@ -7,8 +7,12 @@ import { spaceKindForTemplate } from "@dang/contracts";
 import { formatToman } from "@dang/ui";
 import { AppShell, ShellIconSvg } from "@/components/app-shell";
 import {
+  ContextualMosaicHub,
+  type ContextualMosaicFact,
+} from "@/components/shell/contextual-mosaic-hub";
+import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
+import {
   HeroBalance,
-  PageHeader,
   PanelList,
   QuickAction,
 } from "@/components/ui-blocks";
@@ -17,6 +21,7 @@ import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
 import { wPath } from "@/lib/workspace-paths";
 import { NAV_LABELS } from "@/lib/nav-labels";
+import { contextualMosaicSections } from "@/lib/navigation-v2";
 import {
   expenseStatusLabel,
   needStatusLabel,
@@ -279,6 +284,31 @@ export function OverviewView() {
   }, [chrome.ready, chrome.workspaceId]);
 
   const spaceKind = spaceKindForTemplate(activeWs?.template);
+  const missionSections = contextualMosaicSections(
+    activeWs?.template,
+    slug,
+    chrome.capabilities?.productFlags,
+    "home",
+  );
+  const missionFacts: Partial<Record<string, ContextualMosaicFact>> = data
+    ? {
+        expenses: {
+          value: String(data.postedCount),
+          label: "خرج ثبت‌شده در بازه",
+          tone: "neutral",
+        },
+        settlements: {
+          value: String(data.openSettlementCount),
+          label: "تسویه باز",
+          tone: data.openSettlementCount > 0 ? "attention" : "positive",
+        },
+        procurement: {
+          value: String(data.needCount),
+          label: "نیاز خرید",
+          tone: data.needCount > 0 ? "attention" : "neutral",
+        },
+      }
+    : {};
 
   return (
     <AppShell
@@ -298,27 +328,66 @@ export function OverviewView() {
         />
       }
     >
-      <PageHeader
-        eyebrow="نمای کلی همکاری"
-        title={`صبح بخیر${data?.userName ? `، ${data.userName.split(" ")[0]}` : ""}`}
-        description={
-          data
-            ? `${formatToman(data.postedSpendToman)} خرج ثبت‌شده (${data.postedCount}) · ${data.openSettlementCount} تسویه باز · ${data.notificationCount} اعلان · بازه ${data.rangeLabel}`
-            : "در حال همگام‌سازی…"
-        }
-        actions={
-          <>
-            <time suppressHydrationWarning>{todayLabel || "—"}</time>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                if (chrome.workspaceId) load(chrome.workspaceId);
-              }}
-            >
-              نوسازی
-            </button>
-            {allowDemoSeed ? (
+      <FlashMessages error={error} />
+
+      {slug ? (
+        <OperationsModuleHeader
+          ariaLabel="اتاق عملیات فضای کاری"
+          destinations={[
+            { key: "home", label: NAV_LABELS.home, href: wPath(slug), active: true },
+            { key: "expenses", label: NAV_LABELS.expenses, href: financeHref, active: false },
+            { key: "settlements", label: NAV_LABELS.settlements, href: settlementsHref, active: false },
+            { key: "space", label: NAV_LABELS.space, href: spaceHref, active: false },
+            { key: "more", label: NAV_LABELS.more, href: wPath(slug, "more"), active: false },
+          ]}
+          metrics={[
+            {
+              label: "مانده خالص شما",
+              value: data ? formatToman(data.balanceToman) : "—",
+              detail: data ? `بازه ${data.rangeLabel}` : "در حال همگام‌سازی",
+              tone: data && data.balanceToman < 0 ? "attention" : "neutral",
+            },
+            {
+              label: "خرج ثبت‌شده",
+              value: data ? formatToman(data.postedSpendToman) : "—",
+              detail: data ? `${data.postedCount} قلم posted` : undefined,
+            },
+            {
+              label: "تسویه باز",
+              value: data ? String(data.openSettlementCount) : "—",
+              tone: data && data.openSettlementCount > 0 ? "attention" : "positive",
+            },
+            {
+              label: "اعلان خوانده‌نشده",
+              value: data ? String(data.notificationCount) : "—",
+              detail: data?.persistence,
+              tone: data && data.notificationCount > 0 ? "attention" : "neutral",
+            },
+          ]}
+          roleLabel={null}
+          persistenceLabel={data?.persistence ?? chrome.persistenceLabel}
+          pending={pending || !chrome.ready}
+          onRefresh={() => {
+            if (chrome.workspaceId) load(chrome.workspaceId);
+          }}
+        />
+      ) : null}
+
+      <div className="heroGrid" style={{ marginBottom: 12 }}>
+        <p className="liveHint" style={{ margin: 0 }}>
+          صبح بخیر{data?.userName ? `، ${data.userName.split(" ")[0]}` : ""}
+          {" · "}
+          <time suppressHydrationWarning>{todayLabel || "—"}</time>
+          {" · "}
+          <button
+            type="button"
+            onClick={() => setMotionEnabled((c) => !c)}
+          >
+            {motionEnabled ? "توقف حرکت" : "فعال‌کردن حرکت"}
+          </button>
+          {allowDemoSeed ? (
+            <>
+              {" · "}
               <button
                 type="button"
                 disabled={pending}
@@ -337,15 +406,10 @@ export function OverviewView() {
               >
                 دادهٔ نمونه (دمو)
               </button>
-            ) : null}
-            <button type="button" onClick={() => setMotionEnabled((c) => !c)}>
-              {motionEnabled ? "توقف حرکت" : "فعال‌کردن حرکت"}
-            </button>
-          </>
-        }
-      />
-
-      <FlashMessages error={error} />
+            </>
+          ) : null}
+        </p>
+      </div>
 
       <div className="heroGrid">
         <HeroBalance
@@ -370,6 +434,13 @@ export function OverviewView() {
           icon={<ShellIconSvg name="receipt" />}
         />
       </div>
+
+      <ContextualMosaicHub
+        sections={missionSections}
+        title="ماموریت‌های این فضا"
+        description="مسیرهای اصلی بر اساس نوع فضای کاری و قابلیت‌های واقعی فعال شده‌اند."
+        facts={missionFacts}
+      />
 
       <div className="lowerGrid">
         <PanelList

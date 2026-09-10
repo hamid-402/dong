@@ -1,0 +1,77 @@
+.masterDetail {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.75fr);
+  gap: 14px;
+  margin-top: 14px;
+  align-items: start;
+}
+
+.selectedRow :global(.dataRow) {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
+  background: color-mix(in srgb, var(--primary-soft) 36%, var(--surface));
+}
+
+.inspector {
+  align-self: start;
+  position: sticky;
+  top: 14px;
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--gold) 7%, transparent), transparent 55%),
+    var(--surface-2);
+}
+
+.inspector > span {
+  color: var(--primary);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+}
+
+.inspector h3 {
+  margin: 8px 0 6px;
+  color: var(--text);
+  font-size: 17px;
+}
+
+.inspector dl {
+  margin: 16px 0;
+}
+
+.inspector dl > div {
+  padding: 9px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+}
+
+.inspector dt {
+  color: var(--muted);
+}
+
+.inspector dd {
+  margin: 0;
+  color: var(--text);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.inspectorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+@media (max-width: 840px) {
+  .masterDetail {
+    grid-template-columns: 1fr;
+  }
+
+  .inspector {
+    position: static;
+  }
+}

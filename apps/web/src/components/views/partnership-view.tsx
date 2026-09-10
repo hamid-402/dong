@@ -14,12 +14,12 @@ import type {
 import { isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
+import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import {
   DataList,
   DataRow,
   EmptyHint,
   FormStack,
-  PageHeader,
   ProductGrid,
   SectionCard,
   StatusLine,
@@ -31,6 +31,7 @@ import { hubPathFor } from "@/lib/hub-links";
 import { agreementStatusLabel, membershipRoleLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { wPath } from "@/lib/workspace-paths";
 import type { ComponentProps } from "react";
 
 function downloadCsv(filename: string, content: string) {
@@ -108,6 +109,7 @@ export function PartnershipView() {
   const pageError = error ?? chrome.error;
   const myRole = members.find((m) => m.userId === chrome.actor?.userId)?.role;
   const readOnly = isReadOnlyRole(myRole);
+  const workspace = chrome.workspaces.find((item) => item.id === workspaceId);
 
   return (
     <AppShell
@@ -116,23 +118,34 @@ export function PartnershipView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <PageHeader
-        eyebrow="شراکت"
-        title="قرارداد و گزارش شرکا"
-        description={
-          workspaceId
-            ? `${agreements.length} قرارداد · ${shares.length} سهم · ${locks.length} قفل دوره`
-            : "قرارداد، آورده، سهم مالکیت و گزارش حساب شرکا."
-        }
-        actions={
-          <>
-            <Link href={hubPathFor("/workspaces")}>مالی</Link>
-            <Link href={hubPathFor("/workspaces/procurement")}>خرید</Link>
-          </>
-        }
-      />
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
+      {workspaceId && workspace ? (
+        <OperationsModuleHeader
+          ariaLabel="عملیات شرکا"
+          destinations={[
+            { key: "partners", label: "شرکا", href: wPath(workspace.slug, "partners"), active: true },
+            { key: "expenses", label: "مالی", href: wPath(workspace.slug, "expenses"), active: false },
+            { key: "procurement", label: "تدارکات", href: wPath(workspace.slug, "procurement"), active: false },
+            { key: "members", label: "اعضا", href: wPath(workspace.slug, "members"), active: false },
+          ]}
+          metrics={[
+            { label: "قرارداد", value: String(agreements.length), detail: `${agreements.filter((item) => item.status === "active").length} فعال` },
+            { label: "سهم مالکیت", value: String(shares.length), detail: agreement ? agreement.title : "قرارداد انتخاب نشده" },
+            { label: "قفل دوره", value: String(locks.length), detail: "بازه‌های ثبت‌نشده" },
+            { label: "گزارش شخص", value: report ? "بارگذاری‌شده" : "آماده درخواست", detail: self?.displayName ?? "عضوی انتخاب نشده", tone: report ? "positive" : "neutral" },
+          ]}
+          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
+          persistenceLabel={chrome.persistenceLabel}
+          pending={loading}
+          onRefresh={() => {
+            setLoading(true);
+            void refresh(workspaceId)
+              .catch((reason: unknown) => setError(friendlyErrorMessage(reason, "تازه‌سازی شرکا ناموفق")))
+              .finally(() => setLoading(false));
+          }}
+        />
+      ) : null}
       {readOnly && workspaceId ? (
         <StatusLine>
           نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ثبت قرارداد و آورده فعال نیست.

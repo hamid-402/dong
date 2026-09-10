@@ -26,6 +26,7 @@ import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
 import { spaceKindForTemplateLabel } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { wPath } from "@/lib/workspace-paths";
 
 function monthStart(): string {
   return resolveDailyLedgerRange("month").from;
@@ -35,7 +36,13 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function spaceHome(spaceKind: "personal" | "group" | "org"): string {
+function spaceHomeHref(
+  workspaceId: string,
+  spaceKind: "personal" | "group" | "org",
+  workspaces: Array<{ id: string; slug: string }>,
+): string {
+  const slug = workspaces.find((workspace) => workspace.id === workspaceId)?.slug;
+  if (slug) return wPath(slug, "space");
   if (spaceKind === "personal") return hubPathFor("/me");
   if (spaceKind === "org") return hubPathFor("/orgs");
   return hubPathFor("/group");
@@ -223,7 +230,7 @@ export function PersonalFinanceOverviewPanel() {
                       }
                       trailing={
                         <Link
-                          href={spaceHome(line.spaceKind)}
+                          href={spaceHomeHref(line.workspaceId, line.spaceKind, chrome.workspaces)}
                           className="pfRowLink"
                           onClick={() => chrome.selectWorkspace(line.workspaceId)}
                         >

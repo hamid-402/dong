@@ -4,12 +4,12 @@ import Link from "next/link";
 import type { DailyLedgerRangePreset, WorkspaceSummary } from "@dang/contracts";
 import { Button, SelectField } from "@dang/ui";
 import { JalaliDateField } from "@/components/jalali-date-field";
-import { hubPathFor } from "@/lib/hub-links";
 import { rangeHeadline } from "@/components/views/daily-ledger/daily-ledger-utils";
 
 type DailyLedgerToolbarProps = {
   workspaces: WorkspaceSummary[];
   workspaceId: string;
+  settlementsHref: string;
   onWorkspaceChange: (id: string) => void;
   preset: DailyLedgerRangePreset;
   from: string;
@@ -41,6 +41,7 @@ type DailyLedgerToolbarProps = {
 export function DailyLedgerToolbar({
   workspaces,
   workspaceId,
+  settlementsHref,
   onWorkspaceChange,
   preset,
   from,
@@ -178,7 +179,7 @@ export function DailyLedgerToolbar({
         <Button type="button" onClick={onExportCsv} disabled={!workspaceId || !hasLedger}>
           خروجی CSV
         </Button>
-        <Link className="dlLinkBtn" href={`${hubPathFor("/workspaces")}#settlement-panel`}>
+        <Link className="dlLinkBtn" href={settlementsHref}>
           تسویه
         </Link>
       </div>

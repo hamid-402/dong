@@ -8,12 +8,12 @@ import type { AssetSummary, MembershipSummary } from "@dang/contracts";
 import { isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
+import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import {
   DataList,
   DataRow,
   EmptyHint,
   FormStack,
-  PageHeader,
   ProductGrid,
   SectionCard,
   StatusLine,
@@ -25,6 +25,8 @@ import { hubPathFor } from "@/lib/hub-links";
 import { assetStatusLabel, deliveryStatusLabel, membershipRoleLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { wPath } from "@/lib/workspace-paths";
+import styles from "./assets-view.module.css";
 
 function statusTone(status: string): "neutral" | "ok" | "warn" | "danger" | "gold" {
   if (status === "active" || status === "in_use") return "ok";
@@ -43,6 +45,7 @@ export function AssetsView() {
   const [deliveries, setDeliveries] = useState<Array<{ id: string; label: string }>>([]);
   const [title, setTitle] = useState("لپ‌تاپ پروژه");
   const [deliveryId, setDeliveryId] = useState("");
+  const [selectedAssetId, setSelectedAssetId] = useState("");
   const [pending, startTransition] = useTransition();
 
   async function refresh(id: string) {
@@ -82,6 +85,12 @@ export function AssetsView() {
   const pageError = error ?? chrome.error;
   const myRole = members.find((m) => m.userId === chrome.actor?.userId)?.role;
   const readOnly = isReadOnlyRole(myRole);
+  const workspace = chrome.workspaces.find((item) => item.id === workspaceId);
+  const activeAssets = assets.filter((asset) => asset.status === "active");
+  const selectedAsset =
+    assets.find((asset) => asset.id === selectedAssetId) ?? assets[0] ?? null;
+  const memberLabel = (userId: string | undefined) =>
+    members.find((member) => member.userId === userId)?.displayName ?? "—";
 
   return (
     <AppShell
@@ -90,19 +99,34 @@ export function AssetsView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <PageHeader
-        eyebrow="چرخه تجهیزات"
-        title="دارایی‌ها"
-        description="تبدیل تحویل خرید به دارایی، واگذاری و وضعیت نگهداری."
-        actions={
-          <>
-            <Link href={hubPathFor("/workspaces/procurement")}>خرید</Link>
-            <Link href={hubPathFor("/workspaces")}>مالی</Link>
-          </>
-        }
-      />
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
+      {workspaceId && workspace ? (
+        <OperationsModuleHeader
+          ariaLabel="عملیات تجهیزات"
+          destinations={[
+            { key: "procurement", label: "تدارکات", href: wPath(workspace.slug, "procurement"), active: false },
+            { key: "proposals", label: "پیشنهاد و رأی", href: wPath(workspace.slug, "proposals"), active: false },
+            { key: "assets", label: "تجهیزات", href: wPath(workspace.slug, "assets"), active: true },
+            { key: "members", label: "اعضا", href: wPath(workspace.slug, "members"), active: false },
+          ]}
+          metrics={[
+            { label: "کل دارایی", value: String(assets.length), detail: "ثبت‌شده در API" },
+            { label: "فعال یا در استفاده", value: String(activeAssets.length), detail: "قابل بهره‌برداری", tone: "positive" },
+            { label: "نیازمند رسیدگی", value: String(assets.filter((asset) => asset.status === "damaged").length), detail: "دارایی آسیب‌دیده", tone: assets.some((asset) => asset.status === "damaged") ? "attention" : "positive" },
+            { label: "تحویل قابل تبدیل", value: String(deliveries.length), detail: `${members.length} عضو` },
+          ]}
+          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
+          persistenceLabel={chrome.persistenceLabel}
+          pending={pending || loading}
+          onRefresh={() => {
+            setLoading(true);
+            void refresh(workspaceId)
+              .catch((reason: unknown) => setError(friendlyErrorMessage(reason, "تازه‌سازی دارایی‌ها ناموفق")))
+              .finally(() => setLoading(false));
+          }}
+        />
+      ) : null}
 
       {loading ? (
         <EmptyHint loading>در حال بارگذاری تجهیزات…</EmptyHint>
@@ -173,6 +197,7 @@ export function AssetsView() {
             {assets.length === 0 ? (
               <EmptyHint>دارایی ثبت نشده.</EmptyHint>
             ) : (
+              <div className={styles.masterDetail}>
               <DataList>
                 {assets.map((asset) => (
                   <DataRow
@@ -191,9 +216,40 @@ export function AssetsView() {
                         )}
                       </>
                     }
+                    actions={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        aria-pressed={selectedAsset?.id === asset.id}
+                        onClick={() => setSelectedAssetId(asset.id)}
+                      >
+                        جزئیات
+                      </Button>
+                    }
                   />
                 ))}
               </DataList>
+              {selectedAsset ? (
+                <aside className={styles.inspector} aria-label="جزئیات دارایی انتخاب‌شده">
+                  <span>ASSET INSPECTOR</span>
+                  <h3>{selectedAsset.title}</h3>
+                  <StatusPill tone={statusTone(selectedAsset.status)}>
+                    {assetStatusLabel(selectedAsset.status)}
+                  </StatusPill>
+                  <dl>
+                    <div><dt>مالک</dt><dd>{memberLabel(selectedAsset.ownerUserId)}</dd></div>
+                    <div><dt>امانت‌دار</dt><dd>{memberLabel(selectedAsset.custodianUserId)}</dd></div>
+                    <div><dt>مکان</dt><dd>{selectedAsset.location ?? "ثبت نشده"}</dd></div>
+                    <div><dt>شماره سریال</dt><dd>{selectedAsset.serialNumber ?? "ثبت نشده"}</dd></div>
+                    <div><dt>منشأ تحویل</dt><dd>{selectedAsset.deliveryId ? "تحویل خرید" : "ثبت مستقیم"}</dd></div>
+                    <div><dt>تاریخ ثبت</dt><dd>{new Date(selectedAsset.createdAt).toLocaleDateString("fa-IR")}</dd></div>
+                  </dl>
+                  {selectedAsset.acquisitionCost ? (
+                    <p>بهای تحصیل <Amount irrMinor={selectedAsset.acquisitionCost.amountMinor} /></p>
+                  ) : null}
+                </aside>
+              ) : null}
+              </div>
             )}
           </SectionCard>
         </ProductGrid>

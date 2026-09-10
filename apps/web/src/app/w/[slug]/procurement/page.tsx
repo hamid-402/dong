@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { RouteLoadingHint } from "@/components/shell/route-loading-hint";
 
 const ProcurementView = dynamic(
   () =>
@@ -9,7 +10,7 @@ const ProcurementView = dynamic(
     })),
   {
     ssr: false,
-    loading: () => <p className="liveHint">در حال بارگذاری…</p>,
+    loading: () => <RouteLoadingHint label="در حال بارگذاری تدارکات…" />,
   },
 );
 

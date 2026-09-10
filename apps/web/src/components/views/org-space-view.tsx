@@ -16,12 +16,12 @@ import {
   DataRow,
   EmptyHint,
   FormStack,
-  PageHeader,
   ProductGrid,
   SectionCard,
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
+import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
@@ -159,13 +159,14 @@ export function OrgSpaceView() {
   const privateClaims = expenses.filter((e) => e.visibility === "private");
   const companyExpenses = expenses.filter((e) => e.visibility === "company");
   const pageError = error ?? chrome.error;
-  const slug = workspace?.slug ?? null;
+  const slug = workspace?.slug ?? scope?.slug ?? null;
   const orgFinanceHref = slug ? wPath(slug, "orgFinance") : hubPathFor("/orgs");
   const approvalsHref = slug ? wPath(slug, "approvals") : hubPathFor("/workspaces");
   const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
   const procurementHref = slug
     ? wPath(slug, "procurement")
     : hubPathFor("/workspaces/procurement");
+  const openBudgets = budgets.filter((budget) => budget.status === "open").length;
 
   return (
     <AppShell
@@ -174,11 +175,62 @@ export function OrgSpaceView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <PageHeader
-        eyebrow="سازمان"
-        title="فضای سازمانی"
-        description="وضعیت بودجه و مطالبات — ابزارهای Wave F در مالی سازمان."
-      />
+      {slug ? (
+        <OperationsModuleHeader
+          ariaLabel="خانه فضای سازمانی"
+          destinations={[
+            { key: "space", label: "خانه سازمان", href: wPath(slug, "space"), active: true },
+            ...(orgFinanceLive
+              ? [{ key: "org-finance", label: NAV_LABELS.orgFinance, href: orgFinanceHref, active: false }]
+              : []),
+            ...(flags?.approvalQueue
+              ? [{ key: "approvals", label: NAV_LABELS.approvals, href: approvalsHref, active: false }]
+              : []),
+            { key: "procurement", label: NAV_LABELS.procurement, href: procurementHref, active: false },
+            { key: "members", label: NAV_LABELS.invite, href: membersHref, active: false },
+          ]}
+          metrics={[
+            {
+              label: "اعضا",
+              value: new Intl.NumberFormat("fa-IR").format(members.length),
+              detail: myRole ? membershipRoleLabel(myRole) : "نقش تشخیص نشده",
+            },
+            {
+              label: "مطالبه خصوصی",
+              value: new Intl.NumberFormat("fa-IR").format(privateClaims.length),
+              detail: "visibility=private",
+              tone: privateClaims.length > 0 ? "attention" : "neutral",
+            },
+            {
+              label: "خرج شرکتی",
+              value: new Intl.NumberFormat("fa-IR").format(companyExpenses.length),
+              detail: "visibility=company",
+            },
+            {
+              label: flags?.approvalQueue ? "صف تأیید" : "بودجه باز",
+              value: new Intl.NumberFormat("fa-IR").format(
+                flags?.approvalQueue ? approvalCount : openBudgets,
+              ),
+              detail: flags?.approvalQueue ? "از approval queue" : "از budgets API",
+              tone:
+                (flags?.approvalQueue ? approvalCount : openBudgets) > 0
+                  ? "attention"
+                  : "neutral",
+            },
+          ]}
+          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
+          persistenceLabel={chrome.persistenceLabel}
+          pending={pending || loading}
+          onRefresh={() => {
+            if (!workspace) return;
+            startTransition(() => {
+              void refresh(workspace.id)
+                .then(() => setError(null))
+                .catch((err: unknown) => setError(friendlyErrorMessage(err, "تازه‌سازی ناموفق")));
+            });
+          }}
+        />
+      ) : null}
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
 

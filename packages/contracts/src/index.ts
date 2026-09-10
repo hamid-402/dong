@@ -198,6 +198,13 @@ export type CreateWorkspaceRequest = {
   template: WorkspaceTemplate;
 };
 
+/** Additive workspace profile update. Slug/template remain immutable here. */
+export type UpdateWorkspaceRequest = {
+  name: string;
+  timezone: string;
+  displayUnit: "toman" | "rial";
+};
+
 export type WorkspaceSummary = {
   id: string;
   name: string;

@@ -25,7 +25,6 @@ import {
   EmptyHint,
   FormStack,
   HeroBalance,
-  PageHeader,
   ProductGrid,
   SectionCard,
   StatusLine,
@@ -46,6 +45,7 @@ import {
   type OfflineExpenseDraft,
 } from "@/lib/offline-drafts";
 import { FinanceSummaryCard } from "@/components/views/finance/finance-summary-card";
+import { FinanceOperationsHeader } from "@/components/views/finance/finance-operations-header";
 import { ExpenseListPanel } from "@/components/views/finance/expense-list-panel";
 import { LedgerAuditPanels } from "@/components/views/finance/ledger-audit-panels";
 import { PeriodInvoicePanels } from "@/components/views/finance/period-invoice-panels";
@@ -64,28 +64,6 @@ export type FinanceSection =
   | "settlements"
   | "invoices"
   | "recurring";
-
-const SECTION_META: Record<
-  FinanceSection,
-  { title: string; description: string }
-> = {
-  expenses: {
-    title: NAV_LABELS.expenses,
-    description: "ثبت و پیگیری خرج‌های این فضا — تسویه و صورتحساب صفحهٔ جدا دارند.",
-  },
-  settlements: {
-    title: NAV_LABELS.settlements,
-    description: "ادعای تسویه، تأیید، اعتراض و لینک پرداخت.",
-  },
-  invoices: {
-    title: NAV_LABELS.invoices,
-    description: "دورهٔ هزینه و صورتحساب اعضا.",
-  },
-  recurring: {
-    title: NAV_LABELS.recurring,
-    description: "قواعد تکرار، گزارش بازه‌ای و نسخه‌بندی مبلغ.",
-  },
-};
 
 export function FinanceView({
   section = "expenses",
@@ -250,6 +228,7 @@ export function FinanceView({
   useEffect(() => {
     if (initialLoading || !selectedId) return;
     const hash = typeof window !== "undefined" ? window.location.hash : "";
+    const activeSlug = workspaces.find((w) => w.id === selectedId)?.slug ?? null;
     const wantSettlement =
       focusPanel === "settlement" || hash === "#settlement-panel";
     const wantExpense =
@@ -260,6 +239,27 @@ export function FinanceView({
       focusPanel === "invoice" || hash === "#period-invoice-panel";
     const wantReports =
       focusPanel === "reports" || hash === "#reports-panel";
+
+    // Compatibility: classic `/workspaces#…` bookmarks may land on the wrong finance section.
+    if (activeSlug) {
+      if (wantSettlement && section !== "settlements") {
+        router.replace(`${wPath(activeSlug, "settlements")}${hash || "#settlement-panel"}`);
+        return;
+      }
+      if (wantInvoice && section !== "invoices") {
+        router.replace(`${wPath(activeSlug, "invoices")}${hash || "#period-invoice-panel"}`);
+        return;
+      }
+      if (wantReports && section !== "recurring") {
+        router.replace(`${wPath(activeSlug, "recurring")}${hash || "#reports-panel"}`);
+        return;
+      }
+      if (wantExpense && !wantSettlement && !wantInvoice && !wantReports && section !== "expenses") {
+        router.replace(`${wPath(activeSlug, "expenses")}${hash || "#expense-panel"}`);
+        return;
+      }
+    }
+
     const id = wantSettlement
       ? "settlement-panel"
       : wantInvoice
@@ -274,7 +274,7 @@ export function FinanceView({
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 120);
     return () => window.clearTimeout(timer);
-  }, [focusPanel, initialLoading, selectedId]);
+  }, [focusPanel, initialLoading, router, section, selectedId, workspaces]);
 
   const {
     onCreateExpense,
@@ -349,13 +349,25 @@ export function FinanceView({
   const selectedWorkspace = workspaces.find((w) => w.id === selectedId);
   const slug = selectedWorkspace?.slug ?? null;
   const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
-  const settlementsHref = slug ? wPath(slug, "settlements") : hubPathFor("/workspaces");
+  const settlementsHref = slug
+    ? wPath(slug, "settlements")
+    : `${hubPathFor("/workspaces")}#settlement-panel`;
   const expensesHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
-  const invoicesHref = slug ? wPath(slug, "invoices") : hubPathFor("/workspaces");
-  const meta = SECTION_META[section];
-  const roleHint = myMembershipRole
-    ? `نقش شما: ${membershipRoleLabel(myMembershipRole)}`
-    : null;
+  const invoicesHref = slug
+    ? wPath(slug, "invoices")
+    : `${hubPathFor("/workspaces")}#period-invoice-panel`;
+  const recurringHref = slug
+    ? wPath(slug, "recurring")
+    : `${hubPathFor("/workspaces")}#reports-panel`;
+  const postedSpendToman = expenses
+    .filter((expense) => expense.status === "posted")
+    .reduce(
+      (total, expense) => total + Math.round(Number(expense.total.amountMinor) / 10),
+      0,
+    );
+  const actionableInvoices = invoices.filter((invoice) =>
+    ["pending_approval", "approved", "issued", "disputed"].includes(invoice.status),
+  ).length;
 
   return (
     <AppShell
@@ -364,42 +376,47 @@ export function FinanceView({
       userName={session?.actor?.displayName ?? devDisplayName}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <PageHeader
-        eyebrow={NAV_LABELS.sectionFinance}
-        title={meta.title}
-        description={
-          selectedId
-            ? [meta.description, roleHint, `${expenses.length} خرج · ${openSettlements} تسویه باز`]
-                .filter(Boolean)
-                .join(" · ")
-            : "فضای کاری را انتخاب کنید یا بسازید تا جریان مالی زنده شود."
-        }
-      />
       <FlashMessages error={error} successMessage={successMessage} />
       {selectedId ? (
-        <p className="liveHint" style={{ marginBottom: 12 }}>
-          <button type="button" className="textButton" disabled={pending} onClick={refresh}>
-            تازه‌سازی داده‌ها
-          </button>
-          {section !== "expenses" ? (
-            <>
-              {" · "}
-              <Link href={expensesHref}>{NAV_LABELS.expenses}</Link>
-            </>
-          ) : null}
-          {section !== "settlements" ? (
-            <>
-              {" · "}
-              <Link href={settlementsHref}>{NAV_LABELS.settlements}</Link>
-            </>
-          ) : null}
-          {section !== "invoices" && canManageFinance ? (
-            <>
-              {" · "}
-              <Link href={invoicesHref}>{NAV_LABELS.invoices}</Link>
-            </>
-          ) : null}
-        </p>
+        <FinanceOperationsHeader
+          ariaLabel="عملیات مالی"
+          destinations={[
+            { key: "expenses", label: NAV_LABELS.expenses, href: expensesHref, active: section === "expenses" },
+            { key: "settlements", label: NAV_LABELS.settlements, href: settlementsHref, active: section === "settlements" },
+            ...(canManageFinance
+              ? [{ key: "invoices", label: NAV_LABELS.invoices, href: invoicesHref, active: section === "invoices" }]
+              : []),
+            { key: "recurring", label: NAV_LABELS.recurring, href: recurringHref, active: section === "recurring" },
+          ]}
+          metrics={[
+            {
+              label: "خرج ثبت‌شده",
+              value: String(expenses.length),
+              detail: `${filteredExpenses.length} مورد در فیلتر جاری`,
+            },
+            {
+              label: "جمع ثبت دفترکل",
+              value: formatToman(postedSpendToman),
+              detail: "محاسبه‌شده از خرج‌های posted",
+            },
+            {
+              label: "تسویه باز",
+              value: String(openSettlements),
+              detail: `${settlements.length} تسویه در کل`,
+              tone: openSettlements > 0 ? "attention" : "positive",
+            },
+            {
+              label: "صورتحساب قابل اقدام",
+              value: String(actionableInvoices),
+              detail: `${members.length} عضو در فضای فعال`,
+              tone: actionableInvoices > 0 ? "attention" : "neutral",
+            },
+          ]}
+          roleLabel={myMembershipRole ? membershipRoleLabel(myMembershipRole) : null}
+          persistenceLabel={chrome.persistenceLabel}
+          pending={pending}
+          onRefresh={refresh}
+        />
       ) : null}
 
       {initialLoading ? (
@@ -435,6 +452,7 @@ export function FinanceView({
               pending={pending}
               canManageFinance={canManageFinance}
               readOnly={readOnlyFinance}
+              memberLabel={memberLabel}
               onSubmitExpense={onSubmitExpense}
               onPostExpense={onPostExpense}
               onPromoteCompany={onPromoteCompany}

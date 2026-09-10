@@ -29,6 +29,7 @@ import type {
   CreateInviteInput,
   CreateWorkspaceInput,
   IamStore,
+  UpdateWorkspaceProfileInput,
   UpsertDevActorInput,
 } from "./iam.types.js";
 import { INVITE_OWNER_ROLES } from "./iam.types.js";
@@ -212,6 +213,44 @@ export class PostgresIamStore implements IamStore {
       }
       throw error;
     }
+  }
+
+  async updateWorkspaceProfile(
+    input: UpdateWorkspaceProfileInput,
+  ): Promise<WorkspaceSummary | undefined> {
+    return withTenantContext(
+      this.db,
+      { workspaceId: input.workspaceId, userId: input.actorUserId },
+      async (tx) => {
+        const memberships = await tx
+          .select({ role: membership.role })
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, input.workspaceId),
+              eq(membership.userId, input.actorUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        const role = memberships[0]?.role;
+        if (role !== "owner" && role !== "admin") {
+          throw new Error("WORKSPACE_UPDATE_FORBIDDEN");
+        }
+
+        const rows = await tx
+          .update(workspace)
+          .set({
+            name: input.name,
+            timezone: input.timezone,
+            displayUnit: input.displayUnit,
+            updatedAt: new Date(),
+          })
+          .where(eq(workspace.id, input.workspaceId))
+          .returning();
+        return rows[0] ? mapWorkspace(rows[0]) : undefined;
+      },
+    );
   }
 
   async ensurePersonalWorkspace(userId: string): Promise<WorkspaceSummary> {

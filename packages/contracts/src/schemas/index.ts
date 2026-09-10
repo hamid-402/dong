@@ -209,9 +209,11 @@ export {
   workspaceTemplateSchema,
   membershipRoleSchema,
   createWorkspaceRequestSchema,
+  updateWorkspaceRequestSchema,
   createInviteRequestSchema,
   acceptInviteRequestSchema,
   type CreateWorkspaceRequestInput,
+  type UpdateWorkspaceRequestInput,
   type CreateInviteRequestInput,
   type AcceptInviteRequestInput,
 } from "./workspace.js";

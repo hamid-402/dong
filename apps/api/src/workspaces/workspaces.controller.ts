@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Inject, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Inject, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import {
   ApiHeader,
   ApiOkResponse,
@@ -7,10 +7,12 @@ import {
 } from "@nestjs/swagger";
 import {
   createWorkspaceRequestSchema,
+  updateWorkspaceRequestSchema,
   workspaceTemplateCatalog,
   type AuthActor,
   type CreateWorkspaceRequest,
   type MembershipSummary,
+  type UpdateWorkspaceRequest,
   type WorkspaceSummary,
   type WorkspaceTemplateCatalogItem,
 } from "@dang/contracts";
@@ -73,6 +75,18 @@ export class WorkspacesController {
     @Param("workspaceId") workspaceId: string,
   ): Promise<WorkspaceSummary> {
     return this.workspaces.getForActor(actor, workspaceId);
+  }
+
+  @Patch(":workspaceId")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Update owner/admin managed workspace profile fields" })
+  updateProfile(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body(new ZodValidationPipe(updateWorkspaceRequestSchema))
+    body: UpdateWorkspaceRequest,
+  ): Promise<WorkspaceSummary> {
+    return this.workspaces.updateProfile(actor, workspaceId, body);
   }
 
   @Get(":workspaceId/members")

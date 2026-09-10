@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
+  Param,
   Patch,
   Post,
   Req,
@@ -13,6 +15,7 @@ import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import type {
   AuthActionResponse,
   AuthActor,
+  AccountSessionSummary,
   ChangePasswordRequest,
   ForgotPasswordRequest,
   ForgotPasswordResponse,
@@ -145,6 +148,33 @@ export class AccountController {
   @ApiOperation({ summary: "Revoke all sessions for current user (all devices)" })
   revokeSessions(@CurrentActor() actor: AuthActor): Promise<{ ok: true }> {
     return this.accounts.revokeAllSessions(actor);
+  }
+
+  @Get("sessions")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "List active sessions for the current account" })
+  listSessions(
+    @CurrentActor() actor: AuthActor,
+    @Req() req: FastifyRequest,
+  ): Promise<AccountSessionSummary[]> {
+    return this.accounts.listSessions(actor, req.cookies?.[SESSION_COOKIE]);
+  }
+
+  @Delete("sessions/:sessionId")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Revoke one active session owned by the current account" })
+  async revokeSession(
+    @CurrentActor() actor: AuthActor,
+    @Param("sessionId") sessionId: string,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<{ ok: true; currentRevoked: boolean }> {
+    const rawToken = req.cookies?.[SESSION_COOKIE];
+    const result = await this.accounts.revokeSession(actor, sessionId, rawToken);
+    if (result.currentRevoked) {
+      await this.accounts.logout(rawToken, reply);
+    }
+    return result;
   }
 
   @Post("verify-email")

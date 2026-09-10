@@ -9,7 +9,6 @@ import { AuthAlert } from "@/components/auth-shell";
 import { AppShell } from "@/components/app-shell";
 import {
   FormStack,
-  PageHeader,
   ProductGrid,
   SectionCard,
   StatusLine,
@@ -21,6 +20,7 @@ import { useAppChrome } from "@/lib/use-app-chrome";
 import { FlashMessages } from "@/lib/use-flash-message";
 import { MfaSettingsPanel } from "@/components/shell/mfa-settings-panel";
 import { NotificationPrefsPanel } from "@/components/notification-prefs-panel";
+import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 
 function authModeLabel(mode: UserProfile["authMode"]): string {
   if (mode === "password") return "ورود با ایمیل";
@@ -167,10 +167,52 @@ export function ProfileView() {
       userName={profile?.displayName ?? chrome.userName}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <PageHeader
-        eyebrow="آتلیه حساب"
-        title="پروفایل حرفه‌ای"
-        description="هویت نمایشی، ترجیحات و امنیت — همه از داده‌های واقعی حساب شما."
+      <OperationsModuleHeader
+        ariaLabel="عملیات حساب"
+        destinations={[
+          { key: "profile", label: "پروفایل", href: "/account", active: true },
+          { key: "security", label: "امنیت", href: "/account/security", active: false },
+          { key: "spaces", label: "فضاهای من", href: "/spaces", active: false },
+        ]}
+        metrics={[
+          {
+            label: "هویت",
+            value: profile?.displayName ?? "در حال بارگذاری",
+            detail: profile?.email ?? "ایمیل ثبت نشده",
+          },
+          {
+            label: "تأیید ایمیل",
+            value: profile ? (profile.emailVerified ? "تأییدشده" : "در انتظار") : "…",
+            tone: profile?.emailVerified ? "positive" : "attention",
+          },
+          {
+            label: "تأیید دومرحله‌ای",
+            value: profile ? (profile.mfaEnabled ? "فعال" : "غیرفعال") : "…",
+            tone: profile?.mfaEnabled ? "positive" : "attention",
+          },
+          {
+            label: "شیوه ورود",
+            value: profile ? authModeLabel(profile.authMode) : "…",
+            detail: "از نشست احراز‌شده",
+          },
+        ]}
+        roleLabel={null}
+        persistenceLabel={chrome.persistenceLabel}
+        pending={pending || !profile}
+        onRefresh={() => {
+          startTransition(() => {
+            void api.profile().then((next) => {
+              setProfile(next);
+              setDisplayName(next.displayName);
+              setLocale(next.locale);
+              setTimezone(next.timezone);
+              setAvatarUrl(next.avatarUrl ?? "");
+              setError(null);
+            }).catch((reason: unknown) => {
+              setError(reason instanceof Error ? reason.message : "تازه‌سازی حساب ناموفق بود");
+            });
+          });
+        }}
       />
       <FlashMessages error={error} successMessage={info} />
       {debugVerifyUrl ? (

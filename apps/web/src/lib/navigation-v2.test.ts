@@ -2,12 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   accountNav,
   bottomTabsV2,
+  contextualMosaicSections,
   expenseFabHref,
   isNavHrefActive,
   spaceNav,
 } from "@/lib/navigation-v2";
 import { NAV_LABELS } from "@/lib/nav-labels";
-import { classicPathToWorkspacePage, wPath } from "@/lib/workspace-paths";
+import {
+  CLASSIC_PATH_TARGETS,
+  CLASSIC_REDIRECT_PATHS,
+  classicPathToWorkspacePage,
+  wPath,
+} from "@/lib/workspace-paths";
 
 describe("navigation-v2", () => {
   it("keeps four primary tabs with kind-specific space labels", () => {
@@ -52,11 +58,15 @@ describe("navigation-v2", () => {
     expect(expenseFabHref("friends_family", "g1")).toBe("/w/g1/expenses#quick-expense");
   });
 
-  it("does not put metrics in default spaceNav (role-gate deferred)", () => {
+  it("includes metrics and audit in space management nav", () => {
     const sections = spaceNav("friends_family", "g1");
     const space = sections.find((s) => s.key === "space");
-    expect(space?.items.some((i) => i.key === "metrics")).toBe(false);
-    expect(space?.items.map((i) => i.key)).toEqual(["invite", "settings"]);
+    expect(space?.items.map((i) => i.key)).toEqual([
+      "invite",
+      "audit",
+      "metrics",
+      "settings",
+    ]);
   });
 
   it("lists account destinations without duplicating the account/spaces tabs", () => {
@@ -108,6 +118,45 @@ describe("navigation-v2", () => {
     expect(finance?.items.some((i) => i.key === "org-finance")).toBe(true);
   });
 
+  it("derives a concise contextual mosaic from the same gated navigation", () => {
+    const sections = contextualMosaicSections(
+      "small_team",
+      "org",
+      { approvalQueue: true, costCenter: true },
+      "home",
+    );
+    const items = sections.flatMap((section) => section.items);
+
+    expect(items.length).toBeLessThanOrEqual(8);
+    expect(items[0]).toMatchObject({
+      key: "expenses",
+      href: "/w/org/expenses",
+      intent: "record",
+    });
+    expect(items.some((item) => item.key === "approvals")).toBe(true);
+    expect(items.some((item) => item.key === "org-finance")).toBe(false);
+    expect(items.every((item) => item.summary.length > 12)).toBe(true);
+  });
+
+  it("keeps contextual mosaic feature gates honest", () => {
+    const withoutFlags = contextualMosaicSections(
+      "small_team",
+      "org",
+      undefined,
+      "all",
+    ).flatMap((section) => section.items);
+    const withFlags = contextualMosaicSections(
+      "small_team",
+      "org",
+      { addonAck: true, approvalQueue: true, fxRates: true },
+      "all",
+    ).flatMap((section) => section.items);
+
+    expect(withoutFlags.some((item) => item.key === "approvals")).toBe(false);
+    expect(withFlags.some((item) => item.key === "approvals")).toBe(true);
+    expect(withFlags.some((item) => item.key === "org-finance")).toBe(true);
+  });
+
   it("does not show org-finance for friends template even with Wave F flags", () => {
     const finance = spaceNav("friends_family", "g1", {
       costCenter: true,
@@ -131,6 +180,7 @@ describe("workspace-paths", () => {
   it("builds readable workspace URLs", () => {
     expect(wPath("acme")).toBe("/w/acme");
     expect(wPath("acme", "expenses")).toBe("/w/acme/expenses");
+    expect(wPath("acme", "audit")).toBe("/w/acme/audit");
   });
 
   it("maps classic paths to pages", () => {
@@ -138,5 +188,19 @@ describe("workspace-paths", () => {
     expect(classicPathToWorkspacePage("/profile")).toBe("account");
     expect(classicPathToWorkspacePage("/invite")).toBe("invite");
     expect(classicPathToWorkspacePage("/me")).toBe("space");
+  });
+
+  it("maps finance panel hashes under /workspaces to the split sections", () => {
+    expect(classicPathToWorkspacePage("/workspaces", "#settlement-panel")).toBe("settlements");
+    expect(classicPathToWorkspacePage("/workspaces", "period-invoice-panel")).toBe("invoices");
+    expect(classicPathToWorkspacePage("/workspaces", "#reports-panel")).toBe("recurring");
+    expect(classicPathToWorkspacePage("/workspaces", "#quick-expense")).toBe("expenses");
+  });
+
+  it("keeps every classic redirect path in the compatibility inventory", () => {
+    for (const path of CLASSIC_REDIRECT_PATHS) {
+      expect(classicPathToWorkspacePage(path)).not.toBeNull();
+      expect(CLASSIC_PATH_TARGETS[path] ?? classicPathToWorkspacePage(path)).toBeTruthy();
+    }
   });
 });

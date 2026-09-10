@@ -6,11 +6,11 @@ import type { ApprovalQueueItem, MembershipSummary } from "@dang/contracts";
 import { isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
+import { FinanceOperationsHeader } from "@/components/views/finance/finance-operations-header";
 import {
   DataList,
   DataRow,
   EmptyHint,
-  PageHeader,
   SectionCard,
   StatusLine,
   StatusPill,
@@ -24,6 +24,7 @@ import {
 } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { wPath, type WorkspacePage } from "@/lib/workspace-paths";
+import styles from "./approvals.module.css";
 
 export default function WorkspaceApprovalsPage() {
   const chrome = useAppChrome();
@@ -31,10 +32,15 @@ export default function WorkspaceApprovalsPage() {
   const [items, setItems] = useState<ApprovalQueueItem[]>([]);
   const [myRole, setMyRole] = useState<string>("");
   const [actorUserId, setActorUserId] = useState<string>("");
+  const [selectedKey, setSelectedKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const workspace = chrome.workspaces.find((row) => row.id === chrome.workspaceId);
   const readOnly = isReadOnlyRole(myRole);
+  const selectedItem =
+    items.find((item) => `${item.kind}:${item.id}` === selectedKey) ??
+    items[0] ??
+    null;
 
   function refresh() {
     if (!chrome.workspaceId || !enabled) {
@@ -128,7 +134,6 @@ export default function WorkspaceApprovalsPage() {
       );
     }
     if (item.kind === "addon_charge") {
-      // Target confirms; creator can only wait — still allow confirm if actor is target.
       return (
         <>
           <Button
@@ -176,12 +181,34 @@ export default function WorkspaceApprovalsPage() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <PageHeader
-        eyebrow="فضای کاری"
-        title="مرکز تأیید"
-        description="صندوق اقدام واقعی از خرج‌ها، صورتحساب‌ها و اضافه‌های شخصی — فقط دادهٔ API."
-      />
       {error ? <p className="liveError">{error}</p> : null}
+      {enabled && chrome.workspaceId && workspace ? (
+        <FinanceOperationsHeader
+          ariaLabel="مرکز تأیید"
+          destinations={[
+            { key: "expenses", label: "خرج‌ها", href: wPath(workspace.slug, "expenses"), active: false },
+            { key: "settlements", label: "تسویه‌ها", href: wPath(workspace.slug, "settlements"), active: false },
+            { key: "invoices", label: "صورتحساب‌ها", href: wPath(workspace.slug, "invoices"), active: false },
+            { key: "approvals", label: "مرکز تأیید", href: wPath(workspace.slug, "approvals"), active: true },
+          ]}
+          metrics={[
+            { label: "کل صف", value: String(items.length), detail: "موارد واقعی API" },
+            { label: "خرج", value: String(items.filter((item) => item.kind === "expense").length), detail: "در انتظار اقدام" },
+            { label: "صورتحساب", value: String(items.filter((item) => item.kind === "member_invoice").length), detail: "تأیید یا اختلاف" },
+            { label: "اضافه شخصی", value: String(items.filter((item) => item.kind === "addon_charge").length), detail: "تأیید عضو هدف" },
+          ]}
+          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
+          persistenceLabel={chrome.persistenceLabel}
+          pending={pending}
+          onRefresh={() => {
+            startTransition(() => {
+              void refresh().catch((reason: unknown) =>
+                setError(friendlyErrorMessage(reason, "بارگذاری مرکز تأیید ناموفق")),
+              );
+            });
+          }}
+        />
+      ) : null}
       {!enabled ? (
         <EmptyHint>قابلیت مرکز تأیید در این محیط فعال نیست.</EmptyHint>
       ) : !chrome.workspaceId ? (
@@ -198,26 +225,59 @@ export default function WorkspaceApprovalsPage() {
           {items.length === 0 ? (
             <EmptyHint>موردی برای تأیید وجود ندارد.</EmptyHint>
           ) : (
-            <DataList>
-              {items.map((item) => (
-                <DataRow
-                  key={`${item.kind}:${item.id}:${item.status}`}
-                  title={item.title}
-                  meta={
-                    <>
-                      <StatusPill tone="neutral">{approvalQueueKindLabel(item.kind)}</StatusPill>
-                      <StatusPill tone="warn">
-                        {approvalQueueStatusLabel(item.status)}
-                      </StatusPill>
-                    </>
-                  }
-                  trailing={
-                    item.amount ? <Amount irrMinor={item.amount.amountMinor} /> : null
-                  }
-                  actions={actionsFor(item)}
-                />
-              ))}
-            </DataList>
+            <div className={styles.masterDetail}>
+              <DataList>
+                {items.map((item) => (
+                  <div
+                    key={`${item.kind}:${item.id}:${item.status}`}
+                    className={
+                      selectedItem?.id === item.id && selectedItem.kind === item.kind
+                        ? styles.selectedRow
+                        : undefined
+                    }
+                  >
+                    <DataRow
+                      title={item.title}
+                      meta={
+                        <>
+                          <StatusPill tone="neutral">{approvalQueueKindLabel(item.kind)}</StatusPill>
+                          <StatusPill tone="warn">
+                            {approvalQueueStatusLabel(item.status)}
+                          </StatusPill>
+                        </>
+                      }
+                      trailing={
+                        item.amount ? <Amount irrMinor={item.amount.amountMinor} /> : null
+                      }
+                      actions={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          aria-pressed={selectedItem?.id === item.id && selectedItem.kind === item.kind}
+                          onClick={() => setSelectedKey(`${item.kind}:${item.id}`)}
+                        >
+                          جزئیات
+                        </Button>
+                      }
+                    />
+                  </div>
+                ))}
+              </DataList>
+              {selectedItem ? (
+                <aside className={styles.inspector} aria-label={`جزئیات ${selectedItem.title}`}>
+                  <span>بازرس تصمیم</span>
+                  <h3>{selectedItem.title}</h3>
+                  {selectedItem.amount ? <Amount irrMinor={selectedItem.amount.amountMinor} /> : null}
+                  <dl>
+                    <div><dt>نوع</dt><dd>{approvalQueueKindLabel(selectedItem.kind)}</dd></div>
+                    <div><dt>وضعیت</dt><dd>{approvalQueueStatusLabel(selectedItem.status)}</dd></div>
+                    <div><dt>زمان ایجاد</dt><dd><time dateTime={selectedItem.createdAt}>{new Date(selectedItem.createdAt).toLocaleDateString("fa-IR")}</time></dd></div>
+                    <div><dt>سطح دسترسی</dt><dd>{readOnly ? "فقط مشاهده" : "اقدام مجاز"}</dd></div>
+                  </dl>
+                  <div className={styles.inspectorActions}>{actionsFor(selectedItem)}</div>
+                </aside>
+              ) : null}
+            </div>
           )}
         </SectionCard>
       )}

@@ -17,13 +17,13 @@ import type {
 import { isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, TextField } from "@dang/ui";
 import { AppShell, ShellIconSvg } from "@/components/app-shell";
+import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import {
   DataList,
   DataRow,
   EmptyHint,
   FormStack,
   HeroBalance,
-  PageHeader,
   ProductGrid,
   QuickAction,
   SectionCard,
@@ -44,7 +44,9 @@ import {
 } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { wPath } from "@/lib/workspace-paths";
 import type { ComponentProps } from "react";
+import styles from "./procurement-view.module.css";
 
 function statusTone(status: string): "neutral" | "ok" | "warn" | "danger" | "gold" {
   if (status === "approved" || status === "delivered" || status === "closed" || status === "active") return "ok";
@@ -75,6 +77,7 @@ export function ProcurementView() {
   const [vendorName, setVendorName] = useState("فروشگاه دیجی");
   const [readOnly, setReadOnly] = useState(false);
   const [myRole, setMyRole] = useState("");
+  const [selectedRequestId, setSelectedRequestId] = useState("");
 
   function GuardedForm(props: ComponentProps<typeof FormStack>) {
     if (readOnly) return null;
@@ -124,6 +127,11 @@ export function ProcurementView() {
   const approved = requests.filter((r) => r.status === "approved" || r.status === "ordered");
   const pageError = error ?? chrome.error;
   const openNeeds = needs.filter((n) => n.status !== "fulfilled" && n.status !== "cancelled").length;
+  const workspace = chrome.workspaces.find((item) => item.id === workspaceId);
+  const selectedRequest =
+    requests.find((request) => request.id === selectedRequestId) ??
+    requests[0] ??
+    null;
 
   return (
     <AppShell
@@ -132,23 +140,34 @@ export function ProcurementView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <PageHeader
-        eyebrow="چرخه خرید"
-        title="تدارکات و سفارش"
-        description={
-          workspaceId
-            ? `${needs.length} نیاز · ${requests.length} درخواست · ${orders.length} سفارش`
-            : "از نیاز تا سفارش، تحویل و تجهیز — همراه بودجه."
-        }
-        actions={
-          <>
-            <Link href={hubPathFor("/workspaces")}>مالی</Link>
-            <Link href={hubPathFor("/workspaces/assets")}>تجهیزات</Link>
-          </>
-        }
-      />
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
+      {workspaceId && workspace ? (
+        <OperationsModuleHeader
+          ariaLabel="عملیات تدارکات"
+          destinations={[
+            { key: "procurement", label: "تدارکات", href: wPath(workspace.slug, "procurement"), active: true },
+            { key: "proposals", label: "پیشنهاد و رأی", href: wPath(workspace.slug, "proposals"), active: false },
+            { key: "assets", label: "تجهیزات", href: wPath(workspace.slug, "assets"), active: false },
+            { key: "members", label: "اعضا", href: wPath(workspace.slug, "members"), active: false },
+          ]}
+          metrics={[
+            { label: "نیاز باز", value: String(openNeeds), detail: `${needs.length} نیاز در کل`, tone: openNeeds > 0 ? "attention" : "positive" },
+            { label: "درخواست خرید", value: String(requests.length), detail: `${approved.length} آماده سفارش` },
+            { label: "سفارش", value: String(orders.length), detail: `${vendors.length} فروشنده` },
+            { label: "تحویل", value: String(deliveries.length), detail: `${assets.length} دارایی ایجادشده` },
+          ]}
+          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
+          persistenceLabel={chrome.persistenceLabel}
+          pending={loading}
+          onRefresh={() => {
+            setLoading(true);
+            void refresh(workspaceId)
+              .catch((reason: unknown) => setError(friendlyErrorMessage(reason, "تازه‌سازی تدارکات ناموفق")))
+              .finally(() => setLoading(false));
+          }}
+        />
+      ) : null}
       {readOnly && workspaceId ? (
         <StatusLine>
           نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ثبت نیاز، PR و بودجه فعال نیست.
@@ -185,7 +204,13 @@ export function ProcurementView() {
               description="پس از تحویل، دارایی ثبت کنید."
               delayClass="delay2"
               icon={<ShellIconSvg name="box" />}
-              onClick={() => router.push(hubPathFor("/workspaces/assets"))}
+              onClick={() =>
+                router.push(
+                  workspace
+                    ? wPath(workspace.slug, "assets")
+                    : hubPathFor("/workspaces/assets"),
+                )
+              }
             />
           </div>
 
@@ -267,6 +292,7 @@ export function ProcurementView() {
             {requests.length === 0 ? (
               <EmptyHint>درخواست خریدی نیست.</EmptyHint>
             ) : (
+              <div className={styles.masterDetail}>
               <DataList>
                 {requests.map((r) => (
                   <DataRow
@@ -276,6 +302,14 @@ export function ProcurementView() {
                     trailing={<StatusPill tone={statusTone(r.status)}>{purchaseRequestStatusLabel(r.status)}</StatusPill>}
                     actions={
                       <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          aria-pressed={selectedRequest?.id === r.id}
+                          onClick={() => setSelectedRequestId(r.id)}
+                        >
+                          جزئیات
+                        </Button>
                         {r.status === "draft" ? (
                           <Button
                             type="button"
@@ -309,6 +343,21 @@ export function ProcurementView() {
                   />
                 ))}
               </DataList>
+              {selectedRequest ? (
+                <aside className={styles.inspector} aria-label="جزئیات درخواست خرید انتخاب‌شده">
+                  <span>PURCHASE INSPECTOR</span>
+                  <h3>{selectedRequest.title}</h3>
+                  <Amount irrMinor={selectedRequest.amount.amountMinor} />
+                  <dl>
+                    <div><dt>وضعیت</dt><dd>{purchaseRequestStatusLabel(selectedRequest.status)}</dd></div>
+                    <div><dt>فروشنده</dt><dd>{selectedRequest.vendorName ?? "انتخاب نشده"}</dd></div>
+                    <div><dt>نیاز مبنا</dt><dd>{selectedRequest.needId ? "متصل به نیاز" : "ثبت مستقیم"}</dd></div>
+                    <div><dt>ثبت‌کننده</dt><dd><code>{selectedRequest.createdByUserId.slice(0, 12)}</code></dd></div>
+                    <div><dt>تاریخ ثبت</dt><dd>{new Date(selectedRequest.createdAt).toLocaleDateString("fa-IR")}</dd></div>
+                  </dl>
+                </aside>
+              ) : null}
+              </div>
             )}
           </SectionCard>
 

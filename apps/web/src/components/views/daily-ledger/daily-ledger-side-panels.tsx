@@ -8,11 +8,11 @@ import type {
 import { suggestMinimalSettlements } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
 import { EmptyHint, StatusLine } from "@/components/ui-blocks";
-import { hubPathFor } from "@/lib/hub-links";
 
 type DailyLedgerSidePanelsProps = {
   balances: WorkspaceBalancesResponse | null;
   members: DailyLedgerResponse["members"];
+  settlementsHref: string;
   importCsv: string;
   onImportCsvChange: (value: string) => void;
   onRunImport: () => void;
@@ -27,6 +27,7 @@ type DailyLedgerSidePanelsProps = {
 export function DailyLedgerSidePanels({
   balances,
   members,
+  settlementsHref,
   importCsv,
   onImportCsvChange,
   onRunImport,
@@ -62,7 +63,7 @@ export function DailyLedgerSidePanels({
             {suggestMinimalSettlements(balances.lines).length === 0 ? (
               <EmptyHint>مانده‌ای برای تسویه نیست.</EmptyHint>
             ) : (
-              <Link className="dlLinkBtn" href={`${hubPathFor("/workspaces")}#settlement-panel`}>
+              <Link className="dlLinkBtn" href={settlementsHref}>
                 ثبت تسویه در مالی
               </Link>
             )}

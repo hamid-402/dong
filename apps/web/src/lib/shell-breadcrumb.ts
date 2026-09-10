@@ -20,6 +20,7 @@ const PAGE_LABEL: Partial<Record<WorkspacePage, string>> = {
   partners: NAV_LABELS.partners,
   settings: "تنظیمات فضا",
   metrics: NAV_LABELS.metrics,
+  audit: NAV_LABELS.audit,
   more: NAV_LABELS.more,
 };
 
@@ -39,6 +40,7 @@ const SEGMENT_TO_PAGE: Record<string, WorkspacePage> = {
   assets: "assets",
   partners: "partners",
   settings: "settings",
+  audit: "audit",
   metrics: "metrics",
   more: "more",
 };

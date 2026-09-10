@@ -142,6 +142,7 @@ export class MemoryAccountStore implements AccountStore {
       revokedAt: null,
       ip: input.ip,
       userAgent: input.userAgent,
+      createdAt: new Date(),
     };
     this.sessions.set(session.tokenHash, session);
     return Promise.resolve(session);
@@ -154,11 +155,36 @@ export class MemoryAccountStore implements AccountStore {
     return Promise.resolve(session);
   }
 
+  listActiveSessions(userId: string): Promise<SessionRecord[]> {
+    const now = Date.now();
+    return Promise.resolve(
+      [...this.sessions.values()]
+        .filter(
+          (session) =>
+            session.userId === userId &&
+            !session.revokedAt &&
+            session.expiresAt.getTime() > now,
+        )
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+    );
+  }
+
   revokeSession(sessionId: string): Promise<void> {
     for (const session of this.sessions.values()) {
       if (session.id === sessionId) session.revokedAt = new Date();
     }
     return Promise.resolve();
+  }
+
+  revokeSessionForUser(sessionId: string, userId: string): Promise<boolean> {
+    for (const session of this.sessions.values()) {
+      if (session.id !== sessionId || session.userId !== userId || session.revokedAt) {
+        continue;
+      }
+      session.revokedAt = new Date();
+      return Promise.resolve(true);
+    }
+    return Promise.resolve(false);
   }
 
   revokeAllSessions(userId: string): Promise<void> {

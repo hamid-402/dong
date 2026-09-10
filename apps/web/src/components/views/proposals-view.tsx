@@ -13,10 +13,10 @@ import type {
 import { spaceKindForTemplate, isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
+import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import {
   EmptyHint,
   FormStack,
-  PageHeader,
   ProductGrid,
   SectionCard,
   StatusLine,
@@ -29,6 +29,7 @@ import { tomanInputToIrrMinor } from "@/lib/irr-money";
 import { membershipRoleLabel, proposalStatusLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { wPath } from "@/lib/workspace-paths";
 
 function statusTone(status: string): "neutral" | "ok" | "warn" | "danger" | "gold" {
   if (status === "accepted") return "ok";
@@ -218,20 +219,35 @@ export function ProposalsView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <PageHeader
-        eyebrow="تصمیم جمعی"
-        title="پیشنهاد کالا و خدمت"
-        description="اعضا پیشنهاد می‌دهند، رأی می‌دهند، و با رسیدن به حدنصاب واقعی به لیست نیاز خرید اضافه می‌شود."
-        actions={
-          kindSpace === "org" ? (
-            <Link href={hubPathFor("/workspaces/procurement")}>تدارکات</Link>
-          ) : (
-            <Link href={hubPathFor("/group")}>خانه گروه</Link>
-          )
-        }
-      />
       {error ? <p className="liveError">{error}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
+      {chrome.workspaceId && workspace ? (
+        <OperationsModuleHeader
+          ariaLabel="عملیات پیشنهاد و رأی"
+          destinations={[
+            { key: "procurement", label: "تدارکات", href: wPath(workspace.slug, "procurement"), active: false },
+            { key: "proposals", label: "پیشنهاد و رأی", href: wPath(workspace.slug, "proposals"), active: true },
+            { key: "assets", label: "تجهیزات", href: wPath(workspace.slug, "assets"), active: false },
+            { key: "members", label: "اعضا", href: wPath(workspace.slug, "members"), active: false },
+          ]}
+          metrics={[
+            { label: "باز", value: String(open.length), detail: "در صف رأی", tone: open.length > 0 ? "attention" : "positive" },
+            { label: "پذیرفته", value: String(accepted.length), detail: "منتقل‌شده به نیاز خرید" },
+            { label: "بسته", value: String(closedOther.length), detail: "رد یا پس‌گرفته‌شده" },
+            { label: "حدنصاب", value: settings ? `${settings.quorumPercent}٪` : "—", detail: `${members.length} عضو فعال` },
+          ]}
+          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
+          persistenceLabel={chrome.persistenceLabel}
+          pending={pending || loading}
+          onRefresh={() => {
+            startTransition(() => {
+              void refresh(chrome.workspaceId).catch((reason: unknown) =>
+                setError(friendlyErrorMessage(reason, "تازه‌سازی پیشنهادها ناموفق")),
+              );
+            });
+          }}
+        />
+      ) : null}
       {loading ? <EmptyHint>در حال بارگذاری پیشنهادها…</EmptyHint> : null}
 
       {!chrome.workspaceId && !loading ? (
@@ -476,7 +492,13 @@ export function ProposalsView() {
                           {kindSpace === "org" ? (
                             <>
                               {" · "}
-                              <Link href={hubPathFor("/workspaces/procurement")}>
+                              <Link
+                                href={
+                                  workspace
+                                    ? wPath(workspace.slug, "procurement")
+                                    : hubPathFor("/workspaces/procurement")
+                                }
+                              >
                                 ادامه در تدارکات
                               </Link>
                             </>

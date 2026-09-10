@@ -145,6 +145,8 @@ test.describe("a11y product shell (dev session cookie)", () => {
     );
     const slug = resolved!.slug;
     for (const path of [
+      `/w/${slug}`,
+      `/w/${slug}/space`,
       `/w/${slug}/expenses`,
       `/w/${slug}/ledger`,
       `/w/${slug}/settlements`,
@@ -152,7 +154,10 @@ test.describe("a11y product shell (dev session cookie)", () => {
       `/w/${slug}/recurring`,
       `/w/${slug}/addons`,
       `/w/${slug}/approvals`,
+      `/w/${slug}/settings`,
+      `/w/${slug}/audit`,
       `/w/${slug}/metrics`,
+      `/w/${slug}/more`,
     ] as const) {
       await page.goto(path);
       await expect(page.locator("body")).toBeVisible({ timeout: 20_000 });

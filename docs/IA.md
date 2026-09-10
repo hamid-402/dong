@@ -43,7 +43,8 @@
 
 | کار | URL |
 |-----|-----|
-| فضای کاری (خانه) | `/w/[slug]/space` |
+| فضای کاری (خانه / اتاق عملیات) | `/w/[slug]` |
+| نمای فضا (من / گروه / سازمان) | `/w/[slug]/space` |
 | مالی / خرج‌ها | `/w/[slug]/expenses` (تسویه `/settlements` · صورتحساب `/invoices` · تکرار `/recurring`) |
 | مالی سازمان (Wave F) | `/w/[slug]/org-finance` — فقط وقتی flagهای مربوط در capabilities روشن باشد |
 | add-on / تأیید | `/addons` · `/approvals` — فقط با `addonAck` / `approvalQueue` |
@@ -52,6 +53,8 @@
 | پروفایل / تنظیمات | Shell More / settings |
 
 مسیرهای `/hub/…` و classic → redirect به `/w` (حذف قابلیت نیست).
+Bookmarkهای `#settlement-panel` / `#period-invoice-panel` / `#reports-panel` روی `/workspaces`
+به بخش‌های جداگانهٔ `/settlements`، `/invoices` و `/recurring` نگاشت می‌شوند.
 
 ## سفرهای مشتری
 

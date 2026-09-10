@@ -26,6 +26,7 @@ export const NAV_LABELS = {
   profile: "پروفایل",
   whatsNew: "تغییرات اخیر",
   metrics: "متریک محصول",
+  audit: "تاریخچه عملیات",
   addExpense: "ثبت خرج",
   approvals: "مرکز تأیید",
   orgFinance: "مالی سازمان",

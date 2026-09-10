@@ -31,6 +31,11 @@ describe("shell-breadcrumb", () => {
     ]);
   });
 
+  it("builds audit crumbs under workspace", () => {
+    const crumbs = breadcrumbForPathname("/w/acme/audit", "آکمه");
+    expect(crumbs.map((c) => c.label)).toEqual(["آکمه", NAV_LABELS.audit]);
+  });
+
   it("builds metrics crumbs under workspace", () => {
     const crumbs = breadcrumbForPathname("/w/acme/metrics", "آکمه");
     expect(crumbs.map((c) => c.label)).toEqual(["آکمه", NAV_LABELS.metrics]);

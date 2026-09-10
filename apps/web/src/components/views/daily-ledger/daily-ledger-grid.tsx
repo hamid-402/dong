@@ -15,8 +15,10 @@ type DailyLedgerGridProps = {
   showGregorian: boolean;
   todayIso: string;
   pending: boolean;
+  selectedDate?: string | null;
   /** Guest/auditor — hide add/edit/delete and day meta mutators. */
   readOnly?: boolean;
+  onSelectDay?: (date: string) => void;
   onOpenDraft: (target: DraftTarget, item?: DailyLedgerItem) => void;
   onDeleteItem: (expenseId: string) => void;
   onToggleHoliday: (date: string, current: boolean) => void;
@@ -55,7 +57,9 @@ export function DailyLedgerGrid({
   showGregorian,
   todayIso,
   pending,
+  selectedDate,
   readOnly = false,
+  onSelectDay,
   onOpenDraft,
   onDeleteItem,
   onToggleHoliday,
@@ -86,6 +90,16 @@ export function DailyLedgerGrid({
                 <span className={row.weekday === 6 ? "dlWeekdayStart" : undefined}>
                   {weekdayFaSatFirst(row.weekday)}
                 </span>
+                {onSelectDay ? (
+                  <button
+                    type="button"
+                    className="dlItemBtn"
+                    aria-pressed={selectedDate === row.date}
+                    onClick={() => onSelectDay(row.date)}
+                  >
+                    جزئیات
+                  </button>
+                ) : null}
               </header>
               {row.isHoliday || row.isRangeLocked ? (
                 <p className="dlMuted">
@@ -197,6 +211,7 @@ export function DailyLedgerGrid({
               <th>جمع روز</th>
               <th>توضیحات</th>
               <th>وضعیت</th>
+              {onSelectDay ? <th>بازرس</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -381,6 +396,18 @@ export function DailyLedgerGrid({
                       </button>
                     )}
                   </td>
+                  {onSelectDay ? (
+                    <td>
+                      <button
+                        type="button"
+                        className="dlItemBtn"
+                        aria-pressed={selectedDate === row.date}
+                        onClick={() => onSelectDay(row.date)}
+                      >
+                        جزئیات
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               );
             })}
@@ -399,7 +426,7 @@ export function DailyLedgerGrid({
               <td>
                 <Amount irrMinor={ledger.totals.grand.amountMinor} />
               </td>
-              <td colSpan={2} />
+              <td colSpan={onSelectDay ? 3 : 2} />
             </tr>
           </tfoot>
         </table>

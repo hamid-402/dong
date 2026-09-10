@@ -9,11 +9,13 @@ import {
   EmptyHint,
   FormStack,
   SectionCard,
+  StatusPill,
 } from "@/components/ui-blocks";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { newClientId } from "@/lib/id";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import styles from "./addon-charges-panel.module.css";
 
 type Props = {
   workspaceId: string;
@@ -23,6 +25,7 @@ type Props = {
   readOnly?: boolean;
   onError: (message: string) => void;
   onSuccess: (message: string) => void;
+  onChargesChange?: (charges: PersonalAddonChargeSummary[]) => void;
 };
 
 const statusFa: Record<PersonalAddonChargeSummary["status"], string> = {
@@ -30,6 +33,25 @@ const statusFa: Record<PersonalAddonChargeSummary["status"], string> = {
   confirmed: "تأیید شده",
   disputed: "اعتراض",
 };
+
+function statusTone(
+  status: PersonalAddonChargeSummary["status"],
+): "ok" | "warn" | "neutral" {
+  if (status === "confirmed") return "ok";
+  if (status === "disputed") return "warn";
+  return "neutral";
+}
+
+function formatWhen(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("fa-IR", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
 
 /** Gated by ENABLE_ADDON_ACK / productFlags.addonAck — distinct from shared expense form. */
 export function AddonChargesPanel({
@@ -39,8 +61,10 @@ export function AddonChargesPanel({
   readOnly = false,
   onError,
   onSuccess,
+  onChargesChange,
 }: Props) {
   const [charges, setCharges] = useState<PersonalAddonChargeSummary[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [amountToman, setAmountToman] = useState("");
   const [targetUserId, setTargetUserId] = useState("");
@@ -50,17 +74,27 @@ export function AddonChargesPanel({
   >([]);
   const [pending, startTransition] = useTransition();
 
+  function applyCharges(next: PersonalAddonChargeSummary[]) {
+    setCharges(next);
+    onChargesChange?.(next);
+    setSelectedId((current) =>
+      current && next.some((charge) => charge.id === current)
+        ? current
+        : next[0]?.id ?? null,
+    );
+  }
+
   function reload() {
     return Promise.all([
       api.listAddonCharges(workspaceId),
       api.listExpenses(workspaceId).catch(() => []),
     ])
       .then(([chargeList, expenseList]) => {
-        setCharges(chargeList);
+        applyCharges(chargeList);
         setSharedExpenses(
           expenseList
-            .filter((e) => e.visibility === "shared")
-            .map((e) => ({ id: e.id, title: e.title })),
+            .filter((expense) => expense.visibility === "shared")
+            .map((expense) => ({ id: expense.id, title: expense.title })),
         );
       })
       .catch((err: unknown) => onError(friendlyErrorMessage(err, "بارگذاری اضافه‌ها ناموفق")));
@@ -75,7 +109,7 @@ export function AddonChargesPanel({
   }, [members, targetUserId]);
 
   function memberName(userId: string) {
-    return members.find((m) => m.userId === userId)?.displayName ?? userId.slice(0, 8);
+    return members.find((member) => member.userId === userId)?.displayName ?? userId.slice(0, 8);
   }
 
   function onCreate() {
@@ -130,6 +164,14 @@ export function AddonChargesPanel({
     });
   }
 
+  const selected = charges.find((charge) => charge.id === selectedId) ?? null;
+  const canActOnSelected =
+    !readOnly &&
+    selected?.status === "pending_ack" &&
+    actorUserId &&
+    (actorUserId === selected.targetMemberUserId ||
+      actorUserId === selected.createdByUserId);
+
   return (
     <SectionCard
       title="اضافهٔ شخصی داخل گروه"
@@ -146,33 +188,33 @@ export function AddonChargesPanel({
           <TextField
             label="شرح"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(event) => setTitle(event.target.value)}
           />
           <TextField
             label="مبلغ (تومان)"
             value={amountToman}
-            onChange={(e) => setAmountToman(e.target.value)}
+            onChange={(event) => setAmountToman(event.target.value)}
           />
           <SelectField
             label="برای عضو"
             value={targetUserId}
-            onChange={(e) => setTargetUserId(e.target.value)}
+            onChange={(event) => setTargetUserId(event.target.value)}
           >
-            {members.map((m) => (
-              <option key={m.userId} value={m.userId}>
-                {m.displayName}
+            {members.map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {member.displayName}
               </option>
             ))}
           </SelectField>
           <SelectField
             label="پیوند به خرج مشترک (اختیاری)"
             value={linkedExpenseId}
-            onChange={(e) => setLinkedExpenseId(e.target.value)}
+            onChange={(event) => setLinkedExpenseId(event.target.value)}
           >
             <option value="">بدون پیوند</option>
-            {sharedExpenses.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.title}
+            {sharedExpenses.map((expense) => (
+              <option key={expense.id} value={expense.id}>
+                {expense.title}
               </option>
             ))}
           </SelectField>
@@ -181,41 +223,132 @@ export function AddonChargesPanel({
           </Button>
         </FormStack>
       )}
+
       {charges.length === 0 ? (
         <EmptyHint>هنوز اضافه‌ای ثبت نشده.</EmptyHint>
       ) : (
-        <DataList>
-          {charges.map((c) => (
-            <DataRow
-              key={c.id}
-              title={c.title}
-              meta={`${memberName(c.targetMemberUserId)} · ${statusFa[c.status]}`}
-              trailing={
-                <>
-                  <Amount irrMinor={c.amount.amountMinor} />
-                  {!readOnly &&
-                  c.status === "pending_ack" &&
-                  actorUserId &&
-                  (actorUserId === c.targetMemberUserId ||
-                    actorUserId === c.createdByUserId) ? (
-                    <span className="dataRowActions">
-                      {actorUserId === c.targetMemberUserId ? (
-                        <>
-                          <Button type="button" onClick={() => onConfirm(c.id)} disabled={pending}>
+        <div className={styles.masterDetail}>
+          <DataList>
+            {charges.map((charge) => (
+              <div
+                key={charge.id}
+                className={charge.id === selectedId ? styles.selectedRow : undefined}
+              >
+                <DataRow
+                  title={charge.title}
+                  meta={`${memberName(charge.targetMemberUserId)} · ${statusFa[charge.status]}`}
+                  trailing={
+                    <>
+                      <Amount irrMinor={charge.amount.amountMinor} />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setSelectedId(charge.id)}
+                      >
+                        جزئیات
+                      </Button>
+                      {!readOnly &&
+                      charge.status === "pending_ack" &&
+                      actorUserId &&
+                      actorUserId === charge.targetMemberUserId ? (
+                        <span className="dataRowActions">
+                          <Button
+                            type="button"
+                            onClick={() => onConfirm(charge.id)}
+                            disabled={pending}
+                          >
                             تأیید
                           </Button>
-                          <Button type="button" onClick={() => onDispute(c.id)} disabled={pending}>
+                          <Button
+                            type="button"
+                            onClick={() => onDispute(charge.id)}
+                            disabled={pending}
+                          >
                             اعتراض
                           </Button>
-                        </>
+                        </span>
                       ) : null}
-                    </span>
-                  ) : null}
-                </>
-              }
-            />
-          ))}
-        </DataList>
+                    </>
+                  }
+                />
+              </div>
+            ))}
+          </DataList>
+
+          <aside className={styles.inspector} aria-label="جزئیات اضافه انتخاب‌شده">
+            {selected ? (
+              <>
+                <span>بازرس اضافه شخصی</span>
+                <h3>{selected.title}</h3>
+                <StatusPill tone={statusTone(selected.status)}>
+                  {statusFa[selected.status]}
+                </StatusPill>
+                <dl>
+                  <div>
+                    <dt>مبلغ</dt>
+                    <dd>
+                      <Amount irrMinor={selected.amount.amountMinor} />
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>عضو هدف</dt>
+                    <dd>{memberName(selected.targetMemberUserId)}</dd>
+                  </div>
+                  <div>
+                    <dt>ثبت‌کننده</dt>
+                    <dd>{memberName(selected.createdByUserId)}</dd>
+                  </div>
+                  <div>
+                    <dt>پیوند خرج</dt>
+                    <dd>
+                      {selected.linkedExpenseId
+                        ? sharedExpenses.find((expense) => expense.id === selected.linkedExpenseId)
+                            ?.title ?? selected.linkedExpenseId
+                        : "بدون پیوند"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>ایجاد</dt>
+                    <dd>{formatWhen(selected.createdAt)}</dd>
+                  </div>
+                  <div>
+                    <dt>به‌روزرسانی</dt>
+                    <dd>{formatWhen(selected.updatedAt)}</dd>
+                  </div>
+                  <div>
+                    <dt>یادداشت</dt>
+                    <dd>{selected.note?.trim() || "ثبت نشده"}</dd>
+                  </div>
+                </dl>
+                {canActOnSelected && actorUserId === selected.targetMemberUserId ? (
+                  <div className={styles.inspectorActions}>
+                    <Button
+                      type="button"
+                      onClick={() => onConfirm(selected.id)}
+                      disabled={pending}
+                    >
+                      تأیید
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => onDispute(selected.id)}
+                      disabled={pending}
+                    >
+                      اعتراض
+                    </Button>
+                  </div>
+                ) : null}
+                {readOnly ? (
+                  <p className="liveHint">نقش فقط‌خواندنی — اقدام تغییر غیرفعال است.</p>
+                ) : null}
+              </>
+            ) : (
+              <EmptyHint>برای مشاهده جزئیات، یک اضافه را انتخاب کنید.</EmptyHint>
+            )}
+          </aside>
+        </div>
       )}
     </SectionCard>
   );

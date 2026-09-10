@@ -6,12 +6,12 @@ import type { CreateInviteResponse, MembershipSummary } from "@dang/contracts";
 import { isReadOnlyRole, spaceKindForTemplate } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
+import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import {
   DataList,
   DataRow,
   EmptyHint,
   FormStack,
-  PageHeader,
   ProductGrid,
   SectionCard,
   StatusLine,
@@ -21,10 +21,9 @@ import { api, getDevIdentity, setDevIdentity } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
-import { hubPathFor } from "@/lib/hub-links";
-import { NAV_LABELS } from "@/lib/nav-labels";
 import { membershipRoleLabel, spaceKindForTemplateLabel } from "@/lib/status-labels";
 import { wPath } from "@/lib/workspace-paths";
+import styles from "./workspace-invite-view.module.css";
 
 const INVITE_ROLES = new Set(["owner", "admin"]);
 
@@ -38,6 +37,7 @@ export function WorkspaceInviteView() {
   const [created, setCreated] = useState<CreateInviteResponse | null>(null);
   const [members, setMembers] = useState<MembershipSummary[]>([]);
   const [myRole, setMyRole] = useState("");
+  const [selectedMemberId, setSelectedMemberId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -52,15 +52,17 @@ export function WorkspaceInviteView() {
       setMyRole("");
       return;
     }
-    void Promise.all([api.listMembers(workspaceId), api.me()])
-      .then(([list, me]) => {
-        setMembers(list);
-        setMyRole(list.find((m) => m.userId === me.actor.userId)?.role ?? "");
-      })
+    void refreshMembers(workspaceId)
       .catch((err: unknown) =>
         setError(friendlyErrorMessage(err, "بارگذاری اعضا ناموفق")),
       );
   }, [workspaceId]);
+
+  async function refreshMembers(id: string) {
+    const [list, me] = await Promise.all([api.listMembers(id), api.me()]);
+    setMembers(list);
+    setMyRole(list.find((m) => m.userId === me.actor.userId)?.role ?? "");
+  }
 
   function onCreate() {
     if (!workspaceId) return;
@@ -84,19 +86,12 @@ export function WorkspaceInviteView() {
   const selected = workspaces.find((w) => w.id === workspaceId);
   const slug = selected?.slug ?? scope?.slug ?? null;
   const kind = spaceKindForTemplate(selected?.template);
-  const spaceHref = slug ? wPath(slug, "space") : hubPathFor("/group");
   const canInvite = INVITE_ROLES.has(myRole);
   const readOnly = isReadOnlyRole(myRole) || (!!myRole && !canInvite);
-  const title =
-    kind === "org"
-      ? "اعضا و دعوت سازمانی"
-      : kind === "personal"
-        ? "اعضای دفتر شخصی"
-        : "اعضا و دعوت گروه";
-  const description =
-    kind === "org"
-      ? "فهرست اعضا و دعوت همکار — فقط owner/admin می‌توانند دعوت بسازند."
-      : "فهرست اعضا و دعوت دوست — فقط مالک یا ادمین دعوت می‌سازند.";
+  const selectedMember =
+    members.find((member) => member.userId === selectedMemberId) ??
+    members[0] ??
+    null;
 
   return (
     <AppShell
@@ -105,18 +100,35 @@ export function WorkspaceInviteView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <PageHeader
-        eyebrow={NAV_LABELS.invite}
-        title={title}
-        description={description}
-        actions={
-          <>
-            <Link href={spaceHref}>خانهٔ فضا</Link>
-            <Link href="/invite">صفحه پذیرش</Link>
-          </>
-        }
-      />
       {pageError ? <p className="liveError">{pageError}</p> : null}
+      {workspaceId && selected && slug ? (
+        <OperationsModuleHeader
+          ariaLabel="عملیات اعضا و دعوت"
+          destinations={[
+            { key: "members", label: "اعضا", href: wPath(slug, "members"), active: true },
+            { key: "settings", label: "تنظیمات فضا", href: wPath(slug, "settings"), active: false },
+            { key: "partners", label: "شرکا", href: wPath(slug, "partners"), active: false },
+            { key: "space", label: "نمای فضا", href: wPath(slug, "space"), active: false },
+            { key: "invite-accept", label: "پذیرش دعوت", href: "/invite", active: false },
+          ]}
+          metrics={[
+            { label: "عضو فعال", value: String(members.length), detail: spaceKindForTemplateLabel(kind) },
+            { label: "مدیر مالی", value: String(members.filter((member) => ["owner", "admin", "finance"].includes(member.role)).length), detail: "مالک، ادمین یا مالی" },
+            { label: "نقش فقط‌خواندنی", value: String(members.filter((member) => isReadOnlyRole(member.role)).length), detail: "ناظر و مهمان" },
+            { label: "اختیار دعوت", value: canInvite ? "فعال" : "غیرفعال", detail: membershipRoleLabel(myRole), tone: canInvite ? "positive" : "neutral" },
+          ]}
+          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
+          persistenceLabel={chrome.persistenceLabel}
+          pending={pending}
+          onRefresh={() => {
+            startTransition(() => {
+              void refreshMembers(workspaceId).catch((reason: unknown) =>
+                setError(friendlyErrorMessage(reason, "تازه‌سازی اعضا ناموفق")),
+              );
+            });
+          }}
+        />
+      ) : null}
 
       <ProductGrid>
         <SectionCard title="اعضای فعلی" badge={members.length} delayClass="delay1">
@@ -129,15 +141,42 @@ export function WorkspaceInviteView() {
           ) : members.length === 0 ? (
             <EmptyHint>عضوی بارگذاری نشد.</EmptyHint>
           ) : (
+            <div className={styles.masterDetail}>
             <DataList>
               {members.map((m) => (
                 <DataRow
                   key={m.userId}
                   title={m.displayName}
                   meta={membershipRoleLabel(m.role)}
+                  actions={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      aria-pressed={selectedMember?.userId === m.userId}
+                      onClick={() => setSelectedMemberId(m.userId)}
+                    >
+                      جزئیات
+                    </Button>
+                  }
                 />
               ))}
             </DataList>
+            {selectedMember ? (
+              <aside className={styles.inspector} aria-label="جزئیات عضو انتخاب‌شده">
+                <span>MEMBER INSPECTOR</span>
+                <h3>{selectedMember.displayName}</h3>
+                <StatusPill tone={isReadOnlyRole(selectedMember.role) ? "warn" : "ok"}>
+                  {membershipRoleLabel(selectedMember.role)}
+                </StatusPill>
+                <dl>
+                  <div><dt>شناسه</dt><dd><code>{selectedMember.userId.slice(0, 12)}</code></dd></div>
+                  <div><dt>سهم پیش‌فرض</dt><dd>{selectedMember.defaultShares}</dd></div>
+                  <div><dt>عضویت از</dt><dd>{new Date(selectedMember.joinedAt).toLocaleDateString("fa-IR")}</dd></div>
+                  <div><dt>دسترسی مالی</dt><dd>{["owner", "admin", "finance"].includes(selectedMember.role) ? "مدیر مالی" : isReadOnlyRole(selectedMember.role) ? "فقط مشاهده" : "عضو عملیاتی"}</dd></div>
+                </dl>
+              </aside>
+            ) : null}
+            </div>
           )}
           {selected ? (
             <StatusLine>

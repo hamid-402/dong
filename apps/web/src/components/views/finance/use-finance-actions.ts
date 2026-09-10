@@ -269,8 +269,8 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
             description: `تسویه ${settlement.id.slice(0, 8)}`,
             returnUrl:
               typeof window !== "undefined"
-                ? `${window.location.origin}/workspaces`
-                : "http://localhost:3005/workspaces",
+                ? `${window.location.origin}${window.location.pathname}#settlement-panel`
+                : "http://127.0.0.1/workspaces#settlement-panel",
             idempotencyKey: newClientId(),
           });
           applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
@@ -474,8 +474,8 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
             description: `صورتحساب ${invoiceId.slice(0, 8)}`,
             returnUrl:
               typeof window !== "undefined"
-                ? `${window.location.origin}/workspaces`
-                : "http://localhost:3005/workspaces",
+                ? `${window.location.origin}${window.location.pathname}#period-invoice-panel`
+                : "http://127.0.0.1/workspaces#period-invoice-panel",
             idempotencyKey: `invoice-issue:${invoiceId}`,
           });
           applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));

@@ -22,6 +22,14 @@ export type CreateWorkspaceInput = {
   template: WorkspaceTemplate;
 };
 
+export type UpdateWorkspaceProfileInput = {
+  workspaceId: string;
+  actorUserId: string;
+  name: string;
+  timezone: string;
+  displayUnit: "toman" | "rial";
+};
+
 export type CreateInviteInput = CreateInviteRequest & {
   workspaceId: string;
   actorUserId: string;
@@ -32,6 +40,9 @@ export type IamStore = {
   upsertDevActor(input: UpsertDevActorInput): Promise<AuthActor>;
   listWorkspacesForUser(userId: string): Promise<WorkspaceSummary[]>;
   createWorkspace(input: CreateWorkspaceInput): Promise<WorkspaceSummary>;
+  updateWorkspaceProfile(
+    input: UpdateWorkspaceProfileInput,
+  ): Promise<WorkspaceSummary | undefined>;
   /** Idempotent: returns existing personal workspace or creates «دفتر من». */
   ensurePersonalWorkspace(userId: string): Promise<WorkspaceSummary>;
   getWorkspaceForUser(

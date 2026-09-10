@@ -10,6 +10,7 @@ import type {
   AuthActor,
   CreateWorkspaceRequest,
   MembershipSummary,
+  UpdateWorkspaceRequest,
   WorkspaceSummary,
 } from "@dang/contracts";
 import { workspaceTemplateCatalog } from "@dang/contracts";
@@ -98,6 +99,81 @@ export class WorkspacesService {
       });
     }
     return workspace;
+  }
+
+  async updateProfile(
+    actor: AuthActor,
+    workspaceId: string,
+    body: UpdateWorkspaceRequest,
+  ): Promise<WorkspaceSummary> {
+    const current = await this.getForActor(actor, workspaceId);
+    const members = await this.iam.listMembers(workspaceId, actor.userId);
+    const role = members?.find((member) => member.userId === actor.userId)?.role;
+    if (role !== "owner" && role !== "admin") {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "Workspace settings require owner or admin",
+        status: 403,
+      });
+    }
+
+    const name = body.name.trim();
+    if (name.length < 2 || name.length > 80) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "Invalid workspace name",
+        status: 400,
+      });
+    }
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: body.timezone }).format();
+    } catch {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "Invalid workspace timezone",
+        status: 400,
+      });
+    }
+
+    try {
+      const updated = await this.iam.updateWorkspaceProfile({
+        workspaceId,
+        actorUserId: actor.userId,
+        name,
+        timezone: body.timezone,
+        displayUnit: body.displayUnit,
+      });
+      if (!updated) {
+        throw new NotFoundException({
+          type: "https://dang.local/problems/not-found",
+          title: "Workspace not found",
+          status: 404,
+        });
+      }
+      await this.audit.append({
+        workspaceId,
+        actorUserId: actor.userId,
+        action: "workspace.profile.update",
+        targetType: "workspace",
+        targetId: workspaceId,
+        result: "success",
+        metadata: {
+          nameChanged: current.name !== updated.name,
+          timezoneChanged: current.timezone !== updated.timezone,
+          displayUnitChanged: current.displayUnit !== updated.displayUnit,
+        },
+      });
+      return updated;
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === "WORKSPACE_UPDATE_FORBIDDEN") {
+        throw new ForbiddenException({
+          type: "https://dang.local/problems/forbidden",
+          title: "Workspace settings require owner or admin",
+          status: 403,
+        });
+      }
+      throw error;
+    }
   }
 
   async listMembers(actor: AuthActor, workspaceId: string): Promise<MembershipSummary[]> {

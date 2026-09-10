@@ -1,61 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { CSSProperties } from "react";
-import { ShellIconSvg, type ShellIcon } from "@/components/shell/shell-icons";
+import { ContextualMosaicHub } from "@/components/shell/contextual-mosaic-hub";
+import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import {
-  accountNav,
-  isNavHrefActive,
-  spaceNav,
-  type NavItemV2,
+  contextualAccountNav,
+  contextualMosaicSections,
 } from "@/lib/navigation-v2";
 import { NAV_LABELS } from "@/lib/nav-labels";
-import { TILE_GEM_PALETTES } from "@/lib/tile-gem-palettes";
 import { slugFromPathname } from "@/lib/workspace-storage";
-
-const GEM_BY_ICON: Partial<Record<ShellIcon, string>> = {
-  wallet: "teal",
-  receipt: "gold",
-  cart: "amber",
-  box: "mint",
-  partners: "coral",
-  settings: "slate",
-  home: "deep",
-};
-
-function gemStyle(gemKey: string): CSSProperties {
-  const gem = TILE_GEM_PALETTES[gemKey] ?? TILE_GEM_PALETTES.teal!;
-  return {
-    "--tile-gem-edge": gem.edge,
-    "--tile-gem-mid": gem.mid,
-    "--tile-gem-center": gem.center,
-    "--tile-gem-ink": gem.ink,
-  } as CSSProperties;
-}
-
-function ToolsTile({ item }: { item: NavItemV2 }) {
-  const pathname = usePathname();
-  const active = isNavHrefActive(pathname, item.href);
-  const gemKey = GEM_BY_ICON[item.icon] ?? "teal";
-
-  return (
-    <li className="shell-tools__cell">
-      <Link
-        href={item.href}
-        className={`shell-tools__tile${active ? " is-active" : ""}`}
-        style={gemStyle(gemKey)}
-        aria-current={active ? "page" : undefined}
-      >
-        <span className="shell-tools__tile-icon" aria-hidden>
-          <ShellIconSvg name={item.icon} />
-        </span>
-        <span className="shell-tools__tile-label">{item.label}</span>
-      </Link>
-    </li>
-  );
-}
 
 /** Mosaic-style tool launcher — replaces the dense desktop sidebar list. */
 export function ShellToolsView() {
@@ -63,8 +17,13 @@ export function ShellToolsView() {
   const pathname = usePathname();
   const active = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const slug = slugFromPathname(pathname) ?? active?.slug ?? null;
-  const sections = spaceNav(active?.template, slug, chrome.capabilities?.productFlags);
-  const accountItems = accountNav();
+  const sections = contextualMosaicSections(
+    active?.template,
+    slug,
+    chrome.capabilities?.productFlags,
+    "all",
+  );
+  const accountItems = contextualAccountNav();
 
   return (
     <div className="shell-tools">
@@ -73,40 +32,35 @@ export function ShellToolsView() {
         <p>ابزارهای این فضا و حساب — به‌جای منوی شلوغ کناری.</p>
       </header>
 
-      {sections.map((section) => (
-        <section key={section.key} className="shell-tools__section" aria-labelledby={`tools-${section.key}`}>
-          <h2 id={`tools-${section.key}`} className="shell-tools__heading">
-            {section.label}
-          </h2>
-          <ul className="shell-tools__grid">
-            {section.items.map((item) => (
-              <ToolsTile key={item.key} item={item} />
-            ))}
-          </ul>
-        </section>
-      ))}
+      <ContextualMosaicHub
+        sections={sections}
+        title="ابزارهای عملیاتی"
+        description="تمام مقصدهای قابل استفاده این فضا، فیلترشده با الگو و قابلیت‌های runtime."
+        headingId="workspace-tools-title"
+        compact
+      />
 
-      <section className="shell-tools__section" aria-labelledby="tools-account">
-        <h2 id="tools-account" className="shell-tools__heading">
-          {NAV_LABELS.sectionAccount}
-        </h2>
+      <ContextualMosaicHub
+        sections={[
+          {
+            key: "account",
+            label: NAV_LABELS.sectionAccount,
+            items: accountItems,
+          },
+        ]}
+        title={NAV_LABELS.sectionAccount}
+        description="حساب، امنیت و تغییرات محصول خارج از محدوده فضای کاری."
+        headingId="account-tools-title"
+        compact
+      />
+
+      <section className="shell-tools__section" aria-labelledby="tools-support">
+        <h2 id="tools-support" className="shell-tools__heading">پشتیبانی</h2>
         <ul className="shell-tools__grid">
-          <ToolsTile
-            item={{
-              key: "profile",
-              label: NAV_LABELS.profile,
-              href: "/account",
-              icon: "settings",
-            }}
-          />
-          {accountItems.map((item) => (
-            <ToolsTile key={item.key} item={item} />
-          ))}
           <li className="shell-tools__cell">
             <a
               href="mailto:support@dang.local?subject=بازخورد%20دنگ"
               className="shell-tools__tile"
-              style={gemStyle("slate")}
             >
               <span className="shell-tools__tile-icon" aria-hidden>
                 <ShellIconSvg name="receipt" />

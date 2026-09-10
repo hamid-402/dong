@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import type { MembershipSummary, PaymentLinkSummary, SettlementSummary } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui-blocks";
 import { hubPathFor } from "@/lib/hub-links";
 import { membershipRoleLabel, paymentLinkStatusLabel, settlementStatusLabel } from "@/lib/status-labels";
+import styles from "./settlement-panel.module.css";
 
 type SettlementPanelProps = {
   members: MembershipSummary[];
@@ -64,6 +66,21 @@ export function SettlementPanel({
   onCancelSettlement,
   onCreatePaymentLink,
 }: SettlementPanelProps) {
+  const [selectedSettlementId, setSelectedSettlementId] = useState("");
+  const selectedSettlement =
+    settlements.find((settlement) => settlement.id === selectedSettlementId) ??
+    settlements[0] ??
+    null;
+
+  useEffect(() => {
+    if (
+      selectedSettlementId &&
+      !settlements.some((settlement) => settlement.id === selectedSettlementId)
+    ) {
+      setSelectedSettlementId(settlements[0]?.id ?? "");
+    }
+  }, [selectedSettlementId, settlements]);
+
   return (
     <SectionCard title="تسویه و تأیید اعضا" delayClass="delay3">
       <div id="settlement-panel" />
@@ -136,6 +153,7 @@ export function SettlementPanel({
           </div>
         </div>
       ) : null}
+      <div className={styles.masterDetail}>
       <DataList>
         {settlements.length === 0 && members.length >= 2 ? (
           <EmptyStateBlock
@@ -172,7 +190,16 @@ export function SettlementPanel({
             }
             trailing={<Amount irrMinor={settlement.amount.amountMinor} />}
             actions={
-              readOnly
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  aria-pressed={selectedSettlement?.id === settlement.id}
+                  onClick={() => setSelectedSettlementId(settlement.id)}
+                >
+                  جزئیات
+                </Button>
+                {readOnly
                 ? null
                 : settlement.status === "claimed"
                   ? (
@@ -225,10 +252,30 @@ export function SettlementPanel({
                       </Button>
                     )
                     : null
+                }
+              </>
             }
           />
         ))}
       </DataList>
+      {selectedSettlement ? (
+        <aside className={styles.inspector} aria-label="جزئیات تسویه انتخاب‌شده">
+          <span>SETTLEMENT INSPECTOR</span>
+          <h3>{memberLabel(selectedSettlement.fromUserId)} ← {memberLabel(selectedSettlement.toUserId)}</h3>
+          <Amount irrMinor={selectedSettlement.amount.amountMinor} />
+          <dl>
+            <div><dt>وضعیت</dt><dd>{settlementStatusLabel(selectedSettlement.status)}</dd></div>
+            <div><dt>پرداخت‌کننده</dt><dd>{memberLabel(selectedSettlement.fromUserId)}</dd></div>
+            <div><dt>دریافت‌کننده</dt><dd>{memberLabel(selectedSettlement.toUserId)}</dd></div>
+            <div><dt>ثبت</dt><dd><time dateTime={selectedSettlement.createdAt}>{new Date(selectedSettlement.createdAt).toLocaleDateString("fa-IR")}</time></dd></div>
+            <div><dt>پرداخت آنلاین</dt><dd>{paymentsLive ? "متصل" : "غیرفعال"}</dd></div>
+          </dl>
+          {selectedSettlement.paymentLinkUrl && paymentsLive ? (
+            <a href={selectedSettlement.paymentLinkUrl} target="_blank" rel="noreferrer">بازکردن صفحه پرداخت</a>
+          ) : null}
+        </aside>
+      ) : null}
+      </div>
       {paymentLinks.length > 0 ? (
         <DataList>
           {paymentLinks.map((link) => (
