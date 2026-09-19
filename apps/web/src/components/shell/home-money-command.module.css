@@ -1,0 +1,172 @@
+.root {
+  display: grid;
+  gap: 1rem;
+  margin-block: 0.5rem 1.25rem;
+  padding: 1rem 1.1rem 1.15rem;
+  border-radius: 1rem;
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--dang-accent, #2f9f86) 18%, transparent), transparent 55%),
+    linear-gradient(
+      165deg,
+      color-mix(in oklab, var(--dang-surface, #111) 92%, white),
+      color-mix(in oklab, var(--dang-surface, #111) 98%, black)
+    );
+  border: 1px solid color-mix(in oklab, var(--dang-border, #333) 80%, transparent);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.72;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+@media (max-width: 860px) {
+  .tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.tile {
+  display: grid;
+  gap: 0.35rem;
+  text-align: start;
+  padding: 0.85rem 0.9rem;
+  border-radius: 0.85rem;
+  border: 1px solid color-mix(in oklab, var(--dang-border, #444) 70%, transparent);
+  background: color-mix(in oklab, var(--dang-bg, #0b0b0b) 55%, transparent);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.tile:hover {
+  border-color: color-mix(in oklab, var(--dang-accent, #2f9f86) 55%, transparent);
+  transform: translateY(-1px);
+}
+
+.tileActive {
+  border-color: var(--dang-accent, #2f9f86);
+  background: color-mix(in oklab, var(--dang-accent, #2f9f86) 14%, transparent);
+}
+
+.tileLabel {
+  font-size: 0.8rem;
+  opacity: 0.78;
+}
+
+.tileAmount {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tileHint {
+  font-size: 0.72rem;
+  opacity: 0.6;
+}
+
+.detail {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.85rem;
+  border: 1px dashed color-mix(in oklab, var(--dang-border, #555) 80%, transparent);
+  background: color-mix(in oklab, var(--dang-bg, #000) 40%, transparent);
+}
+
+.detailHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  max-height: 18rem;
+  overflow: auto;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+  padding: 0.45rem 0.35rem;
+  border-radius: 0.45rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.row:hover {
+  background: color-mix(in oklab, var(--dang-accent, #2f9f86) 10%, transparent);
+}
+
+.rowMeta {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.rowKind {
+  font-size: 0.7rem;
+  opacity: 0.65;
+}
+
+.rowTitle {
+  font-size: 0.92rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowDate {
+  font-size: 0.72rem;
+  opacity: 0.55;
+}
+
+.amountIn {
+  color: color-mix(in oklab, #2f9f86 80%, white);
+  font-variant-numeric: tabular-nums;
+}
+
+.amountOut {
+  color: color-mix(in oklab, #d9773a 75%, white);
+  font-variant-numeric: tabular-nums;
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 860px) {
+  .charts {
+    grid-template-columns: 1fr;
+  }
+}

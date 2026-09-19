@@ -3,9 +3,11 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Optional,
 } from "@nestjs/common";
 import {
   aggregateExpenseSpendInRange,
+  buildWorkspaceMoneyPulse,
   defaultDashboardDateRange,
   irrMoney,
   isFinanceManagerRole,
@@ -17,6 +19,7 @@ import {
   type PersonalFinanceOverviewResponse,
   type PersonalFinanceWorkspaceLine,
   type WorkspaceDashboardResponse,
+  type WorkspaceMoneyMovement,
 } from "@dang/contracts";
 import { BalancesService } from "../balances/balances.service.js";
 import { EXPENSE_STORE, type ExpenseStore } from "../expenses/expense.types.js";
@@ -30,6 +33,14 @@ import {
   SETTLEMENT_STORE,
   type SettlementStore,
 } from "../settlements/settlement.types.js";
+import {
+  PERSONAL_GOALS_STORE,
+  type PersonalGoalsStore,
+} from "../personal-finance/personal-goals.types.js";
+import {
+  PERSONAL_RESOURCES_STORE,
+  type PersonalResourcesStore,
+} from "../personal-finance/personal-resources.types.js";
 
 @Injectable()
 export class DashboardService {
@@ -40,6 +51,12 @@ export class DashboardService {
     @Inject(SETTLEMENT_STORE) private readonly settlements: SettlementStore,
     @Inject(NOTIFICATION_STORE) private readonly notifications: NotificationStore,
     @Inject(BalancesService) private readonly balances: BalancesService,
+    @Optional()
+    @Inject(PERSONAL_RESOURCES_STORE)
+    private readonly personalResources?: PersonalResourcesStore,
+    @Optional()
+    @Inject(PERSONAL_GOALS_STORE)
+    private readonly personalGoals?: PersonalGoalsStore,
   ) {}
 
   async workspaceDashboard(
@@ -58,6 +75,7 @@ export class DashboardService {
     }
 
     const { from, to } = this.resolveRange(fromRaw, toRaw);
+    const spaceKind = spaceKindForTemplate(membership.template);
 
     const members = (await this.iam.listMembers(workspaceId, actor.userId)) ?? [];
     const myRole = members.find((m) => m.userId === actor.userId)?.role;
@@ -76,10 +94,20 @@ export class DashboardService {
     let openCount = 0;
     let disputedCount = 0;
     let openTotal = 0n;
+    const movements: WorkspaceMoneyMovement[] = [];
     for (const row of settlementRows) {
       if (row.status === "claimed" || row.status === "disputed") {
         openCount += 1;
         openTotal += BigInt(row.amount.amountMinor);
+        movements.push({
+          id: row.id,
+          kind: "settlement",
+          title: `تسویه ${row.status === "disputed" ? "مورد اختلاف" : "باز"}`,
+          amount: row.amount,
+          direction: "out",
+          occurredOn: row.createdAt.slice(0, 10),
+          hrefHint: "settlements",
+        });
       }
       if (row.status === "disputed") disputedCount += 1;
     }
@@ -103,6 +131,99 @@ export class DashboardService {
         occurredOn: e.occurredOn,
       }));
 
+    for (const e of expenses) {
+      if (e.status !== "posted") continue;
+      if (e.occurredOn < from || e.occurredOn > to) continue;
+      movements.push({
+        id: e.id,
+        kind: "expense",
+        title: e.title,
+        amount: e.total,
+        direction: "out",
+        occurredOn: e.occurredOn,
+        hrefHint: "expenses",
+      });
+    }
+
+    let personalIncomeMinor = 0n;
+    let personalExpenseMinor = 0n;
+    let goalsContributedMinor = 0n;
+    let personalPersistence: "memory" | "postgres" | undefined;
+
+    if (this.personalResources) {
+      personalPersistence = this.personalResources.persistence;
+      const txns = await this.personalResources.listTxns(actor.userId, {
+        from,
+        to,
+        limit: 200,
+      });
+      for (const txn of txns) {
+        if (txn.kind === "income") {
+          personalIncomeMinor += BigInt(txn.amount.amountMinor);
+          movements.push({
+            id: txn.id,
+            kind: "income",
+            title: txn.note?.trim() || txn.categoryName || "درآمد شخصی",
+            amount: txn.amount,
+            direction: "in",
+            occurredOn: txn.occurredOn,
+            hrefHint: "me-finance",
+          });
+        } else if (txn.kind === "expense") {
+          personalExpenseMinor += BigInt(txn.amount.amountMinor);
+          movements.push({
+            id: txn.id,
+            kind: "expense",
+            title: txn.note?.trim() || txn.categoryName || "خرج شخصی",
+            amount: txn.amount,
+            direction: "out",
+            occurredOn: txn.occurredOn,
+            hrefHint: "me-finance",
+          });
+        } else if (txn.kind === "transfer_in" || txn.kind === "transfer_out") {
+          movements.push({
+            id: txn.id,
+            kind: "transfer",
+            title: txn.note?.trim() || "انتقال بین حساب‌ها",
+            amount: txn.amount,
+            direction: txn.kind === "transfer_in" ? "in" : "out",
+            occurredOn: txn.occurredOn,
+            hrefHint: "me-finance",
+          });
+        }
+      }
+    }
+
+    if (this.personalGoals) {
+      personalPersistence = personalPersistence ?? this.personalGoals.persistence;
+      const goals = await this.personalGoals.listSavingsGoals(actor.userId);
+      for (const goal of goals) {
+        if (goal.status === "archived") continue;
+        goalsContributedMinor += BigInt(goal.contributed.amountMinor);
+        if (BigInt(goal.contributed.amountMinor) > 0n) {
+          movements.push({
+            id: goal.id,
+            kind: "contribution",
+            title: `هدف: ${goal.name}`,
+            amount: goal.contributed,
+            direction: "out",
+            occurredOn: goal.createdAt.slice(0, 10),
+            hrefHint: "me-finance",
+          });
+        }
+      }
+    }
+
+    const moneyPulse = buildWorkspaceMoneyPulse({
+      spaceKind,
+      postedSpend: spend.postedTotal,
+      openSettlementTotal: irrMoney(openTotal),
+      personalIncomeMinor,
+      personalExpenseMinor,
+      goalsContributedMinor,
+      movements,
+    });
+
     return {
       workspaceId,
       workspaceName: membership.name,
@@ -125,11 +246,13 @@ export class DashboardService {
         provisional: balanceSnapshot.provisional,
         source: balanceSnapshot.source,
       },
+      moneyPulse,
       source: {
         expense: this.expenses.persistence,
         ledger: this.ledger.persistence,
         settlement: this.settlements.persistence,
         notification: this.notifications.persistence,
+        personal: personalPersistence,
       },
     };
   }

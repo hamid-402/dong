@@ -10,6 +10,8 @@ import { AppShell } from "@/components/app-shell";
 import type { ContextualMosaicFact } from "@/components/shell/contextual-mosaic-hub";
 import { HomeRootLauncher } from "@/components/shell/home-root-launcher";
 import { HomeBalanceCue } from "@/components/shell/home-balance-cue";
+import { HomeMoneyCommand } from "@/components/shell/home-money-command";
+import type { WorkspaceMoneyPulse } from "@dang/contracts";
 import { GroupOpsRail } from "@/components/shell/group-ops-rail";
 import { GroupPublicIdCard } from "@/components/shell/group-public-id";
 import { GroupSetupChecklist } from "@/components/shell/group-setup-checklist";
@@ -99,6 +101,7 @@ type DashboardState = {
   previewExpenseTitle: string;
   previewExpenseToman: string;
   rangeLabel: string;
+  moneyPulse: WorkspaceMoneyPulse;
 };
 
 export function OverviewView() {
@@ -211,6 +214,7 @@ export function OverviewView() {
                 )
               : "—",
             rangeLabel: `${formatFaDate(dashboard.from)} تا ${formatFaDate(dashboard.to)}`,
+            moneyPulse: dashboard.moneyPulse,
           });
           setError(null);
         } catch (err: unknown) {
@@ -406,6 +410,15 @@ export function OverviewView() {
                 setPins(filterLivePinned(listPinnedDestinations(), hrefs));
               }}
             />
+
+            {!homeFolder && data?.moneyPulse ? (
+              <HomeMoneyCommand
+                workspaceId={data.workspaceId}
+                slug={slug}
+                pulse={data.moneyPulse}
+                rangeLabel={data.rangeLabel}
+              />
+            ) : null}
 
             {!homeFolder ? (
               <div className="mosaicWorkspace__cue">
