@@ -74,8 +74,16 @@ Set-Location ../web
 npx vitest run src/lib/use-personal-finance-hash-scroll.test.ts src/lib/chart-insights.test.ts
 ```
 
+## G17 e2e plan matrix + مسیر فرعی
+
+| مورد | شاهد |
+|------|------|
+| Plan matrix | `e2e/charts-plan-matrix.spec.ts` — free → UI/API `plan_required`؛ pro/business بدون 403 (skip اگر planAdmin خاموش) |
+| Helpers | `resolveWorkspace` · `setWorkspacePlan` · `workspaceChartTrendStatus` |
+| Secondary | `kind-reports-smoke` — kind reports · procurement gate · `/me/finance#charts/#goals` · charts deep-link غیرخالی |
+
 ## محدودیت‌های صادق (عمدی / باقی‌ماندهٔ polish)
 
 - `conversionLive` عمداً false تا موتور حسابداری
-- e2e Playwright برای plan_required charts هنوز smoke است نه matrix پلن
+- پایهٔ pro/business در e2e نیاز به `ENABLE_WORKSPACE_PLANS` یا `ENABLE_PLAN_ADMIN` دارد (در dev unset=ON)
 - SLO capability همیشه `in_app_v1` وقتی ماژول لود است (سرویس واقعاً gauge می‌خواند)

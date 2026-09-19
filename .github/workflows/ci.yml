@@ -139,7 +139,9 @@ jobs:
             e2e/login.spec.ts \
             e2e/expense-balance-settlement.spec.ts \
             e2e/debt-simplify-smoke.spec.ts \
-            e2e/statements-journey.spec.ts
+            e2e/statements-journey.spec.ts \
+            e2e/kind-reports-smoke.spec.ts \
+            e2e/charts-plan-matrix.spec.ts
 
       - name: i18n scaffold key parity
         run: node scripts/i18n-scaffold-check.mjs
@@ -148,7 +150,7 @@ jobs:
         if: always()
         run: |
           echo "## CI gates" >> "$GITHUB_STEP_SUMMARY"
-          echo "- secret-scan, audit, migrate, dr-drill, check, tests, coverage, license, bundle, a11y, e2e-auth-finance×4, i18n-scaffold" >> "$GITHUB_STEP_SUMMARY"
+          echo "- secret-scan, audit, migrate, dr-drill, check, tests, coverage, license, bundle, a11y, e2e-auth-finance×4 + G17 charts/secondary, i18n-scaffold" >> "$GITHUB_STEP_SUMMARY"
 
   storybook:
     name: storybook build (soft)
