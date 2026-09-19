@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   allocateEqualSplit,
   computeProvisionalBalances,
+  isZeroSumBalances,
+  previewBalancesAfterTransfers,
   settlementSuggestionsSatisfyGoldenRules,
   suggestMinimalSettlements,
 } from "@dang/contracts";
@@ -44,3 +46,20 @@ test("golden rules reject a forged suggestion that increases obligation", () => 
     false,
   );
 });
+
+test("previewBalancesAfterTransfers clears opposite nets for a single transfer", () => {
+  const before = [
+    { userId: "a", net: { amountMinor: "100", currency: "IRR" as const } },
+    { userId: "b", net: { amountMinor: "-100", currency: "IRR" as const } },
+  ];
+  const after = previewBalancesAfterTransfers(before, [
+    {
+      fromUserId: "b",
+      toUserId: "a",
+      amount: { amountMinor: "100", currency: "IRR" },
+    },
+  ]);
+  assert.equal(after.length, 0);
+  assert.equal(isZeroSumBalances(after), true);
+});
+

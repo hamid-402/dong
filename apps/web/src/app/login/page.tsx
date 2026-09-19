@@ -6,7 +6,7 @@ import { LoginView } from "@/components/views/login-view";
 function LoginFallback() {
   return (
     <div className="authLayout">
-      <div className="ambient ambient--rich" aria-hidden />
+      <div className="ambient ambient--rich ambient--atmosphere" aria-hidden />
       <div className="authLayout__main">
         <main
           className="authLayout__panel card animated"

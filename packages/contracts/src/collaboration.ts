@@ -1,4 +1,9 @@
-export type CommentTargetType = "expense" | "settlement" | "need" | "purchase_request";
+export type CommentTargetType =
+  | "expense"
+  | "settlement"
+  | "need"
+  | "purchase_request"
+  | "payment_receipt";
 
 export type CreateCommentRequest = {
   workspaceId: string;
@@ -46,6 +51,15 @@ export type AttachmentSummary = {
   createdAt: string;
   /** OCR job id when queued. */
   ocrJobId?: string;
+  /** Persisted OCR result after a completed/failed/skipped run. */
+  ocrResult?: {
+    jobId: string;
+    status: "completed" | "failed" | "skipped";
+    merchantHint?: string;
+    amountMinorHint?: string;
+    rawTextPreview?: string;
+    completedAt: string;
+  };
   /** File quarantine status after stub AV scan. */
   quarantineStatus?: "pending" | "scanning" | "clean" | "blocked" | "error";
   /** True when binary content is stored (local blob dir). */

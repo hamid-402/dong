@@ -1,0 +1,90 @@
+name: load-k6
+
+# R10-09 — k6 golden-path smoke (on-demand)
+on:
+  workflow_dispatch:
+    inputs:
+      api_base:
+        description: "API origin (e.g. https://staging.example)"
+        required: false
+        type: string
+      web_base:
+        description: "Web origin"
+        required: false
+        type: string
+      duration:
+        description: "k6 duration"
+        required: false
+        default: "30s"
+        type: string
+      vus:
+        description: "Virtual users"
+        required: false
+        default: "5"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  k6-golden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve targets
+        id: target
+        env:
+          IN_API: ${{ inputs.api_base }}
+          IN_WEB: ${{ inputs.web_base }}
+          SEC_API: ${{ secrets.K6_API_BASE }}
+          SEC_WEB: ${{ secrets.K6_WEB_BASE }}
+        run: |
+          api="${IN_API:-}"
+          web="${IN_WEB:-}"
+          if [ -z "$api" ]; then api="${SEC_API:-}"; fi
+          if [ -z "$web" ]; then web="${SEC_WEB:-}"; fi
+          if [ -z "$api" ] || [ -z "$web" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=k6 skipped::Set api_base/web_base inputs or secrets K6_API_BASE and K6_WEB_BASE"
+            {
+              echo "## k6 golden-path skipped"
+              echo "Provide staging URLs via workflow inputs or secrets."
+              echo "Runbook: \`docs/ops/LOAD-K6.md\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "api=$api" >> "$GITHUB_OUTPUT"
+            echo "web=$web" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run k6
+        if: steps.target.outputs.skip != 'true'
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: perf/k6/golden-path.js
+          flags: >-
+            -e API_BASE=${{ steps.target.outputs.api }}
+            -e WEB_BASE=${{ steps.target.outputs.web }}
+            -e K6_DURATION=${{ inputs.duration || '30s' }}
+            -e K6_VUS=${{ inputs.vus || '5' }}
+
+      - name: Upload summary
+        if: steps.target.outputs.skip != 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-golden-summary
+          path: perf/k6/last-summary.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Summary
+        if: steps.target.outputs.skip != 'true' && always()
+        run: |
+          {
+            echo "## k6 golden-path"
+            echo "- api: \`${{ steps.target.outputs.api }}\`"
+            echo "- web: \`${{ steps.target.outputs.web }}\`"
+            echo "- runbook: \`docs/ops/LOAD-K6.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"

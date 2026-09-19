@@ -19,7 +19,7 @@ $$;
 GRANT CONNECT ON DATABASE dang_test TO dang_runtime;
 
 GRANT USAGE ON SCHEMA
-  iam, audit, app, accounting, finance, collab, procurement, asset, partnership, personal, proposals
+  iam, audit, app, accounting, finance, collab, procurement, asset, partnership, personal, proposals, ops
 TO dang_runtime;
 
 -- Broad DML for app tables; revokes below restore ledger/audit immutability.
@@ -34,6 +34,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA asset TO dang_runti
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA partnership TO dang_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA personal TO dang_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA proposals TO dang_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ops TO dang_runtime;
 
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA iam TO dang_runtime;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA audit TO dang_runtime;
@@ -46,6 +47,7 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA asset TO dang_runtime;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA partnership TO dang_runtime;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA personal TO dang_runtime;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA proposals TO dang_runtime;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ops TO dang_runtime;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA iam GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO dang_runtime;
 ALTER DEFAULT PRIVILEGES IN SCHEMA finance GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO dang_runtime;
@@ -53,6 +55,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA accounting GRANT SELECT, INSERT, UPDATE, DELE
 ALTER DEFAULT PRIVILEGES IN SCHEMA collab GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO dang_runtime;
 ALTER DEFAULT PRIVILEGES IN SCHEMA personal GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO dang_runtime;
 ALTER DEFAULT PRIVILEGES IN SCHEMA proposals GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO dang_runtime;
+ALTER DEFAULT PRIVILEGES IN SCHEMA ops GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO dang_runtime;
 
 REVOKE UPDATE, DELETE ON audit.event FROM dang_runtime;
 REVOKE UPDATE, DELETE ON accounting.journal_entry, accounting.journal_line FROM dang_runtime;

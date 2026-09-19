@@ -1,10 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import {
-  API_SESSION_COOKIE,
-  WEB_SESSION_COOKIE,
-  WEB_SESSION_COOKIE_VALUE,
-} from "@dang/contracts";
+import { API_SESSION_COOKIE } from "@dang/contracts/session-cookies";
 
 const PUBLIC_PREFIXES = [
   "/login",
@@ -14,6 +10,7 @@ const PUBLIC_PREFIXES = [
   "/verify-email",
   "/invite",
   "/ui-kit",
+  "/payments/local",
 ];
 
 const PROTECTED_PREFIXES = [
@@ -31,6 +28,8 @@ const PROTECTED_PREFIXES = [
   "/account",
   "/spaces",
   "/whats-new",
+  "/overview",
+  "/admin",
 ];
 
 /** Classic entries that map without a workspace slug (middleware can rewrite). */
@@ -48,10 +47,8 @@ export function pathMatchesPrefix(pathname: string, prefix: string): boolean {
 }
 
 /**
- * Additive session gate:
- * - Prefer real API session cookie (`dang_session`) when same-origin proxy is used
- * - Keep `dang_web_session=1` for existing password/OIDC client flows (not removed)
- * - Dev identity still works after client marks web session
+ * Session gate: only the HttpOnly API session cookie (`dang_session`) counts.
+ * `dang_web_session` is a client UX hint and is not sufficient.
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -62,11 +59,7 @@ export function middleware(request: NextRequest) {
   if (!needsAuth) return NextResponse.next();
 
   const apiSession = request.cookies.get(API_SESSION_COOKIE)?.value?.trim();
-  const webSession = request.cookies.get(WEB_SESSION_COOKIE)?.value?.trim();
-  const hasSession =
-    Boolean(apiSession) || webSession === WEB_SESSION_COOKIE_VALUE;
-
-  if (!hasSession) {
+  if (!apiSession) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", pathname + request.nextUrl.search);
@@ -112,5 +105,9 @@ export const config = {
     "/spaces/:path*",
     "/whats-new",
     "/whats-new/:path*",
+    "/overview",
+    "/overview/:path*",
+    "/admin",
+    "/admin/:path*",
   ],
 };

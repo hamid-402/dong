@@ -8,6 +8,7 @@ import {
   classicPathToWorkspacePage,
 } from "@/lib/workspace-paths";
 import { readStoredWorkspaceId } from "@/lib/workspace-storage";
+import { t } from "@/lib/i18n";
 
 function RedirectInner({
   page,
@@ -16,7 +17,7 @@ function RedirectInner({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [message, setMessage] = useState("انتقال…");
+  const [message, setMessage] = useState(() => t("shell.redirecting"));
 
   useEffect(() => {
     let cancelled = false;
@@ -24,6 +25,9 @@ function RedirectInner({
       const search = typeof window !== "undefined" ? window.location.search : "";
       const hash = typeof window !== "undefined" ? window.location.hash : "";
       const suffix = `${search}${hash}`;
+      const actionRecord =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("action") === "record";
 
       // Finance panel hashes must win over a coarse hub/page prop (e.g. expenses).
       const panelFromHash = classicPathToWorkspacePage("/workspaces", hash);
@@ -34,9 +38,11 @@ function RedirectInner({
         hash === "#expense-panel" ||
         hash === "#quick-expense";
       const mapped =
-        isFinancePanelHash && panelFromHash
-          ? panelFromHash
-          : (page ?? classicPathToWorkspacePage(pathname, hash));
+        actionRecord
+          ? "record"
+          : isFinancePanelHash && panelFromHash
+            ? panelFromHash
+            : (page ?? classicPathToWorkspacePage(pathname, hash));
 
       if (mapped === "invite") {
         router.replace(`/invite${suffix}`);
@@ -54,6 +60,11 @@ function RedirectInner({
         router.replace(`/spaces${suffix}`);
         return;
       }
+      // App home — never dump the user into the last/first workspace group.
+      if (mapped === "home") {
+        router.replace(`/home${suffix}`);
+        return;
+      }
 
       try {
         const list = await api.listWorkspaces();
@@ -65,14 +76,14 @@ function RedirectInner({
         }
         const active = list.find((w) => w.id === stored) ?? list[0] ?? null;
         if (!active) {
-          if (!cancelled) setMessage("فضایی ندارید — انتقال به ساخت فضا…");
+          if (!cancelled) setMessage(t("shell.redirectNoSpace"));
           router.replace(`/spaces/new${suffix}`);
           return;
         }
         const target = absoluteForPage(mapped, active.slug);
         router.replace(`${target}${suffix}`);
       } catch {
-        if (!cancelled) setMessage("خطا در بارگذاری فضاها");
+        if (!cancelled) setMessage(t("shell.redirectError"));
         router.replace(`/login?next=${encodeURIComponent(pathname + suffix)}`);
       }
     })();

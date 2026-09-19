@@ -1,0 +1,55 @@
+name: canary-gate
+
+# R10-16 — post-deploy / canary promote gate
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: "Canary API origin"
+        required: false
+        type: string
+      web_url:
+        description: "Canary Web origin"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve URLs
+        id: target
+        env:
+          IN_API: ${{ inputs.api_url }}
+          IN_WEB: ${{ inputs.web_url }}
+          SEC_API: ${{ secrets.CANARY_API_URL }}
+          SEC_WEB: ${{ secrets.CANARY_WEB_URL }}
+        run: |
+          api="${IN_API:-${SEC_API:-}}"
+          web="${IN_WEB:-${SEC_WEB:-}}"
+          if [ -z "$api" ] || [ -z "$web" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=canary gate skipped::Set inputs or secrets CANARY_API_URL / CANARY_WEB_URL"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "api=$api" >> "$GITHUB_OUTPUT"
+            echo "web=$web" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.target.outputs.skip != 'true'
+        with:
+          node-version: 24
+
+      - name: Run canary gate
+        if: steps.target.outputs.skip != 'true'
+        env:
+          API_URL: ${{ steps.target.outputs.api }}
+          WEB_URL: ${{ steps.target.outputs.web }}
+        run: node scripts/deploy/canary-gate.mjs

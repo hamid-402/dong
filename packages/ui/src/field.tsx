@@ -96,13 +96,15 @@ export function TextField({
         aria-required={required || undefined}
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy(hintId, errorId, ariaDescribedBy)}
+        // Browser extensions (e.g. RTL helpers) inject attrs like data-rtl-listener
+        // before hydrate; don't treat that as an app bug.
+        suppressHydrationWarning
         style={{
           ...controlStyle,
           ...(invalid ? { borderColor: "var(--dang-danger)" } : null),
           ...style,
         }}
-      />
-      {hint ? (
+      />      {hint ? (
         <span id={hintId} style={hintStyle}>
           {hint}
         </span>

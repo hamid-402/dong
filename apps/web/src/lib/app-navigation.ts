@@ -73,8 +73,8 @@ export const RAW_MENU_ITEMS: NavNode[] = [
       },
       {
         key: "/workspaces/invite",
-        label: "دعوت دوست / عضو",
-        description: "افزودن نفر به گروه با لینک یا ایمیل",
+        label: "اعضا و دعوت",
+        description: "فهرست اعضا، نقش، افزودن با نام‌کاربری و لینک دعوت",
         route: "/workspaces/invite",
         icon: "partners",
         gemKey: "amber",

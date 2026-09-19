@@ -24,6 +24,7 @@ test("processQueuedJobWithRetries pushes DLQ shape after exhausted attempts", as
       pushed.push(entry);
       return true;
     },
+    writeBack: async () => undefined,
   });
 
   assert.equal(result, "dlq");
@@ -45,6 +46,7 @@ test("processQueuedJobWithRetries succeeds without DLQ on first success", async 
       pushed.push(entry);
       return true;
     },
+    writeBack: async () => undefined,
   });
   assert.equal(result, "ok");
   assert.equal(pushed.length, 0);
@@ -68,6 +70,7 @@ test("processQueuedJobWithRetries recovers on a later attempt (no DLQ)", async (
       pushed.push(entry);
       return true;
     },
+    writeBack: async () => undefined,
   });
 
   assert.equal(result, "ok");
@@ -93,7 +96,7 @@ test("ledger.rebuild_balances completes with structured result", async () => {
 
 test("recurrence.tick disabled failure reaches DLQ", async () => {
   const previous = process.env.ENABLE_RECURRENCE_WORKER;
-  delete process.env.ENABLE_RECURRENCE_WORKER;
+  process.env.ENABLE_RECURRENCE_WORKER = "0";
   const pushed: DeadLetterJob[] = [];
   const job: QueuedWorkerJob = {
     jobId: "j-recurrence-disabled",

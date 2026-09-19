@@ -1,0 +1,63 @@
+import { HttpException, Injectable } from "@nestjs/common";
+import { MailerService } from "../auth/mailer.service.js";
+import { createAdaptiveRateLimit } from "../auth/rate-limit.factory.js";
+import type { RateLimiter } from "../auth/rate-limit.js";
+import type {
+  PublicContactRequest,
+  PublicContactResponse,
+} from "./public-contact.types.js";
+
+function supportInbox(): string {
+  return (
+    process.env.CONTACT_INBOX?.trim() ||
+    process.env.SUPPORT_EMAIL?.trim() ||
+    "support@dang.local"
+  );
+}
+
+@Injectable()
+export class PublicContactService {
+  private readonly limiter: RateLimiter = createAdaptiveRateLimit(8, 15 * 60_000);
+
+  constructor(private readonly mailer: MailerService) {}
+
+  async submit(
+    body: PublicContactRequest,
+    meta: { ip?: string },
+  ): Promise<PublicContactResponse> {
+    const key = `public-contact:${meta.ip?.trim() || "unknown"}`;
+    const snap = await this.limiter.consume(key);
+    if (!snap.allowed) {
+      throw new HttpException(
+        {
+          type: "https://dang.local/problems/rate-limited",
+          title: "Too many contact attempts",
+          status: 429,
+          detail: "لطفاً کمی بعد دوباره تلاش کنید.",
+        },
+        429,
+      );
+    }
+
+    const to = supportInbox();
+    const subject = `[دنگ تماس] ${body.topic} — ${body.name || "بدون نام"}`;
+    const text = [
+      `موضوع: ${body.topic}`,
+      `نام: ${body.name || "—"}`,
+      `ایمیل پاسخ: ${body.email || "—"}`,
+      `IP: ${meta.ip || "—"}`,
+      "",
+      body.message,
+    ].join("\n");
+
+    const sent = this.mailer.send({ to, subject, text });
+    const mailerMode = this.mailer.mode();
+    const delivered = Boolean(sent.delivered) && mailerMode !== "none";
+    return {
+      accepted: true,
+      delivered,
+      mailerMode,
+      suggestMailto: !delivered,
+    };
+  }
+}

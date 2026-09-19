@@ -12,7 +12,7 @@
 
 
 
-- [x] رویدادهای audit برای `workspace.create`، `invite.accept`، `expense.post`، `settlement.claim.confirm`
+- [x] رویدادهای audit برای `workspace.create`، `invite.create`، `invite.accept`، `expense.post`، `settlement.claim.confirm`
 
 - [x] endpoint شمارش قیف: `GET /workspaces/:workspaceId/product-metrics`
 
@@ -41,6 +41,8 @@ Aggregation خالص روی رویدادهای قابل‌خواندن عضو د
 | --- | --- |
 
 | ساخت فضا | `workspace.create` |
+
+| ساخت دعوت | `invite.create` |
 
 | پذیرش دعوت | `invite.accept` |
 

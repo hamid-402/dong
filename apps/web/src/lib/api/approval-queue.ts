@@ -6,4 +6,9 @@ export const approvalQueueApi = {
     apiFetch<ApprovalQueueItem[]>(
       `/workspaces/${workspaceId}/approval-queue`,
     ),
+  /** Lightweight queue size for shell badge / home priority (no item payload). */
+  approvalQueueCount: (workspaceId: string) =>
+    apiFetch<{ count: number }>(
+      `/workspaces/${workspaceId}/approval-queue/count`,
+    ),
 };

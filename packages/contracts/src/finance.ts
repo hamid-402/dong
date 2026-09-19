@@ -1,6 +1,15 @@
 import type { Money } from "./money.js";
+import type { ApprovalTier } from "./maker-checker.js";
 
-export type SplitMethod = "equal" | "amount" | "percent" | "shares" | "itemized";
+export type SplitMethod =
+  | "equal"
+  | "amount"
+  | "percent"
+  | "shares"
+  | "itemized"
+  | "formula";
+
+export type FormulaBasis = "area" | "occupancy";
 
 export type ExpenseStatus =
   | "draft"
@@ -57,6 +66,16 @@ export type WorkspaceExpensePolicySummary = {
   workspaceId: string;
   approvalThresholdMinor: string | null;
   requireReceiptAboveMinor: string | null;
+  /** Category ids that always require a receipt (additive to amount threshold). */
+  requireReceiptCategoryIds?: string[];
+  /** When true, org expenses must carry costCenterId (G09 #32). */
+  requireCostCenter?: boolean;
+  /**
+   * Custom maker-checker tiers; null/omitted in storage = use DEFAULT_APPROVAL_TIERS (G09 #31).
+   */
+  approvalTiers?: ApprovalTier[] | null;
+  /** Daily per-diem cap in IRR minor for actor on occurredOn day (G09 #14). */
+  perDiemDailyMinor?: string | null;
   updatedAt?: string;
   updatedByUserId?: string;
 };
@@ -64,17 +83,57 @@ export type WorkspaceExpensePolicySummary = {
 export type UpdateWorkspaceExpensePolicyRequest = {
   approvalThresholdMinor: string | null;
   requireReceiptAboveMinor: string | null;
+  /** Replace category receipt list; omit to leave unchanged on partial clients — prefer always send. */
+  requireReceiptCategoryIds?: string[];
+  requireCostCenter?: boolean;
+  approvalTiers?: ApprovalTier[] | null;
+  perDiemDailyMinor?: string | null;
 };
 
 export type ApprovalQueueItem = {
-  kind: "addon_charge" | "member_invoice" | "expense";
+  kind: "addon_charge" | "member_invoice" | "expense" | "settlement";
   id: string;
   title: string;
   amount?: Money;
   status: string;
   hrefHint: string;
   createdAt: string;
+  /** Distinct approved decisions so far (Phase 2.3 tiers). */
+  approvalsHave?: number;
+  /** Required distinct approvers for the amount band. */
+  approvalsNeeded?: number;
+  /** ISO due time when MAKER_CHECKER_SLA_HOURS is set. */
+  slaDueAt?: string;
+  /** True when now is past slaDueAt (API-computed; not a fake badge). */
+  slaBreached?: boolean;
 };
+
+/** Hours from `MAKER_CHECKER_SLA_HOURS`, or null when unset/invalid. */
+export function approvalQueueSlaHours(
+  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env,
+): number | null {
+  const raw = env.MAKER_CHECKER_SLA_HOURS?.trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+/** Additive SLA fields from createdAt + hours threshold. */
+export function withApprovalQueueSla(
+  createdAt: string,
+  hours: number | null,
+  nowMs: number = Date.now(),
+): Pick<ApprovalQueueItem, "slaDueAt" | "slaBreached"> {
+  if (hours == null) return {};
+  const createdMs = Date.parse(createdAt);
+  if (!Number.isFinite(createdMs)) return {};
+  const dueMs = createdMs + hours * 3_600_000;
+  return {
+    slaDueAt: new Date(dueMs).toISOString(),
+    slaBreached: nowMs > dueMs,
+  };
+}
 
 export type SettlementStatus =
   | "claimed"
@@ -88,8 +147,47 @@ export type ExpensePaymentLine = {
   amount: Money;
 };
 
+/**
+ * When both quantity and unitPriceMinor are set, amountMinor must equal
+ * round(quantity × unitPriceMinor); otherwise AMOUNT_MISMATCH (S11-07).
+ */
+export function assertAmountMatchesQuantity(input: {
+  amountMinor: string;
+  quantity?: number;
+  unitPriceMinor?: string;
+}): void {
+  if (input.quantity === undefined || input.unitPriceMinor === undefined) return;
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
+    throw new Error("AMOUNT_MISMATCH");
+  }
+  if (!/^\d+$/.test(input.unitPriceMinor)) {
+    throw new Error("AMOUNT_MISMATCH");
+  }
+  const expected = BigInt(Math.round(input.quantity * Number(input.unitPriceMinor)));
+  let actual: bigint;
+  try {
+    actual = BigInt(input.amountMinor);
+  } catch {
+    throw new Error("AMOUNT_MISMATCH");
+  }
+  if (actual !== expected) {
+    throw new Error("AMOUNT_MISMATCH");
+  }
+}
+
+/** Optional catalog snapshot fields on a consumption / expense line (S11-07). */
+export type CatalogLineFields = {
+  /** Real catalog item id when picked from catalog; omit for free-text. */
+  catalogItemId?: string;
+  unitCode?: string;
+  /** Positive quantity; up to 3 decimal places in practice. */
+  quantity?: number;
+  /** Snapshot unit price in IRR minor at registration time. */
+  unitPriceMinor?: string;
+};
+
 /** Line on an itemized bill (lunch receipt). */
-export type ExpenseItemInput = {
+export type ExpenseItemInput = CatalogLineFields & {
   title: string;
   /** IRR minor for this line. */
   amount: Money;
@@ -132,6 +230,11 @@ export type CreateExpenseDraftRequest = {
   periodId?: string;
   /** Optional multi-expense outing container. */
   outingId?: string;
+  /** Catalog snapshot for non-itemized daily-ledger lines (S11-07). */
+  catalogItemId?: string;
+  unitCode?: string;
+  quantity?: number;
+  unitPriceMinor?: string;
   categoryId?: string;
   costCenterId?: string;
   budgetId?: string;
@@ -142,6 +245,11 @@ export type CreateExpenseDraftRequest = {
   /** all_members by default; restricted items remain visible to creator and finance managers. */
   audience?: ExpenseAudience;
   /**
+   * `auto` lets the server decide, in one request, whether the expense can be
+   * posted immediately or must wait for approval. Omitted = keep as draft.
+   */
+  commit?: "draft" | "auto";
+  /**
    * System provenance — set by daily ledger (and similar) creators.
    * Omitted/null = classic expense UI.
    */
@@ -149,6 +257,20 @@ export type CreateExpenseDraftRequest = {
   /** Preserved source money only; reporting/ledger total remains IRR. */
   originalCurrency?: string;
   originalAmountMinor?: string;
+  /**
+   * How the purchase was funded (S11-09).
+   * `petty_cash` + `fundingRefId` (fund id) posts a linked spend on the fund when the expense posts.
+   */
+  fundingSourceKind?: "petty_cash" | "personal" | "member" | "credit";
+  fundingRefId?: string;
+  /** Optional workspace tag ids (G03 #18). */
+  tagIds?: string[];
+  /** Required when splitMethod is formula (G08 #29). */
+  formulaBasis?: FormulaBasis;
+  /** Populated by API when resolving formula splits from subunits. */
+  formulaWeights?: readonly { userId: string; weight: number }[];
+  /** Travel advance/settlement light tag (G09 #35) — forces company visibility when set. */
+  missionKind?: "advance" | "settlement";
 };
 
 export type ExpenseSplitLine = {
@@ -282,6 +404,30 @@ export function allocatePercentSplit(
   }));
 }
 
+/** Positive numeric weights — same remainder rules as shares. */
+export function allocateFormulaSplit(
+  total: Money,
+  weights: readonly { userId: string; weight: number }[],
+): ExpenseSplitLine[] {
+  if (!weights.length) {
+    throw new Error("SPLIT_FORMULA");
+  }
+  const scaled = weights.map((line) => {
+    const userId = line.userId.trim();
+    if (!userId || !Number.isFinite(line.weight) || line.weight <= 0) {
+      throw new Error("SPLIT_FORMULA");
+    }
+    const weight = BigInt(Math.round(line.weight * 10_000));
+    if (weight <= 0n) throw new Error("SPLIT_FORMULA");
+    return { userId, weight, weightNum: line.weight };
+  });
+  const allocated = distributeRemainder(
+    total,
+    scaled.map((line) => ({ userId: line.userId, weight: line.weight })),
+  );
+  return allocated;
+}
+
 export function allocateSharesSplit(
   total: Money,
   lines: readonly Pick<ExpenseSplitLine, "userId" | "shares">[],
@@ -340,6 +486,7 @@ export function allocateExpenseSplit(input: {
   splitMethod: SplitMethod;
   participantUserIds: string[];
   splitLines?: readonly ExpenseSplitLine[];
+  formulaWeights?: readonly { userId: string; weight: number }[];
   items?: readonly ExpenseItemInput[];
   tip?: Money;
   tax?: Money;
@@ -357,6 +504,10 @@ export function allocateExpenseSplit(input: {
     case "shares":
       if (!input.splitLines?.length) throw new Error("SPLIT_LINES");
       return allocateSharesSplit(input.total, input.splitLines);
+    case "formula": {
+      if (!input.formulaWeights?.length) throw new Error("SPLIT_FORMULA");
+      return allocateFormulaSplit(input.total, input.formulaWeights);
+    }
     case "itemized": {
       if (!input.items?.length) throw new Error("SPLIT_ITEMS");
       const result = allocateItemizedSplit({
@@ -505,11 +656,29 @@ export type ExpenseSummary = {
   approvedAt?: string;
   occurredOn: string;
   createdAt: string;
+  /** Creator — used for four-eyes / maker-checker. */
+  createdByUserId?: string;
+  /** Multi-level tier progress (Phase 2.3); present when approve is still pending. */
+  approvalsHave?: number;
+  approvalsNeeded?: number;
+  tierApprovalStatus?: "pending" | "complete" | "rejected";
   /** Present when created via daily ledger (or similar). */
   source?: "daily_ledger";
+  /** Catalog snapshot when a daily-ledger / single-line expense picked from catalog (S11-07). */
+  catalogItemId?: string;
+  unitCode?: string;
+  quantity?: number;
+  unitPriceMinor?: string;
   originalCurrency?: string;
   originalAmountMinor?: string;
   fxRateId?: string;
+  fundingSourceKind?: "petty_cash" | "personal" | "member" | "credit";
+  fundingRefId?: string;
+  /** Linked workspace tag ids when present. */
+  tagIds?: string[];
+  /** Travel advance/settlement when recorded (G09 #35). */
+  missionKind?: "advance" | "settlement";
+  note?: string;
 };
 
 export type CreateOutingRequest = {
@@ -517,6 +686,10 @@ export type CreateOutingRequest = {
   occurredOn: string;
   note?: string;
   idempotencyKey: string;
+  /** Optional IRR minor budget ceiling for the event (G04 #3). */
+  budgetCapMinor?: string;
+  startsOn?: string;
+  endsOn?: string;
 };
 
 export type OutingSummary = {
@@ -525,10 +698,72 @@ export type OutingSummary = {
   title: string;
   note?: string;
   occurredOn: string;
+  budgetCapMinor?: string;
+  startsOn?: string;
+  endsOn?: string;
   createdByUserId: string;
   createdAt: string;
   expenseIds: string[];
   total: Money;
+};
+
+/** Workspace guest without an account yet (G04 #1). */
+export type GuestPlaceholderSummary = {
+  id: string;
+  workspaceId: string;
+  displayName: string;
+  phoneE164?: string;
+  claimedUserId?: string;
+  claimedAt?: string;
+  createdByUserId: string;
+  createdAt: string;
+  /** Plain claim token — only returned at create time. */
+  claimToken?: string;
+  claimPath?: string;
+};
+
+export type CreateGuestPlaceholderRequest = {
+  displayName: string;
+  phoneE164?: string;
+  idempotencyKey: string;
+};
+
+export type ClaimGuestPlaceholderRequest = {
+  /** Token from create response / claim link. */
+  claimToken: string;
+  idempotencyKey: string;
+};
+
+export type ClaimGuestPlaceholderResponse = {
+  placeholder: GuestPlaceholderSummary;
+  remappedExpenseCount: number;
+  remappedLedgerLineCount: number;
+};
+
+/** Named split template (G04 #7). */
+export type SplitPresetLine = {
+  userId: string;
+  shares?: number;
+  /** Basis points when percent method (10000 = 100%). */
+  percentBp?: number;
+  amountMinor?: string;
+};
+
+export type SplitPresetSummary = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  splitMethod: "equal" | "amount" | "percent" | "shares";
+  lines: SplitPresetLine[];
+  createdByUserId: string;
+  createdAt: string;
+};
+
+export type CreateSplitPresetRequest = {
+  name: string;
+  splitMethod: "equal" | "amount" | "percent" | "shares";
+  lines: SplitPresetLine[];
+  idempotencyKey: string;
 };
 
 export type CreateSettlementClaimRequest = {
@@ -551,7 +786,22 @@ export type SettlementSummary = {
   status: SettlementStatus;
   paymentLinkUrl?: string;
   createdAt: string;
+  /** Maker for four-eyes (R10-25); who created the claim. */
+  createdByUserId?: string;
+  /** Multi-level tier progress (Phase 2.3); present when confirm is still pending. */
+  approvalsHave?: number;
+  approvalsNeeded?: number;
+  tierApprovalStatus?: "pending" | "complete" | "rejected";
+  /** Optional claim note (e.g. debt-simplify marker). */
+  note?: string;
 };
+
+/** Canonical note written when materializing greedy debt-simplify suggestions. */
+export const DEBT_SIMPLIFY_CLAIM_NOTE = "پیشنهاد ساده‌سازی بدهی (greedy)";
+
+export function isDebtSimplifyClaimNote(note: string | undefined | null): boolean {
+  return (note?.trim() ?? "") === DEBT_SIMPLIFY_CLAIM_NOTE;
+}
 
 /** Net balance line. Positive amountMinor => others owe this user. */
 export type BalanceLine = {
@@ -569,7 +819,11 @@ export type JournalLine = {
   amount: Money;
 };
 
-export type JournalSourceType = "expense" | "settlement";
+export type JournalSourceType =
+  | "expense"
+  | "settlement"
+  | "payment_receipt"
+  | "payment_on_behalf";
 
 export type JournalEntrySummary = {
   id: string;
@@ -616,6 +870,77 @@ export type CreateSimplifySettlementClaimsResponse = {
   created: SettlementSummary[];
   skipped: number;
 };
+
+/**
+ * Confirm open debt-simplify claims the actor is allowed to confirm
+ * (creditor party, or finance override with existing MFA/four-eyes gates).
+ */
+export type ConfirmSimplifySettlementClaimsRequest = {
+  idempotencyKey: string;
+  /** When set, only these claimed simplify settlements are attempted. */
+  settlementIds?: string[];
+};
+
+export type ConfirmSimplifySettlementClaimsResponse = {
+  workspaceId: string;
+  confirmed: SettlementSummary[];
+  failed: Array<{ settlementId: string; detail: string }>;
+  skipped: number;
+};
+
+/** Optional body for settlement confirm — required when settlementEvidence flag is on. */
+export type ConfirmSettlementRequest = {
+  evidenceKind?: "receipt" | "cash_ack" | "gateway";
+  receiptId?: string;
+  cashAckNote?: string;
+};
+
+/** Preview balance nets before/after hypothetical transfers (Wave 4 #17). */
+export type PreviewSettlementEffectRequest = {
+  transfers: Array<{
+    fromUserId: string;
+    toUserId: string;
+    amount: Money;
+  }>;
+};
+
+export type PreviewSettlementEffectResponse = {
+  workspaceId: string;
+  before: BalanceLine[];
+  after: BalanceLine[];
+  zeroSumBefore: boolean;
+  zeroSumAfter: boolean;
+};
+
+/**
+ * Project net balances after applying transfers as if already confirmed.
+ * Does not mutate ledger — preview only (Wave 4 #17).
+ */
+export function previewBalancesAfterTransfers(
+  lines: readonly BalanceLine[],
+  transfers: readonly Pick<
+    SettlementSuggestion,
+    "fromUserId" | "toUserId" | "amount"
+  >[],
+): BalanceLine[] {
+  const nets = new Map<string, bigint>();
+  for (const line of lines) {
+    nets.set(line.userId, BigInt(line.net.amountMinor));
+  }
+  for (const t of transfers) {
+    const pay = BigInt(t.amount.amountMinor);
+    if (pay <= 0n) continue;
+    nets.set(t.fromUserId, (nets.get(t.fromUserId) ?? 0n) + pay);
+    nets.set(t.toUserId, (nets.get(t.toUserId) ?? 0n) - pay);
+  }
+  return [...nets.entries()]
+    .filter(([, net]) => net !== 0n)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([userId, net]) => ({
+      userId,
+      net: { amountMinor: net.toString(), currency: "IRR" as const },
+    }));
+}
 
 type BalanceExpenseInput = Pick<
   ExpenseSummary,
@@ -697,6 +1022,84 @@ export function buildSettlementJournalLines(
       userId: settlement.fromUserId,
       side: "credit",
       amount: settlement.amount,
+    },
+  ];
+  assertBalancedJournalLines(lines);
+  return lines;
+}
+
+/** Approved payment receipt without settlement confirm: credit payer, debit counterparty. */
+export function buildPaymentReceiptJournalLines(input: {
+  payerUserId: string;
+  counterpartyUserId: string;
+  amount: Money;
+}): JournalLine[] {
+  const lines: JournalLine[] = [
+    {
+      accountCode: memberAccountCode(input.counterpartyUserId),
+      userId: input.counterpartyUserId,
+      side: "debit",
+      amount: input.amount,
+    },
+    {
+      accountCode: memberAccountCode(input.payerUserId),
+      userId: input.payerUserId,
+      side: "credit",
+      amount: input.amount,
+    },
+  ];
+  assertBalancedJournalLines(lines);
+  return lines;
+}
+
+/**
+ * On-behalf payment (standalone): debtor debt decreases (credit),
+ * funded from payer's account (debit payer).
+ */
+export function buildOnBehalfJournalLines(input: {
+  debtorUserId: string;
+  payerUserId: string;
+  amount: Money;
+}): JournalLine[] {
+  const lines: JournalLine[] = [
+    {
+      accountCode: memberAccountCode(input.debtorUserId),
+      userId: input.debtorUserId,
+      side: "credit",
+      amount: input.amount,
+    },
+    {
+      accountCode: memberAccountCode(input.payerUserId),
+      userId: input.payerUserId,
+      side: "debit",
+      amount: input.amount,
+    },
+  ];
+  assertBalancedJournalLines(lines);
+  return lines;
+}
+
+/**
+ * After settlement confirm: move settlement credit from debtor to funding payer
+ * so payer's credit is tracked honestly (debtor now owes payer).
+ */
+export function buildOnBehalfFundingTransferLines(input: {
+  debtorUserId: string;
+  payerUserId: string;
+  amount: Money;
+}): JournalLine[] {
+  const lines: JournalLine[] = [
+    {
+      accountCode: memberAccountCode(input.debtorUserId),
+      userId: input.debtorUserId,
+      side: "debit",
+      amount: input.amount,
+    },
+    {
+      accountCode: memberAccountCode(input.payerUserId),
+      userId: input.payerUserId,
+      side: "credit",
+      amount: input.amount,
     },
   ];
   assertBalancedJournalLines(lines);
@@ -861,6 +1264,29 @@ export function settlementSuggestionsSatisfyGoldenRules(
   }
   return true;
 }
+
+/** Workspace expense tag (G03 #18). */
+export type ExpenseTagSummary = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  slug: string;
+  color?: string;
+  createdAt: string;
+  createdByUserId: string;
+};
+
+export type CreateExpenseTagRequest = {
+  name: string;
+  /** Optional; derived from name when omitted. */
+  slug?: string;
+  color?: string;
+  idempotencyKey: string;
+};
+
+export type SetExpenseTagsRequest = {
+  tagIds: string[];
+};
 
 export const financeVerticalSliceSteps = [
   "invite_member",

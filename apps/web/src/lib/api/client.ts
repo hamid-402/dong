@@ -1,9 +1,13 @@
 import { newClientId } from "@/lib/id";
 import type {
   AuthActionResponse,
+  AccountDataExport,
   AccountSessionSummary,
   AuthMeResponse,
+  ChangeEmailRequest,
+  ChangeEmailResponse,
   ChangePasswordRequest,
+  ClaimUsernameRequest,
   ForgotPasswordResponse,
   LoginRequest,
   LoginResponse,
@@ -12,12 +16,15 @@ import type {
   MfaDisableRequest,
   MfaSetupResponse,
   MfaVerifyRequest,
+  ReauthRequest,
+  ReauthResponse,
   RegisterRequest,
   SessionSummary,
   UpdateProfileRequest,
   UserProfile,
+  UsernameAvailableResponse,
 } from "@dang/contracts";
-import { WEB_SESSION_COOKIE, WEB_SESSION_COOKIE_VALUE } from "@dang/contracts";
+import { WEB_SESSION_COOKIE, WEB_SESSION_COOKIE_VALUE, CSRF_COOKIE, CSRF_HEADER } from "@dang/contracts";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
 
@@ -61,6 +68,26 @@ export function clearClientSession() {
   document.cookie = `${WEB_SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
 }
 
+function readBrowserCookie(name: string): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const parts = document.cookie.split(";");
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (trimmed.startsWith(`${name}=`)) {
+      return decodeURIComponent(trimmed.slice(name.length + 1));
+    }
+  }
+  return undefined;
+}
+
+/** Mint HttpOnly dang_session for local DevAuth (middleware no longer trusts web flag alone). */
+export async function bootstrapDevSession(): Promise<void> {
+  await apiFetch<{ ok: true }>("/auth/dev/bootstrap-session", {
+    method: "POST",
+    body: "{}",
+  });
+}
+
 /** Fetch Headers reject non-ISO-8859-1; encode Unicode for transport. */
 export function encodeDevHeader(value: string): string {
   const bytes = new TextEncoder().encode(value);
@@ -95,11 +122,14 @@ export function setDevIdentity(subject: string, displayName: string) {
 
 export class ApiError extends Error {
   readonly status: number;
+  /** Problem Details `code` when the API returns one (e.g. plan_required). */
+  readonly code?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -125,6 +155,13 @@ export async function apiFetch<T>(
     if (init.body && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
     }
+    const method = (init.method ?? "GET").toUpperCase();
+    if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+      const csrf = readBrowserCookie(CSRF_COOKIE);
+      if (csrf && !headers.has(CSRF_HEADER)) {
+        headers.set(CSRF_HEADER, csrf);
+      }
+    }
 
     return fetch(`${API_BASE}${path}`, {
       ...init,
@@ -143,12 +180,20 @@ export async function apiFetch<T>(
   if (!response.ok) {
     const detail = await response.text();
     let message = detail || `API ${response.status}`;
+    let code: string | undefined;
     try {
-      const parsed = JSON.parse(detail) as { detail?: string; title?: string };
+      const parsed = JSON.parse(detail) as {
+        detail?: string;
+        title?: string;
+        code?: string;
+      };
       if (typeof parsed.detail === "string" && parsed.detail.trim()) {
         message = parsed.detail;
       } else if (typeof parsed.title === "string" && parsed.title.trim()) {
         message = parsed.title;
+      }
+      if (typeof parsed.code === "string" && parsed.code.trim()) {
+        code = parsed.code.trim();
       }
     } catch {
       /* plain-text error body */
@@ -159,7 +204,7 @@ export async function apiFetch<T>(
           ? message
           : "سرویس API در دسترس نیست. ترمینال: pnpm dev:api";
     }
-    throw new ApiError(message, response.status);
+    throw new ApiError(message, response.status, code);
   }
 
   if (response.status === 204) {
@@ -183,6 +228,20 @@ export const authApi = {
     }),
   login: (body: LoginRequest) =>
     apiFetch<LoginResponse>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  usernameAvailable: (username: string) =>
+    apiFetch<UsernameAvailableResponse>(
+      `/auth/username-available?username=${encodeURIComponent(username)}`,
+    ),
+  changeEmail: (body: ChangeEmailRequest) =>
+    apiFetch<ChangeEmailResponse>("/auth/email/change", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  claimUsername: (body: ClaimUsernameRequest) =>
+    apiFetch<UserProfile>("/auth/username/claim", {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -229,6 +288,32 @@ export const authApi = {
       `/auth/sessions/${encodeURIComponent(sessionId)}`,
       { method: "DELETE" },
     ),
+  exportMyData: async (opts?: { password?: string }) => {
+    if (opts?.password) {
+      await apiFetch<ReauthResponse>("/auth/reauth", {
+        method: "POST",
+        body: JSON.stringify({ password: opts.password } satisfies ReauthRequest),
+      });
+    }
+    return apiFetch<AccountDataExport>("/auth/me/data-export");
+  },
+  deleteMyAccount: async (body: { password?: string; confirm: "DELETE" }) => {
+    if (body.password) {
+      await apiFetch<ReauthResponse>("/auth/reauth", {
+        method: "POST",
+        body: JSON.stringify({ password: body.password } satisfies ReauthRequest),
+      });
+    }
+    return apiFetch<{ ok: true; anonymized: true }>("/auth/me/delete-account", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+  reauth: (body: ReauthRequest) =>
+    apiFetch<ReauthResponse>("/auth/reauth", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   profile: () => apiFetch<UserProfile>("/auth/profile"),
   updateProfile: (body: UpdateProfileRequest) =>
     apiFetch<UserProfile>("/auth/profile", {
@@ -253,4 +338,5 @@ export const authApi = {
   oidcStatus: () =>
     apiFetch<{ configured: boolean; allowDevAuth: boolean }>("/auth/oidc/status"),
   oidcLoginUrl: () => `${API_BASE.replace(/\/$/, "")}/auth/oidc/login`,
+  bootstrapDevSession: () => bootstrapDevSession(),
 };

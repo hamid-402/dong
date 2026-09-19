@@ -9,19 +9,17 @@ import {
   ProductGrid,
   StatusLine,
 } from "@/components/ui-blocks";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
+import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { AllowancesPanel } from "@/components/allowances-panel";
 import { CostCentersPanel } from "@/components/cost-centers-panel";
 import { FxRatesPanel } from "@/components/fx-rates-panel";
 import { WaveFFinancePanel } from "@/components/wave-f-finance-panel";
 import { WorkspacePlanPanel } from "@/components/workspace-plan-panel";
+import { WorkspaceWebhooksPanel } from "@/components/workspace-webhooks-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
-import { NAV_LABELS } from "@/lib/nav-labels";
 import { FlashMessages, useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
-import { membershipRoleLabel } from "@/lib/status-labels";
-import { wPath } from "@/lib/workspace-paths";
 
 type OrgFinanceSnapshot = {
   activeCostCenters: number | null;
@@ -39,7 +37,7 @@ export function OrgFinanceView() {
   const { error, setError, flashSuccess, successMessage } = useFlashMessage();
   const [members, setMembers] = useState<MembershipSummary[]>([]);
   const [myRole, setMyRole] = useState("");
-  const [snapshot, setSnapshot] = useState<OrgFinanceSnapshot>({
+  const [, setSnapshot] = useState<OrgFinanceSnapshot>({
     activeCostCenters: null,
     allowanceAlerts: null,
     openReimbursements: null,
@@ -47,6 +45,9 @@ export function OrgFinanceView() {
   });
   const [pending, startTransition] = useTransition();
   const flags = chrome.capabilities?.productFlags;
+  const fxPreviewLive =
+    chrome.capabilities?.providers?.fxPreview === "preview_v1";
+  const showFxPanel = Boolean(flags?.fxRates) || fxPreviewLive;
   const workspace = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const isOrg =
     workspace != null && spaceKindForTemplate(workspace.template) === "org";
@@ -60,7 +61,8 @@ export function OrgFinanceView() {
     Boolean(flags?.expensePolicy) ||
     Boolean(flags?.workspacePlans) ||
     Boolean(flags?.planAdmin) ||
-    Boolean(flags?.fxRates);
+    Boolean(flags?.fxRates) ||
+    fxPreviewLive;
 
   function refresh() {
     if (!chrome.workspaceId || !isOrg) {
@@ -111,52 +113,14 @@ export function OrgFinanceView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      {workspace ? (
-        <OperationsModuleHeader
-          ariaLabel="مرکز مالی سازمانی"
-          destinations={[
-            { key: "org-finance", label: NAV_LABELS.orgFinance, href: wPath(workspace.slug, "orgFinance"), active: true },
-            { key: "expenses", label: NAV_LABELS.expenses, href: wPath(workspace.slug, "expenses"), active: false },
-            { key: "approvals", label: NAV_LABELS.approvals, href: wPath(workspace.slug, "approvals"), active: false },
-            { key: "ledger", label: NAV_LABELS.ledger, href: wPath(workspace.slug, "ledger"), active: false },
-            { key: "audit", label: "تاریخچه", href: wPath(workspace.slug, "audit"), active: false },
-          ]}
-          metrics={[
-            {
-              label: "مرکز هزینه فعال",
-              value: snapshot.activeCostCenters == null ? "—" : new Intl.NumberFormat("fa-IR").format(snapshot.activeCostCenters),
-              detail: !flags?.costCenter ? "قابلیت خاموش" : snapshot.activeCostCenters == null ? "داده API در دسترس نیست" : "از API مرکز هزینه",
-            },
-            {
-              label: "هشدار سقف عضو",
-              value: snapshot.allowanceAlerts == null ? "—" : new Intl.NumberFormat("fa-IR").format(snapshot.allowanceAlerts),
-              detail: !flags?.allowance ? "قابلیت خاموش" : snapshot.allowanceAlerts == null ? "داده API در دسترس نیست" : "عبور واقعی از آستانه",
-              tone: snapshot.allowanceAlerts ? "attention" : "neutral",
-            },
-            {
-              label: "بازپرداخت باز",
-              value: snapshot.openReimbursements == null ? "—" : new Intl.NumberFormat("fa-IR").format(snapshot.openReimbursements),
-              detail: !flags?.reimbursement ? "قابلیت خاموش" : snapshot.openReimbursements == null ? "داده API در دسترس نیست" : "پیش‌نویس تا تأییدشده",
-            },
-            {
-              label: "هشدار بودجه",
-              value: snapshot.budgetAlerts == null ? "—" : new Intl.NumberFormat("fa-IR").format(snapshot.budgetAlerts),
-              detail: !flags?.categoryBudget ? "قابلیت خاموش" : snapshot.budgetAlerts == null ? "داده API در دسترس نیست" : "از مصرف دسته‌ها",
-              tone: snapshot.budgetAlerts ? "attention" : "neutral",
-            },
-          ]}
-          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
-          persistenceLabel={chrome.persistenceLabel}
-          pending={pending || !chrome.ready}
-          onRefresh={refresh}
-        />
-      ) : null}
       <FlashMessages error={error} successMessage={successMessage} />
 
       {!chrome.workspaceId ? (
         <EmptyHint>فضای کاری را انتخاب کنید.</EmptyHint>
       ) : !isOrg ? (
         <EmptyHint>این صفحه برای فضاهای سازمانی است. برای گروه، از خانهٔ گروه استفاده کنید.</EmptyHint>
+      ) : pending && members.length === 0 ? (
+        <ContentSkeleton rows={3} label="در حال بارگذاری مالی سازمان…" />
       ) : !showAny ? (
         <EmptyHint>
           ابزارهای مالی سازمان در این محیط پشت پرچم محصول خاموش‌اند — کاشی More فقط وقتی
@@ -204,9 +168,16 @@ export function OrgFinanceView() {
               onError={setError}
             />
           ) : null}
-          {flags?.fxRates ? (
+          {chrome.workspaceId &&
+          chrome.capabilities?.providers?.outboundWebhooks === "hmac_v1" ? (
+            <WorkspaceWebhooksPanel
+              workspaceId={chrome.workspaceId}
+              readOnly={readOnly}
+            />
+          ) : null}
+          {showFxPanel ? (
             <FxRatesPanel
-              canWrite
+              canWrite={Boolean(flags?.fxRates)}
               conversionLive={Boolean(chrome.capabilities?.conversionLive)}
               readOnly={readOnly}
               onError={setError}

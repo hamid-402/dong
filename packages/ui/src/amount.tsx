@@ -1,25 +1,36 @@
 import type { CSSProperties, HTMLAttributes } from "react";
-import { formatToman, formatTomanFromIrrMinor } from "./format.js";
+import {
+  displayUnitLabel,
+  formatMoney,
+  formatMoneyFromIrrMinor,
+  type DisplayUnit,
+} from "./format.js";
 
 export type AmountProps = HTMLAttributes<HTMLSpanElement> & {
-  /** Amount in تومان (display unit). */
+  /**
+   * @deprecated Prefer irrMinor. Value is interpreted in `displayUnit`
+   * (default rial). Legacy callers that passed تومان should set displayUnit="toman".
+   */
   toman?: number;
   /** Canonical minor IRR units as string/number. */
   irrMinor?: string | number;
+  /** Effective display unit — defaults to rial (S11-05). */
+  displayUnit?: DisplayUnit;
   showUnit?: boolean;
 };
 
 export function Amount({
   toman,
   irrMinor,
+  displayUnit = "rial",
   showUnit = true,
   style,
   ...rest
 }: AmountProps) {
   const formatted =
     irrMinor !== undefined
-      ? formatTomanFromIrrMinor(irrMinor)
-      : formatToman(toman ?? 0);
+      ? formatMoneyFromIrrMinor(irrMinor, displayUnit)
+      : formatMoney(toman ?? 0, displayUnit);
 
   const amountStyle: CSSProperties = {
     fontVariantNumeric: "tabular-nums",
@@ -36,7 +47,7 @@ export function Amount({
           style={{ fontStyle: "normal", fontWeight: 500, marginInlineStart: 6, opacity: 0.8 }}
           dir="rtl"
         >
-          تومان
+          {displayUnitLabel(displayUnit)}
         </i>
       ) : null}
     </span>

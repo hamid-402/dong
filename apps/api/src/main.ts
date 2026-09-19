@@ -8,14 +8,22 @@ import {
 } from "@nestjs/platform-fastify";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { loadAppEnv, loadEnvFile } from "@dang/config";
+import { resolveTracingMode, startOtlpSpanExporter } from "@dang/observability";
 import { createLogger } from "@dang/observability";
 import { AppModule } from "./app.module.js";
+import { allowCorsOrigin } from "./common/cors-origin.js";
 import { ProblemDetailsFilter } from "./common/problem-details.filter.js";
 
 async function bootstrap() {
   const loadedEnv = loadEnvFile();
   const env = loadAppEnv();
   const logger = createLogger("dang-api");
+  const otel = startOtlpSpanExporter();
+  logger.info("Tracing mode", {
+    mode: otel.mode,
+    resolved: resolveTracingMode(),
+    otlpActive: otel.active ? 1 : 0,
+  });
   if (loadedEnv) {
     logger.info("Loaded local .env file");
   }
@@ -40,48 +48,36 @@ async function bootstrap() {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  /** Allow same-LAN browser origins (http://192.168.x.x:3005) in development. */
-  const isPrivateLanHttpOrigin = (origin: string): boolean => {
-    try {
-      const url = new URL(origin);
-      if (url.protocol !== "http:") return false;
-      const port = url.port || "80";
-      if (port !== "3005") return false;
-      const host = url.hostname;
-      if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
-      if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
-      const m = /^172\.(\d{1,3})\./.exec(host);
-      if (m) {
-        const second = Number(m[1]);
-        return second >= 16 && second <= 31;
-      }
-      return false;
-    } catch {
-      return false;
-    }
-  };
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-      const allowed = new Set([
-        env.webOrigin,
-        "http://127.0.0.1:3005",
-        "http://localhost:3005",
-        ...lanOrigins,
-      ]);
-      if (allowed.has(origin) || isPrivateLanHttpOrigin(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(null, false);
+      callback(
+        null,
+        allowCorsOrigin({
+          origin,
+          webOrigin: env.webOrigin,
+          extraOrigins: lanOrigins,
+          nodeEnv: env.nodeEnv,
+        }),
+      );
     },
     credentials: true,
   });
   app.setGlobalPrefix("api/v1");
   app.enableShutdownHooks();
+  const nestClose = app.close.bind(app);
+  app.close = (async () => {
+    try {
+      await otel.stop();
+    } catch (err: unknown) {
+      logger.warn("OTLP shutdown flush failed", {
+        detail: err instanceof Error ? err.message : "unknown",
+      });
+    }
+    return nestClose();
+  });
+  process.once("beforeExit", () => {
+    void otel.stop().catch(() => undefined);
+  });
 
   const swaggerEnabled =
     env.nodeEnv !== "production" || process.env.DANG_SWAGGER === "1";

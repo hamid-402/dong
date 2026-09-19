@@ -10,8 +10,14 @@ import {
   SectionCard,
   StatusPill,
 } from "@/components/ui-blocks";
+import { EmptyStateIllustration } from "@/components/ui/empty-state-illustration";
 import { ExpenseReceiptUpload } from "@/components/expense-receipt-upload";
+import { ExpenseCommentsPanel } from "@/components/expense-comments-panel";
+import { JalaliDateField } from "@/components/jalali-date-field";
+import { formatFaDate } from "@/lib/fa-datetime";
+import { t } from "@/lib/i18n";
 import { expenseStatusLabel, expenseVisibilityLabel } from "@/lib/status-labels";
+import { ReverseExpenseDialog } from "@/components/views/finance/reverse-expense-dialog";
 import styles from "./expense-list-panel.module.css";
 
 type ExpenseFilter = "all" | ExpenseVisibility;
@@ -20,6 +26,27 @@ type ExpenseListPanelProps = {
   filteredExpenses: ExpenseSummary[];
   expenseFilter: ExpenseFilter;
   onFilterChange: (filter: ExpenseFilter) => void;
+  expenseFrom?: string;
+  expenseTo?: string;
+  onExpenseFromChange?: (value: string) => void;
+  onExpenseToChange?: (value: string) => void;
+  catalogItemId?: string;
+  catalogOptions?: Array<{ id: string; name: string }>;
+  onCatalogItemIdChange?: (value: string) => void;
+  searchQuery?: string;
+  onSearchQueryChange?: (value: string) => void;
+  paidByUserId?: string;
+  onPaidByUserIdChange?: (value: string) => void;
+  payerOptions?: Array<{ id: string; name: string }>;
+  categoryId?: string;
+  onCategoryIdChange?: (value: string) => void;
+  categoryOptions?: Array<{ id: string; name: string }>;
+  tagId?: string;
+  onTagIdChange?: (value: string) => void;
+  tagOptions?: Array<{ id: string; name: string }>;
+  /** Honest OCR provider mode from capabilities. */
+  ocrMode?: "stub" | "configured";
+  onApplyOcr?: (hints: { title?: string; amountToman?: string }) => void;
   supportsCompany: boolean;
   canApproveCompany: boolean;
   selectedId: string;
@@ -29,9 +56,14 @@ type ExpenseListPanelProps = {
   /** Auditor/guest — no submit/post/promote/receipt upload. */
   readOnly?: boolean;
   memberLabel: (userId: string) => string;
+  /** Deep-link: open inspector for this expense id when present in the list. */
+  initialExpenseId?: string;
   onSubmitExpense: (expenseId: string) => void;
   onPostExpense: (expenseId: string) => void;
   onPromoteCompany: (expenseId: string) => void;
+  onReverseExpense?: (expenseId: string, reason: string) => void;
+  /** Prefill create form; submit will call revise (reverse+recreate). */
+  onBeginReviseExpense?: (expenseId: string, reason: string) => void;
 };
 
 /**
@@ -42,6 +74,26 @@ export function ExpenseListPanel({
   filteredExpenses,
   expenseFilter,
   onFilterChange,
+  expenseFrom = "",
+  expenseTo = "",
+  onExpenseFromChange,
+  onExpenseToChange,
+  catalogItemId = "",
+  catalogOptions = [],
+  onCatalogItemIdChange,
+  searchQuery = "",
+  onSearchQueryChange,
+  paidByUserId = "",
+  onPaidByUserIdChange,
+  payerOptions = [],
+  categoryId = "",
+  onCategoryIdChange,
+  categoryOptions = [],
+  tagId = "",
+  onTagIdChange,
+  tagOptions = [],
+  ocrMode,
+  onApplyOcr,
   supportsCompany,
   canApproveCompany,
   selectedId,
@@ -49,15 +101,28 @@ export function ExpenseListPanel({
   canManageFinance = false,
   readOnly = false,
   memberLabel,
+  initialExpenseId = "",
   onSubmitExpense,
   onPostExpense,
   onPromoteCompany,
+  onReverseExpense,
+  onBeginReviseExpense,
 }: ExpenseListPanelProps) {
-  const [selectedExpenseId, setSelectedExpenseId] = useState("");
-  const selectedExpense =
-    filteredExpenses.find((expense) => expense.id === selectedExpenseId) ??
-    filteredExpenses[0] ??
-    null;
+  const [selectedExpenseId, setSelectedExpenseId] = useState(initialExpenseId);
+  const [reverseTarget, setReverseTarget] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const selectedExpense = selectedExpenseId
+    ? (filteredExpenses.find((expense) => expense.id === selectedExpenseId) ?? null)
+    : null;
+
+  useEffect(() => {
+    if (!initialExpenseId) return;
+    if (filteredExpenses.some((e) => e.id === initialExpenseId)) {
+      setSelectedExpenseId(initialExpenseId);
+    }
+  }, [initialExpenseId, filteredExpenses]);
 
   useEffect(() => {
     if (
@@ -91,32 +156,147 @@ export function ExpenseListPanel({
           </button>
         ))}
       </div>
+      {onExpenseFromChange && onExpenseToChange ? (
+        <div className={styles.dateFilterRow}>
+          <JalaliDateField
+            id="expense-filter-from"
+            label="از تاریخ"
+            value={expenseFrom}
+            onChange={onExpenseFromChange}
+            disabled={pending}
+          />
+          <JalaliDateField
+            id="expense-filter-to"
+            label="تا تاریخ"
+            value={expenseTo}
+            onChange={onExpenseToChange}
+            disabled={pending}
+          />
+        </div>
+      ) : null}
+      {onSearchQueryChange || onPaidByUserIdChange || onCategoryIdChange || onTagIdChange ? (
+        <div className={styles.dateFilterRow}>
+          {onSearchQueryChange ? (
+            <label className="field" htmlFor="expense-filter-q">
+              <span>جستجو در عنوان</span>
+              <input
+                id="expense-filter-q"
+                type="search"
+                value={searchQuery}
+                disabled={pending}
+                placeholder="مثلاً ناهار…"
+                onChange={(e) => onSearchQueryChange(e.target.value)}
+              />
+            </label>
+          ) : null}
+          {onPaidByUserIdChange && payerOptions.length > 0 ? (
+            <label className="field" htmlFor="expense-filter-payer">
+              <span>پرداخت‌کننده</span>
+              <select
+                id="expense-filter-payer"
+                value={paidByUserId}
+                disabled={pending}
+                onChange={(e) => onPaidByUserIdChange(e.target.value)}
+              >
+                <option value="">همه</option>
+                {payerOptions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {onCategoryIdChange && categoryOptions.length > 0 ? (
+            <label className="field" htmlFor="expense-filter-category">
+              <span>دسته</span>
+              <select
+                id="expense-filter-category"
+                value={categoryId}
+                disabled={pending}
+                onChange={(e) => onCategoryIdChange(e.target.value)}
+              >
+                <option value="">همه دسته‌ها</option>
+                {categoryOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {onTagIdChange && tagOptions.length > 0 ? (
+            <label className="field" htmlFor="expense-filter-tag">
+              <span>برچسب</span>
+              <select
+                id="expense-filter-tag"
+                value={tagId}
+                disabled={pending}
+                onChange={(e) => onTagIdChange(e.target.value)}
+              >
+                <option value="">همه برچسب‌ها</option>
+                {tagOptions.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
+      ) : null}
+      {onCatalogItemIdChange && catalogOptions.length > 0 ? (
+        <label className="field" htmlFor="expense-filter-catalog">
+          <span>قلم کاتالوگ</span>
+          <select
+            id="expense-filter-catalog"
+            value={catalogItemId}
+            disabled={pending}
+            onChange={(e) => onCatalogItemIdChange(e.target.value)}
+          >
+            <option value="">همه قلم‌ها</option>
+            {catalogOptions.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       {!canManageFinance ? (
         <p className="liveHint">
           پیش‌فرض «همه» است — جمعی‌های گروه به‌علاوه خرج خصوصی خودتان؛ خصوصی دیگران را نمی‌بینید.
+          فیلترها روی API اعمال و در URL همگام می‌شوند.
         </p>
       ) : null}
       <div className={styles.masterDetail}>
         <DataList>
           {filteredExpenses.length === 0 ? (
             <EmptyStateBlock
+              illustration={<EmptyStateIllustration variant="no-expense" />}
               title={
                 expenseFilter === "all"
                   ? "هنوز هزینه‌ای ثبت نشده"
                   : "در این دسته هزینه‌ای نیست"
               }
-              description="اولین خرج گروه را ثبت کنید تا سهم اعضا روی مانده اعمال شود."
+              description={
+                readOnly
+                  ? "وقتی خرجی ثبت شود اینجا دیده می‌شود."
+                  : "اولین خرج گروه را ثبت کنید تا سهم اعضا روی مانده اعمال شود."
+              }
               action={
-                <Button
-                  type="button"
-                  onClick={() =>
-                    document
-                      .getElementById("expense-panel")
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                  }
-                >
-                  ثبت خرج گروه
-                </Button>
+                readOnly ? undefined : (
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById("expense-panel")
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
+                  >
+                    ثبت خرج گروه
+                  </Button>
+                )
               }
             />
           ) : null}
@@ -151,7 +331,14 @@ export function ExpenseListPanel({
                     <Button
                       type="button"
                       variant="ghost"
-                      onClick={() => setSelectedExpenseId(expense.id)}
+                      onClick={() => {
+                        setSelectedExpenseId(expense.id);
+                        window.requestAnimationFrame(() => {
+                          document
+                            .getElementById("expense-inspector")
+                            ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                        });
+                      }}
                       aria-pressed={selectedExpense?.id === expense.id}
                     >
                       جزئیات
@@ -190,10 +377,27 @@ export function ExpenseListPanel({
                       تأیید شرکتی
                     </Button>
                   ) : null}
+                  {onReverseExpense &&
+                  (expense.status === "posted" ||
+                    expense.status === "submitted" ||
+                    expense.status === "draft") ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        setReverseTarget({ id: expense.id, title: expense.title })
+                      }
+                      disabled={pending}
+                    >
+                      برگشت / اصلاح
+                    </Button>
+                  ) : null}
                   {selectedId ? (
                     <ExpenseReceiptUpload
                       workspaceId={selectedId}
                       expenseId={expense.id}
+                      ocrMode={ocrMode}
+                      onApplyOcr={onApplyOcr}
                     />
                   ) : null}
                       </>
@@ -206,15 +410,43 @@ export function ExpenseListPanel({
         </DataList>
 
         {selectedExpense ? (
-          <aside className={styles.inspector} aria-label={`جزئیات ${selectedExpense.title}`}>
-            <span className={styles.inspectorLabel}>INSPECTOR</span>
+          <aside
+            id="expense-inspector"
+            className={styles.inspector}
+            aria-label={`جزئیات ${selectedExpense.title}`}
+          >
+            <header className={styles.inspectorHead}>
+              <span className={styles.inspectorLabel}>{t("finance.inspectorLabel")}</span>
+              <button
+                type="button"
+                className="textButton"
+                onClick={() => setSelectedExpenseId("")}
+              >
+                {t("finance.inspectorClose")}
+              </button>
+            </header>
             <h3>{selectedExpense.title}</h3>
             <Amount irrMinor={selectedExpense.total.amountMinor} />
             <dl>
               <div><dt>وضعیت</dt><dd>{expenseStatusLabel(selectedExpense.status)}</dd></div>
               <div><dt>نوع خرج</dt><dd>{expenseVisibilityLabel(selectedExpense.visibility)}</dd></div>
               <div><dt>پرداخت‌کننده</dt><dd>{memberLabel(selectedExpense.paidByUserId)}</dd></div>
-              <div><dt>تاریخ وقوع</dt><dd>{selectedExpense.occurredOn}</dd></div>
+              {selectedExpense.paymentLines && selectedExpense.paymentLines.length > 1 ? (
+                <div>
+                  <dt>پرداخت‌کنندگان</dt>
+                  <dd>
+                    <ul className={styles.splitList}>
+                      {selectedExpense.paymentLines.map((line) => (
+                        <li key={line.userId}>
+                          <span>{memberLabel(line.userId)}</span>
+                          <Amount irrMinor={line.amount.amountMinor} />
+                        </li>
+                      ))}
+                    </ul>
+                  </dd>
+                </div>
+              ) : null}
+              <div><dt>تاریخ وقوع</dt><dd>{formatFaDate(selectedExpense.occurredOn)}</dd></div>
               <div><dt>افراد سهیم</dt><dd>{selectedExpense.participantUserIds.length}</dd></div>
               <div><dt>اقلام</dt><dd>{selectedExpense.items?.length ?? 0}</dd></div>
               <div><dt>نیازمند تأیید</dt><dd>{selectedExpense.requiresApproval ? "بله" : "خیر"}</dd></div>
@@ -225,9 +457,75 @@ export function ExpenseListPanel({
             {selectedExpense.originalCurrency ? (
               <p>ارز مبدأ: {selectedExpense.originalCurrency}</p>
             ) : null}
+            {selectedExpense.splits.length > 0 ? (
+              <div className={styles.splitBlock}>
+                <h4>سهم اعضا</h4>
+                <ul className={styles.splitList}>
+                  {selectedExpense.splits.map((line) => (
+                    <li key={line.userId}>
+                      <span>{memberLabel(line.userId)}</span>
+                      <Amount irrMinor={line.amount.amountMinor} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="liveHint">جزئیات سهم برای این خرج در دسترس نیست.</p>
+            )}
+            {selectedId ? (
+              <ExpenseCommentsPanel
+                workspaceId={selectedId}
+                expenseId={selectedExpense.id}
+                readOnly={readOnly}
+              />
+            ) : null}
+            {!readOnly &&
+            onReverseExpense &&
+            selectedExpense.status !== "reversed" ? (
+              <div className={styles.splitBlock}>
+                <p className="liveHint">
+                  اگر خرج اشتباه ثبت شده، برگشت بزنید یا با «اصلاح» فرم را پر کنید تا
+                  جایگزین ثبت شود. دفتر روزانه برای خطوط روزانه‌اش ویرایش مستقیم دارد.
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={pending}
+                  onClick={() =>
+                    setReverseTarget({
+                      id: selectedExpense.id,
+                      title: selectedExpense.title,
+                    })
+                  }
+                >
+                  برگشت / اصلاح خرج
+                </Button>
+              </div>
+            ) : null}
           </aside>
         ) : null}
       </div>
+      {reverseTarget && onReverseExpense ? (
+        <ReverseExpenseDialog
+          expenseTitle={reverseTarget.title}
+          pending={pending}
+          onCancel={() => setReverseTarget(null)}
+          onConfirm={(reason) => {
+            const id = reverseTarget.id;
+            setReverseTarget(null);
+            onReverseExpense(id, reason);
+          }}
+          onConfirmRevise={
+            onBeginReviseExpense
+              ? (reason) => {
+                  const id = reverseTarget.id;
+                  setReverseTarget(null);
+                  onBeginReviseExpense(id, reason);
+                }
+              : undefined
+          }
+        />
+      ) : null}
     </SectionCard>
   );
 }

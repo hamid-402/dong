@@ -1,10 +1,16 @@
 /**
  * @vitest-environment jsdom
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { ContextualMosaicHub } from "./contextual-mosaic-hub";
 import { contextualMosaicSections } from "@/lib/navigation-v2";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => "/w/me",
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 describe("ContextualMosaicHub", () => {
   afterEach(cleanup);
@@ -16,6 +22,11 @@ describe("ContextualMosaicHub", () => {
       undefined,
       "home",
     );
+    const modelHrefs = sections.flatMap((section) =>
+      section.items.map((item) => item.href),
+    );
+    expect(modelHrefs.length).toBeGreaterThan(0);
+
     render(
       <ContextualMosaicHub
         sections={sections}
@@ -24,11 +35,13 @@ describe("ContextualMosaicHub", () => {
       />,
     );
 
-    expect(screen.getByRole("link", { name: /خرج‌ها/ }).getAttribute("href")).toBe(
-      "/w/me/expenses",
-    );
-    expect(screen.queryByRole("link", { name: /تدارکات/ })).toBeNull();
-    expect(screen.queryByRole("link", { name: /مرکز تأیید/ })).toBeNull();
+    const rendered = screen
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href"));
+    expect(rendered.sort()).toEqual([...modelHrefs].sort());
+    // Personal spaces have no procurement/approval gates open, so no tile may appear.
+    expect(rendered.some((href) => href?.includes("/procurement"))).toBe(false);
+    expect(rendered.some((href) => href?.includes("/approvals"))).toBe(false);
   });
 
   it("shows API-derived facts only when explicitly provided", () => {
@@ -38,13 +51,17 @@ describe("ContextualMosaicHub", () => {
       undefined,
       "home",
     );
+    const items = sections.flatMap((section) => section.items);
+    const factKey = items[0]?.key ?? "";
+    expect(factKey).not.toBe("");
+
     render(
       <ContextualMosaicHub
         sections={sections}
         title="ماموریت‌ها"
         description="مسیرهای واقعی"
         facts={{
-          expenses: {
+          [factKey]: {
             value: "۱۲",
             label: "خرج ثبت‌شده در بازه",
           },
@@ -54,6 +71,7 @@ describe("ContextualMosaicHub", () => {
 
     expect(screen.getByText("۱۲")).toBeTruthy();
     expect(screen.getByText("خرج ثبت‌شده در بازه")).toBeTruthy();
-    expect(screen.getAllByText("ابزار در دسترس").length).toBeGreaterThan(0);
+    // Tiles without a fact fall back to the neutral open affordance — never a fake number.
+    expect(screen.getAllByText("باز کردن").length).toBe(items.length - 1);
   });
 });

@@ -8,26 +8,39 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Res,
   UseGuards,
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import {
+  createIncomeSourceRequestSchema,
   createPersonalCategoryRequestSchema,
   createPersonalFinanceExportRequestSchema,
   createPersonalMoneyAccountRequestSchema,
   createPersonalMoneyTxnRequestSchema,
   createPersonalTransferRequestSchema,
+  createSavingsGoalContributionRequestSchema,
+  createSavingsGoalRequestSchema,
+  putSpendingAlertsRequestSchema,
+  recomputeMonthlyCloseRequestSchema,
+  updateIncomeSourceRequestSchema,
   updatePersonalCategoryRequestSchema,
   updatePersonalMoneyAccountRequestSchema,
+  updateSavingsGoalRequestSchema,
   upsertPersonalBudgetRequestSchema,
   type AuthActor,
+  type CreateIncomeSourceRequest,
   type CreatePersonalCategoryRequest,
   type CreatePersonalFinanceExportRequest,
   type CreatePersonalMoneyAccountRequest,
   type CreatePersonalMoneyTxnRequest,
   type CreatePersonalTransferRequest,
+  type CreateSavingsGoalContributionRequest,
+  type CreateSavingsGoalRequest,
+  type IncomeSourceSummary,
+  type MonthlyCloseSummary,
   type PersonalBudgetSummary,
   type PersonalCategorySummary,
   type PersonalFinanceExportSummary,
@@ -36,8 +49,14 @@ import {
   type PersonalMoneyAccountSummary,
   type PersonalMoneyTxnSummary,
   type PersonalResourcesSummary,
+  type PutSpendingAlertsRequest,
+  type SavingsGoalContributionSummary,
+  type SavingsGoalSummary,
+  type SpendingAlertSummary,
+  type UpdateIncomeSourceRequest,
   type UpdatePersonalCategoryRequest,
   type UpdatePersonalMoneyAccountRequest,
+  type UpdateSavingsGoalRequest,
   type UpsertPersonalBudgetRequest,
 } from "@dang/contracts";
 import type { FastifyReply } from "fastify";
@@ -62,8 +81,9 @@ export class PersonalFinanceController {
     @CurrentActor() actor: AuthActor,
     @Query("from") from: string,
     @Query("to") to: string,
+    @Query("scope") scope?: string,
   ): Promise<PersonalFinanceOverviewResponse> {
-    return this.finance.overview(actor, from, to);
+    return this.finance.overview(actor, from, to, scope);
   }
 
   @Get("trends")
@@ -247,5 +267,112 @@ export class PersonalFinanceController {
     );
     reply.header("Content-Disposition", `attachment; filename="${filename}"`);
     reply.send(csvBody);
+  }
+
+  @Get("income-sources")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "List personal income sources (S11-10)" })
+  listIncomeSources(@CurrentActor() actor: AuthActor): Promise<IncomeSourceSummary[]> {
+    return this.finance.listIncomeSources(actor);
+  }
+
+  @Post("income-sources")
+  @UseGuards(AuthGuard)
+  createIncomeSource(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(createIncomeSourceRequestSchema))
+    body: CreateIncomeSourceRequest,
+  ): Promise<IncomeSourceSummary> {
+    return this.finance.createIncomeSource(actor, body);
+  }
+
+  @Patch("income-sources/:sid")
+  @UseGuards(AuthGuard)
+  updateIncomeSource(
+    @CurrentActor() actor: AuthActor,
+    @Param("sid") sid: string,
+    @Body(new ZodValidationPipe(updateIncomeSourceRequestSchema))
+    body: UpdateIncomeSourceRequest,
+  ): Promise<IncomeSourceSummary> {
+    return this.finance.updateIncomeSource(actor, sid, body);
+  }
+
+  @Get("savings-goals")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "List savings goals with computed progress (S11-10)" })
+  listSavingsGoals(@CurrentActor() actor: AuthActor): Promise<SavingsGoalSummary[]> {
+    return this.finance.listSavingsGoals(actor);
+  }
+
+  @Post("savings-goals")
+  @UseGuards(AuthGuard)
+  createSavingsGoal(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(createSavingsGoalRequestSchema))
+    body: CreateSavingsGoalRequest,
+  ): Promise<SavingsGoalSummary> {
+    return this.finance.createSavingsGoal(actor, body);
+  }
+
+  @Patch("savings-goals/:gid")
+  @UseGuards(AuthGuard)
+  updateSavingsGoal(
+    @CurrentActor() actor: AuthActor,
+    @Param("gid") gid: string,
+    @Body(new ZodValidationPipe(updateSavingsGoalRequestSchema))
+    body: UpdateSavingsGoalRequest,
+  ): Promise<SavingsGoalSummary> {
+    return this.finance.updateSavingsGoal(actor, gid, body);
+  }
+
+  @Post("savings-goals/:gid/contributions")
+  @UseGuards(AuthGuard)
+  addGoalContribution(
+    @CurrentActor() actor: AuthActor,
+    @Param("gid") gid: string,
+    @Body(new ZodValidationPipe(createSavingsGoalContributionRequestSchema))
+    body: CreateSavingsGoalContributionRequest,
+  ): Promise<{
+    goal: SavingsGoalSummary;
+    contribution: SavingsGoalContributionSummary;
+  }> {
+    return this.finance.addGoalContribution(actor, gid, body);
+  }
+
+  @Get("alerts")
+  @UseGuards(AuthGuard)
+  listAlerts(@CurrentActor() actor: AuthActor): Promise<SpendingAlertSummary[]> {
+    return this.finance.listAlerts(actor);
+  }
+
+  @Put("alerts")
+  @UseGuards(AuthGuard)
+  putAlerts(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(putSpendingAlertsRequestSchema))
+    body: PutSpendingAlertsRequest,
+  ): Promise<SpendingAlertSummary[]> {
+    return this.finance.putAlerts(actor, body);
+  }
+
+  @Get("monthly-close")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Monthly close analysis (S11-10)" })
+  getMonthlyClose(
+    @CurrentActor() actor: AuthActor,
+    @Query("yearMonth") yearMonth?: string,
+  ): Promise<MonthlyCloseSummary> {
+    return this.finance.getMonthlyClose(actor, yearMonth);
+  }
+
+  @Post("monthly-close/recompute")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Idempotent monthly close recompute from raw data" })
+  recomputeMonthlyClose(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(recomputeMonthlyCloseRequestSchema))
+    body: { yearMonth: string },
+  ): Promise<MonthlyCloseSummary> {
+    return this.finance.recomputeMonthlyClose(actor, body.yearMonth);
   }
 }

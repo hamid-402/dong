@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button, TextField } from "@dang/ui";
 import { AuthAlert, AuthDevLink, AuthLinkRow, AuthShell } from "@/components/auth-shell";
@@ -11,18 +11,27 @@ import {
   validateDisplayName,
   validateEmail,
   validatePassword,
+  validatePhoneOptional,
+  validateUsernameInput,
 } from "@/lib/auth-validation";
 import { authErrorMessage } from "@/lib/api-errors";
 import { api } from "@/lib/api";
-import { completeClientAuth } from "@/lib/auth-session";
+import { completeClientAuth, safeAppPath } from "@/lib/auth-session";
+import { t } from "@/lib/i18n";
 
 export function RegisterView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = safeAppPath(searchParams.get("next"));
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [displayNameError, setDisplayNameError] = useState<string | null>(null);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -33,12 +42,22 @@ export function RegisterView() {
     event.preventDefault();
     const normalizedEmail = normalizeEmail(email);
     const nextDisplayNameError = validateDisplayName(displayName);
+    const nextUsernameError = validateUsernameInput(username);
     const nextEmailError = validateEmail(normalizedEmail);
+    const nextPhoneError = validatePhoneOptional(phone);
     const nextPasswordError = validatePassword(password);
     setDisplayNameError(nextDisplayNameError);
+    setUsernameError(nextUsernameError);
     setEmailError(nextEmailError);
+    setPhoneError(nextPhoneError);
     setPasswordError(nextPasswordError);
-    if (nextDisplayNameError || nextEmailError || nextPasswordError) {
+    if (
+      nextDisplayNameError ||
+      nextUsernameError ||
+      nextEmailError ||
+      nextPhoneError ||
+      nextPasswordError
+    ) {
       setFormError(null);
       setSuccess(null);
       return;
@@ -50,6 +69,8 @@ export function RegisterView() {
             email: normalizedEmail,
             password,
             displayName: displayName.trim(),
+            username: username.trim(),
+            ...(phone.trim() ? { phone: phone.trim() } : {}),
           });
           completeClientAuth("password", result.actor);
           if (result.debugVerifyUrl) {
@@ -59,7 +80,7 @@ export function RegisterView() {
             return;
           }
           setFormError(null);
-          router.replace("/spaces");
+          router.replace(nextPath);
         } catch (err: unknown) {
           setSuccess(null);
           setDebugVerifyUrl(null);
@@ -71,12 +92,14 @@ export function RegisterView() {
 
   return (
     <AuthShell
-      title="ثبت‌نام"
-      description="رمز حداقل ۱۰ کاراکتر و شامل حرف و عدد باشد."
+      title={t("register.title")}
+      description={t("register.description")}
       footer={
         <AuthLinkRow>
           <span>حساب دارید؟</span>
-          <Link href="/login">ورود</Link>
+          <Link href={`/login${nextPath !== "/spaces" ? `?next=${encodeURIComponent(nextPath)}` : ""}`}>
+            {t("login.submit")}
+          </Link>
           <AuthDevLink />
         </AuthLinkRow>
       }
@@ -103,6 +126,20 @@ export function RegisterView() {
             required
           />
           <TextField
+            id="register-username"
+            label="نام کاربری"
+            autoComplete="username"
+            value={username}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              setUsernameError(null);
+              setFormError(null);
+            }}
+            hint="برای پیدا کردن شما توسط دیگران — حروف لاتین، عدد، نقطه و خط‌زیر"
+            error={usernameError ?? undefined}
+            required
+          />
+          <TextField
             id="register-email"
             label="ایمیل"
             type="email"
@@ -113,9 +150,23 @@ export function RegisterView() {
               setEmailError(null);
               setFormError(null);
             }}
-            hint="ایمیل واقعی حساب — بعداً برای ورود همین را وارد کنید"
+            hint="ایمیل واقعی حساب"
             error={emailError ?? undefined}
             required
+          />
+          <TextField
+            id="register-phone"
+            label="شماره موبایل (اختیاری)"
+            type="tel"
+            autoComplete="tel"
+            value={phone}
+            onChange={(e) => {
+              setPhone(e.target.value);
+              setPhoneError(null);
+              setFormError(null);
+            }}
+            hint="تا اتصال SMS، تأییدشده اعلام نمی‌شود"
+            error={phoneError ?? undefined}
           />
           <TextField
             id="register-password"
@@ -133,7 +184,7 @@ export function RegisterView() {
             required
           />
           <Button type="submit" disabled={pending} className="authLayout__submit">
-            {pending ? "در حال ساخت…" : "ساخت حساب"}
+            {pending ? t("common.loading") : t("register.submit")}
           </Button>
           {debugVerifyUrl ? (
             <Button type="button" variant="ghost" onClick={() => router.replace("/spaces")}>

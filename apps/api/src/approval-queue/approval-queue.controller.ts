@@ -10,6 +10,14 @@ export class ApprovalQueueController {
     @Inject(ApprovalQueueService) private readonly queue: ApprovalQueueService,
   ) {}
 
+  @Get("count")
+  count(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+  ): Promise<{ count: number }> {
+    return this.queue.count(actor, workspaceId);
+  }
+
   @Get()
   list(
     @CurrentActor() actor: AuthActor,

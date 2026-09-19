@@ -69,6 +69,16 @@ export const createPurchaseOrderRequestSchema = z
     workspaceId: entityIdSchema,
     purchaseRequestId: entityIdSchema,
     vendorId: entityIdSchema,
+    catalogItemId: entityIdSchema.optional(),
+    catalogPriceId: entityIdSchema.optional(),
+    partnerPriceId: entityIdSchema.optional(),
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict();
+
+export const linkPurchaseOrderExpenseRequestSchema = z
+  .object({
+    workspaceId: entityIdSchema,
     idempotencyKey: idempotencyKeySchema,
   })
   .strict();

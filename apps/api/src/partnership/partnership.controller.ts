@@ -1,9 +1,11 @@
 import { Body, Controller, Get, Inject, Param, Post, UseGuards } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import type {
+  AgreedPriceSummary,
   AgreementSummary,
   AuthActor,
   ContributionSummary,
+  CreateAgreedPriceRequest,
   CreateAgreementRequest,
   CreatePeriodLockRequest,
   MemberAccountReport,
@@ -17,6 +19,7 @@ import type {
   WithdrawalSummary,
 } from "@dang/contracts";
 import {
+  createAgreedPriceRequestSchema,
   createAgreementRequestSchema,
   createPeriodLockRequestSchema,
   recordContributionRequestSchema,
@@ -50,6 +53,28 @@ export class PartnershipController {
     @Param("workspaceId") workspaceId: string,
   ): Promise<AgreementSummary[]> {
     return this.partnership.listAgreements(actor, workspaceId);
+  }
+
+  @Post("agreements/:agreementId/agreed-prices")
+  @UseGuards(AuthGuard)
+  createAgreedPrice(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("agreementId") agreementId: string,
+    @Body(new ZodValidationPipe(createAgreedPriceRequestSchema))
+    body: CreateAgreedPriceRequest,
+  ): Promise<AgreedPriceSummary> {
+    return this.partnership.createAgreedPrice(actor, workspaceId, agreementId, body);
+  }
+
+  @Get("agreements/:agreementId/agreed-prices")
+  @UseGuards(AuthGuard)
+  listAgreedPrices(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("agreementId") agreementId: string,
+  ): Promise<AgreedPriceSummary[]> {
+    return this.partnership.listAgreedPrices(actor, workspaceId, agreementId);
   }
 
   @Post("contributions")

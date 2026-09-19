@@ -114,12 +114,24 @@ export type PurchaseOrderSummary = {
   status: PurchaseOrderStatus;
   createdByUserId: string;
   createdAt: string;
+  expenseId?: string;
+  catalogItemId?: string;
+  catalogPriceId?: string;
+  partnerPriceId?: string;
 };
 
 export type CreatePurchaseOrderRequest = {
   workspaceId: string;
   purchaseRequestId: string;
   vendorId: string;
+  idempotencyKey: string;
+  catalogItemId?: string;
+  catalogPriceId?: string;
+  partnerPriceId?: string;
+};
+
+export type LinkPurchaseOrderExpenseRequest = {
+  workspaceId: string;
   idempotencyKey: string;
 };
 

@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Optional,
   UnauthorizedException,
   forwardRef,
 } from "@nestjs/common";
@@ -21,8 +22,16 @@ import type {
 } from "@dang/contracts";
 import * as OTPAuth from "otpauth";
 import { randomBytes } from "node:crypto";
+import {
+  openTotpSecretWithKeyring,
+  resolveTotpEncryptionKeyring,
+  sealTotpSecret,
+} from "@dang/contracts";
 import { getRedisClient } from "../jobs/redis-queue.js";
+import { KeyVaultService } from "../key-vault/key-vault.service.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { NotificationsService } from "../notifications/notifications.service.js";
+import { SecurityEventsService } from "../security-events/security-events.service.js";
 import { AccountService } from "./account.service.js";
 import {
   ACCOUNT_STORE,
@@ -34,6 +43,10 @@ import {
 } from "./account.types.js";
 import { hashToken, newOpaqueToken, verifyPassword } from "./password.js";
 import { createAdaptiveRateLimit } from "./rate-limit.factory.js";
+import {
+  applyRateLimitHeaders,
+  rateLimitProblemFields,
+} from "./rate-limit.js";
 
 const SENSITIVE_ROLES: ReadonlySet<MembershipRole> = new Set([
   "owner",
@@ -60,6 +73,7 @@ type CookieReply = {
     options: Record<string, unknown>,
   ) => void;
   clearCookie?: (name: string, options?: Record<string, unknown>) => void;
+  header?: (name: string, value: string) => unknown;
 };
 
 @Injectable()
@@ -72,10 +86,48 @@ export class MfaService {
     @Inject(IAM_STORE) private readonly iam: IamStore,
     @Inject(forwardRef(() => AccountService))
     private readonly accountService: AccountService,
+    @Optional() @Inject(KeyVaultService) private readonly vault?: KeyVaultService,
+    @Optional() private readonly notifications?: NotificationsService,
+    @Optional() private readonly securityEvents?: SecurityEventsService,
   ) {}
+
+  private async notifyMfaSecurity(
+    userId: string,
+    input: { title: string; body: string; event: string },
+  ): Promise<void> {
+    if (!this.notifications) return;
+    try {
+      const personal = await this.iam.ensurePersonalWorkspace(userId);
+      await this.notifications.notifySecurityAlert(userId, {
+        workspaceId: personal.id,
+        userId,
+        title: input.title,
+        body: input.body,
+        event: input.event,
+      });
+    } catch {
+      /* non-blocking */
+    }
+  }
 
   generateSecret(): string {
     return new OTPAuth.Secret({ size: 20 }).base32;
+  }
+
+  private async totpKeyring() {
+    if (this.vault && !this.vault.isSealed()) {
+      return this.vault.resolveTotpKeyMaterial();
+    }
+    return resolveTotpEncryptionKeyring(process.env);
+  }
+
+  private async plainTotpSecret(stored: string | null | undefined): Promise<string | null> {
+    if (!stored) return null;
+    try {
+      return openTotpSecretWithKeyring(stored, await this.totpKeyring());
+    } catch {
+      return null;
+    }
   }
 
   verifyToken(secret: string, token: string, window = 1): boolean {
@@ -90,22 +142,42 @@ export class MfaService {
     return delta !== null;
   }
 
+  /**
+   * Hard gate: MFA required for sensitive roles in non-personal workspaces, and for
+   * platform_owner / platform_support. Personal-only owners can still enroll via soft flag.
+   */
   async userNeedsMfaEnrollment(userId: string): Promise<boolean> {
     const user = await this.accounts.findById(userId);
     if (!user || user.totpEnabledAt) return false;
-    const roles = await this.iam.listActiveRolesForUser(userId);
-    return roles.some((role) => SENSITIVE_ROLES.has(role));
+    if (
+      user.platformRole === "platform_owner" ||
+      user.platformRole === "platform_support"
+    ) {
+      return true;
+    }
+    const workspaces = await this.iam.listWorkspacesForUser(userId);
+    for (const workspace of workspaces) {
+      if (workspace.template === "personal") continue;
+      const members = await this.iam.listMembers(workspace.id, userId);
+      const self = members?.find((m) => m.userId === userId && !m.disabledAt);
+      if (self && SENSITIVE_ROLES.has(self.role)) return true;
+    }
+    return false;
   }
 
   /**
-   * Lightweight gate for finance-manager actions (invoice generate / settlement confirm).
-   * Matches system capabilities.mfa — skip when MFA capability is off or user already enrolled.
+   * Hard gate for finance / privacy / vault-sensitive actions when MFA capability is on.
+   * Enrollment UI remains reachable; ops that mutate money or secrets are blocked until enrolled.
    */
   mfaCapabilityEnabled(): boolean {
     return true;
   }
 
   async assertMfaEnrolledForFinanceAction(userId: string): Promise<void> {
+    return this.assertMfaEnrolledForSensitiveAction(userId);
+  }
+
+  async assertMfaEnrolledForSensitiveAction(userId: string): Promise<void> {
     if (!this.mfaCapabilityEnabled()) return;
     if (!(await this.userNeedsMfaEnrollment(userId))) return;
     throw new ForbiddenException({
@@ -113,7 +185,7 @@ export class MfaService {
       title: "MFA enrollment required",
       status: 403,
       detail:
-        "برای عملیات مالی حساس ابتدا احراز هویت دو مرحله‌ای را در حساب فعال کنید",
+        "برای عملیات حساس ابتدا احراز هویت دو مرحله‌ای را در حساب فعال کنید",
     });
   }
 
@@ -153,7 +225,11 @@ export class MfaService {
     if (user.totpEnabledAt) throw this.bad("MFA_ALREADY_ENABLED");
 
     const secret = this.generateSecret();
-    await this.accounts.setTotpSecret(user.userId, secret);
+    const keyring = await this.totpKeyring();
+    await this.accounts.setTotpSecret(
+      user.userId,
+      sealTotpSecret(secret, keyring.current),
+    );
 
     const recoveryCodes = this.generateRecoveryCodes();
     await this.accounts.replaceMfaRecoveryCodes(
@@ -183,10 +259,21 @@ export class MfaService {
     if (!user) throw this.authRequired();
     if (!user.totpSecret) throw this.bad("MFA_NOT_SETUP");
     if (user.totpEnabledAt) throw this.bad("MFA_ALREADY_ENABLED");
-    if (!this.verifyToken(user.totpSecret, body.code)) {
+    const plain = await this.plainTotpSecret(user.totpSecret);
+    if (!plain || !this.verifyToken(plain, body.code)) {
       throw this.bad("MFA_INVALID_CODE");
     }
     const enabled = await this.accounts.enableTotp(user.userId);
+    this.securityEvents?.emit("auth.mfa_enabled", {
+      actorUserId: user.userId,
+      targetType: "account",
+      targetId: user.userId,
+    });
+    void this.notifyMfaSecurity(user.userId, {
+      title: "تأیید دو مرحله‌ای فعال شد",
+      body: "MFA برای حساب شما روشن شد.",
+      event: "auth.mfa_enabled",
+    });
     return {
       ok: true,
       profile: toProfile(enabled, authModeForUser(enabled)),
@@ -199,11 +286,22 @@ export class MfaService {
     if (!user.totpEnabledAt || !user.totpSecret) throw this.bad("MFA_NOT_ENABLED");
     const verified = await verifyPassword(body.password, user.passwordHash);
     if (!verified.valid) throw this.unauthorized("AUTH_INVALID");
-    if (!this.verifyToken(user.totpSecret, body.code)) {
+    const plainDisable = await this.plainTotpSecret(user.totpSecret);
+    if (!plainDisable || !this.verifyToken(plainDisable, body.code)) {
       throw this.bad("MFA_INVALID_CODE");
     }
     await this.accounts.disableTotp(user.userId);
     await this.accounts.revokeAllSessions(user.userId);
+    this.securityEvents?.emit("auth.mfa_disabled", {
+      actorUserId: user.userId,
+      targetType: "account",
+      targetId: user.userId,
+    });
+    void this.notifyMfaSecurity(user.userId, {
+      title: "تأیید دو مرحله‌ای غیرفعال شد",
+      body: "MFA خاموش شد و همهٔ نشست‌ها باطل شدند.",
+      event: "auth.mfa_disabled",
+    });
     return { ok: true };
   }
 
@@ -214,13 +312,29 @@ export class MfaService {
   ): Promise<AuthActionResponse> {
     const challengeId = body.challengeId.trim();
     const rateKey = `mfa:${meta?.ip ?? "unknown"}:${challengeId}`;
-    if (!(await mfaVerifyRate.allow(rateKey))) {
+    const rate = await mfaVerifyRate.consume(rateKey);
+    applyRateLimitHeaders(reply, rate);
+    if (!rate.allowed) {
+      const challenge = await this.loadChallenge(challengeId);
+      this.securityEvents?.emit("auth.rate_limited", {
+        actorUserId: challenge?.userId,
+        reason: "mfa_verify",
+        attrs: { ip: meta?.ip ?? "unknown" },
+      });
+      if (challenge?.userId) {
+        void this.notifyMfaSecurity(challenge.userId, {
+          title: "محدودیت تلاش MFA",
+          body: "به‌خاطر تلاش‌های زیاد کد تأیید، ورود موقتاً محدود شد.",
+          event: "auth.rate_limited",
+        });
+      }
       throw new HttpException(
         {
           type: "https://dang.local/problems/rate-limited",
           title: "Too many MFA attempts",
           status: 429,
           detail: "تعداد تلاش تأیید MFA زیاد است؛ کمی بعد دوباره امتحان کنید",
+          ...rateLimitProblemFields(rate),
         },
         HttpStatus.TOO_MANY_REQUESTS,
       );
@@ -237,11 +351,24 @@ export class MfaService {
 
     let ok = false;
     if (body.code) {
-      ok = this.verifyToken(user.totpSecret, body.code);
+      const plain = await this.plainTotpSecret(user.totpSecret);
+      ok = Boolean(plain && this.verifyToken(plain, body.code));
     } else if (body.recoveryCode) {
       ok = await this.consumeRecoveryCode(user.userId, body.recoveryCode);
     }
-    if (!ok) throw this.unauthorized("MFA_INVALID_CODE");
+    if (!ok) {
+      this.securityEvents?.emit("auth.mfa_challenge_failed", {
+        actorUserId: user.userId,
+        reason: body.recoveryCode ? "recovery" : "totp",
+        attrs: { ip: meta?.ip ?? "unknown" },
+      });
+      void this.notifyMfaSecurity(user.userId, {
+        title: "تأیید MFA ناموفق",
+        body: "یک تلاش نامعتبر برای کد تأیید دو مرحله‌ای ثبت شد.",
+        event: "auth.mfa_challenge_failed",
+      });
+      throw this.unauthorized("MFA_INVALID_CODE");
+    }
 
     await this.deleteChallenge(challengeId);
     await this.accountService.issueSessionForUser(user.userId, reply, meta);

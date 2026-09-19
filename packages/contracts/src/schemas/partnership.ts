@@ -12,6 +12,20 @@ export const createAgreementRequestSchema = z
 
 export type CreateAgreementRequestInput = z.infer<typeof createAgreementRequestSchema>;
 
+export const createAgreedPriceRequestSchema = z
+  .object({
+    workspaceId: entityIdSchema,
+    agreementId: entityIdSchema,
+    catalogItemId: entityIdSchema.optional(),
+    title: z.string().trim().min(1).max(200),
+    amount: moneySchema,
+    effectiveFrom: isoDateSchema,
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict();
+
+export type CreateAgreedPriceRequestInput = z.infer<typeof createAgreedPriceRequestSchema>;
+
 export const contributionKindSchema = z.enum(["cash", "in_kind"]);
 
 export const recordContributionRequestSchema = z

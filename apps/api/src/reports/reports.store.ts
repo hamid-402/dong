@@ -17,21 +17,113 @@ import type {
   CreateReportExportRequest,
   ExpenseCategorySummary,
   RecurringRuleSummary,
+  ReportExportFormat,
   ReportExportSummary,
   ReportGroupBy,
   WorkspaceReportResponse,
   ReviseRecurringRuleRequest,
 } from "@dang/contracts";
+import { advanceRecurringNextRunOn } from "@dang/contracts";
 import { createLogger } from "@dang/observability";
 import { createPersistenceStore } from "../common/postgres-store.factory.js";
+import { buildXlsxSpreadsheet, rowsToCsv } from "./xlsx-body.js";
 
 function formatDate(value: string | Date): string {
   return typeof value === "string" ? value : value.toISOString().slice(0, 10);
 }
 
-function csvEscape(value: string): string {
-  if (/[",\n]/.test(value)) return `"${value.replaceAll('"', '""')}"`;
-  return value;
+type ExportExpenseRow = {
+  occurredOn: string;
+  title: string;
+  visibility: string;
+  totalMinor: string;
+  status: string;
+  categoryId?: string;
+};
+
+function memoryExportRows(expenses: ExportExpenseRow[]): string[][] {
+  const header = ["date", "title", "visibility", "amount_toman", "status"];
+  const lines = expenses.map((e) => [
+    e.occurredOn,
+    e.title,
+    e.visibility,
+    String(Number(e.totalMinor) / 10),
+    e.status,
+  ]);
+  return [header, ...lines];
+}
+
+function postgresExportRows(expenses: ExportExpenseRow[]): string[][] {
+  const header = ["date", "title", "visibility", "amount_toman", "status", "category_id"];
+  const lines = expenses.map((e) => [
+    e.occurredOn,
+    e.title,
+    e.visibility,
+    String(Number(e.totalMinor) / 10),
+    e.status,
+    e.categoryId ?? "",
+  ]);
+  return [header, ...lines];
+}
+
+/**
+ * محک (Mohk) — simplified journal line export for Iranian desktop accounting.
+ * Columns: DocDate, DocNo, AccountCode, Debit, Credit, Description (IRR toman in debit).
+ */
+function mohkExportRows(expenses: ExportExpenseRow[]): string[][] {
+  const header = ["DocDate", "DocNo", "AccountCode", "Debit", "Credit", "Description"];
+  const lines = expenses.map((e, index) => [
+    e.occurredOn,
+    String(index + 1),
+    "6101",
+    String(Number(e.totalMinor) / 10),
+    "0",
+    e.title,
+  ]);
+  return [header, ...lines];
+}
+
+/**
+ * سپیدار (Sepidar) — common flat import: Date, SanadNo, Moin, Bed, Bes, Sharh.
+ */
+function sepidarExportRows(expenses: ExportExpenseRow[]): string[][] {
+  const header = ["Date", "SanadNo", "Moin", "Bed", "Bes", "Sharh"];
+  const lines = expenses.map((e, index) => [
+    e.occurredOn,
+    String(index + 1),
+    "6101",
+    String(Number(e.totalMinor) / 10),
+    "0",
+    e.title,
+  ]);
+  return [header, ...lines];
+}
+
+function buildExportTableRows(
+  format: ReportExportFormat,
+  expenses: ExportExpenseRow[],
+  postgres: boolean,
+): string[][] {
+  if (format === "mohk_csv") return mohkExportRows(expenses);
+  if (format === "sepidar_csv") return sepidarExportRows(expenses);
+  return postgres ? postgresExportRows(expenses) : memoryExportRows(expenses);
+}
+
+function encodeExportBody(
+  format: ReportExportFormat,
+  rows: string[][],
+): string {
+  if (format === "xlsx") {
+    return buildXlsxSpreadsheet(rows).toString("base64");
+  }
+  return rowsToCsv(rows);
+}
+
+function parseExportFormat(value: string | null | undefined): ReportExportFormat {
+  if (value === "xlsx") return "xlsx";
+  if (value === "mohk_csv") return "mohk_csv";
+  if (value === "sepidar_csv") return "sepidar_csv";
+  return "csv";
 }
 
 export type ReportsStore = {
@@ -132,6 +224,7 @@ export class MemoryReportsStore implements ReportsStore {
     input: CreateReportExportRequest,
   ): Promise<ReportExportSummary & { csvBody?: string }> {
     const groupBy = input.groupBy ?? "day";
+    const format = input.format ?? "csv";
     const report = await this.buildReport(
       workspaceId,
       actorUserId,
@@ -143,17 +236,20 @@ export class MemoryReportsStore implements ReportsStore {
     const filtered = expenses.filter(
       (e) => e.occurredOn >= input.from && e.occurredOn <= input.to && e.status !== "reversed",
     );
-    const header = "date,title,visibility,amount_toman,status";
-    const lines = filtered.map(
-      (e) =>
-        `${e.occurredOn},${csvEscape(e.title)},${e.visibility},${Number(e.total.amountMinor) / 10},${e.status}`,
-    );
-    const csvBody = [header, ...lines].join("\n");
+    const exportRows = filtered.map((e) => ({
+      occurredOn: e.occurredOn,
+      title: e.title,
+      visibility: e.visibility,
+      totalMinor: e.total.amountMinor,
+      status: e.status,
+    }));
+    const rows = buildExportTableRows(format, exportRows, false);
+    const csvBody = encodeExportBody(format, rows);
     const id = crypto.randomUUID();
     const summary: MemExp = {
       id,
       workspaceId,
-      format: "csv",
+      format,
       from: input.from,
       to: input.to,
       groupBy,
@@ -376,6 +472,7 @@ export class PostgresReportsStore implements ReportsStore {
     input: CreateReportExportRequest,
   ): Promise<ReportExportSummary & { csvBody?: string }> {
     const groupBy = input.groupBy ?? "day";
+    const format = input.format ?? "csv";
     return withTenantContext(this.db, { workspaceId, userId: actorUserId }, async (tx) => {
       const rows = await tx
         .select()
@@ -388,18 +485,22 @@ export class PostgresReportsStore implements ReportsStore {
           ),
         );
       const filtered = rows.filter((r) => r.status !== "reversed");
-      const header = "date,title,visibility,amount_toman,status,category_id";
-      const lines = filtered.map(
-        (e) =>
-          `${formatDate(e.occurredOn)},${csvEscape(e.title)},${e.visibility},${Number(e.totalMinor) / 10},${e.status},${e.categoryId ?? ""}`,
-      );
-      const csvBody = [header, ...lines].join("\n");
+      const exportRows = filtered.map((e) => ({
+        occurredOn: formatDate(e.occurredOn),
+        title: e.title,
+        visibility: e.visibility,
+        totalMinor: e.totalMinor.toString(),
+        status: e.status,
+        categoryId: e.categoryId ?? undefined,
+      }));
+      const tableRows = buildExportTableRows(format, exportRows, true);
+      const csvBody = encodeExportBody(format, tableRows);
       const inserted = await tx
         .insert(reportExport)
         .values({
           workspaceId,
           createdByUserId: actorUserId,
-          format: "csv",
+          format,
           fromOn: input.from,
           toOn: input.to,
           groupBy,
@@ -413,7 +514,7 @@ export class PostgresReportsStore implements ReportsStore {
       return {
         id: row.id,
         workspaceId,
-        format: "csv",
+        format: parseExportFormat(row.format),
         from: formatDate(row.fromOn),
         to: formatDate(row.toOn),
         groupBy: groupBy,
@@ -443,7 +544,7 @@ export class PostgresReportsStore implements ReportsStore {
       return {
         id: row.id,
         workspaceId: row.workspaceId,
-        format: "csv",
+        format: parseExportFormat(row.format),
         from: formatDate(row.fromOn),
         to: formatDate(row.toOn),
         groupBy: row.groupBy as ReportGroupBy,
@@ -701,11 +802,7 @@ export class PostgresReportsStore implements ReportsStore {
 }
 
 function advanceDate(iso: string, cadence: RecurringRuleSummary["cadence"]): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  if (cadence === "weekly") d.setUTCDate(d.getUTCDate() + 7);
-  else if (cadence === "yearly") d.setUTCFullYear(d.getUTCFullYear() + 1);
-  else d.setUTCMonth(d.getUTCMonth() + 1);
-  return d.toISOString().slice(0, 10);
+  return advanceRecurringNextRunOn(iso, cadence);
 }
 
 function aggregateReport(

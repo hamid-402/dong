@@ -1,0 +1,57 @@
+.tour {
+  margin-bottom: var(--dang-space-4, 1rem);
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--dang-primary, #57d7c5) 35%, var(--dang-line, rgba(220, 229, 225, 0.11)));
+  border-radius: var(--dang-radius-md, 12px);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--dang-primary, #57d7c5) 10%, transparent),
+      transparent 60%
+    ),
+    var(--dang-surface-2, #16211e);
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  color: var(--dang-muted, #9eaaa6);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.sticker {
+  margin: 0.15rem 0 0.45rem;
+  display: block;
+  width: 44px !important;
+  height: 44px !important;
+}
+
+.tour h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--dang-text, #f3f1e9);
+}
+
+.tour p {
+  margin: 0;
+  color: var(--dang-muted, #9eaaa6);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.actions {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+@media print {
+  .tour {
+    display: none !important;
+  }
+}

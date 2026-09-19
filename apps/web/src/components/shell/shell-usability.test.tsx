@@ -11,7 +11,9 @@ import { ShellV2Provider } from "@/components/shell/shell-v2-context";
 const push = vi.fn();
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, prefetch: vi.fn() }),
+  usePathname: () => "/w/home",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("@/lib/use-app-chrome", () => ({
@@ -61,7 +63,7 @@ describe("shell usability", () => {
 
   it("opens the workspace list with ArrowDown and focuses the selected workspace", async () => {
     render(<WorkspaceSwitcher />);
-    const trigger = screen.getByRole("button", { name: /فضای کاری\s*خانه/ });
+    const trigger = screen.getByRole("button", { name: /فضای کاری.*خانه/ });
 
     trigger.focus();
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
@@ -71,5 +73,19 @@ describe("shell usability", () => {
       selected: true,
     });
     await waitFor(() => expect(document.activeElement).toBe(selected));
+  });
+
+  it("closes the workspace list with Escape and restores trigger focus", async () => {
+    render(<WorkspaceSwitcher />);
+    const trigger = screen.getByRole("button", { name: /فضای کاری.*خانه/ });
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    await screen.findByRole("listbox", { name: "فضاهای کاری" });
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("listbox")).toBeNull();
+      expect(document.activeElement).toBe(trigger);
+    });
   });
 });

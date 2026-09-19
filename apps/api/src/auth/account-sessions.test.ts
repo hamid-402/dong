@@ -13,7 +13,9 @@ const actor: AuthActor = {
 };
 
 function createService(store: MemoryAccountStore) {
-  return new AccountService(store, {} as never, {} as never, {} as never);
+  return new AccountService(store, {} as never, {} as never, {} as never, {
+    emit: () => ({}) as never,
+  } as never);
 }
 
 test("session inventory exposes metadata but never token hashes", async () => {

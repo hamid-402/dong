@@ -10,13 +10,14 @@
 
 ## Rate limit
 
-- لاگین / forgot-password: sliding window روی Redis (Lua) وقتی `REDIS_URL` تنظیم است؛ وگرنه in-memory.
-- خطای Redis → fail-open (اجازه) تا قطع Redis همه را قفل نکند.
+- لاگین / forgot-password / MFA verify: sliding window روی Redis (Lua) وقتی `REDIS_URL` تنظیم است؛ وگرنه in-memory.
+- وقتی Redis پیکربندی شده یا `NODE_ENV=production`: خطای Redis → **fail-closed** (deny) تا brute-force در قطع Redis باز نشود.
+- وقتی Redis پیکربندی نشده (فقط حافظهٔ محلی dev): in-memory بدون وابستگی به Redis.
 
 ## Health
 
 - `GET /health/live` — فقط زنده بودن process.
-- `GET /health/ready` — ping واقعی Postgres (`select 1`) و Redis (`PING`) وقتی پیکربندی شده‌اند.
+- `GET /health/ready` — ping واقعی Postgres (`select 1`) و Redis (`PING`) وقتی پیکربندی شده‌اند. فلگ‌های امنیتی (`allowDevAuth` / OIDC) در ready عمومی نیستند؛ از `/system/capabilities` بخوانید.
 - `DANG_REQUIRE_POSTGRES=1` / `DANG_REQUIRE_REDIS=1` → در صورت fail، ۵۰۳.
 
 ## Worker

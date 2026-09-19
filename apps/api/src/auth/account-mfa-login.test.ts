@@ -23,13 +23,16 @@ test("AccountService.login returns MFA challenge when TOTP enabled", async () =>
   };
   const mfa = new MfaService(accounts, iam, accountServiceStub as never);
   const mailer = new MailerService();
-  const service = new AccountService(accounts, iam, mailer, mfa);
+  const service = new AccountService(accounts, iam, mailer, mfa, {
+    emit: () => ({}) as never,
+  } as never);
 
   const passwordHash = await hashPassword("StrongPass1!");
   const user = await accounts.createLocalUser({
     email: "challenge@example.com",
     displayName: "Challenge User",
     passwordHash,
+    username: "challenge.user",
   });
   const secret = mfa.generateSecret();
   await accounts.setTotpSecret(user.userId, secret);

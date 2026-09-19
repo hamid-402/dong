@@ -6,23 +6,32 @@ import {
   Inject,
   Param,
   Post,
+  Query,
+  Res,
   UseGuards,
 } from "@nestjs/common";
 import { ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type {
   AuthActor,
   CreateExpenseDraftInput,
+  ExpenseListQuery,
   ExpenseSplitLine,
   ExpenseSummary,
   PreviewExpenseSplitInput,
   ExpenseCsvImportRequest,
+  ReverseExpenseRequestInput,
+  ReviseExpenseRequestInput,
 } from "@dang/contracts";
 import {
   allocateExpenseSplit,
   createExpenseDraftSchema,
   previewExpenseSplitSchema,
   expenseCsvImportSchema,
+  expenseListQuerySchema,
+  reverseExpenseRequestSchema,
+  reviseExpenseRequestSchema,
 } from "@dang/contracts";
+import type { FastifyReply } from "fastify";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { ExpensesService } from "./expenses.service.js";
@@ -77,11 +86,17 @@ export class ExpensesController {
     @Param("workspaceId") workspaceId: string,
     @Body(new ZodValidationPipe(createExpenseDraftSchema))
     body: CreateExpenseDraftInput,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<ExpenseSummary> {
-    return this.expenses.createDraft(actor, workspaceId, {
-      ...body,
-      workspaceId: body.workspaceId ?? workspaceId,
-    });
+    return this.expenses.createDraft(
+      actor,
+      workspaceId,
+      {
+        ...body,
+        workspaceId: body.workspaceId ?? workspaceId,
+      },
+      reply,
+    );
   }
 
   @Post("import-csv")
@@ -102,8 +117,9 @@ export class ExpensesController {
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
     @Param("expenseId") expenseId: string,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<ExpenseSummary> {
-    return this.expenses.submit(actor, workspaceId, expenseId);
+    return this.expenses.submit(actor, workspaceId, expenseId, reply);
   }
 
   @Post(":expenseId/post")
@@ -141,13 +157,58 @@ export class ExpensesController {
     return this.expenses.approve(actor, workspaceId, expenseId);
   }
 
+  @Post(":expenseId/reverse")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Reverse a mistaken expense (soft void) — posts reversing journal when posted",
+  })
+  reverse(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("expenseId") expenseId: string,
+    @Body(new ZodValidationPipe(reverseExpenseRequestSchema))
+    _body: ReverseExpenseRequestInput,
+  ): Promise<ExpenseSummary> {
+    return this.expenses.reverse(actor, workspaceId, expenseId);
+  }
+
+  @Post(":expenseId/revise")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Reverse then recreate expense in one request (corrected replacement)",
+  })
+  revise(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("expenseId") expenseId: string,
+    @Body(new ZodValidationPipe(reviseExpenseRequestSchema))
+    body: ReviseExpenseRequestInput,
+    @Res({ passthrough: true }) reply?: FastifyReply,
+  ): Promise<{ reversed: ExpenseSummary; created: ExpenseSummary }> {
+    return this.expenses.revise(
+      actor,
+      workspaceId,
+      expenseId,
+      {
+        ...body,
+        workspaceId: body.workspaceId ?? workspaceId,
+      },
+      reply,
+    );
+  }
+
   @Get()
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: "List expenses in a workspace" })
+  @ApiOperation({
+    summary: "List expenses in a workspace (optional visibility/status/date filters)",
+  })
   list(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
+    @Query(new ZodValidationPipe(expenseListQuerySchema)) query: ExpenseListQuery,
   ): Promise<ExpenseSummary[]> {
-    return this.expenses.list(actor, workspaceId);
+    return this.expenses.list(actor, workspaceId, query);
   }
 }

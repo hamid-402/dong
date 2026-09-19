@@ -191,6 +191,28 @@ export function assertReportCategoriesSeparated(report: MemberAccountReport): vo
   }
 }
 
+export type AgreedPriceSummary = {
+  id: string;
+  workspaceId: string;
+  agreementId: string;
+  catalogItemId?: string;
+  title: string;
+  amount: Money;
+  effectiveFrom: string;
+  version: number;
+  createdAt: string;
+};
+
+export type CreateAgreedPriceRequest = {
+  workspaceId: string;
+  agreementId: string;
+  catalogItemId?: string;
+  title: string;
+  amount: Money;
+  effectiveFrom: string;
+  idempotencyKey: string;
+};
+
 export const partnershipVerticalSliceSteps = [
   "create_agreement",
   "record_contribution",

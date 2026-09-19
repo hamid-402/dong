@@ -1,7 +1,7 @@
 import { markClientSession, setDevIdentity, type AuthClientMode } from "@/lib/api";
 
 /** Only allow in-app relative paths after auth (block open redirects). */
-export function safeAppPath(next: string | null | undefined, fallback = "/spaces"): string {
+export function safeAppPath(next: string | null | undefined, fallback = "/home"): string {
   if (!next) return fallback;
   const trimmed = next.trim();
   if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.includes("://")) {

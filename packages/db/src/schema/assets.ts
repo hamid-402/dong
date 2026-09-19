@@ -1,5 +1,6 @@
 import {
   bigint,
+  date,
   integer,
   pgSchema,
   text,
@@ -17,6 +18,7 @@ export const assetStatus = assetSchema.enum("asset_status", [
   "returned",
   "damaged",
   "retired",
+  "in_repair",
 ]);
 
 export const vendor = assetSchema.table(
@@ -63,6 +65,10 @@ export const purchaseOrder = assetSchema.table(
     amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
     currency: text("currency").default("IRR").notNull(),
     status: purchaseOrderStatus("status").default("open").notNull(),
+    expenseId: uuid("expense_id"),
+    catalogItemId: uuid("catalog_item_id"),
+    catalogPriceId: uuid("catalog_price_id"),
+    partnerPriceId: uuid("partner_price_id"),
     createdByUserId: uuid("created_by_user_id")
       .notNull()
       .references(() => userAccount.id),
@@ -126,6 +132,13 @@ export const asset = assetSchema.table("asset", {
   custodianUserId: uuid("custodian_user_id").references(() => userAccount.id),
   location: text("location"),
   status: assetStatus("status").default("active").notNull(),
+  usefulLifeMonths: integer("useful_life_months"),
+  salvageMinor: bigint("salvage_minor", { mode: "bigint" }),
+  accumulatedDepreciationMinor: bigint("accumulated_depreciation_minor", { mode: "bigint" })
+    .default(0n)
+    .notNull(),
+  lastDepreciatedOn: date("last_depreciated_on"),
+  acquisitionDate: date("acquisition_date"),
   idempotencyKey: text("idempotency_key").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

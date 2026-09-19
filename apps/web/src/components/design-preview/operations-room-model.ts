@@ -109,6 +109,7 @@ export const ROLE_LABELS: Record<MembershipRole, string> = {
   owner: "مالک",
   admin: "ادمین",
   finance: "مدیر مالی",
+  deputy_finance: "جانشین مالی",
   approver: "تأییدکننده",
   buyer: "خریدار",
   asset_custodian: "امانت‌دار تجهیزات",

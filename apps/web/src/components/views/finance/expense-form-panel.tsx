@@ -1,11 +1,6 @@
 "use client";
 
-import type {
-  CostCenterSummary,
-  ExpensePeriodSummary,
-  MembershipSummary,
-  SessionSummary,
-} from "@dang/contracts";
+import type { CostCenterSummary, ExpensePeriodSummary, MembershipSummary, PettyCashFundSummary, SessionSummary, SplitMethod } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import {
@@ -48,6 +43,32 @@ type ExpenseFormPanelProps = {
   costCenters?: CostCenterSummary[];
   costCenterId?: string;
   onCostCenterIdChange?: (value: string) => void;
+  /** When workspace expense policy requires a cost center (G09 #32). */
+  requireCostCenter?: boolean;
+  /** Org travel/mission kind (G09 #35). */
+  missionKind?: "" | "advance" | "settlement";
+  onMissionKindChange?: (value: "" | "advance" | "settlement") => void;
+  workspaceId?: string;
+  catalogEnabled?: boolean;
+  splitPresets?: Array<{
+    id: string;
+    name: string;
+    splitMethod: SplitMethod;
+    lines: Array<{ userId: string; shares?: number; percentBp?: number; amountMinor?: string }>;
+  }>;
+  onSaveSplitPreset?: (name: string) => void;
+  savePresetPending?: boolean;
+  /** Building formula split (متراژ/نفر). */
+  allowFormula?: boolean;
+  /** Active revise target — submit calls revise API. */
+  revisingExpenseId?: string | null;
+  onCancelRevise?: () => void;
+  /** Live petty-cash funds when providers.pettyCash === fund_v1. */
+  pettyCashFunds?: PettyCashFundSummary[];
+  fundingSourceKind?: "" | "personal" | "petty_cash";
+  fundingRefId?: string;
+  onFundingSourceKindChange?: (value: "" | "personal" | "petty_cash") => void;
+  onFundingRefIdChange?: (value: string) => void;
 };
 
 /**
@@ -80,6 +101,22 @@ export function ExpenseFormPanel({
   costCenters = [],
   costCenterId = "",
   onCostCenterIdChange,
+  requireCostCenter = false,
+  missionKind = "",
+  onMissionKindChange,
+  workspaceId,
+  catalogEnabled = false,
+  splitPresets = [],
+  onSaveSplitPreset,
+  savePresetPending = false,
+  allowFormula = false,
+  revisingExpenseId = null,
+  onCancelRevise,
+  pettyCashFunds = [],
+  fundingSourceKind = "",
+  fundingRefId = "",
+  onFundingSourceKindChange,
+  onFundingRefIdChange,
 }: ExpenseFormPanelProps) {
   // Expense form progress (dong-50 #17) — derived from real form state, not fake steps.
   const amountStepDone =
@@ -105,8 +142,22 @@ export function ExpenseFormPanel({
   const selectedPeriodTitle = periods.find((p) => p.id === expensePeriodId)?.title;
 
   return (
-    <SectionCard title="ثبت خرج گروه (مادرخرج)" delayClass="delay3">
+    <SectionCard
+      title={revisingExpenseId ? "اصلاح خرج (جایگزین)" : "ثبت خرج گروه (مادرخرج)"}
+      delayClass="delay3"
+    >
       <div id="expense-panel" />
+      {revisingExpenseId ? (
+        <StatusLine>
+          در حال اصلاح خرج قبلی — با ثبت، نسخهٔ قدیمی برگشت می‌خورد و این نسخه جایگزین
+          می‌شود.{" "}
+          {onCancelRevise ? (
+            <button type="button" className="textButton" onClick={onCancelRevise}>
+              انصراف از اصلاح
+            </button>
+          ) : null}
+        </StatusLine>
+      ) : null}
       <ol className="stepper expenseStepper" aria-label="مراحل ثبت خرج">
         {(
           [
@@ -132,7 +183,8 @@ export function ExpenseFormPanel({
       <FormStack>
         <StatusLine>
           شما پرداخت می‌کنید؛ اعضا سهم مصرف را می‌بینند و بعداً از بخش تسویه تأیید/پرداخت
-          می‌کنند.
+          می‌کنند. اگر خرج اشتباه ثبت شد، از فهرست هزینه‌ها «برگشت / اصلاح» بزنید (حذف سخت
+          نیست). شارژ تنخواه/صندوق گروه از مسیر پرداخت‌هاست، نه این فرم.
         </StatusLine>
         <TextField
           label="عنوان"
@@ -164,20 +216,26 @@ export function ExpenseFormPanel({
             onChange={(event) => onExpensePeriodIdChange(event.target.value)}
           >
             <option value="">بدون دوره</option>
-            {periods.map((period) => (
-              <option key={period.id} value={period.id}>
-                {period.title}
-              </option>
-            ))}
+            {periods.map((period) => {
+              // Closed books refuse postings server-side, so the option must not
+              // look available here either.
+              const shut = period.status !== "open" && period.status !== "review";
+              return (
+                <option key={period.id} value={period.id} disabled={shut}>
+                  {period.title}
+                  {shut ? " (بسته)" : ""}
+                </option>
+              );
+            })}
           </SelectField>
         </details>
         {costCenters.length > 0 && onCostCenterIdChange ? (
           <SelectField
-            label="مرکز هزینه (اختیاری)"
+            label={requireCostCenter ? "مرکز هزینه (اجباری)" : "مرکز هزینه (اختیاری)"}
             value={costCenterId}
             onChange={(event) => onCostCenterIdChange(event.target.value)}
           >
-            <option value="">بدون مرکز هزینه</option>
+            <option value="">{requireCostCenter ? "انتخاب کنید…" : "بدون مرکز هزینه"}</option>
             {costCenters.map((center) => (
               <option key={center.id} value={center.id}>
                 {center.name}
@@ -185,6 +243,66 @@ export function ExpenseFormPanel({
               </option>
             ))}
           </SelectField>
+        ) : null}
+        {onMissionKindChange ? (
+          <SelectField
+            label="مأموریت / سفر (اختیاری)"
+            value={missionKind}
+            onChange={(event) =>
+              onMissionKindChange(event.target.value as "" | "advance" | "settlement")
+            }
+          >
+            <option value="">بدون مأموریت</option>
+            <option value="advance">پیش‌پرداخت مأموریت</option>
+            <option value="settlement">تسویه مأموریت</option>
+          </SelectField>
+        ) : null}
+        {pettyCashFunds.length > 0 &&
+        onFundingSourceKindChange &&
+        onFundingRefIdChange ? (
+          <>
+            <SelectField
+              label="منبع تأمین"
+              value={
+                fundingSourceKind === "petty_cash" && fundingRefId
+                  ? `petty:${fundingRefId}`
+                  : fundingSourceKind === "personal"
+                    ? "personal"
+                    : ""
+              }
+              onChange={(event) => {
+                const v = event.target.value;
+                if (v === "personal") {
+                  onFundingSourceKindChange("personal");
+                  onFundingRefIdChange("");
+                  return;
+                }
+                if (v.startsWith("petty:")) {
+                  onFundingSourceKindChange("petty_cash");
+                  onFundingRefIdChange(v.slice("petty:".length));
+                  return;
+                }
+                onFundingSourceKindChange("");
+                onFundingRefIdChange("");
+              }}
+            >
+              <option value="">پیش‌فرض · پرداخت شخصی عضو</option>
+              <option value="personal">پرداخت شخصی (صریح)</option>
+              {pettyCashFunds.map((fund) => (
+                <option key={fund.id} value={`petty:${fund.id}`}>
+                  تنخواه · {fund.name}
+                  {fund.balanceMinor
+                    ? ` · مانده ${(Number(fund.balanceMinor) / 10).toLocaleString("fa-IR")} تومان`
+                    : ""}
+                </option>
+              ))}
+            </SelectField>
+            {fundingSourceKind === "petty_cash" ? (
+              <p className="liveHint">
+                با ثبت/تأیید خرج، مبلغ از صندوق کسر می‌شود (از capabilities و API واقعی).
+              </p>
+            ) : null}
+          </>
         ) : null}
         <SplitComposer
           members={members}
@@ -195,14 +313,22 @@ export function ExpenseFormPanel({
           currentUserId={session?.actor?.userId}
           canAssignPrivateToOthers={canAssignPrivateToOthers}
           onDerivedTotalToman={onAmountTomanChange}
+          workspaceId={workspaceId}
+          catalogEnabled={catalogEnabled}
+          splitPresets={splitPresets}
+          onSavePreset={onSaveSplitPreset}
+          savePresetPending={savePresetPending}
+          allowFormula={allowFormula}
         />
         <div className="dataRowActions">
           <Button type="button" onClick={onCreateExpense} disabled={pending}>
-            ثبت و اعمال روی مانده
+            {revisingExpenseId ? "ثبت اصلاح روی مانده" : "ثبت و اعمال روی مانده"}
           </Button>
-          <Button type="button" variant="ghost" onClick={onSaveOfflineDraft} disabled={pending}>
-            ذخیره آفلاین
-          </Button>
+          {!revisingExpenseId ? (
+            <Button type="button" variant="ghost" onClick={onSaveOfflineDraft} disabled={pending}>
+              ذخیره آفلاین
+            </Button>
+          ) : null}
         </div>
         {draftSavedLabel ? (
           <StatusLine>پیش‌نویس ذخیره شد · ساعت {draftSavedLabel}</StatusLine>

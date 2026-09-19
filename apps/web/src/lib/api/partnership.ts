@@ -1,6 +1,8 @@
 import type {
+  AgreedPriceSummary,
   AgreementSummary,
   ContributionSummary,
+  CreateAgreedPriceRequest,
   CreateAgreementRequest,
   OwnershipShareSummary,
   PartnerLoanSummary,
@@ -9,35 +11,55 @@ import type {
   RecordWithdrawalRequest,
 } from "@dang/contracts";
 import { apiFetch } from "./client";
+import { postWithOfflineQueue } from "./offline-post";
 
 /** Agreement, contribution, partner-loan, withdrawal and ownership endpoints — domain slice (dong-50 #30). */
 export const partnershipApi = {
   createAgreement: (workspaceId: string, body: CreateAgreementRequest) =>
-    apiFetch<AgreementSummary>(
-      `/workspaces/${workspaceId}/agreements`,
-      { method: "POST", body: JSON.stringify(body) },
-      body.idempotencyKey,
-    ),
+    postWithOfflineQueue<AgreementSummary>({
+      path: `/workspaces/${workspaceId}/agreements`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "ایجاد توافق‌نامه",
+    }),
   listAgreements: (workspaceId: string) =>
     apiFetch<AgreementSummary[]>(`/workspaces/${workspaceId}/agreements`),
+  listAgreedPrices: (workspaceId: string, agreementId: string) =>
+    apiFetch<AgreedPriceSummary[]>(
+      `/workspaces/${workspaceId}/agreements/${agreementId}/agreed-prices`,
+    ),
+  createAgreedPrice: (
+    workspaceId: string,
+    agreementId: string,
+    body: CreateAgreedPriceRequest,
+  ) =>
+    postWithOfflineQueue<AgreedPriceSummary>({
+      path: `/workspaces/${workspaceId}/agreements/${agreementId}/agreed-prices`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "ثبت قیمت توافقی",
+    }),
   recordContribution: (workspaceId: string, body: RecordContributionRequest) =>
-    apiFetch<ContributionSummary>(
-      `/workspaces/${workspaceId}/contributions`,
-      { method: "POST", body: JSON.stringify(body) },
-      body.idempotencyKey,
-    ),
+    postWithOfflineQueue<ContributionSummary>({
+      path: `/workspaces/${workspaceId}/contributions`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "ثبت آورده",
+    }),
   recordPartnerLoan: (workspaceId: string, body: RecordPartnerLoanRequest) =>
-    apiFetch<PartnerLoanSummary>(
-      `/workspaces/${workspaceId}/partner-loans`,
-      { method: "POST", body: JSON.stringify(body) },
-      body.idempotencyKey,
-    ),
+    postWithOfflineQueue<PartnerLoanSummary>({
+      path: `/workspaces/${workspaceId}/partner-loans`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "ثبت وام شریک",
+    }),
   recordWithdrawal: (workspaceId: string, body: RecordWithdrawalRequest) =>
-    apiFetch<unknown>(
-      `/workspaces/${workspaceId}/withdrawals`,
-      { method: "POST", body: JSON.stringify(body) },
-      body.idempotencyKey,
-    ),
+    postWithOfflineQueue<unknown>({
+      path: `/workspaces/${workspaceId}/withdrawals`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "ثبت برداشت",
+    }),
   ownershipShares: (workspaceId: string, agreementId: string) =>
     apiFetch<OwnershipShareSummary[]>(
       `/workspaces/${workspaceId}/agreements/${agreementId}/ownership-shares`,

@@ -32,6 +32,12 @@ test("guest cannot create a shared expense", async () => {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
+    {
+      assertFourEyes: async () => undefined,
+      applyTierGate: async () => ({ outcome: "bypass" }),
+    } as never,
+    {} as never,
   );
   await assert.rejects(
     () =>

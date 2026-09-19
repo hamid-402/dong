@@ -12,7 +12,9 @@ export class LedgerController {
 
   @Get()
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: "List in-memory journal entries (Phase 2 stub)" })
+  @ApiOperation({
+    summary: "List journal entry summaries from the active ledger store",
+  })
   @ApiHeader({ name: "x-dang-subject", required: false })
   list(
     @CurrentActor() actor: AuthActor,

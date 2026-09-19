@@ -6,6 +6,8 @@ import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { IamModule } from "../iam/iam.module.js";
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
+import { WaveFSettingsModule } from "../wave-f-settings/wave-f-settings.module.js";
+import { WaveFSettingsService } from "../wave-f-settings/wave-f-settings.service.js";
 
 const STORE = Symbol("CATEGORY_BUDGET_STORE");
 type Store = { list(w:string,u:string):Promise<CategoryBudgetUsage[]>; create(w:string,u:string,b:CreateCategoryBudgetRequest):Promise<CategoryBudgetUsage> };
@@ -29,10 +31,19 @@ class MemoryStore implements Store {
 }
 @Injectable()
 class Service {
-  constructor(@Inject(STORE) private store:Store,private access:WorkspaceAccessService){}
+  constructor(
+    @Inject(STORE) private store:Store,
+    private access:WorkspaceAccessService,
+    private plans:WaveFSettingsService,
+  ){}
   private enabled(){if(!readProductFeatureFlags(process.env).categoryBudget)throw new ForbiddenException({detail:"Set ENABLE_CATEGORY_BUDGET=1"});}
   async list(a:AuthActor,w:string){this.enabled();await this.access.requireMember(w,a.userId);return this.store.list(w,a.userId);}
-  async create(a:AuthActor,w:string,b:CreateCategoryBudgetRequest){this.enabled();await this.access.requireFinanceManager(w,a.userId);return this.store.create(w,a.userId,b);}
+  async create(a:AuthActor,w:string,b:CreateCategoryBudgetRequest){
+    this.enabled();
+    await this.access.requireFinanceManager(w,a.userId);
+    await this.plans.requirePlanFeature(a,w,"categoryBudget");
+    return this.store.create(w,a.userId,b);
+  }
 }
 @Controller("workspaces/:workspaceId/category-budgets") @UseGuards(AuthGuard)
 class CategoryBudgetsController {
@@ -41,5 +52,9 @@ class CategoryBudgetsController {
   @Get("usage") usage(@CurrentActor()a:AuthActor,@Param("workspaceId")w:string){return this.service.list(a,w);}
   @Post() create(@CurrentActor()a:AuthActor,@Param("workspaceId")w:string,@Body(new ZodValidationPipe(createCategoryBudgetSchema))b:CreateCategoryBudgetRequest){return this.service.create(a,w,b);}
 }
-@Module({imports:[AuthModule,IamModule],controllers:[CategoryBudgetsController],providers:[Service,{provide:STORE,useFactory:():Store=>process.env.DATABASE_URL?new PostgresStore(createDatabase(process.env.DATABASE_URL).db):new MemoryStore()}]})
+@Module({
+  imports:[AuthModule,IamModule,WaveFSettingsModule],
+  controllers:[CategoryBudgetsController],
+  providers:[Service,{provide:STORE,useFactory:():Store=>process.env.DATABASE_URL?new PostgresStore(createDatabase(process.env.DATABASE_URL).db):new MemoryStore()}],
+})
 export class CategoryBudgetsModule {}

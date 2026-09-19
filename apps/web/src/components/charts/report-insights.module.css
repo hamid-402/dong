@@ -1,0 +1,68 @@
+.wrap {
+  display: grid;
+  gap: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 750;
+}
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+}
+
+.card {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  min-width: 0;
+}
+
+.label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.value {
+  font-size: 0.98rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.tone_up .value {
+  color: color-mix(in srgb, var(--danger, #c44b4b) 88%, var(--text));
+}
+
+.tone_down .value {
+  color: color-mix(in srgb, var(--success, #3d9a6a) 88%, var(--text));
+}
+
+.tone_attention {
+  border-color: color-mix(in srgb, var(--gold, #c9a227) 40%, var(--line));
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--gold, #c9a227) 10%, transparent),
+      transparent 55%
+    ),
+    color-mix(in srgb, var(--surface) 94%, transparent);
+}

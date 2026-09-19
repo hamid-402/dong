@@ -3,6 +3,7 @@ import type {
   CreateCostCenterRequest,
 } from "@dang/contracts";
 import { apiFetch } from "./client";
+import { postWithOfflineQueue } from "./offline-post";
 
 export const costCentersApi = {
   listCostCenters: (workspaceId: string) =>
@@ -13,8 +14,9 @@ export const costCentersApi = {
     workspaceId: string,
     body: CreateCostCenterRequest,
   ) =>
-    apiFetch<CostCenterSummary>(
-      `/workspaces/${workspaceId}/cost-centers`,
-      { method: "POST", body: JSON.stringify(body) },
-    ),
+    postWithOfflineQueue<CostCenterSummary>({
+      path: `/workspaces/${workspaceId}/cost-centers`,
+      body: JSON.stringify(body),
+      label: body.name?.trim() || "ایجاد مرکز هزینه",
+    }),
 };

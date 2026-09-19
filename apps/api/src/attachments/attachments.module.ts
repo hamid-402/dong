@@ -1,9 +1,8 @@
-import { Module } from "@nestjs/common";
+import { Global, Module } from "@nestjs/common";
 import { loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
 import { AuthModule } from "../auth/auth.module.js";
 import { createPersistenceStore } from "../common/postgres-store.factory.js";
-import { JobsModule } from "../jobs/jobs.module.js";
 import {
   ATTACHMENT_STORE,
   MemoryAttachmentStore,
@@ -27,8 +26,14 @@ export function createAttachmentStore(): AttachmentStore {
   });
 }
 
+/**
+ * @Global so Expenses/Retention inject ATTACHMENT_STORE without importing this
+ * module (avoids Retention→Statements→Expenses→Attachments TDZ crash).
+ * JobsModule is also @Global — do not import Jobs here.
+ */
+@Global()
 @Module({
-  imports: [AuthModule, JobsModule],
+  imports: [AuthModule],
   controllers: [AttachmentsController],
   providers: [
     AttachmentsService,

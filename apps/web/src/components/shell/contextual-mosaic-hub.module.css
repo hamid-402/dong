@@ -1,265 +1,445 @@
+/* Mosaic launcher — gem tiles, URL drill-down. Not a dashboard card grid. */
+
 .hub {
-  margin-block: 24px;
-  padding: 22px;
-  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
-  border-radius: 22px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.hub:not(.compact) {
+  margin-block: 8px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  border-radius: 18px;
   background:
-    radial-gradient(circle at 85% 0%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 32%),
-    color-mix(in srgb, var(--surface-2) 94%, transparent);
-  box-shadow: var(--elev-1);
+    radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 40%),
+    var(--surface);
 }
 
 .header {
-  margin-bottom: 18px;
+  margin-bottom: 12px;
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 20px;
+  gap: 12px;
 }
 
 .header > div > span {
   color: var(--primary);
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
 }
 
 .header h2 {
-  margin: 6px 0 0;
-  color: var(--text);
-  font-size: clamp(20px, 2.1vw, 27px);
-  line-height: 1.45;
+  margin: 4px 0 0;
+  font-size: clamp(1.1rem, 1.6vw, 1.35rem);
+  line-height: 1.3;
 }
 
 .header p {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.8;
+  font-size: 0.8rem;
 }
 
 .header > small {
-  padding: 7px 10px;
-  border: 1px solid var(--line);
+  padding: 6px 10px;
   border-radius: 999px;
+  border: 1px solid var(--line);
   color: var(--muted);
   font-size: 10px;
-  white-space: nowrap;
 }
 
 .section + .section {
-  margin-top: 20px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
+  margin-top: 18px;
 }
 
-.section h3 {
+.sectionHead {
   margin: 0 0 10px;
-  color: var(--muted);
-  font-size: 12px;
 }
 
-.grid {
+.sectionHead h3 {
   margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.sectionHead p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* Prompt model: flex-wrap 3 columns, full row width (no tiny capped gems). */
+.grid {
+  --mosaic-cols: 3;
+  --mosaic-gap: 12px;
+  --mosaic-tile-size: calc(
+    (100% - (var(--mosaic-cols) - 1) * var(--mosaic-gap)) / var(--mosaic-cols)
+  );
+  margin: 0;
+  padding: 4px 0 8px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: var(--mosaic-gap);
   list-style: none;
+  animation: mosaic-fade-in 0.22s ease-out;
 }
 
 .grid li {
+  position: relative;
+  flex: 0 0 var(--mosaic-tile-size);
+  width: var(--mosaic-tile-size);
+  max-width: none;
   min-width: 0;
+}
+
+.enter {
+  animation: mosaic-tile-in 200ms ease both;
+  animation-delay: var(--tile-delay, 0ms);
+}
+
+.noMotion .enter,
+.noMotion .tile {
+  animation: none !important;
+  transition: none !important;
+}
+
+@keyframes mosaic-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mosaic-tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .tile {
   position: relative;
-  min-height: 188px;
-  padding: 15px;
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 104px;
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--surface) 90%, var(--surface-2));
-  color: var(--text);
+  border: none;
+  border-radius: 20px;
   text-decoration: none;
+  text-align: center;
+  color: var(--tile-gem-ink, #1e293b);
+  cursor: pointer;
   transition:
-    transform var(--m-dur, 160ms) var(--m-ease, ease),
-    border-color var(--m-dur, 160ms) var(--m-ease, ease),
-    box-shadow var(--m-dur, 160ms) var(--m-ease, ease);
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
 }
 
-.accent {
+.tilePinned {
+  /* room for pin */
+}
+
+.tile > p,
+.tile .intent,
+.tile .available,
+.tile .open,
+.tile .accent {
+  display: none !important;
+}
+
+.tile .topline {
+  display: flex;
+  justify-content: center;
+  margin: 0;
+}
+
+.tile .footer {
+  display: none;
+}
+
+.tile .footer:has(.fact) {
+  display: block;
   position: absolute;
-  inset: 0 0 auto;
-  height: 3px;
-  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 20%, transparent));
-  opacity: 0.68;
+  top: 8px;
+  inset-inline-start: 8px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-height: 0;
+}
+
+.tile .fact {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #fff 72%, transparent);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.tile .fact b {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--tile-gem-ink, #0f172a);
+}
+
+.tile .fact small {
+  display: none;
+}
+
+.tile .fact_attention {
+  background: color-mix(in srgb, #fbbf24 55%, #fff);
+}
+
+.gem {
+  border: 2.5px solid var(--tile-gem-edge, #1d4ed8);
+  background: radial-gradient(
+    circle at 35% 28%,
+    var(--tile-gem-center, #dbeafe) 0%,
+    var(--tile-gem-mid, #60a5fa) 52%,
+    var(--tile-gem-edge, #1d4ed8) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
+    0 6px 16px color-mix(in srgb, var(--tile-gem-edge, #1d4ed8) 28%, transparent);
+}
+
+.gem::before,
+.gem::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.gem::before {
+  width: 70%;
+  height: 70%;
+  inset-block-start: -38%;
+  inset-inline-start: -32%;
+  border: 1px solid color-mix(in srgb, #fff 45%, transparent);
+  opacity: 0.45;
+}
+
+.gem::after {
+  width: 48%;
+  height: 48%;
+  inset-block-end: -28%;
+  inset-inline-end: -22%;
+  border: 1px solid color-mix(in srgb, #fff 30%, transparent);
+  opacity: 0.3;
 }
 
 .tile:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
-  box-shadow: var(--elev-2);
+  transform: translateY(-3px) scale(1.02);
+  filter: saturate(1.06);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 60%, transparent),
+    0 12px 26px color-mix(in srgb, var(--tile-gem-edge, #1d4ed8) 34%, transparent);
+}
+
+.tile:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .tile:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--primary) 58%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 70%, transparent);
   outline-offset: 3px;
 }
 
-.topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
 .icon {
-  width: 38px;
-  height: 38px;
+  width: 46px;
+  height: 46px;
   display: grid;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--line));
-  border-radius: 11px;
-  background: var(--primary-soft);
-  color: var(--primary);
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, #fff 35%, transparent);
+  background: color-mix(in srgb, #fff 28%, transparent);
+  color: var(--tile-gem-ink, #0f172a);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 50%, transparent);
 }
 
 .icon svg {
-  width: 19px;
-  height: 19px;
-}
-
-.intent {
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 650;
+  width: 22px;
+  height: 22px;
 }
 
 .tile > strong {
-  margin-top: 15px;
-  font-size: 16px;
-  line-height: 1.5;
+  margin: 0;
+  max-width: 100%;
+  font-size: 0.82rem;
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: inherit;
 }
 
-.tile > p {
-  margin: 5px 0 12px;
-  color: var(--muted);
+.pin {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  z-index: 2;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, #fff 55%, transparent);
+  color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 70%, transparent);
+  cursor: pointer;
   font-size: 11px;
-  line-height: 1.75;
+  opacity: 0.85;
 }
 
-.footer {
-  min-height: 32px;
-  margin-top: auto;
-  padding-top: 10px;
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 8px;
-  border-top: 1px solid var(--line);
-}
-
-.fact b,
-.fact small {
-  display: block;
-}
-
-.fact b {
-  color: var(--text);
-  font-size: 13px;
-}
-
-.fact small,
-.available {
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 9px;
-}
-
-.fact_attention b {
-  color: var(--warning, #a66d00);
-}
-
-.fact_positive b {
-  color: var(--success, #198754);
-}
-
-.open {
-  color: var(--primary);
-  font-size: 18px;
-  transition: transform var(--m-dur, 160ms) var(--m-ease, ease);
-}
-
-.tile:hover .open {
-  transform: translateX(-3px);
-}
-
-.featured {
-  grid-column: span 2;
-}
-
-.featured .tile {
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, transparent), transparent 55%),
-    color-mix(in srgb, var(--surface) 90%, var(--surface-2));
+.pin:hover,
+.pinActive {
+  opacity: 1;
+  background: #fff;
+  color: var(--gold, #b45309);
 }
 
 .compact {
-  margin-block: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
-.compact .grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.compact .header {
+  display: none;
 }
 
-.compact .tile {
-  min-height: 170px;
+.compact .sectionHead {
+  display: grid;
+  margin: 0 0 8px;
 }
 
-@media (max-width: 1040px) {
-  .grid,
-  .compact .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+.compact .sectionHead p {
+  display: none;
+}
+
+.compact .section + .section {
+  margin-top: 20px;
+  padding-top: 4px;
+}
+
+/* Desktop / tablet: denser mosaic, still full-bleed columns */
+@media (min-width: 700px) {
+  .grid {
+    --mosaic-cols: 4;
+    --mosaic-gap: 14px;
+  }
+
+  .tile {
+    min-height: 118px;
+    border-radius: 22px;
+  }
+
+  .icon {
+    width: 50px;
+    height: 50px;
+  }
+
+  .tile > strong {
+    font-size: 0.88rem;
   }
 }
 
-@media (max-width: 640px) {
-  .hub {
-    margin-block: 16px;
-    padding: 15px;
-    border-radius: 17px;
+@media (min-width: 1024px) {
+  .grid {
+    --mosaic-cols: 5;
+    --mosaic-gap: 16px;
   }
 
-  .header {
-    align-items: start;
-    flex-direction: column;
+  .tile {
+    min-height: 124px;
+  }
+}
+
+@media (max-width: 380px) {
+  .grid {
+    --mosaic-gap: 8px;
   }
 
-  .header > small {
-    white-space: normal;
+  .tile {
+    min-height: 92px;
+    border-radius: 16px;
   }
 
-  .grid,
-  .compact .grid {
-    grid-template-columns: 1fr;
+  .tile > strong {
+    font-size: 0.72rem;
   }
 
-  .featured {
-    grid-column: auto;
+  .icon {
+    width: 38px;
+    height: 38px;
   }
+}
 
-  .tile,
-  .compact .tile {
-    min-height: 156px;
-  }
+:global(html[data-theme="dark"]) .gem,
+:global(html[data-theme="dusk"]) .gem,
+:global(html[data-theme="linear"]) .gem {
+  color: #f8fafc;
+  background: radial-gradient(
+    circle at 32% 26%,
+    color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 42%, #222831) 0%,
+    color-mix(in srgb, var(--tile-gem-edge, var(--primary)) 48%, #14181e) 60%,
+    #0c0f13 120%
+  );
+  border-color: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 50%, #334155);
+}
+
+:global(html[data-theme="dark"]) .icon,
+:global(html[data-theme="dusk"]) .icon,
+:global(html[data-theme="linear"]) .icon {
+  color: #f8fafc;
+  background: color-mix(in srgb, #fff 10%, transparent);
+  border-color: color-mix(in srgb, #fff 14%, transparent);
+}
+
+:global(html[data-theme="dark"]) .tile .fact,
+:global(html[data-theme="dusk"]) .tile .fact,
+:global(html[data-theme="linear"]) .tile .fact {
+  background: color-mix(in srgb, #0f172a 70%, transparent);
+}
+
+:global(html[data-theme="dark"]) .tile .fact b,
+:global(html[data-theme="dusk"]) .tile .fact b,
+:global(html[data-theme="linear"]) .tile .fact b {
+  color: #f8fafc;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .tile,
-  .open {
-    transition: none;
+  .enter,
+  .grid {
+    animation: none !important;
+    transition: none !important;
   }
 }

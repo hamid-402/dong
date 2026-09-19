@@ -12,13 +12,22 @@ export type WorkspacePage =
   | "orgFinance"
   | "ledger"
   | "members"
+  | "subunits"
+  | "permissions"
   | "procurement"
   | "proposals"
   | "assets"
+  | "catalog"
+  | "statements"
+  | "charts"
+  | "payments"
   | "partners"
+  | "record"
   | "settings"
   | "audit"
+  | "securityOps"
   | "metrics"
+  | "jobs"
   | "more";
 
 export type ClassicCompatTarget =
@@ -40,13 +49,22 @@ const PAGE_SEGMENTS: Record<WorkspacePage, string> = {
   orgFinance: "/org-finance",
   ledger: "/ledger",
   members: "/members",
+  subunits: "/subunits",
+  permissions: "/permissions",
   procurement: "/procurement",
   proposals: "/proposals",
   assets: "/assets",
+  catalog: "/catalog",
+  statements: "/statements",
+  charts: "/charts",
+  payments: "/payments",
   partners: "/partners",
+  record: "/record",
   settings: "/settings",
   audit: "/audit",
+  securityOps: "/security-ops",
   metrics: "/metrics",
+  jobs: "/jobs",
   more: "/more",
 };
 
@@ -144,7 +162,8 @@ export function absoluteForPage(
   if (page === "spaces") return "/spaces";
   if (page === "spaces-new") return "/spaces/new";
   if (page === "invite") return "/invite";
-  if (!page) return slug ? wPath(slug) : "/spaces";
-  if (!slug) return "/spaces";
+  /** Classic `/` and `/hub` home → app hub, not a random workspace. */
+  if (page === "home" || !page) return "/home";
+  if (!slug) return "/home";
   return wPath(slug, page);
 }

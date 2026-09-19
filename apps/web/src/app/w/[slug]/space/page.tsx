@@ -20,6 +20,16 @@ const FriendsGroupView = dynamic(
     })),
   { ssr: false, loading: () => <RouteLoadingHint label="در حال بارگذاری خانه گروه…" /> },
 );
+const BuildingSpaceView = dynamic(
+  () =>
+    import("@/components/views/building-space-view").then((mod) => ({
+      default: mod.BuildingSpaceView,
+    })),
+  {
+    ssr: false,
+    loading: () => <RouteLoadingHint label="در حال بارگذاری خانه ساختمان…" />,
+  },
+);
 const OrgSpaceView = dynamic(
   () =>
     import("@/components/views/org-space-view").then((mod) => ({
@@ -28,7 +38,7 @@ const OrgSpaceView = dynamic(
   { ssr: false, loading: () => <RouteLoadingHint label="در حال بارگذاری خانه سازمان…" /> },
 );
 
-/** Kind-specific space home (من / گروه / سازمان) — bound to URL workspace. */
+/** Kind-specific space home — شخصی / گروهی / ساختمان / سازمان. */
 export default function WorkspaceSpacePage() {
   const chrome = useAppChrome();
   const scope = useOptionalWorkspaceScope();
@@ -36,6 +46,7 @@ export default function WorkspaceSpacePage() {
   const template = chrome.workspaces.find((w) => w.id === workspaceId)?.template;
   const kind = spaceKindForTemplate(template);
   if (kind === "personal") return <PersonalSpaceView />;
+  if (kind === "building") return <BuildingSpaceView />;
   if (kind === "org") return <OrgSpaceView />;
   return <FriendsGroupView />;
 }

@@ -26,6 +26,10 @@ export const auditEvent = audit.table(
     requestId: text("request_id"),
     traceId: text("trace_id"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+    /** SHA-256 hex; null for rows written before R10-04. */
+    eventHash: text("event_hash"),
+    /** Prior event_hash in workspace chain; null = genesis or legacy. */
+    prevHash: text("prev_hash"),
     occurredAt: timestamp("occurred_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

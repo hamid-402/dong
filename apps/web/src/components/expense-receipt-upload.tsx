@@ -1,28 +1,40 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import type { AttachmentSummary } from "@dang/contracts";
+import type { AttachmentSummary, OcrReceiptResult } from "@dang/contracts";
 import { Button } from "@dang/ui";
 import { api } from "@/lib/api";
 import { uploadErrorMessage } from "@/lib/api-errors";
 import { readFileAsBase64, resolveUploadMimeType, sha256HexFromFile } from "@/lib/file-hash";
+import { irrMinorToTomanInput } from "@/lib/irr-money";
 
 const MAX_BYTES = 10 * 1024 * 1024;
+
+export type OcrFormHints = {
+  title?: string;
+  amountToman?: string;
+};
 
 export function ExpenseReceiptUpload({
   workspaceId,
   expenseId,
   onUploaded,
+  /** When providers.ocr === configured, show apply; stub shows honest label only. */
+  ocrMode,
+  onApplyOcr,
 }: {
   workspaceId: string;
   expenseId: string;
   onUploaded?: (attachment: AttachmentSummary) => void;
+  ocrMode?: "stub" | "configured";
+  onApplyOcr?: (hints: OcrFormHints) => void;
 }) {
   const [attachments, setAttachments] = useState<AttachmentSummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ocrById, setOcrById] = useState<Record<string, OcrReceiptResult>>({});
   const [pending, startTransition] = useTransition();
 
   function loadAttachments() {
@@ -31,7 +43,26 @@ export function ExpenseReceiptUpload({
     void (async () => {
       try {
         const list = await api.listAttachments(workspaceId, "expense", expenseId);
-        setAttachments(list.filter((item) => item.kind === "receipt"));
+        const receipts = list.filter((item) => item.kind === "receipt");
+        setAttachments(receipts);
+        const fromPersisted: Record<string, OcrReceiptResult> = {};
+        for (const row of receipts) {
+          if (row.ocrResult) {
+            fromPersisted[row.id] = {
+              attachmentId: row.id,
+              workspaceId: row.workspaceId,
+              jobId: row.ocrResult.jobId,
+              status: row.ocrResult.status,
+              merchantHint: row.ocrResult.merchantHint,
+              amountMinorHint: row.ocrResult.amountMinorHint,
+              rawTextPreview: row.ocrResult.rawTextPreview,
+              completedAt: row.ocrResult.completedAt,
+            };
+          }
+        }
+        if (Object.keys(fromPersisted).length) {
+          setOcrById((prev) => ({ ...prev, ...fromPersisted }));
+        }
       } catch (err: unknown) {
         setListError(friendlyListError(err));
         setAttachments([]);
@@ -86,6 +117,19 @@ export function ExpenseReceiptUpload({
           });
           setMessage(stored.hasBlob ? `رسید «${file.name}» ذخیره شد` : "رسید ثبت شد");
           onUploaded?.(stored);
+          if (ocrMode === "configured") {
+            try {
+              const ocr = await api.runAttachmentOcr(workspaceId, stored.id);
+              setOcrById((prev) => ({ ...prev, [stored.id]: ocr }));
+              setMessage(
+                ocr.status === "completed"
+                  ? `رسید ذخیره شد — پیشنهاد OCR آماده است`
+                  : `رسید ذخیره شد (OCR: ${ocr.status})`,
+              );
+            } catch {
+              // OCR is additive — upload already succeeded.
+            }
+          }
         } catch (err: unknown) {
           setMessage(null);
           setError(uploadErrorMessage(err, "آپلود رسید ناموفق"));
@@ -113,6 +157,31 @@ export function ExpenseReceiptUpload({
     });
   }
 
+  function onRunOcr(attachment: AttachmentSummary) {
+    startTransition(() => {
+      void (async () => {
+        try {
+          setError(null);
+          const ocr = await api.runAttachmentOcr(workspaceId, attachment.id);
+          setOcrById((prev) => ({ ...prev, [attachment.id]: ocr }));
+        } catch (err: unknown) {
+          setError(uploadErrorMessage(err, "OCR ناموفق"));
+        }
+      })();
+    });
+  }
+
+  function applyOcr(ocr: OcrReceiptResult) {
+    if (!onApplyOcr) return;
+    onApplyOcr({
+      title: ocr.merchantHint,
+      amountToman: ocr.amountMinorHint
+        ? irrMinorToTomanInput(ocr.amountMinorHint)
+        : undefined,
+    });
+    setMessage("پیشنهاد OCR روی فرم اعمال شد — قبل از ثبت بررسی کنید");
+  }
+
   return (
     <div className="receiptUpload">
       <label className="receiptUpload__label">
@@ -124,6 +193,9 @@ export function ExpenseReceiptUpload({
         />
         {pending ? "در حال آپلود…" : "پیوست رسید"}
       </label>
+      {ocrMode === "stub" ? (
+        <p className="emptyHint">OCR در این محیط stub است — پیشنهاد خودکار اعمال نمی‌شود.</p>
+      ) : null}
       {loadingList ? <p className="emptyHint">در حال بارگذاری پیوست‌ها…</p> : null}
       {listError ? (
         <p className="liveError">
@@ -135,18 +207,42 @@ export function ExpenseReceiptUpload({
       ) : null}
       {!loadingList && attachments.length > 0 ? (
         <ul className="receiptUpload__list">
-          {attachments.map((attachment) => (
-            <li key={attachment.id} className="receiptUpload__item">
-              <span>{attachment.fileName}</span>
-              {attachment.hasBlob ? (
-                <Button type="button" variant="ghost" disabled={pending} onClick={() => onDownload(attachment)}>
-                  دانلود
-                </Button>
-              ) : (
-                <span className="emptyHint">فقط اطلاعات</span>
-              )}
-            </li>
-          ))}
+          {attachments.map((attachment) => {
+            const ocr = ocrById[attachment.id];
+            return (
+              <li key={attachment.id} className="receiptUpload__item">
+                <span>{attachment.fileName}</span>
+                {attachment.hasBlob ? (
+                  <Button type="button" variant="ghost" disabled={pending} onClick={() => onDownload(attachment)}>
+                    دانلود
+                  </Button>
+                ) : (
+                  <span className="emptyHint">فقط اطلاعات</span>
+                )}
+                {ocrMode === "configured" && !ocr ? (
+                  <Button type="button" variant="ghost" disabled={pending} onClick={() => onRunOcr(attachment)}>
+                    OCR
+                  </Button>
+                ) : null}
+                {ocr?.status === "completed" && (ocr.merchantHint || ocr.amountMinorHint) ? (
+                  <span className="emptyHint">
+                    {ocr.merchantHint ?? "—"}
+                    {ocr.amountMinorHint
+                      ? ` · ${irrMinorToTomanInput(ocr.amountMinorHint)} تومان`
+                      : ""}
+                    {onApplyOcr ? (
+                      <>
+                        {" "}
+                        <button type="button" className="textButton" onClick={() => applyOcr(ocr)}>
+                          اعمال روی فرم
+                        </button>
+                      </>
+                    ) : null}
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       ) : null}
       {message ? <p className="liveSuccess">{message}</p> : null}

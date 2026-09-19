@@ -47,6 +47,19 @@ export class MemorySettlementStore implements SettlementStore {
     return Promise.resolve(this.transition(workspaceId, settlementId, "confirmed"));
   }
 
+  compensateStatus(
+    workspaceId: string,
+    settlementId: string,
+    status: StoredSettlement["status"],
+  ): Promise<void> {
+    const existing = this.settlements.get(settlementId);
+    if (!existing || existing.workspaceId !== workspaceId) {
+      throw new Error("SETTLEMENT_NOT_FOUND");
+    }
+    this.settlements.set(settlementId, { ...existing, status });
+    return Promise.resolve();
+  }
+
   dispute(
     workspaceId: string,
     settlementId: string,

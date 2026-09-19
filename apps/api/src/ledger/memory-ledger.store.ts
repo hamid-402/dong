@@ -1,13 +1,20 @@
 import {
   assertBalancedJournalLines,
   buildExpenseJournalLines,
+  buildOnBehalfFundingTransferLines,
+  buildOnBehalfJournalLines,
+  buildPaymentReceiptJournalLines,
   buildSettlementJournalLines,
   computeBalancesFromJournal,
   type ExpenseSummary,
   type JournalEntrySummary,
   type SettlementSummary,
 } from "@dang/contracts";
-import type { LedgerStore } from "./ledger.types.js";
+import type {
+  LedgerStore,
+  OnBehalfJournalInput,
+  PaymentReceiptJournalInput,
+} from "./ledger.types.js";
 
 export class MemoryLedgerStore implements LedgerStore {
   readonly persistence = "memory" as const;
@@ -71,6 +78,49 @@ export class MemoryLedgerStore implements LedgerStore {
     });
   }
 
+  async postPaymentReceipt(
+    actorUserId: string,
+    input: PaymentReceiptJournalInput,
+  ): Promise<JournalEntrySummary> {
+    return this.post({
+      workspaceId: input.workspaceId,
+      sourceType: "payment_receipt",
+      sourceId: input.receiptId,
+      actorUserId,
+      idempotencyKey: `payment_receipt.approve:${input.receiptId}`,
+      lines: buildPaymentReceiptJournalLines({
+        payerUserId: input.payerUserId,
+        counterpartyUserId: input.counterpartyUserId,
+        amount: input.amount,
+      }),
+    });
+  }
+
+  async postOnBehalfPayment(
+    actorUserId: string,
+    input: OnBehalfJournalInput,
+  ): Promise<JournalEntrySummary> {
+    const lines = input.fundingTransfer
+      ? buildOnBehalfFundingTransferLines({
+          debtorUserId: input.debtorUserId,
+          payerUserId: input.payerUserId,
+          amount: input.amount,
+        })
+      : buildOnBehalfJournalLines({
+          debtorUserId: input.debtorUserId,
+          payerUserId: input.payerUserId,
+          amount: input.amount,
+        });
+    return this.post({
+      workspaceId: input.workspaceId,
+      sourceType: "payment_on_behalf",
+      sourceId: input.onBehalfId,
+      actorUserId,
+      idempotencyKey: `payment_on_behalf.approve:${input.onBehalfId}`,
+      lines,
+    });
+  }
+
   private post(input: {
     workspaceId: string;
     sourceType: JournalEntrySummary["sourceType"];
@@ -126,5 +176,28 @@ export class MemoryLedgerStore implements LedgerStore {
     return computeBalancesFromJournal(
       await this.listForWorkspace(workspaceId, actorUserId),
     );
+  }
+
+  remapUserId(
+    workspaceId: string,
+    fromUserId: string,
+    toUserId: string,
+  ): Promise<number> {
+    if (fromUserId === toUserId) return Promise.resolve(0);
+    let lines = 0;
+    for (const [id, entry] of this.entries) {
+      if (entry.workspaceId !== workspaceId) continue;
+      let changed = false;
+      const nextLines = entry.lines.map((line) => {
+        if (line.userId !== fromUserId) return line;
+        changed = true;
+        lines += 1;
+        return { ...line, userId: toUserId };
+      });
+      if (changed) {
+        this.entries.set(id, { ...entry, lines: nextLines });
+      }
+    }
+    return Promise.resolve(lines);
   }
 }

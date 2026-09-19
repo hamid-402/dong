@@ -170,6 +170,16 @@ export class DashboardService {
       );
       const myNet =
         balanceLines.find((line) => line.userId === actor.userId)?.net ?? zeroIrr();
+      const settlementRows = await this.settlements.listForWorkspace(
+        workspace.id,
+        actor.userId,
+      );
+      let openSettlements = 0;
+      for (const row of settlementRows) {
+        if (row.status === "claimed" || row.status === "disputed") {
+          openSettlements += 1;
+        }
+      }
 
       totalPaid += BigInt(slice.paid.amountMinor);
       totalShare += BigInt(slice.share.amountMinor);
@@ -183,6 +193,7 @@ export class DashboardService {
         share: slice.share,
         net: myNet,
         expenseCount: slice.expenseCount,
+        openSettlements,
       });
     }
 

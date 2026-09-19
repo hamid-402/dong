@@ -1,12 +1,15 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
+import { APP_GUARD } from "@nestjs/core";
 import { loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
+import { SecurityEventsModule } from "../security-events/security-events.module.js";
 import { AccountController } from "./account.controller.js";
 import { AccountService } from "./account.service.js";
 import { ACCOUNT_STORE, type AccountStore } from "./account.types.js";
 import { AuthController } from "./auth.controller.js";
 import { AuthOidcController } from "./auth-oidc.controller.js";
 import { SessionAuthGuard } from "./auth.guard.js";
+import { CsrfGuard } from "./csrf.guard.js";
 import { createPersistenceStore } from "../common/postgres-store.factory.js";
 import { MailerService } from "./mailer.service.js";
 import { MemoryAccountStore } from "./memory-account.store.js";
@@ -28,6 +31,7 @@ function createAccountStore(): AccountStore {
 }
 
 @Module({
+  imports: [forwardRef(() => SecurityEventsModule)],
   controllers: [AuthController, AuthOidcController, AccountController],
   providers: [
     AccountService,
@@ -35,6 +39,11 @@ function createAccountStore(): AccountStore {
     MailerService,
     OidcService,
     SessionAuthGuard,
+    CsrfGuard,
+    {
+      provide: APP_GUARD,
+      useClass: CsrfGuard,
+    },
     {
       provide: ACCOUNT_STORE,
       useFactory: createAccountStore,
@@ -42,6 +51,7 @@ function createAccountStore(): AccountStore {
   ],
   exports: [
     SessionAuthGuard,
+    CsrfGuard,
     AccountService,
     MfaService,
     ACCOUNT_STORE,

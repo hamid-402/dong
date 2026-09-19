@@ -2,29 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { api, clearClientSession, getAuthClientMode, markClientSession } from "@/lib/api";
-import { WEB_SESSION_COOKIE, WEB_SESSION_COOKIE_VALUE } from "@dang/contracts";
+import {
+  api,
+  bootstrapDevSession,
+  clearClientSession,
+  getAuthClientMode,
+  markClientSession,
+} from "@/lib/api";
+import { ContentSkeleton } from "@/components/shell/content-skeleton";
 
 /** Soft verify — don't block the shell for long when the API is cold. */
 const SESSION_CHECK_MS = 2_500;
 
-function hasWebSessionCookie(): boolean {
-  if (typeof document === "undefined") return false;
-  return document.cookie
-    .split(";")
-    .some((part) => part.trim() === `${WEB_SESSION_COOKIE}=${WEB_SESSION_COOKIE_VALUE}`);
-}
-
-function canEnterShellOptimistically(): boolean {
-  const mode = getAuthClientMode();
-  if (mode === "dev") return true;
-  if ((mode === "password" || mode === "oidc") && hasWebSessionCookie()) return true;
-  return false;
-}
-
 /**
  * Client-side session verification (additive to middleware cookie check).
- * Optimistic: show shell immediately when cookie/dev mode is present, verify in background.
+ * Middleware requires HttpOnly dang_session; this verifies actor and boots
+ * DevAuth session when needed. Web-only cookie is never enough to stay in.
  */
 export function SessionGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -34,13 +27,22 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    if (canEnterShellOptimistically()) {
-      if (getAuthClientMode() === "dev") markClientSession("dev");
-      setReady(true);
-    }
-
     void (async () => {
+      const goLogin = () => {
+        clearClientSession();
+        const next = encodeURIComponent(pathname || "/spaces");
+        router.replace(`/login?next=${next}`);
+      };
+
       try {
+        if (getAuthClientMode() === "dev") {
+          try {
+            await bootstrapDevSession();
+          } catch {
+            /* allow session() below to decide */
+          }
+        }
+
         const session = await Promise.race([
           api.session(),
           new Promise<never>((_, reject) => {
@@ -57,37 +59,10 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
           setReady(true);
           return;
         }
-        if (getAuthClientMode() === "dev" && session.mode === "dev") {
-          markClientSession("dev");
-          setReady(true);
-          return;
-        }
-        if (
-          (getAuthClientMode() === "password" || getAuthClientMode() === "oidc") &&
-          hasWebSessionCookie()
-        ) {
-          setReady(true);
-          return;
-        }
-        clearClientSession();
-        const next = encodeURIComponent(pathname || "/spaces");
-        router.replace(`/login?next=${next}`);
+        goLogin();
       } catch {
         if (cancelled) return;
-        if (getAuthClientMode() === "dev") {
-          markClientSession("dev");
-          setReady(true);
-          return;
-        }
-        if (
-          (getAuthClientMode() === "password" || getAuthClientMode() === "oidc") &&
-          hasWebSessionCookie()
-        ) {
-          setReady(true);
-          return;
-        }
-        clearClientSession();
-        router.replace("/login");
+        goLogin();
       }
     })();
 
@@ -100,8 +75,8 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
 
   if (!ready) {
     return (
-      <div className="app-viewport" style={{ padding: 24 }}>
-        <p className="liveHint">در حال بررسی نشست…</p>
+      <div className="app-viewport" style={{ padding: "1.25rem 1rem", width: "100%" }}>
+        <ContentSkeleton rows={4} label="در حال بررسی نشست…" />
       </div>
     );
   }

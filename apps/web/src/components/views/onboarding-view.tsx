@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import type {
   AuthMeResponse,
   WorkspaceSummary,
   WorkspaceTemplate,
   WorkspaceTemplateCatalogItem,
 } from "@dang/contracts";
+import { spaceKindForTemplate } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -27,23 +28,43 @@ import { authModeLabel, workspaceTemplateLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { hubPathFor } from "@/lib/hub-links";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import { wPath } from "@/lib/workspace-paths";
 
 const ONBOARDING_STEPS = [
-  "نام و قالب فضا را انتخاب کنید (شخصی / گروه / سازمان)",
-  "فضا ساخته می‌شود و به‌عنوان زمینهٔ فعال تنظیم می‌گردد",
-  "از خانه: یک کار بعدی (ثبت خرج) — بقیه ابزارها در تب «بیشتر» یا تب فضا",
+  "نام و قالب فضا را انتخاب کنید (شخصی / گروه / ساختمان / سازمان)",
+  "فضا ساخته می‌شود و خانهٔ آن با کارت‌های مالی، خرید و فضاها باز می‌شود",
+  "از خانه اعضا را دعوت کنید یا با ＋ اولین خرج را ثبت کنید — فهرست همهٔ فضاها در /spaces",
 ] as const;
 
 export function OnboardingView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const chrome = useAppChrome();
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
   const [me, setMe] = useState<AuthMeResponse | null>(null);
   const [templates, setTemplates] = useState<WorkspaceTemplateCatalogItem[]>([]);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [template, setTemplate] = useState<WorkspaceTemplate>("friends_family");
+  const kindHint = searchParams.get("kind");
+  const templateHint = searchParams.get("template");
+  const defaultTemplate: WorkspaceTemplate =
+    templateHint === "personal" ||
+    templateHint === "friends_family" ||
+    templateHint === "household" ||
+    templateHint === "residential_building" ||
+    templateHint === "project_partners" ||
+    templateHint === "small_team" ||
+    templateHint === "construction"
+      ? templateHint
+      : kindHint === "personal"
+        ? "personal"
+        : kindHint === "building"
+          ? "residential_building"
+          : kindHint === "org"
+            ? "small_team"
+            : "friends_family";
+  const [template, setTemplate] = useState<WorkspaceTemplate>(defaultTemplate);
   const [subject, setSubject] = useState<string>(DEV_IDENTITY_DEFAULTS.subject);
   const [displayName, setDisplayName] = useState<string>(DEV_IDENTITY_DEFAULTS.displayName);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -99,10 +120,22 @@ export function OnboardingView() {
     });
   }
 
+  function goToWorkspaceHome(workspace: WorkspaceSummary) {
+    chrome.selectWorkspace(workspace.id);
+    chrome.refreshChrome();
+    router.push(wPath(workspace.slug, "space"));
+  }
+
   function goToWorkspaceFinance(workspace: WorkspaceSummary) {
     chrome.selectWorkspace(workspace.id);
     chrome.refreshChrome();
-    router.push(wPath(workspace.slug, "expenses"));
+    router.push(`${wPath(workspace.slug, "expenses")}#quick-expense`);
+  }
+
+  function goToWorkspaceMembers(workspace: WorkspaceSummary) {
+    chrome.selectWorkspace(workspace.id);
+    chrome.refreshChrome();
+    router.push(wPath(workspace.slug, "members"));
   }
 
   function onCreate(event: FormEvent) {
@@ -141,9 +174,40 @@ export function OnboardingView() {
 
   const pageError = error ?? chrome.error;
   const selectedTemplate = templates.find((item) => item.id === template);
+  const kindFilter =
+    kindHint === "personal" ||
+    kindHint === "group" ||
+    kindHint === "building" ||
+    kindHint === "org"
+      ? kindHint
+      : null;
+  const visibleTemplates = useMemo(() => {
+    const base =
+      templates.length > 0
+        ? templates
+        : [
+            {
+              id: "friends_family" as const,
+              titleFa: "گروه دوستانه",
+              summaryFa: "",
+              defaultModules: [] as string[],
+              spaceKind: "group" as const,
+            },
+          ];
+    return base.filter(
+      (item) => !kindFilter || spaceKindForTemplate(item.id) === kindFilter,
+    );
+  }, [templates, kindFilter]);
   const createdFinanceHref = created
-    ? wPath(created.slug, "expenses")
+    ? `${wPath(created.slug, "expenses")}#quick-expense`
     : hubPathFor("/workspaces");
+
+  useEffect(() => {
+    if (visibleTemplates.length === 0) return;
+    if (!visibleTemplates.some((t) => t.id === template)) {
+      setTemplate(visibleTemplates[0]!.id);
+    }
+  }, [visibleTemplates, template]);
 
   return (
     <AppShell
@@ -154,12 +218,34 @@ export function OnboardingView() {
     >
       <PageHeader
         eyebrow="مدیریت"
-        title="شروع فضای کاری"
-        description="گروه دوستانه بسازید، دوستان را دعوت کنید، خرج جمعی و خصوصی را جدا کنید — برای تیم‌ها خرج جاری شرکت هم هست."
+        title={
+          kindFilter === "building"
+            ? "ساخت فضای ساختمان"
+            : kindFilter === "org"
+              ? "ساخت فضای سازمانی"
+              : kindFilter === "personal"
+                ? "ساخت فضای شخصی"
+                : kindFilter === "group"
+                  ? "ساخت گروه"
+                  : "شروع فضای کاری"
+        }
+        description={
+          kindFilter === "building"
+            ? "واحدها، ساکنان، شارژ و قبوض — یا پروژهٔ پیمانکاری با مصالح و شرکا."
+            : kindFilter === "org"
+              ? "تیم یا شرکای پروژه با بخش‌ها، تأیید و تدارکات."
+              : "گروه دوستانه بسازید، دوستان را دعوت کنید، خرج جمعی و خصوصی را جدا کنید — برای تیم‌ها خرج جاری شرکت هم هست."
+        }
         actions={
           <>
-            <Link href="/">خانه</Link>
-            {created ? <Link href={createdFinanceHref}>رفتن به مالی</Link> : null}
+            <Link href="/spaces">{NAV_LABELS.spacesList}</Link>
+            {created ? (
+              <>
+                <Link href={wPath(created.slug, "space")}>خانهٔ فضا</Link>
+                <Link href={wPath(created.slug, "members")}>اعضا</Link>
+                <Link href={createdFinanceHref}>ثبت خرج</Link>
+              </>
+            ) : null}
           </>
         }
       />
@@ -237,17 +323,7 @@ export function OnboardingView() {
                   value={template}
                   onChange={(event) => setTemplate(event.target.value as WorkspaceTemplate)}
                 >
-                  {(templates.length
-                    ? templates
-                    : [
-                        {
-                          id: "project_partners" as const,
-                          titleFa: "شرکای پروژه",
-                          summaryFa: "",
-                          defaultModules: [],
-                        },
-                      ]
-                  ).map((item) => (
+                  {visibleTemplates.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.titleFa}
                     </option>
@@ -264,16 +340,31 @@ export function OnboardingView() {
               </FormStack>
             </form>
             {created ? (
-              <p className="liveSuccess" style={{ marginTop: 12 }}>
-                ساخته شد: {created.name} ({created.slug}) —{" "}
-                <button
-                  type="button"
-                  className="textButton"
-                  onClick={() => goToWorkspaceFinance(created)}
-                >
-                  ادامه در مالی
-                </button>
-              </p>
+              <div className="liveSuccess" style={{ marginTop: 12 }}>
+                <p style={{ margin: "0 0 8px" }}>
+                  ساخته شد: {created.name} ({created.slug})
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                  <Button type="button" onClick={() => goToWorkspaceHome(created)}>
+                    باز کردن خانهٔ فضا
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => goToWorkspaceMembers(created)}
+                  >
+                    دعوت اعضا
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => goToWorkspaceFinance(created)}
+                  >
+                    ثبت اولین خرج
+                  </Button>
+                  <Link href="/spaces">همه فضاها</Link>
+                </div>
+              </div>
             ) : null}
           </SectionCard>
 
@@ -296,9 +387,9 @@ export function OnboardingView() {
                       <Button
                         type="button"
                         variant="ghost"
-                        onClick={() => goToWorkspaceFinance(workspace)}
+                        onClick={() => goToWorkspaceHome(workspace)}
                       >
-                        انتخاب
+                        خانه
                       </Button>
                     }
                   />

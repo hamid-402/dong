@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { DirIcon } from "@/components/dir-icon";
+import { t } from "@/lib/i18n";
 
 export type BreadcrumbCrumb = {
   label: string;
@@ -12,7 +13,7 @@ export function AppBreadcrumb({ items }: { items: BreadcrumbCrumb[] }) {
   if (items.length === 0) return null;
 
   return (
-    <nav className="shell-breadcrumb" aria-label="مسیر">
+    <nav className="shell-breadcrumb" aria-label={t("shell.breadcrumb")}>
       <ol className="shell-breadcrumb__list">
         {items.map((item, index) => {
           const last = index === items.length - 1;

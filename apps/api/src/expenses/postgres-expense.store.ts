@@ -57,6 +57,10 @@ async function loadItems(
       assigneeUserIds: assignments.map((a) => a.userId),
       sharesByUserId,
       notes: item.notes ?? undefined,
+      catalogItemId: item.catalogItemId ?? undefined,
+      unitCode: item.unitCode ?? undefined,
+      quantity: item.quantity != null ? Number(item.quantity) : undefined,
+      unitPriceMinor: item.unitPriceMinor?.toString(),
     });
   }
   return result;
@@ -115,6 +119,22 @@ function mapExpense(
     originalCurrency: row.originalCurrency ?? undefined,
     originalAmountMinor: row.originalAmountMinor?.toString(),
     fxRateId: row.fxRateId ?? undefined,
+    catalogItemId: row.catalogItemId ?? undefined,
+    unitCode: row.unitCode ?? undefined,
+    quantity: row.quantity != null ? Number(row.quantity) : undefined,
+    unitPriceMinor: row.unitPriceMinor?.toString(),
+    fundingSourceKind:
+      row.fundingSourceKind === "petty_cash" ||
+      row.fundingSourceKind === "personal" ||
+      row.fundingSourceKind === "member" ||
+      row.fundingSourceKind === "credit"
+        ? row.fundingSourceKind
+        : undefined,
+    fundingRefId: row.fundingRefId ?? undefined,
+    missionKind:
+      row.missionKind === "advance" || row.missionKind === "settlement"
+        ? row.missionKind
+        : undefined,
     idempotencyKey: row.idempotencyKey,
     createdByUserId: row.createdByUserId,
   };
@@ -123,7 +143,7 @@ function mapExpense(
 export class PostgresExpenseStore implements ExpenseStore {
   readonly persistence = "postgres" as const;
 
-  constructor(private readonly db: AppDatabase) {}
+  constructor(readonly db: AppDatabase) {}
 
   static fromConnectionString(connectionString: string): PostgresExpenseStore {
     const { db } = createDatabase(connectionString);
@@ -184,6 +204,15 @@ export class PostgresExpenseStore implements ExpenseStore {
             occurredOn: input.occurredOn,
             idempotencyKey: input.idempotencyKey.trim(),
             createdByUserId: actorUserId,
+            catalogItemId: input.catalogItemId?.trim() || null,
+            unitCode: input.unitCode?.trim() || null,
+            quantity: input.quantity != null ? String(input.quantity) : null,
+            unitPriceMinor: input.unitPriceMinor
+              ? BigInt(input.unitPriceMinor)
+              : null,
+            fundingSourceKind: input.fundingSourceKind ?? null,
+            fundingRefId: input.fundingRefId?.trim() || null,
+            missionKind: input.missionKind ?? null,
           })
           .returning();
 
@@ -226,6 +255,12 @@ export class PostgresExpenseStore implements ExpenseStore {
                 title: item.title.trim(),
                 amountMinor: BigInt(item.amount.amountMinor),
                 notes: item.notes?.trim() || null,
+                catalogItemId: item.catalogItemId?.trim() || null,
+                unitCode: item.unitCode?.trim() || null,
+                quantity: item.quantity != null ? String(item.quantity) : null,
+                unitPriceMinor: item.unitPriceMinor
+                  ? BigInt(item.unitPriceMinor)
+                  : null,
               })
               .returning();
             const itemRow = insertedItems[0];
@@ -414,28 +449,30 @@ export class PostgresExpenseStore implements ExpenseStore {
     action: "submit" | "post" | "reverse",
     options?: ExpenseViewOptions,
   ): Promise<StoredExpense> {
+    const work = async (tx: AppDatabase) => {
+      const stored = await this.loadExpense(tx, expenseId, workspaceId);
+      assertCanMutateExpense(stored, actorUserId, action, options);
+      if (!allowedFrom.includes(stored.status)) {
+        throw new Error("EXPENSE_STATUS");
+      }
+
+      const updated = await tx
+        .update(expense)
+        .set({ status: nextStatus })
+        .where(eq(expense.id, expenseId))
+        .returning();
+
+      const next = updated[0];
+      if (!next) {
+        throw new Error("EXPENSE_UPDATE_FAILED");
+      }
+      return this.loadExpense(tx, expenseId, workspaceId);
+    };
+    if (options?.tx) return work(options.tx);
     return withTenantContext(
       this.db,
       { workspaceId, userId: actorUserId },
-      async (tx) => {
-        const stored = await this.loadExpense(tx, expenseId, workspaceId);
-        assertCanMutateExpense(stored, actorUserId, action, options);
-        if (!allowedFrom.includes(stored.status)) {
-          throw new Error("EXPENSE_STATUS");
-        }
-
-        const updated = await tx
-          .update(expense)
-          .set({ status: nextStatus })
-          .where(eq(expense.id, expenseId))
-          .returning();
-
-        const next = updated[0];
-        if (!next) {
-          throw new Error("EXPENSE_UPDATE_FAILED");
-        }
-        return this.loadExpense(tx, expenseId, workspaceId);
-      },
+      work,
     );
   }
 

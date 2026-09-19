@@ -25,6 +25,10 @@ export type ProductFeatureFlags = {
   workspacePlans: boolean;
   planAdmin: boolean;
   approvalSteps: boolean;
+  /** Four-eyes on high-value settlement confirm / expense approve (R10-25). */
+  makerChecker: boolean;
+  /** Require receipt or cash-ack evidence on settlement confirm. */
+  settlementEvidence: boolean;
 };
 
 export const PRODUCT_FLAG_ENV = {
@@ -44,6 +48,8 @@ export const PRODUCT_FLAG_ENV = {
   workspacePlans: "ENABLE_WORKSPACE_PLANS",
   planAdmin: "ENABLE_PLAN_ADMIN",
   approvalSteps: "ENABLE_APPROVAL_STEPS",
+  makerChecker: "ENABLE_MAKER_CHECKER",
+  settlementEvidence: "ENABLE_SETTLEMENT_EVIDENCE",
 } as const;
 
 function parseTriState(
@@ -116,6 +122,15 @@ export function readProductFeatureFlags(
     approvalSteps: parseTriState(
       env[PRODUCT_FLAG_ENV.approvalSteps],
       unsetDefault,
+    ),
+    makerChecker: parseTriState(
+      env[PRODUCT_FLAG_ENV.makerChecker],
+      unsetDefault,
+    ),
+    settlementEvidence: parseTriState(
+      // Opt-in until confirm UI always sends evidence (avoids breaking store-level flows).
+      env[PRODUCT_FLAG_ENV.settlementEvidence],
+      false,
     ),
   };
 }

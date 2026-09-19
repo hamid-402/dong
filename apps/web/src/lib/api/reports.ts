@@ -9,6 +9,7 @@ import type {
   WorkspaceReportCompareResponse,
 } from "@dang/contracts";
 import { API_BASE, apiFetch } from "./client";
+import { postWithOfflineQueue } from "./offline-post";
 
 /** Workspace report, report-export and member-report endpoints — domain slice (dong-50 #30). */
 export const reportsApi = {
@@ -41,11 +42,12 @@ export const reportsApi = {
     );
   },
   createReportExport: (workspaceId: string, body: CreateReportExportRequest) =>
-    apiFetch<ReportExportSummary>(
-      `/workspaces/${workspaceId}/reports/exports`,
-      { method: "POST", body: JSON.stringify(body) },
-      body.idempotencyKey,
-    ),
+    postWithOfflineQueue<ReportExportSummary>({
+      path: `/workspaces/${workspaceId}/reports/exports`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "خروجی گزارش",
+    }),
   getReportExport: (workspaceId: string, exportId: string) =>
     apiFetch<ReportExportSummary>(
       `/workspaces/${workspaceId}/reports/exports/${exportId}`,

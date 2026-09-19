@@ -1,3 +1,4 @@
+import { CSRF_COOKIE, REAUTH_COOKIE } from "@dang/contracts";
 import { loadAppEnv } from "@dang/config";
 import {
   SESSION_COOKIE,
@@ -12,9 +13,19 @@ export type CookieReply = {
     value: string,
     options: Record<string, unknown>,
   ) => void;
+  clearCookie?: (name: string, options?: Record<string, unknown>) => void;
 };
 
-/** Single session-cookie issuance path for password, OIDC, and MFA. */
+function cookieBase(env: ReturnType<typeof loadAppEnv>) {
+  return {
+    path: "/",
+    sameSite: "lax" as const,
+    secure: env.nodeEnv === "production",
+    maxAge: Math.floor(SESSION_TTL_MS / 1000),
+  };
+}
+
+/** Single session-cookie issuance path for password, OIDC, MFA, and dev bootstrap. */
 export async function issueSessionCookie(
   accounts: AccountStore,
   userId: string,
@@ -30,11 +41,25 @@ export async function issueSessionCookie(
     ip: meta?.ip,
     userAgent: meta?.userAgent,
   });
+  const base = cookieBase(env);
   reply.setCookie(SESSION_COOKIE, raw, {
-    path: "/",
+    ...base,
     httpOnly: true,
-    sameSite: "lax",
-    secure: env.nodeEnv === "production",
-    maxAge: Math.floor(SESSION_TTL_MS / 1000),
   });
+  reply.setCookie(CSRF_COOKIE, newOpaqueToken(), {
+    ...base,
+    httpOnly: false,
+  });
+}
+
+export function clearSessionCookies(reply: CookieReply): void {
+  const env = loadAppEnv();
+  const base = {
+    path: "/",
+    sameSite: "lax" as const,
+    secure: env.nodeEnv === "production",
+  };
+  reply.clearCookie?.(SESSION_COOKIE, { ...base, httpOnly: true });
+  reply.clearCookie?.(CSRF_COOKIE, { ...base, httpOnly: false });
+  reply.clearCookie?.(REAUTH_COOKIE, { ...base, httpOnly: true });
 }

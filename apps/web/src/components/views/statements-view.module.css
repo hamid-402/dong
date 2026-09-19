@@ -1,0 +1,696 @@
+.toolbar {
+  display: grid;
+  gap: var(--dang-space-4, 1rem);
+  margin-bottom: var(--dang-space-5, 1.5rem);
+  padding: var(--dang-space-4, 1rem);
+  border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
+  border-radius: var(--dang-radius-lg, 16px);
+  background: var(--dang-surface-2, #16211e);
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.preset {
+  min-height: 36px;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--dang-radius-pill, 999px);
+  border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
+  background: transparent;
+  color: var(--dang-text, #f3f1e9);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background var(--dang-dur, 180ms) var(--dang-ease),
+    border-color var(--dang-dur, 180ms) var(--dang-ease);
+}
+
+.preset:hover {
+  background: var(--dang-fill-hover, rgba(255, 255, 255, 0.06));
+  border-color: var(--dang-line-strong, rgba(220, 229, 225, 0.2));
+}
+
+.preset:focus-visible {
+  outline: none;
+  box-shadow: var(--dang-focus-ring);
+}
+
+.presetActive {
+  border-color: color-mix(in srgb, var(--dang-primary, #57d7c5) 55%, transparent);
+  background: var(--dang-primary-soft, rgba(87, 215, 197, 0.12));
+  color: var(--dang-text, #f3f1e9);
+  font-weight: 650;
+}
+
+.rangeFields {
+  display: grid;
+  gap: var(--dang-space-3, 0.75rem);
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  align-items: end;
+}
+
+.memberRail {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: var(--dang-space-5, 1.5rem);
+  padding-bottom: 0.35rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.memberRail:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--dang-primary, #57d7c5) 48%, transparent);
+  outline-offset: 2px;
+}
+
+.memberRail .memberCard {
+  flex: 0 0 min(14rem, 78vw);
+  scroll-snap-align: start;
+}
+
+.memberCard {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--dang-radius-md, 12px);
+  border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
+  background: var(--dang-surface, #101816);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color var(--dang-dur, 180ms) var(--dang-ease),
+    background var(--dang-dur, 180ms) var(--dang-ease),
+    transform var(--dang-dur, 180ms) var(--dang-ease);
+}
+
+.memberCard:hover {
+  border-color: var(--dang-line-strong, rgba(220, 229, 225, 0.2));
+  background: var(--dang-surface-2, #16211e);
+}
+
+.memberCardActive {
+  border-color: color-mix(in srgb, var(--dang-primary, #57d7c5) 55%, transparent);
+  background: var(--dang-primary-soft, rgba(87, 215, 197, 0.1));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dang-primary, #57d7c5) 25%, transparent);
+}
+
+.memberCardName {
+  font-weight: 650;
+  font-size: 0.95rem;
+}
+
+.memberCardMeta,
+.memberCardLabel {
+  font-size: 0.75rem;
+  color: var(--dang-muted, #9eaaa6);
+}
+
+.memberCardAmount {
+  margin-top: 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.memberCard_payable .memberCardAmount {
+  color: var(--dang-gold, #c9aa70);
+}
+
+.memberCard_credit .memberCardAmount {
+  color: var(--dang-success, #55d68b);
+}
+
+.memberCard_balanced .memberCardAmount {
+  color: var(--dang-muted, #9eaaa6);
+}
+
+.dayTicks {
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0.45rem 0 0;
+  border-top: 1px dashed var(--dang-line, rgba(220, 229, 225, 0.11));
+  display: grid;
+  gap: 0.25rem;
+}
+
+.dayTicks li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--dang-muted, #9eaaa6);
+  font-variant-numeric: tabular-nums;
+}
+
+.dayTicksMore {
+  justify-content: flex-end !important;
+  opacity: 0.8;
+}
+
+.bill {
+  display: grid;
+  gap: var(--dang-space-5, 1.5rem);
+  animation: billIn var(--dang-dur-page, 220ms) var(--dang-ease) both;
+}
+
+@keyframes billIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bill {
+    animation: none;
+  }
+}
+
+.billHeader {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
+}
+
+.billEyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dang-gold, #c9aa70);
+}
+
+.billSubject {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--dang-text, #f3f1e9);
+}
+
+.billMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.45rem 0 0;
+  color: var(--dang-muted, #9eaaa6);
+  font-size: 0.9rem;
+}
+
+.billWorkspace {
+  font-weight: 600;
+  color: var(--dang-text, #f3f1e9);
+}
+
+.billDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--dang-muted, #9eaaa6);
+  opacity: 0.7;
+}
+
+.billIssued {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--dang-muted, #9eaaa6);
+  text-align: end;
+}
+
+.sealOk,
+.sealBad {
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--dang-radius-pill, 999px);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.sealOk {
+  color: var(--dang-success, #55d68b);
+  background: color-mix(in srgb, var(--dang-success, #55d68b) 14%, transparent);
+}
+
+.sealBad {
+  color: var(--dang-danger, #ed7c78);
+  background: color-mix(in srgb, var(--dang-danger, #ed7c78) 14%, transparent);
+}
+
+.summaryStrip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  position: sticky;
+  top: 0.5rem;
+  z-index: 2;
+  padding-block: 0.15rem;
+  background: color-mix(in srgb, var(--dang-surface, #101816) 92%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+@media (max-width: 720px) {
+  .summaryStrip {
+    grid-template-columns: 1fr;
+  }
+}
+
+.summaryCell {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--dang-radius-md, 12px);
+  border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
+  background: var(--dang-surface-2, #16211e);
+}
+
+.summaryCell > span:first-child {
+  font-size: 0.78rem;
+  color: var(--dang-muted, #9eaaa6);
+}
+
+.summaryPayable {
+  border-color: color-mix(in srgb, var(--dang-gold, #c9aa70) 45%, transparent);
+  background: var(--dang-gold-soft, rgba(201, 170, 112, 0.12));
+}
+
+.summaryCredit {
+  border-color: color-mix(in srgb, var(--dang-success, #55d68b) 40%, transparent);
+  background: color-mix(in srgb, var(--dang-success, #55d68b) 10%, transparent);
+}
+
+.summaryBalanced {
+  border-color: var(--dang-line-strong, rgba(220, 229, 225, 0.2));
+}
+
+.amountLg {
+  font-size: 1.1rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.amountHero {
+  font-size: 1.45rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  color: var(--dang-gold, #c9aa70);
+}
+
+.summaryCredit .amountHero {
+  color: var(--dang-success, #55d68b);
+}
+
+.summaryBalanced .amountHero {
+  color: var(--dang-text, #f3f1e9);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border-radius: var(--dang-radius-md, 12px);
+  border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
+}
+
+.tableCaption {
+  caption-side: top;
+  padding: 0.65rem 0.75rem;
+  text-align: start;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--dang-muted, #9eaaa6);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
+  padding: 0.55rem 0.6rem;
+  text-align: start;
+  vertical-align: middle;
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-weight: 650;
+  font-size: 0.75rem;
+  color: var(--dang-text, #f3f1e9);
+  background: var(--dang-surface-3, #1b2925);
+  box-shadow: 0 1px 0 var(--dang-line, rgba(220, 229, 225, 0.18));
+}
+
+.table tbody tr:nth-child(even):not(.dayBand) {
+  background: var(--dang-fill-subtle, rgba(255, 255, 255, 0.03));
+}
+
+.dayBand td {
+  padding: 0.55rem 0.75rem;
+  background: color-mix(in srgb, var(--dang-primary, #57d7c5) 8%, var(--dang-surface-2, #16211e));
+  border-bottom-color: color-mix(in srgb, var(--dang-primary, #57d7c5) 22%, transparent);
+}
+
+.dayBandLabel {
+  font-weight: 650;
+  color: var(--dang-text, #f3f1e9);
+}
+
+.dayBandShare {
+  margin-inline-start: 0.85rem;
+  font-size: 0.8rem;
+  color: var(--dang-muted, #9eaaa6);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  text-align: end !important;
+  white-space: nowrap;
+}
+
+.dateCell {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.itemName {
+  font-weight: 500;
+}
+
+.shareCell {
+  font-weight: 650;
+}
+
+.methodPill {
+  display: inline-block;
+  padding: 0.12rem 0.45rem;
+  border-radius: var(--dang-radius-pill, 999px);
+  font-size: 0.72rem;
+  color: var(--dang-muted, #9eaaa6);
+  background: var(--dang-fill-soft, rgba(255, 255, 255, 0.045));
+}
+
+.meta {
+  color: var(--dang-muted, #9eaaa6);
+  font-size: 0.8em;
+}
+
+.billFooter {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.footerBlock {
+  padding: 1rem 1.1rem;
+  border-radius: var(--dang-radius-md, 12px);
+  border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
+  background: var(--dang-surface-2, #16211e);
+}
+
+.footerBlock[data-emphasis="totals"] {
+  border-color: color-mix(in srgb, var(--dang-gold, #c9aa70) 35%, transparent);
+  background: var(--dang-gold-soft, rgba(201, 170, 112, 0.12));
+}
+
+.footerBlock[data-emphasis="payout"] {
+  border-color: color-mix(in srgb, var(--dang-primary, #57d7c5) 30%, transparent);
+  background: var(--dang-primary-soft, rgba(87, 215, 197, 0.1));
+}
+
+.footerRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.footerHighlight {
+  margin-top: 0.45rem;
+  padding-top: 0.65rem;
+  font-weight: 750;
+  font-size: 1.08rem;
+  border-top: 1px dashed color-mix(in srgb, var(--dang-gold, #c9aa70) 50%, transparent);
+  color: var(--dang-gold, #c9aa70);
+}
+
+.footerCredit {
+  margin-top: 0.45rem;
+  padding-top: 0.65rem;
+  font-weight: 700;
+  border-top: 1px dashed color-mix(in srgb, var(--dang-success, #55d68b) 45%, transparent);
+  color: var(--dang-success, #55d68b);
+}
+
+.balanceHint {
+  margin: 0.65rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--dang-muted, #9eaaa6);
+}
+
+.payoutTitle {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.payoutGrid {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.payoutGrid dt {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--dang-muted, #9eaaa6);
+}
+
+.payoutGrid dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+
+.destination {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.04em;
+  word-break: break-all;
+  font-size: 0.95rem;
+}
+
+.payoutActions {
+  margin-top: 0.35rem;
+}
+
+.payoutUnset {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.settingsLink {
+  color: var(--dang-primary, #57d7c5);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.settingsLink:hover {
+  text-decoration: underline;
+}
+
+.actionsBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  padding-top: 0.25rem;
+}
+
+.primaryPrint,
+.printLink {
+  color: var(--dang-primary, #57d7c5);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.primaryPrint:hover,
+.printLink:hover {
+  text-decoration: underline;
+}
+
+.printRoot {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 1.75rem 1.5rem 2.5rem;
+  background: #fff;
+  color: #14201d;
+  min-height: 100vh;
+}
+
+.printRoot .summaryStrip {
+  position: static;
+  background: transparent;
+  backdrop-filter: none;
+  padding-block: 0;
+}
+
+.printRoot .billEyebrow {
+  color: #b45309;
+}
+
+.printRoot .billSubject,
+.printRoot .billWorkspace,
+.printRoot .itemName,
+.printRoot .dayBandLabel {
+  color: #14201d;
+}
+
+.printRoot .billMeta,
+.printRoot .billIssued,
+.printRoot .meta,
+.printRoot .balanceHint,
+.printRoot .dayBandShare,
+.printRoot .memberCardMeta {
+  color: #53615d;
+}
+
+.printRoot .summaryCell,
+.printRoot .footerBlock,
+.printRoot .tableWrap {
+  border-color: #d7dfdc;
+  background: #fff;
+}
+
+.printRoot .summaryPayable,
+.printRoot .footerBlock[data-emphasis="totals"] {
+  background: #fff8e8;
+  border-color: #e8c98a;
+}
+
+.printRoot .summaryCredit,
+.printRoot .footerBlock[data-emphasis="payout"] {
+  background: #f0faf6;
+  border-color: #b7d7c8;
+}
+
+.printRoot .amountHero,
+.printRoot .footerHighlight {
+  color: #b45309;
+}
+
+.printRoot .table thead th {
+  background: #0f766e;
+  color: #fff;
+  border-color: #0f766e;
+}
+
+.printRoot .dayBand td {
+  background: #e8f3f1;
+  border-bottom-color: #9ec4bd;
+}
+
+.printRoot .table tbody tr:nth-child(even):not(.dayBand) {
+  background: #f7f9f8;
+}
+
+.printRoot .methodPill {
+  background: #eef2f0;
+  color: #53615d;
+}
+
+.printHint {
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+  color: #53615d;
+}
+
+@media print {
+  .printHint,
+  .actionsBar,
+  .payoutActions,
+  .settingsLink {
+    display: none !important;
+  }
+
+  .summaryStrip {
+    position: static;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  .printRoot {
+    max-width: none;
+    padding: 0;
+    min-height: 0;
+  }
+
+  .bill {
+    animation: none;
+  }
+
+  .table thead th {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .footerBlock,
+  .summaryPayable,
+  .dayBand td {
+    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+
+/* print-w5-deep */
+@media print {
+  .toolbar,
+  .memberRail,
+  .presets {
+    display: none !important;
+  }
+
+  .bill {
+    border: none;
+    box-shadow: none;
+    background: #fff;
+    color: #14201d;
+  }
+
+  .table thead th {
+    color: #14201d;
+    background: #f3f6f5;
+    box-shadow: none;
+  }
+
+  .tableCaption {
+    color: #14201d;
+    font-size: 11pt;
+  }
+
+  .billHeader,
+  .summaryStrip,
+  .billFooter {
+    break-inside: avoid;
+  }
+}

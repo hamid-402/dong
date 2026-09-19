@@ -7,29 +7,50 @@ import {
 import {
   aggregatePersonalFinanceTrends,
   buildPersonalOverviewCsv,
+  computeMonthlyCloseTotals,
+  currentJalaliYearMonth,
+  enrichSavingsGoalSummary,
+  isSpendingAlertBreached,
+  jalaliYearMonthDateBounds,
+  jalaliYearMonthFromIsoDate,
+  resolveYearMonthDateBounds,
   shouldNotifyPersonalBudgetAlert,
+  shouldNotifySpendingAlert,
   spaceKindForTemplate,
+  spendingAlertPeriodBounds,
   sumActorExpensesInRange,
   zeroIrr,
   type AuthActor,
+  type CreateIncomeSourceRequest,
   type CreatePersonalCategoryRequest,
   type CreatePersonalFinanceExportRequest,
   type CreatePersonalMoneyAccountRequest,
   type CreatePersonalMoneyTxnRequest,
   type CreatePersonalTransferRequest,
+  type CreateSavingsGoalContributionRequest,
+  type CreateSavingsGoalRequest,
+  type IncomeSourceSummary,
+  type MonthlyCloseSummary,
   type PersonalBudgetAlertLevel,
   type PersonalBudgetSummary,
   type PersonalCategorySummary,
   type PersonalFinanceExportSummary,
   type PersonalFinanceOverviewResponse,
+  type PersonalFinanceOverviewScope,
   type PersonalFinanceTrendGroupBy,
   type PersonalFinanceTrendsResponse,
   type PersonalFinanceWorkspaceLine,
   type PersonalMoneyAccountSummary,
   type PersonalMoneyTxnSummary,
   type PersonalResourcesSummary,
+  type PutSpendingAlertsRequest,
+  type SavingsGoalContributionSummary,
+  type SavingsGoalSummary,
+  type SpendingAlertSummary,
+  type UpdateIncomeSourceRequest,
   type UpdatePersonalCategoryRequest,
   type UpdatePersonalMoneyAccountRequest,
+  type UpdateSavingsGoalRequest,
   type UpsertPersonalBudgetRequest,
 } from "@dang/contracts";
 import { EXPENSE_STORE, type ExpenseStore } from "../expenses/expense.types.js";
@@ -40,6 +61,10 @@ import {
   SETTLEMENT_STORE,
   type SettlementStore,
 } from "../settlements/settlement.types.js";
+import {
+  PERSONAL_GOALS_STORE,
+  type PersonalGoalsStore,
+} from "./personal-goals.types.js";
 import {
   PERSONAL_RESOURCES_STORE,
   type PersonalResourcesStore,
@@ -54,6 +79,7 @@ export class PersonalFinanceService {
     @Inject(SETTLEMENT_STORE) private readonly settlements: SettlementStore,
     @Inject(PERSONAL_RESOURCES_STORE)
     private readonly resources: PersonalResourcesStore,
+    @Inject(PERSONAL_GOALS_STORE) private readonly goals: PersonalGoalsStore,
     @Inject(NotificationsService) private readonly notifications: NotificationsService,
   ) {}
 
@@ -61,8 +87,9 @@ export class PersonalFinanceService {
     actor: AuthActor,
     from: string,
     to: string,
+    scopeRaw?: string,
   ): Promise<PersonalFinanceOverviewResponse> {
-    return this.buildOverview(actor, from, to);
+    return this.buildOverview(actor, from, to, this.parseOverviewScope(scopeRaw));
   }
 
   async trends(
@@ -162,7 +189,8 @@ export class PersonalFinanceService {
     body: CreatePersonalMoneyTxnRequest,
   ): Promise<PersonalMoneyTxnSummary> {
     await this.assertOptionalLinks(actor.userId, body);
-    const yearMonth = body.occurredOn?.slice(0, 7);
+    const yearMonth =
+      jalaliYearMonthFromIsoDate(body.occurredOn) ?? body.occurredOn?.slice(0, 7);
     let previousLevel: PersonalBudgetAlertLevel | undefined;
     if (body.kind === "expense" && yearMonth && /^\d{4}-\d{2}$/.test(yearMonth)) {
       const budgets = await this.resources.listBudgets(actor.userId);
@@ -177,6 +205,10 @@ export class PersonalFinanceService {
       if (budget) {
         await this.maybeNotifyBudgetAlert(actor.userId, budget, previousLevel);
       }
+      await this.maybeNotifySpendingAlerts(actor.userId, created.occurredOn, {
+        categoryId: created.categoryId,
+        linkedWorkspaceId: created.linkedWorkspaceId,
+      });
     }
     return created;
   }
@@ -252,7 +284,7 @@ export class PersonalFinanceService {
   ): Promise<PersonalFinanceExportSummary> {
     const created = await this.mapErrors(() =>
       this.resources.createExport(actor.userId, body, async () => {
-        const overview = await this.buildOverview(actor, body.from, body.to);
+        const overview = await this.buildOverview(actor, body.from, body.to, "combined");
         const csvBody = buildPersonalOverviewCsv(
           overview.workspaces.map((line) => ({
             workspaceName: line.workspaceName,
@@ -294,6 +326,189 @@ export class PersonalFinanceService {
     };
   }
 
+  listIncomeSources(actor: AuthActor): Promise<IncomeSourceSummary[]> {
+    return this.goals.listIncomeSources(actor.userId);
+  }
+
+  createIncomeSource(
+    actor: AuthActor,
+    body: CreateIncomeSourceRequest,
+  ): Promise<IncomeSourceSummary> {
+    return this.mapErrors(() => this.goals.createIncomeSource(actor.userId, body));
+  }
+
+  updateIncomeSource(
+    actor: AuthActor,
+    sourceId: string,
+    body: UpdateIncomeSourceRequest,
+  ): Promise<IncomeSourceSummary> {
+    return this.mapErrors(() =>
+      this.goals.updateIncomeSource(actor.userId, sourceId, body),
+    );
+  }
+
+  async listSavingsGoals(actor: AuthActor): Promise<SavingsGoalSummary[]> {
+    const goals = await this.mapErrors(() =>
+      this.goals.listSavingsGoals(actor.userId),
+    );
+    return Promise.all(
+      goals.map((goal) => this.enrichGoalProgressFromLedger(actor.userId, goal)),
+    );
+  }
+
+  createSavingsGoal(
+    actor: AuthActor,
+    body: CreateSavingsGoalRequest,
+  ): Promise<SavingsGoalSummary> {
+    return this.mapErrors(() => this.goals.createSavingsGoal(actor.userId, body));
+  }
+
+  async updateSavingsGoal(
+    actor: AuthActor,
+    goalId: string,
+    body: UpdateSavingsGoalRequest,
+  ): Promise<SavingsGoalSummary> {
+    const goal = await this.mapErrors(() =>
+      this.goals.updateSavingsGoal(actor.userId, goalId, body),
+    );
+    return this.enrichGoalProgressFromLedger(actor.userId, goal);
+  }
+
+  async addGoalContribution(
+    actor: AuthActor,
+    goalId: string,
+    body: CreateSavingsGoalContributionRequest,
+  ): Promise<{
+    goal: SavingsGoalSummary;
+    contribution: SavingsGoalContributionSummary;
+  }> {
+    return this.mapErrors(async () => {
+      let payload = body;
+      const goals = await this.goals.listSavingsGoals(actor.userId);
+      const existing = goals.find((g) => g.id === goalId);
+      if (
+        existing?.accountId &&
+        !body.txnId?.trim() &&
+        existing.status !== "archived"
+      ) {
+        const occurredOn = body.occurredAt.slice(0, 10);
+        const txn = await this.resources.createTxn(actor.userId, {
+          accountId: existing.accountId,
+          kind: "income",
+          amount: { amountMinor: body.amountMinor, currency: "IRR" },
+          occurredOn: /^\d{4}-\d{2}-\d{2}$/.test(occurredOn)
+            ? occurredOn
+            : new Date().toISOString().slice(0, 10),
+          note: body.note?.trim() || `واریز به هدف: ${existing.name}`,
+          idempotencyKey: `goal-contrib:${body.idempotencyKey}`,
+        });
+        payload = { ...body, txnId: txn.id };
+      }
+      const result = await this.goals.addContribution(
+        actor.userId,
+        goalId,
+        payload,
+      );
+      return {
+        goal: await this.enrichGoalProgressFromLedger(actor.userId, result.goal),
+        contribution: result.contribution,
+      };
+    });
+  }
+
+  listAlerts(actor: AuthActor): Promise<SpendingAlertSummary[]> {
+    return this.goals.listAlerts(actor.userId);
+  }
+
+  putAlerts(
+    actor: AuthActor,
+    body: PutSpendingAlertsRequest,
+  ): Promise<SpendingAlertSummary[]> {
+    return this.mapErrors(() => this.goals.putAlerts(actor.userId, body));
+  }
+
+  async getMonthlyClose(
+    actor: AuthActor,
+    yearMonth?: string,
+  ): Promise<MonthlyCloseSummary> {
+    const ym = yearMonth?.trim() || this.currentYearMonth();
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) {
+      throw new BadRequestException({ detail: "ماه باید YYYY-MM باشد" });
+    }
+    const existing = await this.goals.getMonthlyClose(actor.userId, ym);
+    if (existing) return existing;
+    return this.recomputeMonthlyClose(actor, ym);
+  }
+
+  async recomputeMonthlyClose(
+    actor: AuthActor,
+    yearMonth: string,
+  ): Promise<MonthlyCloseSummary> {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(yearMonth)) {
+      throw new BadRequestException({ detail: "ماه باید YYYY-MM باشد" });
+    }
+    const { from, to } = resolveYearMonthDateBounds(
+      yearMonth,
+      jalaliYearMonthDateBounds,
+    );
+    const txns = await this.resources.listTxns(actor.userId, {
+      from,
+      to,
+      limit: 50_000,
+    });
+    let incomeMinor = 0n;
+    let personalMinor = 0n;
+    const categoryTotals = new Map<string, bigint>();
+    for (const txn of txns) {
+      const amount = BigInt(txn.amount.amountMinor);
+      if (txn.kind === "income") incomeMinor += amount;
+      if (txn.kind === "expense") {
+        personalMinor += amount;
+        if (txn.categoryId) {
+          categoryTotals.set(
+            txn.categoryId,
+            (categoryTotals.get(txn.categoryId) ?? 0n) + amount,
+          );
+        }
+      }
+    }
+
+    const workspaces = await this.iam.listWorkspacesForUser(actor.userId);
+    let groupShareMinor = 0n;
+    for (const workspace of workspaces) {
+      if (spaceKindForTemplate(workspace.template) === "personal") continue;
+      const expenses = await this.expenses.listForWorkspace(workspace.id, actor.userId);
+      const slice = sumActorExpensesInRange(expenses, actor.userId, from, to);
+      groupShareMinor += BigInt(slice.share.amountMinor);
+    }
+
+    const totals = computeMonthlyCloseTotals({
+      incomeMinor,
+      personalExpenseMinor: personalMinor,
+      groupShareMinor,
+    });
+    let topCategoryId: string | null = null;
+    let topAmount = 0n;
+    for (const [categoryId, amount] of categoryTotals) {
+      if (amount > topAmount) {
+        topAmount = amount;
+        topCategoryId = categoryId;
+      }
+    }
+
+    return this.mapErrors(() =>
+      this.goals.upsertMonthlyClose(actor.userId, {
+        yearMonth,
+        ...totals,
+        topCategoryId,
+        empty: totals.empty,
+        emptyReason: totals.empty
+          ? "برای این ماه تراکنش یا سهم گروهی ثبت نشده است"
+          : undefined,
+      }),
+    );
+  }
+
   private async maybeNotifyBudgetAlert(
     userId: string,
     budget: PersonalBudgetSummary,
@@ -324,22 +539,139 @@ export class PersonalFinanceService {
     });
   }
 
+  /** Job/analytics sweep — evaluate all active alerts for one user (G07). */
+  async runThresholdSweep(
+    userId: string,
+    asOfDay?: string,
+  ): Promise<{ fired: number }> {
+    const day = asOfDay ?? new Date().toISOString().slice(0, 10);
+    const alerts = (await this.goals.listAlerts(userId)).filter((a) => a.active);
+    let fired = 0;
+    for (const alert of alerts) {
+      const didFire = await this.processSpendingAlert(userId, day, alert, {});
+      if (didFire) fired += 1;
+    }
+    return { fired };
+  }
+
+  private async maybeNotifySpendingAlerts(
+    userId: string,
+    occurredOn: string,
+    ctx: { categoryId?: string; linkedWorkspaceId?: string },
+  ): Promise<void> {
+    const alerts = (await this.goals.listAlerts(userId)).filter((a) => a.active);
+    if (alerts.length === 0) return;
+
+    for (const alert of alerts) {
+      await this.processSpendingAlert(userId, occurredOn, alert, ctx);
+    }
+  }
+
+  private async processSpendingAlert(
+    userId: string,
+    occurredOn: string,
+    alert: SpendingAlertSummary,
+    ctx: { categoryId?: string; linkedWorkspaceId?: string },
+  ): Promise<boolean> {
+    const { from, to } = spendingAlertPeriodBounds(alert.period, occurredOn);
+    const spentMinor = await this.spentForAlert(userId, alert, from, to, ctx);
+    const breached = isSpendingAlertBreached({
+      spentMinor,
+      limitMinor: BigInt(alert.limit.amountMinor),
+      thresholdPercent: alert.thresholdPercent,
+    });
+    if (
+      !shouldNotifySpendingAlert({
+        breached,
+        lastFiredAt: alert.lastFiredAt,
+        periodFrom: from,
+      })
+    ) {
+      return false;
+    }
+    const personal = await this.iam.ensurePersonalWorkspace(userId);
+    const usedPercent =
+      alert.limit.amountMinor === "0"
+        ? 0
+        : Number((spentMinor * 100n) / BigInt(alert.limit.amountMinor));
+    await this.notifications.notify(userId, {
+      workspaceId: personal.id,
+      userId,
+      channel: alert.channel === "email" ? "email" : "in_app",
+      title: "هشدار سقف خرج",
+      body: `خرج دوره از آستانه ${alert.thresholdPercent}٪ گذشت (${usedPercent}٪ از سقف).`,
+      metadata: {
+        event: "personal.spending.alert",
+        route: "/me/finance",
+        alertId: alert.id,
+        scope: alert.scope,
+        periodFrom: from,
+        periodTo: to,
+      },
+    });
+    await this.goals.markAlertFired(userId, alert.id);
+    return true;
+  }
+
+  private async spentForAlert(
+    userId: string,
+    alert: SpendingAlertSummary,
+    from: string,
+    to: string,
+    ctx: { categoryId?: string; linkedWorkspaceId?: string },
+  ): Promise<bigint> {
+    if (alert.scope === "total" || alert.scope === "category") {
+      const txns = await this.resources.listTxns(userId, { from, to, limit: 50_000 });
+      let sum = 0n;
+      for (const txn of txns) {
+        if (txn.kind !== "expense") continue;
+        if (alert.scope === "category") {
+          const ref = alert.refId ?? ctx.categoryId;
+          if (!ref || txn.categoryId !== ref) continue;
+        }
+        sum += BigInt(txn.amount.amountMinor);
+      }
+      return sum;
+    }
+
+    const workspaces = await this.iam.listWorkspacesForUser(userId);
+    let sum = 0n;
+    for (const workspace of workspaces) {
+      if (spaceKindForTemplate(workspace.template) === "personal") continue;
+      if (alert.scope === "workspace") {
+        const ref = alert.refId ?? ctx.linkedWorkspaceId;
+        if (!ref || workspace.id !== ref) continue;
+      }
+      const expenses = await this.expenses.listForWorkspace(workspace.id, userId);
+      const slice = sumActorExpensesInRange(expenses, userId, from, to);
+      sum += BigInt(slice.share.amountMinor);
+    }
+    return sum;
+  }
+
   private parseTrendGroupBy(raw?: string): PersonalFinanceTrendGroupBy {
     const value = (raw ?? "day").trim();
     if (value === "day" || value === "week" || value === "month") return value;
     throw new BadRequestException({ detail: "groupBy باید day|week|month باشد" });
   }
 
+  private parseOverviewScope(raw?: string): PersonalFinanceOverviewScope {
+    const value = (raw ?? "combined").trim();
+    if (value === "personal" || value === "group" || value === "combined") return value;
+    throw new BadRequestException({
+      detail: "scope باید personal|group|combined باشد",
+    });
+  }
+
   private async buildOverview(
     actor: AuthActor,
     from: string,
     to: string,
+    scope: PersonalFinanceOverviewScope,
   ): Promise<PersonalFinanceOverviewResponse> {
     this.assertRange(from, to);
     const workspaces = await this.iam.listWorkspacesForUser(actor.userId);
     const lines: PersonalFinanceWorkspaceLine[] = [];
-    let totalPaid = 0n;
-    let totalShare = 0n;
 
     for (const workspace of workspaces) {
       const expenses = await this.expenses.listForWorkspace(workspace.id, actor.userId);
@@ -350,9 +682,16 @@ export class PersonalFinanceService {
       );
       const myNet =
         balanceLines.find((line) => line.userId === actor.userId)?.net ?? zeroIrr();
-
-      totalPaid += BigInt(slice.paid.amountMinor);
-      totalShare += BigInt(slice.share.amountMinor);
+      const settlementRows = await this.settlements.listForWorkspace(
+        workspace.id,
+        actor.userId,
+      );
+      let openSettlements = 0;
+      for (const row of settlementRows) {
+        if (row.status === "claimed" || row.status === "disputed") {
+          openSettlements += 1;
+        }
+      }
 
       lines.push({
         workspaceId: workspace.id,
@@ -363,6 +702,7 @@ export class PersonalFinanceService {
         share: slice.share,
         net: myNet,
         expenseCount: slice.expenseCount,
+        openSettlements,
       });
     }
 
@@ -372,18 +712,67 @@ export class PersonalFinanceService {
       return a.workspaceName.localeCompare(b.workspaceName, "fa");
     });
 
+    const personalTxns = await this.resources.listTxns(actor.userId, {
+      from,
+      to,
+      limit: 50_000,
+    });
+    let personalIncome = 0n;
+    let personalExpense = 0n;
+    for (const txn of personalTxns) {
+      const amount = BigInt(txn.amount.amountMinor);
+      if (txn.kind === "income") personalIncome += amount;
+      if (txn.kind === "expense") personalExpense += amount;
+    }
+
+    const filteredWorkspaces =
+      scope === "personal"
+        ? lines.filter((l) => l.spaceKind === "personal")
+        : scope === "group"
+          ? lines.filter((l) => l.spaceKind !== "personal")
+          : lines;
+
+    const scopedPaid = filteredWorkspaces.reduce(
+      (acc, l) => acc + BigInt(l.paid.amountMinor),
+      0n,
+    );
+    const scopedShare = filteredWorkspaces.reduce(
+      (acc, l) => acc + BigInt(l.share.amountMinor),
+      0n,
+    );
+
     return {
       from,
       to,
       currency: "IRR",
+      scope,
       totals: {
-        paid: { amountMinor: totalPaid.toString(), currency: "IRR" },
-        share: { amountMinor: totalShare.toString(), currency: "IRR" },
+        paid: {
+          amountMinor: (scope === "personal" ? 0n : scopedPaid).toString(),
+          currency: "IRR",
+        },
+        share: {
+          amountMinor: (scope === "personal" ? 0n : scopedShare).toString(),
+          currency: "IRR",
+        },
+        ...(scope === "group"
+          ? {}
+          : {
+              personalIncome: {
+                amountMinor: personalIncome.toString(),
+                currency: "IRR" as const,
+              },
+              personalExpense: {
+                amountMinor: personalExpense.toString(),
+                currency: "IRR" as const,
+              },
+            }),
       },
-      workspaces: lines,
+      workspaces: filteredWorkspaces,
       source: {
         expense: this.expenses.persistence,
         ledger: this.ledger.persistence,
+        personal: this.resources.persistence,
       },
     };
   }
@@ -398,8 +787,42 @@ export class PersonalFinanceService {
   }
 
   private currentYearMonth(): string {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    return currentJalaliYearMonth();
+  }
+
+  /**
+   * When a goal is linked to a money account, fold income/transfer_in ledger
+   * deposits into progress (orphan manual contributions still count).
+   */
+  private async enrichGoalProgressFromLedger(
+    userId: string,
+    goal: SavingsGoalSummary,
+  ): Promise<SavingsGoalSummary> {
+    if (!goal.accountId || goal.status === "archived") return goal;
+    const from = goal.createdAt.slice(0, 10);
+    const txns = await this.resources.listTxns(userId, {
+      accountId: goal.accountId,
+      from,
+      limit: 50_000,
+    });
+    const ledgerSum = txns
+      .filter((t) => t.kind === "income" || t.kind === "transfer_in")
+      .reduce((sum, t) => sum + BigInt(t.amount.amountMinor), 0n);
+    const contrib = BigInt(goal.contributed.amountMinor);
+    const orphan = contrib > ledgerSum ? contrib - ledgerSum : 0n;
+    if (ledgerSum === 0n && orphan === contrib) return goal;
+    return enrichSavingsGoalSummary({
+      id: goal.id,
+      name: goal.name,
+      targetMinor: BigInt(goal.target.amountMinor),
+      contributionAmountMinors: orphan > 0n ? [orphan] : [],
+      ledgerDepositMinors: ledgerSum > 0n ? [ledgerSum] : [],
+      targetDate: goal.targetDate,
+      accountId: goal.accountId,
+      status: goal.status === "reached" ? "active" : goal.status,
+      createdAt: goal.createdAt,
+      reachedAt: goal.reachedAt,
+    });
   }
 
   private async assertOptionalLinks(
@@ -462,9 +885,21 @@ export class PersonalFinanceService {
       return await work();
     } catch (error: unknown) {
       const code = error instanceof Error ? error.message : "UNKNOWN";
-      if (code === "ACCOUNT_NOT_FOUND" || code === "CATEGORY_NOT_FOUND") {
+      if (
+        code === "ACCOUNT_NOT_FOUND" ||
+        code === "CATEGORY_NOT_FOUND" ||
+        code === "INCOME_NOT_FOUND" ||
+        code === "GOAL_NOT_FOUND"
+      ) {
         throw new NotFoundException({
-          detail: code === "CATEGORY_NOT_FOUND" ? "دسته پیدا نشد" : "حساب پیدا نشد",
+          detail:
+            code === "CATEGORY_NOT_FOUND"
+              ? "دسته پیدا نشد"
+              : code === "INCOME_NOT_FOUND"
+                ? "منبع درآمد پیدا نشد"
+                : code === "GOAL_NOT_FOUND"
+                  ? "هدف پس‌انداز پیدا نشد"
+                  : "حساب پیدا نشد",
         });
       }
       const details: Record<string, string> = {
@@ -481,6 +916,9 @@ export class PersonalFinanceService {
         CATEGORY_NAME: "نام دسته نامعتبر است",
         CATEGORY_SLUG: "این نامک دسته تکراری است",
         EXPORT_KIND: "نوع خروجی نامعتبر است",
+        INCOME_NAME: "نام منبع درآمد نامعتبر است",
+        GOAL_NAME: "نام هدف نامعتبر است",
+        GOAL_ARCHIVED: "هدف بایگانی شده است",
       };
       if (details[code]) {
         throw new BadRequestException({ detail: details[code] });

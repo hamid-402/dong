@@ -5,6 +5,10 @@
   align-items: start;
 }
 
+:global(#payout) {
+  scroll-margin-top: 5.5rem;
+}
+
 .editStatus {
   display: flex;
   justify-content: space-between;

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AuthActor } from "@dang/contracts";
+import { buildInternalJobHeaders } from "@dang/contracts";
 import { ACTOR_KEY } from "../auth/auth.guard.js";
 import { RecurrenceRunGuard } from "./recurrence-run.guard.js";
 import { ReportsController } from "./reports.controller.js";
@@ -80,21 +81,27 @@ test("runDue uses asOf and only auto-confirms opted-in rules", async () => {
   assert.equal(calls.some((call) => call.includes("expense-draft") && call.startsWith("submit")), false);
 });
 
-test("recurrence internal auth takes priority over dev fallback", async () => {
+test("recurrence internal auth requires HMAC and membership", async () => {
   const previousFlag = process.env.ENABLE_RECURRENCE_WORKER;
   const previousToken = process.env.DANG_INTERNAL_JOB_TOKEN;
   process.env.ENABLE_RECURRENCE_WORKER = "1";
   process.env.DANG_INTERNAL_JOB_TOKEN = "test-internal-secret";
+
+  const signed = buildInternalJobHeaders({
+    secret: "test-internal-secret",
+    workspaceId: "ws-1",
+    actorUserId: "owner-1",
+  });
   const request: Record<string | symbol, unknown> = {
-    headers: {
-      "x-dang-internal-job": "test-internal-secret",
-      "x-dang-internal-actor-user-id": "owner-1",
-    },
+    headers: signed,
+    params: { workspaceId: "ws-1" },
   };
-  const sessionAuth = {
-    canActivate: async () => {
-      throw new Error("session guard should not run");
-    },
+  const accounts = {
+    findSessionByTokenHash: async () => null,
+    findById: async () => null,
+  };
+  const iam = {
+    listMembers: async () => [{ userId: "owner-1", role: "owner" }],
   };
   const context = {
     switchToHttp: () => ({
@@ -103,9 +110,42 @@ test("recurrence internal auth takes priority over dev fallback", async () => {
   };
 
   try {
-    const guard = new RecurrenceRunGuard(sessionAuth as never);
+    const guard = new RecurrenceRunGuard(iam as never, accounts as never);
     assert.equal(await guard.canActivate(context as never), true);
     assert.equal((request[ACTOR_KEY] as AuthActor).userId, "owner-1");
+  } finally {
+    if (previousFlag === undefined) delete process.env.ENABLE_RECURRENCE_WORKER;
+    else process.env.ENABLE_RECURRENCE_WORKER = previousFlag;
+    if (previousToken === undefined) delete process.env.DANG_INTERNAL_JOB_TOKEN;
+    else process.env.DANG_INTERNAL_JOB_TOKEN = previousToken;
+  }
+});
+
+test("recurrence internal auth rejects unsigned actor impersonation", async () => {
+  const previousFlag = process.env.ENABLE_RECURRENCE_WORKER;
+  const previousToken = process.env.DANG_INTERNAL_JOB_TOKEN;
+  process.env.ENABLE_RECURRENCE_WORKER = "1";
+  process.env.DANG_INTERNAL_JOB_TOKEN = "test-internal-secret";
+
+  const request: Record<string | symbol, unknown> = {
+    headers: {
+      "x-dang-internal-job": "test-internal-secret",
+      "x-dang-internal-actor-user-id": "attacker",
+    },
+    params: { workspaceId: "ws-1" },
+  };
+  const accounts = {
+    findSessionByTokenHash: async () => null,
+    findById: async () => null,
+  };
+  const iam = { listMembers: async () => [{ userId: "attacker" }] };
+  const context = {
+    switchToHttp: () => ({ getRequest: () => request }),
+  };
+
+  try {
+    const guard = new RecurrenceRunGuard(iam as never, accounts as never);
+    await assert.rejects(() => guard.canActivate(context as never));
   } finally {
     if (previousFlag === undefined) delete process.env.ENABLE_RECURRENCE_WORKER;
     else process.env.ENABLE_RECURRENCE_WORKER = previousFlag;

@@ -1,0 +1,340 @@
+.panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px 14px 16px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 45%),
+    color-mix(in srgb, var(--surface) 96%, transparent);
+  min-width: 0;
+}
+
+.panelHead {
+  display: grid;
+  gap: 4px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+
+.exportBtn {
+  appearance: none;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 3px 8px;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.exportBtn:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
+}
+
+@media print {
+  .exportBtn {
+    display: none !important;
+  }
+}
+
+.meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.stat {
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.gridLine {
+  stroke: color-mix(in srgb, var(--line) 70%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+.axisLabel {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.barPrimary {
+  fill: url(#proChartPrimary);
+}
+
+.barSecondary {
+  fill: url(#proChartSecondary);
+}
+
+.barMuted {
+  fill: color-mix(in srgb, var(--muted) 45%, transparent);
+}
+
+.linePrimary {
+  fill: none;
+  stroke: color-mix(in srgb, var(--primary) 88%, #1a5c4a);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.areaPrimary {
+  fill: url(#proChartArea);
+  opacity: 0.9;
+}
+
+.dot {
+  fill: color-mix(in srgb, var(--primary) 90%, #fff);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+
+.dotHot {
+  fill: color-mix(in srgb, var(--gold, #c9a227) 80%, #fff);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+
+.skeleton {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 120px;
+  padding: 8px 4px 0;
+}
+
+.skeletonBar {
+  flex: 1;
+  height: 42%;
+  border-radius: 8px 8px 4px 4px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--line) 55%, transparent),
+    color-mix(in srgb, var(--muted) 22%, transparent),
+    color-mix(in srgb, var(--line) 55%, transparent)
+  );
+  background-size: 200% 100%;
+  animation: chartSkel 1.2s ease-in-out infinite;
+}
+
+.skeletonBarTall {
+  height: 78%;
+}
+
+.skeletonBarMid {
+  height: 58%;
+}
+
+@keyframes chartSkel {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonBar {
+    animation: none;
+  }
+}
+
+.valueTag {
+  fill: var(--text);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-inline-end: 6px;
+  vertical-align: -1px;
+}
+
+.legendPrimary {
+  background: color-mix(in srgb, var(--primary) 80%, #1a5c4a);
+}
+
+.legendSecondary {
+  background: color-mix(in srgb, var(--gold, #c9a227) 75%, #8a6a12);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.table th,
+.table td {
+  text-align: start;
+  padding: 6px 8px;
+  border-block-end: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+}
+
+.table th {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.caption {
+  text-align: start;
+  font-weight: 650;
+  padding-block-end: 4px;
+}
+
+.hbarRow {
+  display: grid;
+  grid-template-columns: minmax(4rem, 28%) 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.hbarLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 650;
+}
+
+.hbarTrack {
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 65%, transparent);
+  overflow: hidden;
+}
+
+.hbarFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--primary) 70%, #0d3d32),
+    color-mix(in srgb, var(--primary) 45%, #3d9a7a)
+  );
+}
+
+.hbarVal {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.donutWrap {
+  display: grid;
+  grid-template-columns: minmax(140px, 180px) 1fr;
+  gap: 14px;
+  align-items: center;
+}
+
+@media (max-width: 560px) {
+  .donutWrap {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+}
+
+.donutLegend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.donutLegend li {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.progressRow {
+  display: grid;
+  gap: 4px;
+}
+
+.progressMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.progressTrack {
+  height: 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 70%, transparent);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--primary) 85%, #0a3a30),
+    color-mix(in srgb, var(--gold, #c9a227) 55%, var(--primary))
+  );
+}

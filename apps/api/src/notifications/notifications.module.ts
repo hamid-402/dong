@@ -11,6 +11,7 @@ import {
 import { NotificationsController } from "./notifications.controller.js";
 import { NotificationsService } from "./notifications.service.js";
 import { PostgresNotificationStore } from "./postgres-notification.store.js";
+import { RealtimeHub } from "./realtime-hub.js";
 
 const logger = createLogger("dang-api-notifications");
 
@@ -30,9 +31,10 @@ function buildNotificationStore(): NotificationStore {
   imports: [AuthModule],
   controllers: [NotificationsController],
   providers: [
+    RealtimeHub,
     NotificationsService,
     { provide: NOTIFICATION_STORE, useFactory: buildNotificationStore },
   ],
-  exports: [NotificationsService, NOTIFICATION_STORE],
+  exports: [NotificationsService, NOTIFICATION_STORE, RealtimeHub],
 })
 export class NotificationsModule {}

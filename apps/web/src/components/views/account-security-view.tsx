@@ -9,17 +9,11 @@ import { AppShell } from "@/components/app-shell";
 import { ProductGrid, SectionCard, StatusPill } from "@/components/ui-blocks";
 import { MfaSettingsPanel } from "@/components/shell/mfa-settings-panel";
 import { NotificationPrefsPanel } from "@/components/notification-prefs-panel";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import { api, ApiError, clearClientSession } from "@/lib/api";
+import { formatFaDateTime } from "@/lib/fa-datetime";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useRouter } from "next/navigation";
 import styles from "./account-security-view.module.css";
-
-function authModeLabel(mode: UserProfile["authMode"]): string {
-  if (mode === "password") return "ایمیل و رمز";
-  if (mode === "oidc") return "ورود سازمانی";
-  return "هویت توسعه";
-}
 
 export function AccountSecurityView() {
   const chrome = useAppChrome();
@@ -92,54 +86,6 @@ export function AccountSecurityView() {
       userName={profile?.displayName ?? chrome.userName}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <OperationsModuleHeader
-        ariaLabel="مرکز امنیت حساب"
-        destinations={[
-          { key: "profile", label: "پروفایل", href: "/account", active: false },
-          { key: "security", label: "امنیت", href: "/account/security", active: true },
-          { key: "spaces", label: "فضاهای من", href: "/spaces", active: false },
-        ]}
-        metrics={[
-          {
-            label: "MFA",
-            value: profile ? (profile.mfaEnabled ? "فعال" : "غیرفعال") : "…",
-            detail: profile?.mfaEnrollmentRequired ? "برای نقش مدیریتی الزامی" : "وضعیت حساب",
-            tone: profile?.mfaEnabled ? "positive" : "attention",
-          },
-          {
-            label: "ایمیل",
-            value: profile ? (profile.emailVerified ? "تأییدشده" : "تأییدنشده") : "…",
-            detail: profile?.email ?? "ایمیل ثبت نشده",
-            tone: profile?.emailVerified ? "positive" : "attention",
-          },
-          {
-            label: "نشست فعال",
-            value: profile ? new Intl.NumberFormat("fa-IR").format(sessions.length) : "…",
-            detail: "محاسبه‌شده از session store",
-          },
-          {
-            label: "ورود",
-            value: profile ? authModeLabel(profile.authMode) : "…",
-            detail: "از حساب جاری",
-          },
-        ]}
-        roleLabel={null}
-        persistenceLabel={chrome.persistenceLabel}
-        pending={pending || !profile}
-        onRefresh={() => {
-          startTransition(() => {
-            void Promise.all([api.profile(), api.listSessions()])
-              .then(([nextProfile, nextSessions]) => {
-                setProfile(nextProfile);
-                setSessions(nextSessions);
-                setError(null);
-              })
-              .catch((reason: unknown) => {
-                setError(reason instanceof Error ? reason.message : "تازه‌سازی امنیت ناموفق بود");
-              });
-          });
-        }}
-      />
       {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
       <SectionCard title="دستگاه‌ها و نشست‌های فعال">
         {sessions.length ? (
@@ -162,17 +108,11 @@ export function AccountSecurityView() {
                   </div>
                   <div>
                     <dt>شروع</dt>
-                    <dd>{new Intl.DateTimeFormat("fa-IR", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }).format(new Date(session.createdAt))}</dd>
+                    <dd>{formatFaDateTime(session.createdAt)}</dd>
                   </div>
                   <div>
                     <dt>انقضا</dt>
-                    <dd>{new Intl.DateTimeFormat("fa-IR", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }).format(new Date(session.expiresAt))}</dd>
+                    <dd>{formatFaDateTime(session.expiresAt)}</dd>
                   </div>
                 </dl>
                 <Button

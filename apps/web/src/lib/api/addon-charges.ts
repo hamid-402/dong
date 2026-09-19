@@ -4,6 +4,7 @@ import type {
   PersonalAddonChargeSummary,
 } from "@dang/contracts";
 import { apiFetch } from "./client";
+import { postWithOfflineQueue } from "./offline-post";
 
 export const addonChargesApi = {
   listAddonCharges: (workspaceId: string) =>
@@ -14,23 +15,26 @@ export const addonChargesApi = {
     workspaceId: string,
     body: CreatePersonalAddonChargeRequest,
   ) =>
-    apiFetch<PersonalAddonChargeSummary>(
-      `/workspaces/${workspaceId}/addon-charges`,
-      { method: "POST", body: JSON.stringify(body) },
-      body.idempotencyKey,
-    ),
+    postWithOfflineQueue<PersonalAddonChargeSummary>({
+      path: `/workspaces/${workspaceId}/addon-charges`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: body.title?.trim() || "شارژ الحاقی",
+    }),
   confirmAddonCharge: (workspaceId: string, chargeId: string) =>
-    apiFetch<PersonalAddonChargeSummary>(
-      `/workspaces/${workspaceId}/addon-charges/${chargeId}/confirm`,
-      { method: "POST" },
-    ),
+    postWithOfflineQueue<PersonalAddonChargeSummary>({
+      path: `/workspaces/${workspaceId}/addon-charges/${chargeId}/confirm`,
+      body: "{}",
+      label: "تأیید شارژ الحاقی",
+    }),
   disputeAddonCharge: (
     workspaceId: string,
     chargeId: string,
     body: DisputePersonalAddonChargeRequest = {},
   ) =>
-    apiFetch<PersonalAddonChargeSummary>(
-      `/workspaces/${workspaceId}/addon-charges/${chargeId}/dispute`,
-      { method: "POST", body: JSON.stringify(body) },
-    ),
+    postWithOfflineQueue<PersonalAddonChargeSummary>({
+      path: `/workspaces/${workspaceId}/addon-charges/${chargeId}/dispute`,
+      body: JSON.stringify(body),
+      label: "اختلاف شارژ الحاقی",
+    }),
 };

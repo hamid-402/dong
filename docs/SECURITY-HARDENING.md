@@ -32,7 +32,8 @@
 
 قبل از Beta روی Staging:
 
-- [ ] OWASP ZAP Baseline روی `https://staging.../api/v1`
+- [x] اسکلت OWASP ZAP Baseline در CI — [`docs/ops/DAST-ZAP.md`](./ops/DAST-ZAP.md) · workflow `dast-zap`
+- [ ] اجرای ZAP روی `ZAP_TARGET_URL` staging و triage High/Critical
 - [ ] بررسی CORS فقط به origin مجاز
 - [ ] عدم نشت stack trace در 500
 - [ ] Rate limit روی `/auth` و `/payment-links` (آینده)
@@ -41,7 +42,9 @@
 - [ ] آپلود MIME خارج از allow-list → 400
 - [ ] Payload با `cardNumber` روی payment-links → 400
 
-ابزار پیشنهادی: ZAP، Nuclei (templates OWASP)، k6 برای smoke بار.
+شواهد ASVS: [`docs/security/ASVS-L2-EVIDENCE.md`](./security/ASVS-L2-EVIDENCE.md).
+
+ابزار پیشنهادی: ZAP، Nuclei (templates OWASP)، k6 برای smoke بار (`docs/ops/LOAD-K6.md`).
 
 ## Accessibility (حداقل)
 

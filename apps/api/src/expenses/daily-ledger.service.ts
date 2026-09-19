@@ -11,18 +11,23 @@ import {
   moneySchema,
   parseDailyLedgerImportCsv,
   resolveDailyLedgerRange,
+  assertAmountMatchesQuantity,
   type AuthActor,
   type CreateDailyLedgerEntryRequest,
   type CreateExpenseDraftRequest,
   type CreateWorkspaceRangeLockRequest,
+  type DailyLedgerDayTemplateResponse,
   type DailyLedgerRangePreset,
   type DailyLedgerResponse,
   type MembershipSummary,
+  type PostLedgerDayRequest,
   type UpdateDailyLedgerEntryRequest,
   type UpsertWorkspaceDayRequest,
   type UpsertWorkspaceDayResponse,
   type WorkspaceRangeLockSummary,
 } from "@dang/contracts";
+import { RANGE_LOCK_ROLES } from "@dang/contracts";
+import { CatalogService } from "../catalog/catalog.service.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { resolveExpenseListOptions } from "./expense-list-options.js";
@@ -37,7 +42,7 @@ import {
   type WorkspaceRangeLockStore,
 } from "./workspace-range-lock.store.js";
 
-const LOCK_ROLES = new Set(["owner", "admin", "finance"]);
+const LOCK_ROLES = new Set<string>(RANGE_LOCK_ROLES);
 
 type MembersCache = Map<string, MembershipSummary[]>;
 
@@ -50,6 +55,7 @@ export class DailyLedgerService {
     @Inject(WORKSPACE_DAY_STORE) private readonly days: WorkspaceDayStore,
     @Inject(WORKSPACE_RANGE_LOCK_STORE) private readonly locks: WorkspaceRangeLockStore,
     @Inject(ExpensesService) private readonly expenseService: ExpensesService,
+    @Inject(CatalogService) private readonly catalog: CatalogService,
   ) {}
 
   /** Per-request/method cache so listMembers is not hit repeatedly in one flow. */
@@ -311,6 +317,22 @@ export class DailyLedgerService {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) {
       throw new BadRequestException({ detail: "تاریخ نامعتبر است" });
     }
+    try {
+      assertAmountMatchesQuantity({
+        amountMinor: body.amount.amountMinor,
+        quantity: body.quantity,
+        unitPriceMinor: body.unitPriceMinor,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === "AMOUNT_MISMATCH") {
+        throw new BadRequestException({
+          detail: "amountMinor must equal round(quantity × unitPriceMinor)",
+          code: "AMOUNT_MISMATCH",
+          title: "AMOUNT_MISMATCH",
+        });
+      }
+      throw error;
+    }
     await this.assertDayOpen(workspaceId, actor.userId, current.occurredOn);
     if (nextDate !== current.occurredOn) {
       await this.assertDayOpen(workspaceId, actor.userId, nextDate);
@@ -341,6 +363,10 @@ export class DailyLedgerService {
         amount: body.amount,
         memberUserId: memberId,
         idempotencyKey: body.idempotencyKey.trim(),
+        catalogItemId: body.catalogItemId,
+        unitCode: body.unitCode,
+        quantity: body.quantity,
+        unitPriceMinor: body.unitPriceMinor,
       },
       members.map((m) => m.userId),
       memberId,
@@ -387,6 +413,22 @@ export class DailyLedgerService {
     if (!body.idempotencyKey?.trim()) {
       throw new BadRequestException({ detail: "idempotencyKey لازم است" });
     }
+    try {
+      assertAmountMatchesQuantity({
+        amountMinor: body.amount.amountMinor,
+        quantity: body.quantity,
+        unitPriceMinor: body.unitPriceMinor,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === "AMOUNT_MISMATCH") {
+        throw new BadRequestException({
+          detail: "amountMinor must equal round(quantity × unitPriceMinor)",
+          code: "AMOUNT_MISMATCH",
+          title: "AMOUNT_MISMATCH",
+        });
+      }
+      throw error;
+    }
   }
 
   buildDraft(
@@ -396,6 +438,12 @@ export class DailyLedgerService {
     allMemberIds: string[],
     memberId: string | null,
   ): CreateExpenseDraftRequest {
+    const catalogFields = {
+      catalogItemId: body.catalogItemId?.trim() || undefined,
+      unitCode: body.unitCode?.trim() || undefined,
+      quantity: body.quantity,
+      unitPriceMinor: body.unitPriceMinor,
+    };
     if (memberId) {
       if (!allMemberIds.includes(memberId)) {
         throw new BadRequestException({ detail: "عضو انتخاب‌شده در گروه نیست" });
@@ -412,6 +460,7 @@ export class DailyLedgerService {
         idempotencyKey: body.idempotencyKey.trim(),
         visibility: "shared",
         source: "daily_ledger",
+        ...catalogFields,
       };
     }
     return {
@@ -425,6 +474,107 @@ export class DailyLedgerService {
       idempotencyKey: body.idempotencyKey.trim(),
       visibility: "shared",
       source: "daily_ledger",
+      ...catalogFields,
+    };
+  }
+
+  /** POST /ledger/day — shared + personal lines in one request (S11-07). */
+  async postDay(
+    actor: AuthActor,
+    workspaceId: string,
+    body: PostLedgerDayRequest,
+  ): Promise<DailyLedgerResponse> {
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    this.access.assertNotReadOnly(role);
+    if (!body.lines?.length) {
+      throw new BadRequestException({ detail: "حداقل یک قلم لازم است" });
+    }
+    await this.assertDayOpen(workspaceId, actor.userId, body.date);
+
+    const cache: MembersCache = new Map();
+    const members = await this.loadMembers(workspaceId, actor.userId, cache);
+    const memberIds = members.map((m) => m.userId);
+    const batchKey = body.idempotencyKey.trim();
+
+    for (let i = 0; i < body.lines.length; i += 1) {
+      const line = body.lines[i]!;
+      const entry: CreateDailyLedgerEntryRequest = {
+        date: body.date,
+        itemName: line.itemName,
+        amount: line.amount,
+        memberUserId: line.memberUserId,
+        idempotencyKey: `${batchKey}:${i}`,
+        catalogItemId: line.catalogItemId,
+        unitCode: line.unitCode,
+        quantity: line.quantity,
+        unitPriceMinor: line.unitPriceMinor,
+      };
+      this.validateEntryBody(entry);
+      const memberId = line.memberUserId?.trim() || null;
+      const draft = this.buildDraft(actor, workspaceId, entry, memberIds, memberId);
+      const created = await this.expenseService.createDraft(actor, workspaceId, draft);
+      await this.expenseService.post(actor, workspaceId, created.id);
+    }
+
+    return this.buildLedger(actor, workspaceId, body.date, body.date, cache);
+  }
+
+  /**
+   * GET /ledger/day/:date/template — frequent usage + yesterday selections.
+   * Empty arrays when none; never invents fake items.
+   */
+  async getDayTemplate(
+    actor: AuthActor,
+    workspaceId: string,
+    date: string,
+  ): Promise<DailyLedgerDayTemplateResponse> {
+    await this.requireMember(workspaceId, actor.userId);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new BadRequestException({ detail: "تاریخ باید YYYY-MM-DD باشد" });
+    }
+
+    const [frequentItems, pins, yesterdayLedger] = await Promise.all([
+      this.catalog.listFrequent(actor, workspaceId, 20).catch(() => []),
+      this.catalog.listPins(actor, workspaceId).catch(() => []),
+      this.buildLedger(actor, workspaceId, shiftIsoDate(date, -1), shiftIsoDate(date, -1)),
+    ]);
+
+    const yesterdayLines: DailyLedgerDayTemplateResponse["yesterdayLines"] = [];
+    const yesterday = yesterdayLedger.days[0];
+    if (yesterday) {
+      for (const item of yesterday.shared.items) {
+        yesterdayLines.push({
+          itemName: item.title,
+          amount: item.amount,
+          memberUserId: null,
+          catalogItemId: item.catalogItemId,
+          unitCode: item.unitCode,
+          quantity: item.quantity,
+          unitPriceMinor: item.unitPriceMinor,
+        });
+      }
+      for (const member of yesterdayLedger.members) {
+        const cell = yesterday.members[member.userId];
+        if (!cell) continue;
+        for (const item of cell.items) {
+          yesterdayLines.push({
+            itemName: item.title,
+            amount: item.amount,
+            memberUserId: member.userId,
+            catalogItemId: item.catalogItemId,
+            unitCode: item.unitCode,
+            quantity: item.quantity,
+            unitPriceMinor: item.unitPriceMinor,
+          });
+        }
+      }
+    }
+
+    return {
+      date,
+      frequentItems,
+      pins,
+      yesterdayLines,
     };
   }
 
@@ -610,4 +760,11 @@ export class DailyLedgerService {
       });
     }
   }
+}
+
+function shiftIsoDate(iso: string, deltaDays: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + deltaDays);
+  return dt.toISOString().slice(0, 10);
 }

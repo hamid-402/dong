@@ -1,13 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type {
   ExpensePeriodSummary,
+  MemberInvoiceAdjustmentSummary,
   MemberInvoiceSummary,
   PaymentLinkSummary,
   PeriodKind,
   SessionSummary,
 } from "@dang/contracts";
+import { isInvoiceLocked } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import {
@@ -18,7 +21,10 @@ import {
   SectionCard,
   StatusPill,
 } from "@/components/ui-blocks";
+import { formatFaDate } from "@/lib/fa-datetime";
 import { invoiceStatusLabel, periodKindLabel, periodStatusLabel } from "@/lib/status-labels";
+import { memberStatementHref } from "@/lib/statement-links";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import styles from "./period-invoice-panels.module.css";
 
 type PeriodInvoicePanelsProps = {
@@ -34,21 +40,38 @@ type PeriodInvoicePanelsProps = {
   selectedPeriodId: string;
   onSelectPeriodId: (next: string) => void;
   invoices: MemberInvoiceSummary[];
+  /** Correction notices for invoices already issued in this period. */
+  invoiceAdjustments?: MemberInvoiceAdjustmentSummary[];
   paymentLinks: PaymentLinkSummary[];
   paymentsLive: boolean;
   pending: boolean;
   session: SessionSummary | null;
   memberLabel: (userId: string) => string;
+  /** Workspace slug for share-based statement deep links. */
+  slug?: string | null;
   onCreatePeriod: () => void;
   onGenerateInvoices: () => void;
   onClosePeriod: () => void;
   onCancelPeriod: () => void;
   onApproveInvoice: (invoiceId: string) => void;
   onDisputeInvoice: (invoiceId: string) => void;
+  /** Finance answers an objection: accepted → back to draft, rejected → issued. */
+  onResolveInvoiceDispute: (
+    invoiceId: string,
+    outcome: "accepted" | "rejected",
+  ) => void;
   onIssueInvoice: (invoiceId: string) => void;
   onMarkInvoicePaid: (invoiceId: string) => void;
   /** مادرخرج / مدیر مالی — ساخت دوره، تولید و صدور صورتحساب */
   canManageInvoices?: boolean;
+  /**
+   * What the server reports about invoice automation (`/system/capabilities`).
+   * Absent = the API did not say, so the card claims nothing.
+   */
+  automation?: {
+    mode: "live_invoice_sweep_v1" | "live_invoice_v1";
+    reconcile?: "off" | "expense_invoice_v1" | "expense_ledger_invoice_v1";
+  } | null;
 };
 
 /**
@@ -68,17 +91,21 @@ export function PeriodInvoicePanels({
   selectedPeriodId,
   onSelectPeriodId,
   invoices,
+  invoiceAdjustments = [],
   paymentLinks,
   paymentsLive,
   pending,
   session,
   memberLabel,
+  slug,
+  automation = null,
   onCreatePeriod,
   onGenerateInvoices,
   onClosePeriod,
   onCancelPeriod,
   onApproveInvoice,
   onDisputeInvoice,
+  onResolveInvoiceDispute,
   onIssueInvoice,
   onMarkInvoicePaid,
   canManageInvoices = false,
@@ -88,6 +115,27 @@ export function PeriodInvoicePanels({
     invoices.find((invoice) => invoice.id === selectedInvoiceId) ??
     invoices[0] ??
     null;
+  const selectedAdjustments = selectedInvoice
+    ? invoiceAdjustments.filter(
+        (adjustment) => adjustment.invoiceId === selectedInvoice.id,
+      )
+    : [];
+  const selectedPeriod = periods.find((period) => period.id === selectedPeriodId);
+  // Costs whose real spend date falls before this period began: they reached the
+  // books after their own month was closed, and the document must say so.
+  const priorPeriodLines =
+    selectedInvoice && selectedPeriod?.startsOn
+      ? selectedInvoice.lines.filter(
+          (line) => line.occurredOn != null && line.occurredOn < selectedPeriod.startsOn,
+        )
+      : [];
+  const priorPeriodMinor = priorPeriodLines
+    .reduce((sum, line) => sum + BigInt(line.amount.amountMinor), 0n)
+    .toString();
+  const statementRange =
+    selectedPeriod?.startsOn && selectedPeriod?.endsOn
+      ? { from: selectedPeriod.startsOn, to: selectedPeriod.endsOn }
+      : undefined;
 
   useEffect(() => {
     if (
@@ -201,10 +249,22 @@ export function PeriodInvoicePanels({
       ) : null}
 
       <SectionCard
-        title={canManageInvoices ? "صورتحساب اعضا" : "صورتحساب من"}
+        title={canManageInvoices ? "صورتحساب دوره‌ای اعضا" : "صورتحساب دوره‌ای من"}
         badge={invoices.length}
         delayClass="delay2"
       >
+        {automation ? (
+          <p className="liveHint">
+            {automation.mode === "live_invoice_sweep_v1"
+              ? "هر خرج ثبت‌شده همین لحظه در پیش‌نویس سند اعضا می‌نشیند؛ دوره‌ها هم خودکار تمدید و مغایرت‌یابی می‌شوند."
+              : "هر خرج ثبت‌شده همین لحظه در پیش‌نویس سند اعضا می‌نشیند؛ تمدید دوره و مغایرت‌یابی با اجرای کار پس‌زمینه انجام می‌شود."}
+            {automation.reconcile === "expense_ledger_invoice_v1"
+              ? " مغایرت‌یابی، خرج‌ها را با دفتر و سند مقایسه می‌کند."
+              : automation.reconcile === "expense_invoice_v1"
+                ? " مغایرت‌یابی فقط خرج‌ها را با سند مقایسه می‌کند (دفتر در دسترس نیست)."
+                : ""}
+          </p>
+        ) : null}
         <div className={styles.masterDetail}>
         <DataList>
           {invoices.length === 0 ? (
@@ -240,6 +300,23 @@ export function PeriodInvoicePanels({
                       عمومی <Amount irrMinor={invoice.sharedTotal.amountMinor} /> · خصوصی{" "}
                       <Amount irrMinor={invoice.privateTotal.amountMinor} />
                     </span>
+                    {isInvoiceLocked(invoice.status) ? (
+                      <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
+                        سند قفل‌شده — تغییرات بعدی به‌صورت اعلامیهٔ اصلاحی ثبت می‌شود
+                      </span>
+                    ) : invoice.recalculatedAt ? (
+                      <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
+                        پیش‌نویس زنده · آخرین به‌روزرسانی {formatFaDate(invoice.recalculatedAt)}
+                        {invoice.version ? ` · نسخهٔ ${invoice.version}` : ""}
+                      </span>
+                    ) : null}
+                    {invoice.pendingTotal &&
+                    invoice.pendingTotal.amountMinor !== "0" ? (
+                      <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
+                        در انتظار ثبت نهایی (خارج از جمع سند){" "}
+                        <Amount irrMinor={invoice.pendingTotal.amountMinor} />
+                      </span>
+                    ) : null}
                     {invoice.lines.length > 0 ? (
                       <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
                         {invoice.lines
@@ -263,6 +340,18 @@ export function PeriodInvoicePanels({
                     >
                       جزئیات
                     </Button>
+                    {slug ? (
+                      <Link
+                        className="textButton"
+                        href={memberStatementHref(
+                          slug,
+                          invoice.memberUserId,
+                          statementRange,
+                        )}
+                      >
+                        {NAV_LABELS.statements}
+                      </Link>
+                    ) : null}
                     {isMine && invoice.status === "pending_approval" ? (
                       <>
                         <Button
@@ -280,6 +369,26 @@ export function PeriodInvoicePanels({
                           disabled={pending}
                         >
                           اعتراض
+                        </Button>
+                      </>
+                    ) : null}
+                    {canManageInvoices && invoice.status === "disputed" ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => onResolveInvoiceDispute(invoice.id, "accepted")}
+                          disabled={pending}
+                        >
+                          پذیرش اعتراض
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => onResolveInvoiceDispute(invoice.id, "rejected")}
+                          disabled={pending}
+                        >
+                          رد اعتراض
                         </Button>
                       </>
                     ) : null}
@@ -338,11 +447,62 @@ export function PeriodInvoicePanels({
               <div><dt>عمومی</dt><dd><Amount irrMinor={selectedInvoice.sharedTotal.amountMinor} /></dd></div>
               <div><dt>خصوصی</dt><dd><Amount irrMinor={selectedInvoice.privateTotal.amountMinor} /></dd></div>
               <div><dt>تعداد ردیف</dt><dd>{selectedInvoice.lines.length}</dd></div>
-              <div><dt>صدور</dt><dd>{selectedInvoice.issuedAt ? new Date(selectedInvoice.issuedAt).toLocaleDateString("fa-IR") : "هنوز صادر نشده"}</dd></div>
-              <div><dt>پرداخت</dt><dd>{selectedInvoice.paidAt ? new Date(selectedInvoice.paidAt).toLocaleDateString("fa-IR") : "ثبت نشده"}</dd></div>
+              <div><dt>صدور</dt><dd>{selectedInvoice.issuedAt ? formatFaDate(selectedInvoice.issuedAt) : "هنوز صادر نشده"}</dd></div>
+              <div><dt>پرداخت</dt><dd>{selectedInvoice.paidAt ? formatFaDate(selectedInvoice.paidAt) : "ثبت نشده"}</dd></div>
+              <div>
+                <dt>بازمحاسبه</dt>
+                <dd>
+                  {selectedInvoice.recalculatedAt
+                    ? formatFaDate(selectedInvoice.recalculatedAt)
+                    : "با تولید دستی ساخته شده"}
+                </dd>
+              </div>
             </dl>
+            {priorPeriodLines.length > 0 ? (
+              <div>
+                <b>اقلام دوره‌های گذشته</b>
+                <p className="liveHint">
+                  این مبالغ در ماه خودشان ثبت نشده‌اند و پس از بستن آن دوره به این
+                  سند رسیده‌اند · <Amount irrMinor={priorPeriodMinor} />
+                </p>
+                <ul>
+                  {priorPeriodLines.map((line) => (
+                    <li key={line.id}>
+                      {line.title} · {formatFaDate(line.occurredOn)} ·{" "}
+                      <Amount irrMinor={line.amount.amountMinor} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {selectedAdjustments.length > 0 ? (
+              <div>
+                <b>اعلامیه‌های اصلاحی</b>
+                <ul>
+                  {selectedAdjustments.map((adjustment) => (
+                    <li key={adjustment.id}>
+                      <Amount irrMinor={adjustment.delta.amountMinor} /> ·{" "}
+                      {formatFaDate(adjustment.createdAt)} · {adjustment.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             {selectedInvoice.disputeNote ? (
               <p><b>یادداشت اختلاف</b>{selectedInvoice.disputeNote}</p>
+            ) : null}
+            {slug ? (
+              <p className="liveHint">
+                <Link
+                  href={memberStatementHref(
+                    slug,
+                    selectedInvoice.memberUserId,
+                    statementRange,
+                  )}
+                >
+                  باز کردن {NAV_LABELS.statements} (سهم‌محور)
+                </Link>
+              </p>
             ) : null}
           </aside>
         ) : null}

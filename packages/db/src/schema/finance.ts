@@ -4,6 +4,8 @@ import {
   date,
   index,
   integer,
+  jsonb,
+  numeric,
   pgSchema,
   primaryKey,
   text,
@@ -29,6 +31,7 @@ export const splitMethod = finance.enum("split_method", [
   "percent",
   "shares",
   "itemized",
+  "formula",
 ]);
 
 export const settlementStatus = finance.enum("settlement_status", [
@@ -82,6 +85,9 @@ export const expensePeriod = finance.table(
     startsOn: date("starts_on").notNull(),
     endsOn: date("ends_on").notNull(),
     note: text("note"),
+    /** manual | jalali_month — jalali_month periods are opened by the rollover job. */
+    cadence: text("cadence").default("manual").notNull(),
+    autoRollover: boolean("auto_rollover").default(false).notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
     createdByUserId: uuid("created_by_user_id")
       .notNull()
@@ -113,6 +119,10 @@ export const outing = finance.table(
     title: text("title").notNull(),
     note: text("note"),
     occurredOn: date("occurred_on").notNull(),
+    /** Optional event budget ceiling in IRR minor (G04 EventBudget). */
+    budgetCapMinor: bigint("budget_cap_minor", { mode: "bigint" }),
+    startsOn: date("starts_on"),
+    endsOn: date("ends_on"),
     idempotencyKey: text("idempotency_key").notNull(),
     createdByUserId: uuid("created_by_user_id")
       .notNull()
@@ -125,6 +135,47 @@ export const outing = finance.table(
     uniqueIndex("outing_idempotency_uq").on(table.workspaceId, table.idempotencyKey),
     index("outing_workspace_time_idx").on(table.workspaceId, table.createdAt),
   ],
+);
+
+/** Named split templates for a workspace (G04 #7). */
+export const workspaceSplitPreset = finance.table(
+  "workspace_split_preset",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    splitMethod: text("split_method").notNull(),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+  },
+  (table) => [
+    uniqueIndex("workspace_split_preset_idempotency_uq").on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+    index("workspace_split_preset_workspace_idx").on(table.workspaceId),
+  ],
+);
+
+export const workspaceSplitPresetLine = finance.table(
+  "workspace_split_preset_line",
+  {
+    presetId: uuid("preset_id")
+      .notNull()
+      .references(() => workspaceSplitPreset.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userAccount.id, { onDelete: "cascade" }),
+    shares: integer("shares"),
+    percentBp: integer("percent_bp"),
+    amountMinor: bigint("amount_minor", { mode: "bigint" }),
+  },
+  (table) => [primaryKey({ columns: [table.presetId, table.userId] })],
 );
 
 /** Per-day note + manual holiday flag for the daily consumption ledger. */
@@ -275,11 +326,61 @@ export const workspaceExpensePolicy = finance.table("workspace_expense_policy", 
     .references(() => workspace.id, { onDelete: "cascade" }),
   approvalThresholdMinor: bigint("approval_threshold_minor", { mode: "bigint" }),
   requireReceiptAboveMinor: bigint("require_receipt_above_minor", { mode: "bigint" }),
+  /** Category ids that always require a receipt attachment (additive to amount gate). */
+  requireReceiptCategoryIds: jsonb("require_receipt_category_ids")
+    .$type<string[]>()
+    .default([])
+    .notNull(),
+  requireCostCenter: boolean("require_cost_center").default(false).notNull(),
+  approvalTiersJson: text("approval_tiers_json"),
+  perDiemDailyMinor: bigint("per_diem_daily_minor", { mode: "bigint" }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   updatedByUserId: uuid("updated_by")
     .notNull()
     .references(() => userAccount.id),
 });
+
+/** Workspace-scoped tags for expenses (G03 #18). */
+export const expenseTag = finance.table(
+  "expense_tag",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    color: text("color"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+  },
+  (table) => [
+    uniqueIndex("expense_tag_workspace_slug_uq").on(table.workspaceId, table.slug),
+    index("expense_tag_workspace_idx").on(table.workspaceId),
+  ],
+);
+
+export const expenseTagLink = finance.table(
+  "expense_tag_link",
+  {
+    expenseId: uuid("expense_id")
+      .notNull()
+      .references(() => expense.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => expenseTag.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.expenseId, table.tagId] }),
+    index("expense_tag_link_tag_idx").on(table.workspaceId, table.tagId),
+    index("expense_tag_link_expense_idx").on(table.workspaceId, table.expenseId),
+  ],
+);
 
 export const expense = finance.table(
   "expense",
@@ -331,6 +432,16 @@ export const expense = finance.table(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    /** S11-07 catalog snapshot for non-itemized / daily-ledger lines. */
+    catalogItemId: uuid("catalog_item_id"),
+    unitCode: text("unit_code"),
+    quantity: numeric("quantity", { precision: 18, scale: 3 }),
+    unitPriceMinor: bigint("unit_price_minor", { mode: "bigint" }),
+    /** S11-09 funding source (petty cash / personal / member / credit). */
+    fundingSourceKind: text("funding_source_kind"),
+    fundingRefId: uuid("funding_ref_id"),
+    /** Travel advance/settlement (G09 #35). */
+    missionKind: text("mission_kind"),
   },
   (table) => [
     uniqueIndex("expense_idempotency_uq").on(
@@ -358,6 +469,10 @@ export const expenseItem = finance.table(
     title: text("title").notNull(),
     amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
     notes: text("notes"),
+    catalogItemId: uuid("catalog_item_id"),
+    unitCode: text("unit_code"),
+    quantity: numeric("quantity", { precision: 18, scale: 3 }),
+    unitPriceMinor: bigint("unit_price_minor", { mode: "bigint" }),
   },
   (table) => [index("expense_item_expense_idx").on(table.expenseId, table.lineNo)],
 );
@@ -486,6 +601,11 @@ export const memberInvoice = finance.table(
     issuedAt: timestamp("issued_at", { withTimezone: true }),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     idempotencyKey: text("idempotency_key").notNull(),
+    /** Live projection bookkeeping: bumped on each recalculation. */
+    version: integer("version").default(1).notNull(),
+    recalculatedAt: timestamp("recalculated_at", { withTimezone: true }),
+    /** Fingerprint of the committed lines; equal hash = skip rewrite. */
+    sourceHash: text("source_hash"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -502,6 +622,47 @@ export const memberInvoice = finance.table(
     index("member_invoice_workspace_status_idx").on(
       table.workspaceId,
       table.status,
+    ),
+  ],
+);
+
+/**
+ * Correction notice for an invoice the member already acted on.
+ * The locked document stays byte-for-byte immutable; the delta lives here.
+ */
+export const memberInvoiceAdjustment = finance.table(
+  "member_invoice_adjustment",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => memberInvoice.id, { onDelete: "cascade" }),
+    periodId: uuid("period_id")
+      .notNull()
+      .references(() => expensePeriod.id, { onDelete: "cascade" }),
+    memberUserId: uuid("member_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    /** Signed: positive = debit note, negative = credit note. */
+    deltaMinor: bigint("delta_minor", { mode: "bigint" }).notNull(),
+    currency: text("currency").default("IRR").notNull(),
+    reason: text("reason").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("member_invoice_adjustment_idempotency_uq").on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+    index("member_invoice_adjustment_invoice_idx").on(
+      table.invoiceId,
+      table.createdAt,
     ),
   ],
 );
@@ -523,6 +684,14 @@ export const memberInvoiceLine = finance.table(
     title: text("title").notNull(),
     amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
     lineNo: integer("line_no").notNull(),
+    /** Optional item-level enrichment (S11-08); null = legacy expense-level line. */
+    expenseItemId: uuid("expense_item_id"),
+    catalogItemId: uuid("catalog_item_id"),
+    itemNameSnapshot: text("item_name_snapshot"),
+    unitCode: text("unit_code"),
+    quantity: numeric("quantity", { precision: 18, scale: 6 }),
+    unitPriceMinor: bigint("unit_price_minor", { mode: "bigint" }),
+    shareRatio: text("share_ratio"),
   },
   (table) => [
     index("member_invoice_line_invoice_idx").on(table.invoiceId, table.lineNo),
@@ -540,6 +709,7 @@ export const paymentLinkStatus = finance.enum("payment_link_status", [
 
 export const paymentProvider = finance.enum("payment_provider", [
   "stub",
+  "local_psp",
   "zarinpal",
   "idpay",
 ]);
@@ -593,9 +763,31 @@ export const pendingZarinpalPayment = finance.table("pending_zarinpal_payment", 
   paymentLinkId: uuid("payment_link_id").references(() => paymentLink.id, {
     onDelete: "set null",
   }),
+  /** Absolute app URL to redirect the browser after verify (nullable for legacy rows). */
+  returnUrl: text("return_url"),
   status: text("status").default("pending").notNull(),
   refId: text("ref_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+});
+
+/** Server-owned LocalPSP intent → amount (verify must not trust client amount). */
+export const pendingLocalPspPayment = finance.table("pending_local_psp_payment", {
+  intentId: text("intent_id").primaryKey(),
+  amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
+  currency: text("currency").default("IRR").notNull(),
+  description: text("description").notNull(),
+  returnUrl: text("return_url").notNull(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references(() => workspace.id, { onDelete: "cascade" }),
+  paymentLinkId: uuid("payment_link_id").references(() => paymentLink.id, {
+    onDelete: "set null",
+  }),
+  status: text("status").default("pending").notNull(),
+  refId: text("ref_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
 });
 
@@ -699,6 +891,40 @@ export const approvalWorkflowStep = finance.table(
   (table) => [uniqueIndex("approval_workflow_step_expense_no_uq").on(table.expenseId, table.stepNo)],
 );
 
+/** Multi-level approval decisions — multiple rows per request until requiredApprovals (Phase 2.3). */
+export const approvalDecision = finance.table(
+  "approval_decision",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    requestType: text("request_type").notNull(),
+    requestId: uuid("request_id").notNull(),
+    amountMinor: text("amount_minor").notNull(),
+    approverUserId: uuid("approver_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    decision: text("decision").notNull(),
+    approverRole: text("approver_role"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("approval_decision_approver_uq").on(
+      table.workspaceId,
+      table.requestType,
+      table.requestId,
+      table.approverUserId,
+    ),
+    index("approval_decision_request_idx").on(
+      table.workspaceId,
+      table.requestType,
+      table.requestId,
+      table.createdAt,
+    ),
+  ],
+);
+
 /** Global system table: no tenant RLS; runtime reads and feature-gated writes. */
 export const fxRate = finance.table(
   "fx_rate",
@@ -744,6 +970,63 @@ export const reportExport = finance.table(
     ),
   ],
 );
+
+/** Member statement CSV/JSON export jobs (S11-08). */
+export const statementExport = finance.table(
+  "statement_export",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    subjectUserId: uuid("subject_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    fromOn: date("from_on").notNull(),
+    toOn: date("to_on").notNull(),
+    format: text("format").notNull(),
+    status: text("status").notNull(),
+    rowCount: integer("row_count").default(0).notNull(),
+    body: text("body"),
+    mimeType: text("mime_type"),
+    fileName: text("file_name"),
+    requestedByUserId: uuid("requested_by_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    errorDetail: text("error_detail"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    /** Soft retention — body may be purged after this instant. */
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("statement_export_workspace_created_idx").on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+    index("statement_export_expires_at_idx").on(table.expiresAt),
+  ],
+);
+
+/**
+ * Workspace receiving-account instructions for statement display.
+ * Not PSP custody — never used on payment-link payloads.
+ */
+export const workspacePayoutProfile = finance.table("workspace_payout_profile", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspace.id, { onDelete: "cascade" }),
+  holderName: text("holder_name").notNull(),
+  destinationKind: text("destination_kind").notNull(),
+  destinationValue: text("destination_value").notNull(),
+  bankName: text("bank_name"),
+  updatedByUserId: uuid("updated_by_user_id")
+    .notNull()
+    .references(() => userAccount.id),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
 /** Personal add-on within a group (Dong 2.0) — FSM pending_ack → confirmed | disputed. */
 export const addonChargeStatus = finance.enum("addon_charge_status", [
@@ -799,3 +1082,270 @@ export const personalAddonCharge = finance.table(
     ),
   ],
 );
+
+/** S11-09 — manual payment receipts (card-to-card etc.). */
+export const paymentReceiptMethod = finance.enum("payment_receipt_method", [
+  "card_to_card",
+  "cash",
+  "bank_transfer",
+  "gateway",
+]);
+
+export const paymentReceiptStatus = finance.enum("payment_receipt_status", [
+  "submitted",
+  "approved",
+  "rejected",
+]);
+
+export const paymentReceipt = finance.table(
+  "payment_receipt",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    settlementId: uuid("settlement_id").references(() => settlement.id, {
+      onDelete: "set null",
+    }),
+    memberInvoiceId: uuid("member_invoice_id").references(() => memberInvoice.id, {
+      onDelete: "set null",
+    }),
+    payerUserId: uuid("payer_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    method: paymentReceiptMethod("method").notNull(),
+    amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
+    currency: text("currency").default("IRR").notNull(),
+    paidAt: timestamp("paid_at", { withTimezone: true }).notNull(),
+    referenceNo: text("reference_no"),
+    destHolderName: text("dest_holder_name"),
+    destLast4: text("dest_last4"),
+    attachmentId: uuid("attachment_id"),
+    status: paymentReceiptStatus("status").default("submitted").notNull(),
+    reviewedByUserId: uuid("reviewed_by_user_id").references(() => userAccount.id),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewNote: text("review_note"),
+    journalEntryId: uuid("journal_entry_id"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("payment_receipt_idempotency_uq").on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+    index("payment_receipt_workspace_status_idx").on(
+      table.workspaceId,
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const pettyCashMovementKind = finance.enum("petty_cash_movement_kind", [
+  "topup",
+  "spend",
+  "return",
+  "adjust",
+]);
+
+export const pettyCashFund = finance.table(
+  "petty_cash_fund",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    custodianUserId: uuid("custodian_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    openingBalanceMinor: bigint("opening_balance_minor", { mode: "bigint" })
+      .default(0n)
+      .notNull(),
+    currency: text("currency").default("IRR").notNull(),
+    active: boolean("active").default(true).notNull(),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("petty_cash_fund_idempotency_uq").on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+    index("petty_cash_fund_workspace_idx").on(table.workspaceId, table.active),
+  ],
+);
+
+export const pettyCashMovement = finance.table(
+  "petty_cash_movement",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    fundId: uuid("fund_id")
+      .notNull()
+      .references(() => pettyCashFund.id, { onDelete: "cascade" }),
+    kind: pettyCashMovementKind("kind").notNull(),
+    amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
+    expenseId: uuid("expense_id").references(() => expense.id, {
+      onDelete: "set null",
+    }),
+    settlementId: uuid("settlement_id").references(() => settlement.id, {
+      onDelete: "set null",
+    }),
+    actorUserId: uuid("actor_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    note: text("note"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("petty_cash_movement_idempotency_uq").on(
+      table.fundId,
+      table.idempotencyKey,
+    ),
+    index("petty_cash_movement_fund_idx").on(table.fundId, table.occurredAt),
+  ],
+);
+
+export const creditPurchaseStatus = finance.enum("credit_purchase_status", [
+  "open",
+  "partially_paid",
+  "paid",
+  "overdue",
+]);
+
+export const creditPurchase = finance.table(
+  "credit_purchase",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    supplierRef: text("supplier_ref").notNull(),
+    amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
+    currency: text("currency").default("IRR").notNull(),
+    purchasedAt: timestamp("purchased_at", { withTimezone: true }).notNull(),
+    dueDate: date("due_date").notNull(),
+    status: creditPurchaseStatus("status").default("open").notNull(),
+    expenseId: uuid("expense_id").references(() => expense.id, {
+      onDelete: "set null",
+    }),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    note: text("note"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("credit_purchase_idempotency_uq").on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+    index("credit_purchase_workspace_status_idx").on(
+      table.workspaceId,
+      table.status,
+    ),
+  ],
+);
+
+export const creditPurchasePayment = finance.table(
+  "credit_purchase_payment",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    creditPurchaseId: uuid("credit_purchase_id")
+      .notNull()
+      .references(() => creditPurchase.id, { onDelete: "cascade" }),
+    amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
+    paidAt: timestamp("paid_at", { withTimezone: true }).notNull(),
+    sourceKind: text("source_kind").notNull(),
+    sourceRefId: uuid("source_ref_id"),
+    actorUserId: uuid("actor_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    receiptId: uuid("receipt_id").references(() => paymentReceipt.id, {
+      onDelete: "set null",
+    }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("credit_purchase_payment_idempotency_uq").on(
+      table.creditPurchaseId,
+      table.idempotencyKey,
+    ),
+    index("credit_purchase_payment_purchase_idx").on(
+      table.creditPurchaseId,
+      table.paidAt,
+    ),
+  ],
+);
+
+/** S11-09 depth — pay on behalf of another member. */
+export const paymentOnBehalfStatus = finance.enum("payment_on_behalf_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
+
+export const paymentOnBehalf = finance.table(
+  "payment_on_behalf",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    debtorUserId: uuid("debtor_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    payerUserId: uuid("payer_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
+    currency: text("currency").default("IRR").notNull(),
+    settlementId: uuid("settlement_id").references(() => settlement.id, {
+      onDelete: "set null",
+    }),
+    method: paymentReceiptMethod("method").notNull(),
+    note: text("note"),
+    status: paymentOnBehalfStatus("status").default("pending").notNull(),
+    initiatedByUserId: uuid("initiated_by_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    approvedByUserId: uuid("approved_by_user_id").references(() => userAccount.id),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    rejectNote: text("reject_note"),
+    journalEntryId: uuid("journal_entry_id"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("payment_on_behalf_idempotency_uq").on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+    index("payment_on_behalf_workspace_status_idx").on(
+      table.workspaceId,
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+

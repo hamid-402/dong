@@ -12,6 +12,13 @@ test("expense CSV parser handles quoted titles and validates headers", () => {
 
 test("planAllows keeps core free and gates depth", () => {
   assert.equal(planAllows("free", "expenses"), true);
+  assert.equal(planAllows("free", "settlements"), true);
+  assert.equal(planAllows("free", "reports"), true);
   assert.equal(planAllows("free", "biCompare"), false);
+  assert.equal(planAllows("free", "analytics"), false);
+  assert.equal(planAllows("free", "costCenter"), false);
+  assert.equal(planAllows("free", "categoryBudget"), false);
   assert.equal(planAllows("pro", "biCompare"), true);
+  assert.equal(planAllows("pro", "analytics"), true);
+  assert.equal(planAllows("business", "costCenter"), true);
 });

@@ -3,6 +3,8 @@
 export type ProductMetricCounts = {
   /** `workspace.create` successes */
   workspaceCreates: number;
+  /** `invite.create` successes */
+  inviteCreates: number;
   /** `invite.accept` successes */
   inviteAccepts: number;
   /** `expense.post` successes (ledger-applied expenses) */
@@ -29,6 +31,7 @@ export type WorkspaceProductMetricsResponse = {
   counts: ProductMetricCounts;
   milestones: {
     onboardingWorkspaceCreated: ProductMetricMilestone;
+    inviteCreated: ProductMetricMilestone;
     inviteAccepted: ProductMetricMilestone;
     firstExpensePosted: ProductMetricMilestone;
     settlementCompleted: ProductMetricMilestone;

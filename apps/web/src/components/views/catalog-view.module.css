@@ -1,0 +1,72 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: end;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  padding-bottom: 8px;
+}
+
+.addForm {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-elevated) 75%, transparent);
+}
+
+.disclose {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  text-align: start;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: end;
+}
+
+.itemBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.priceList {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border-inline-start: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.priceMeta {
+  color: var(--muted);
+  margin-inline-start: 8px;
+}

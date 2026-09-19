@@ -14,6 +14,12 @@ storybook-static/
 .DS_Store
 Thumbs.db
 .data/
+.dang/
+backups/
+.dang/
+perf/k6/last-summary.json
+zap-report.html
+report_html.html
 
 tsbuildinfo
 *.tsbuildinfo

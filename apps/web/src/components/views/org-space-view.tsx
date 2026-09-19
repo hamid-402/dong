@@ -6,10 +6,12 @@ import type {
   BudgetSummary,
   ExpenseSummary,
   MembershipSummary,
+  WorkspaceSubunitSummary,
   WorkspaceSummary,
 } from "@dang/contracts";
 import { isReadOnlyRole, spaceKindForTemplate } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
 import {
   DataList,
@@ -21,10 +23,12 @@ import {
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
+import { ContentSkeleton } from "@/components/shell/content-skeleton";
+import { GroupOpsRail } from "@/components/shell/group-ops-rail";
 import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
+import { expenseHrefForUnit } from "@/lib/expense-unit-href";
 import { hubPathFor } from "@/lib/hub-links";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import {
@@ -58,6 +62,7 @@ export function OrgSpaceView() {
   const [members, setMembers] = useState<MembershipSummary[]>([]);
   const [expenses, setExpenses] = useState<ExpenseSummary[]>([]);
   const [budgets, setBudgets] = useState<BudgetSummary[]>([]);
+  const [subunits, setSubunits] = useState<WorkspaceSubunitSummary[]>([]);
   const [approvalCount, setApprovalCount] = useState(0);
   const [myRole, setMyRole] = useState<string>("");
   const [pending, startTransition] = useTransition();
@@ -76,10 +81,12 @@ export function OrgSpaceView() {
 
   async function refresh(workspaceId: string) {
     const actorId = chrome.actor?.userId;
-    const [memberList, expenseList, budgetList, me, queue] = await Promise.all([
+    const [memberList, expenseList, budgetList, subunitList, me, queue] =
+      await Promise.all([
       api.listMembers(workspaceId),
       api.listExpenses(workspaceId),
       api.listBudgets(workspaceId),
+      api.listSubunits(workspaceId).catch(() => [] as WorkspaceSubunitSummary[]),
       actorId ? Promise.resolve(null) : api.me(),
       flags?.approvalQueue
         ? api.listApprovalQueue(workspaceId).catch(() => [])
@@ -89,6 +96,7 @@ export function OrgSpaceView() {
     setMembers(memberList);
     setExpenses(expenseList);
     setBudgets(budgetList);
+    setSubunits(subunitList);
     setApprovalCount(queue.length);
     const role = memberList.find((m) => m.userId === userId)?.role ?? "";
     setMyRole(role);
@@ -106,6 +114,7 @@ export function OrgSpaceView() {
       setMembers([]);
       setExpenses([]);
       setBudgets([]);
+      setSubunits([]);
       setApprovalCount(0);
       setLoading(false);
       return;
@@ -163,10 +172,11 @@ export function OrgSpaceView() {
   const orgFinanceHref = slug ? wPath(slug, "orgFinance") : hubPathFor("/orgs");
   const approvalsHref = slug ? wPath(slug, "approvals") : hubPathFor("/workspaces");
   const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
+  const subunitsHref = slug ? wPath(slug, "subunits") : "/spaces?kind=org";
   const procurementHref = slug
     ? wPath(slug, "procurement")
     : hubPathFor("/workspaces/procurement");
-  const openBudgets = budgets.filter((budget) => budget.status === "open").length;
+  const expensesHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
 
   return (
     <AppShell
@@ -175,75 +185,44 @@ export function OrgSpaceView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      {slug ? (
-        <OperationsModuleHeader
-          ariaLabel="خانه فضای سازمانی"
-          destinations={[
-            { key: "space", label: "خانه سازمان", href: wPath(slug, "space"), active: true },
-            ...(orgFinanceLive
-              ? [{ key: "org-finance", label: NAV_LABELS.orgFinance, href: orgFinanceHref, active: false }]
-              : []),
-            ...(flags?.approvalQueue
-              ? [{ key: "approvals", label: NAV_LABELS.approvals, href: approvalsHref, active: false }]
-              : []),
-            { key: "procurement", label: NAV_LABELS.procurement, href: procurementHref, active: false },
-            { key: "members", label: NAV_LABELS.invite, href: membersHref, active: false },
-          ]}
-          metrics={[
-            {
-              label: "اعضا",
-              value: new Intl.NumberFormat("fa-IR").format(members.length),
-              detail: myRole ? membershipRoleLabel(myRole) : "نقش تشخیص نشده",
-            },
-            {
-              label: "مطالبه خصوصی",
-              value: new Intl.NumberFormat("fa-IR").format(privateClaims.length),
-              detail: "visibility=private",
-              tone: privateClaims.length > 0 ? "attention" : "neutral",
-            },
-            {
-              label: "خرج شرکتی",
-              value: new Intl.NumberFormat("fa-IR").format(companyExpenses.length),
-              detail: "visibility=company",
-            },
-            {
-              label: flags?.approvalQueue ? "صف تأیید" : "بودجه باز",
-              value: new Intl.NumberFormat("fa-IR").format(
-                flags?.approvalQueue ? approvalCount : openBudgets,
-              ),
-              detail: flags?.approvalQueue ? "از approval queue" : "از budgets API",
-              tone:
-                (flags?.approvalQueue ? approvalCount : openBudgets) > 0
-                  ? "attention"
-                  : "neutral",
-            },
-          ]}
-          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
-          persistenceLabel={chrome.persistenceLabel}
-          pending={pending || loading}
-          onRefresh={() => {
-            if (!workspace) return;
-            startTransition(() => {
-              void refresh(workspace.id)
-                .then(() => setError(null))
-                .catch((err: unknown) => setError(friendlyErrorMessage(err, "تازه‌سازی ناموفق")));
-            });
-          }}
-        />
-      ) : null}
+      <WorkspacePageFrame
+      title={"خانه سازمان"}
+      description={"بخش‌ها، شرکت‌های زیرمجموعه، تأیید و تدارکات — از دادهٔ زندهٔ همین فضا."}
+      primaryAction={slug ? <Link href={subunitsHref}>{NAV_LABELS.subunits}</Link> : <Link href="/spaces/new?kind=org">{NAV_LABELS.createSpace}</Link>}
+      secondaryActions={
+        slug ? (
+          <>
+            <Link href={expensesHref}>{NAV_LABELS.expenses}</Link>
+            <Link href={membersHref}>{NAV_LABELS.members}</Link>
+          </>
+        ) : undefined
+      }
+      state="ready"
+    >
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
 
+      {workspace && slug ? (
+        <GroupOpsRail
+          slug={slug}
+          spaceKind="org"
+          memberCount={members.filter((m) => !m.disabledAt).length}
+          canManageMembers={canApprove && !readOnly}
+          showSubunits
+          subunitsHint="بخش‌ها و زیرمجموعه‌ها"
+        />
+      ) : null}
+
       {loading ? (
-        <EmptyHint>در حال بارگذاری…</EmptyHint>
+        <ContentSkeleton rows={4} label="در حال بارگذاری…" />
       ) : !workspace ? (
         <ProductGrid>
           <SectionCard title="سازمانی ندارید" delayClass="delay1">
             <EmptyHint>
-              هنوز فضای تیمی/شرکتی ندارید. از «ساخت فضا» قالب تیم یا ساختمان را بسازید.
+              هنوز فضای تیمی/شرکتی ندارید. از «ساخت فضا» قالب تیم یا شرکای پروژه را بسازید.
             </EmptyHint>
             <FormStack>
-              <Link href={hubPathFor("/onboarding")}>
+              <Link href="/spaces/new?kind=org">
                 <Button type="button">ساخت فضای سازمانی</Button>
               </Link>
             </FormStack>
@@ -261,9 +240,12 @@ export function OrgSpaceView() {
               <EmptyHint>این قالب خرج شرکتی ندارد.</EmptyHint>
             ) : null}
             <div className="dataRowActions">
+              <Link href={subunitsHref}>
+                <Button type="button">{NAV_LABELS.subunits}</Button>
+              </Link>
               {orgFinanceLive ? (
                 <Link href={orgFinanceHref}>
-                  <Button type="button">{NAV_LABELS.orgFinance}</Button>
+                  <Button type="button" variant="ghost">{NAV_LABELS.orgFinance}</Button>
                 </Link>
               ) : null}
               <Link href={procurementHref}>
@@ -273,10 +255,44 @@ export function OrgSpaceView() {
               </Link>
               <Link href={membersHref}>
                 <Button type="button" variant="ghost">
-                  {NAV_LABELS.invite}
+                  {NAV_LABELS.members}
                 </Button>
               </Link>
             </div>
+          </SectionCard>
+
+          <SectionCard
+            title="بخش‌ها و شرکت‌های زیرمجموعه"
+            badge={subunits.length}
+            delayClass="delay1"
+          >
+            {subunits.length === 0 ? (
+              <EmptyHint>
+                هنوز بخش یا شرکت زیرمجموعه‌ای نیست — ساختار سازمان را از همین مسیر بسازید.
+              </EmptyHint>
+            ) : (
+              <DataList>
+                {subunits.slice(0, 10).map((s) => (
+                  <DataRow
+                    key={s.id}
+                    title={`${s.code} · ${s.name}`}
+                    meta={`${s.kind === "subsidiary" ? "شرکت زیرمجموعه" : "بخش"} · ${s.memberUserIds.length.toLocaleString("fa-IR")} نفر`}
+                    actions={
+                      <Link href={expenseHrefForUnit(expensesHref, s.code, s.name)}>
+                        <Button type="button" variant="ghost">
+                          ثبت خرج بخش
+                        </Button>
+                      </Link>
+                    }
+                  />
+                ))}
+              </DataList>
+            )}
+            <Link href={subunitsHref}>
+              <Button type="button" variant="ghost">
+                مدیریت ساختار سازمان
+              </Button>
+            </Link>
           </SectionCard>
 
           {flags?.approvalQueue ? (
@@ -422,6 +438,7 @@ export function OrgSpaceView() {
           />
         </ProductGrid>
       )}
-    </AppShell>
+    
+      </WorkspacePageFrame></AppShell>
   );
 }

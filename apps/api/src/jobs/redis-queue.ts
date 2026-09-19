@@ -51,6 +51,24 @@ export async function getRedisClient(): Promise<Redis | null> {
   }
 }
 
+/**
+ * Dedicated connection for Redis pub/sub (subscriber mode cannot share command client).
+ */
+export async function createDedicatedRedisClient(): Promise<Redis | null> {
+  const env = loadAppEnv();
+  if (!isRedisConfigured(env) || !env.redisUrl) return null;
+  try {
+    const client = createRedis(env.redisUrl);
+    client.on("error", () => {
+      /* offline */
+    });
+    await client.connect();
+    return client;
+  } catch {
+    return null;
+  }
+}
+
 export async function enqueueWorkerJob(job: QueuedWorkerJob): Promise<boolean> {
   const client = await getRedisClient();
   if (!client) return false;

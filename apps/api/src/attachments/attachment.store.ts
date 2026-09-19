@@ -2,6 +2,7 @@ import type {
   AttachmentSummary,
   CommentTargetType,
   CreateAttachmentRequest,
+  OcrReceiptResult,
   QuarantineScanResult,
 } from "@dang/contracts";
 import { assertAllowedUploadMime, evaluateQuarantine } from "@dang/contracts";
@@ -25,6 +26,18 @@ export type AttachmentStore = {
     attachmentId: string,
     storagePath: string,
   ): Promise<AttachmentSummary>;
+  saveOcrResult(
+    workspaceId: string,
+    attachmentId: string,
+    result: OcrReceiptResult,
+  ): Promise<AttachmentSummary>;
+  /**
+   * Safe retention: clear blob pointers for blocked quarantine rows older than `olderThanDays`.
+   * Does not delete metadata rows.
+   */
+  purgeOldBlockedBlobs(olderThanDays?: number, nowIso?: string): Promise<number>;
+  /** Count rows that would be purged by {@link purgeOldBlockedBlobs} (dry-run). */
+  countOldBlockedBlobs(olderThanDays?: number, nowIso?: string): Promise<number>;
 };
 
 export const ATTACHMENT_STORE = Symbol("ATTACHMENT_STORE");
@@ -139,5 +152,53 @@ export class MemoryAttachmentStore implements AttachmentStore {
     const updated: AttachmentSummary = { ...row, hasBlob: true };
     this.attachments.set(attachmentId, updated);
     return Promise.resolve(updated);
+  }
+
+  saveOcrResult(
+    workspaceId: string,
+    attachmentId: string,
+    result: OcrReceiptResult,
+  ): Promise<AttachmentSummary> {
+    const row = this.attachments.get(attachmentId);
+    if (!row || row.workspaceId !== workspaceId) {
+      return Promise.reject(new Error("ATTACHMENT_NOT_FOUND"));
+    }
+    const updated: AttachmentSummary = {
+      ...row,
+      ocrJobId: result.jobId,
+      ocrResult: {
+        jobId: result.jobId,
+        status: result.status,
+        merchantHint: result.merchantHint,
+        amountMinorHint: result.amountMinorHint,
+        rawTextPreview: result.rawTextPreview,
+        completedAt: result.completedAt,
+      },
+    };
+    this.attachments.set(attachmentId, updated);
+    return Promise.resolve(updated);
+  }
+
+  purgeOldBlockedBlobs(olderThanDays = 90, nowIso = new Date().toISOString()): Promise<number> {
+    const cutoffMs = Date.parse(nowIso) - olderThanDays * 24 * 60 * 60 * 1000;
+    let n = 0;
+    for (const [id, row] of this.attachments) {
+      if (row.quarantineStatus !== "blocked" || !row.hasBlob) continue;
+      if (Date.parse(row.createdAt) > cutoffMs) continue;
+      this.attachments.set(id, { ...row, hasBlob: false });
+      n += 1;
+    }
+    return Promise.resolve(n);
+  }
+
+  countOldBlockedBlobs(olderThanDays = 90, nowIso = new Date().toISOString()): Promise<number> {
+    const cutoffMs = Date.parse(nowIso) - olderThanDays * 24 * 60 * 60 * 1000;
+    let n = 0;
+    for (const row of this.attachments.values()) {
+      if (row.quarantineStatus !== "blocked" || !row.hasBlob) continue;
+      if (Date.parse(row.createdAt) > cutoffMs) continue;
+      n += 1;
+    }
+    return Promise.resolve(n);
   }
 }

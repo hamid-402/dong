@@ -6,6 +6,7 @@ export const commentTargetTypeSchema = z.enum([
   "settlement",
   "need",
   "purchase_request",
+  "payment_receipt",
 ]);
 
 export const attachmentKindSchema = z.enum(["receipt", "document", "photo"]);

@@ -4,6 +4,7 @@ import { createLogger } from "@dang/observability";
 import { AuthModule } from "../auth/auth.module.js";
 import { createPersistenceStore } from "../common/postgres-store.factory.js";
 import { ExpensesModule } from "../expenses/expenses.module.js";
+import { NotificationsModule } from "../notifications/notifications.module.js";
 import { COMMENT_STORE, MemoryCommentStore, type CommentStore } from "./comment.store.js";
 import { CommentsController } from "./comments.controller.js";
 import { CommentsService } from "./comments.service.js";
@@ -23,7 +24,7 @@ function buildCommentStore(): CommentStore {
 }
 
 @Module({
-  imports: [AuthModule, ExpensesModule],
+  imports: [AuthModule, ExpensesModule, NotificationsModule],
   controllers: [CommentsController],
   providers: [
     CommentsService,

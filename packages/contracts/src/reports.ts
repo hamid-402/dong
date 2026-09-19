@@ -56,18 +56,24 @@ export function compareReportTotals(
   };
 }
 
+export type ReportExportFormat =
+  | "csv"
+  | "xlsx"
+  | "mohk_csv"
+  | "sepidar_csv";
+
 export type CreateReportExportRequest = {
   from: string;
   to: string;
   groupBy?: ReportGroupBy;
-  format?: "csv";
+  format?: ReportExportFormat;
   idempotencyKey: string;
 };
 
 export type ReportExportSummary = {
   id: string;
   workspaceId: string;
-  format: "csv";
+  format: ReportExportFormat;
   from: string;
   to: string;
   groupBy: ReportGroupBy;

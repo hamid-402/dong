@@ -17,6 +17,8 @@ import {
   computePersonalAccountBalance,
   enrichPersonalBudgetSummary,
   irrMoney,
+  isJalaliYearMonthKey,
+  jalaliYearMonthFromIsoDate,
   normalizePersonalBudgetAlertPercent,
   slugifyPersonalCategory,
   sumPersonalExpenseInMonth,
@@ -136,12 +138,19 @@ export class PostgresPersonalResourcesStore implements PersonalResourcesStore {
       .select()
       .from(moneyTxn)
       .where(eq(moneyTxn.ownerUserId, row.ownerUserId));
+    const useJalali = isJalaliYearMonthKey(row.yearMonth);
     const spent = sumPersonalExpenseInMonth(
-      txns.map((t) => ({
-        kind: t.kind,
-        amountMinor: t.amountMinor,
-        occurredOn: formatDate(t.occurredOn),
-      })),
+      txns.map((t) => {
+        const occurredOn = formatDate(t.occurredOn);
+        return {
+          kind: t.kind,
+          amountMinor: t.amountMinor,
+          occurredOn,
+          yearMonthKey: useJalali
+            ? jalaliYearMonthFromIsoDate(occurredOn) ?? ""
+            : occurredOn.slice(0, 7),
+        };
+      }),
       row.yearMonth,
     );
     return enrichPersonalBudgetSummary({
@@ -298,7 +307,7 @@ export class PostgresPersonalResourcesStore implements PersonalResourcesStore {
         if (da !== db) return db.localeCompare(da);
         return b.createdAt.getTime() - a.createdAt.getTime();
       });
-      const limit = opts.limit && opts.limit > 0 ? Math.min(opts.limit, 200) : 100;
+      const limit = opts.limit && opts.limit > 0 ? Math.min(opts.limit, 50_000) : 100;
       return Promise.all(rows.slice(0, limit).map((r) => this.mapTxn(tx, r)));
     });
   }

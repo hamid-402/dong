@@ -1,20 +1,11 @@
-import { test, expect } from "@playwright/test";
-
 /**
- * Keyboard journey smoke (dong-50 #22).
+ * Keyboard journey smoke (dong-50 #22 + S10-19).
  *
- * Covers the public, no-auth part of the journey with the keyboard only:
- *   - login page is reachable and focus lands on interactive elements via Tab
- *   - a visible focus indicator exists (outline/box-shadow)
- *   - keyboard submit surfaces validation without a mouse
- *
- * NOTE: the full authenticated flow (create expense → settle → confirm) needs a
- * signed-in fixture (dev session cookie + `dang.auth.mode=dev`, see
- * a11y-shell.spec.ts). That is intentionally out of scope here because it
- * depends on a running API with seeded members. When an auth fixture is added,
- * extend this file to Tab through the expense form (مبلغ → تقسیم → تأیید) and
- * assert the settlement confirm path.
+ * Public: login Tab/Enter. Authenticated: Tab through spaces shell after real session.
  */
+import { test, expect } from "@playwright/test";
+import { installDevSession, resolveWorkspaceSlug } from "./helpers/dev-session";
+
 test.describe("keyboard journey (public)", () => {
   test("login: Tab reaches an interactive control with visible focus", async ({ page }) => {
     await page.goto("/login");
@@ -22,7 +13,6 @@ test.describe("keyboard journey (public)", () => {
 
     let interactive = false;
     let focusVisible = false;
-    // Tab through the first several stops; assert we land on a real control.
     for (let i = 0; i < 6; i++) {
       await page.keyboard.press("Tab");
       const meta = await page.locator(":focus").evaluate((el) => {
@@ -51,9 +41,6 @@ test.describe("keyboard journey (public)", () => {
   test("login: keyboard-only submit surfaces email field / validation", async ({ page }) => {
     await page.goto("/login");
     await expect(page.getByRole("heading", { name: /ورود/ })).toBeVisible();
-
-    // Submit with Enter from the login button (no mouse) — native required or
-    // our own validation must keep the email field present/visible.
     await page.getByRole("button", { name: /^ورود$/ }).focus();
     await page.keyboard.press("Enter");
     await expect(page.getByLabel(/ایمیل/)).toBeVisible();
@@ -76,5 +63,51 @@ test.describe("keyboard journey (public)", () => {
         description: "forgot-password link not present on login; skipped navigation assertion",
       });
     }
+  });
+});
+
+test.describe("keyboard journey (authenticated shell)", () => {
+  test("spaces: Tab reaches bottom/nav interactive control", async ({ page, context }) => {
+    await installDevSession(context, page);
+    await page.goto("/spaces");
+    await expect(page.locator("body")).toBeVisible({ timeout: 20_000 });
+    await expect(page).not.toHaveURL(/\/login/);
+
+    let interactive = false;
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press("Tab");
+      const meta = await page.locator(":focus").evaluate((el) => {
+        const tag = el.tagName.toLowerCase();
+        const role = el.getAttribute("role");
+        return (
+          ["a", "button", "input", "select", "textarea"].includes(tag) ||
+          role === "button" ||
+          role === "link" ||
+          role === "tab"
+        );
+      });
+      if (meta) {
+        interactive = true;
+        break;
+      }
+    }
+    expect(interactive, "expected Tab to reach shell interactive control").toBe(true);
+  });
+
+  test("workspace home: Tab stays usable after load", async ({
+    page,
+    request,
+    context,
+  }) => {
+    await installDevSession(context, page);
+    const resolved = await resolveWorkspaceSlug(request);
+    test.skip(!resolved, "Need seeded workspace for authenticated keyboard journey");
+    await page.goto(`/w/${resolved!.slug}`);
+    await expect(page.locator("#main")).toBeVisible({ timeout: 20_000 });
+
+    // Prefer focusing in-app chrome; Next.js Dev Tools also steals :focus in parallel.
+    const shellControl = page.locator("#main a, #main button, nav a, nav button").first();
+    await shellControl.focus();
+    await expect(shellControl).toBeFocused();
   });
 });

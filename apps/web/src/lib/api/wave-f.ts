@@ -1,59 +1,56 @@
-import type {
-  CategoryBudgetUsage,
-  CreateCategoryBudgetRequest,
-  CreateReimbursementRequest,
-  EmailDigestFrequency,
-  ExpenseCsvImportRequest,
-  NotificationPreferenceSummary,
-  ReimbursementSummary,
-  UpdateWorkspaceExpensePolicyRequest,
-  WorkspaceExpensePolicySummary,
-  WorkspacePlanName,
-  WorkspacePlanSummary,
-} from "@dang/contracts";
+import type { CategoryBudgetUsage, CreateCategoryBudgetRequest, CreateReimbursementRequest, CreateSubscriptionInvoiceRequest, EmailDigestFrequency, ExpenseCsvImportRequest, NotificationPreferenceSummary, PaySubscriptionInvoiceRequest, PaymentLinkSummary, ReimbursementSummary, SaasUsageSnapshot, SubscriptionInvoiceSummary, UiPreferenceSummary, UpdateUiPreferenceRequest, UpdateWorkspaceExpensePolicyRequest, WorkspaceExpensePolicySummary, WorkspacePlanName, WorkspacePlanSummary } from "@dang/contracts";
 import { apiFetch } from "./client";
+import { postWithOfflineQueue } from "./offline-post";
 
 export const waveFApi = {
   listReimbursements: (workspaceId: string) =>
     apiFetch<ReimbursementSummary[]>(`/workspaces/${workspaceId}/reimbursements`),
   createReimbursement: (workspaceId: string, body: CreateReimbursementRequest) =>
-    apiFetch<ReimbursementSummary>(`/workspaces/${workspaceId}/reimbursements`, {
-      method: "POST",
+    postWithOfflineQueue<ReimbursementSummary>({
+      path: `/workspaces/${workspaceId}/reimbursements`,
       body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: body.title?.trim() || "درخواست بازپرداخت",
     }),
   submitReimbursement: (workspaceId: string, id: string) =>
-    apiFetch<ReimbursementSummary>(
-      `/workspaces/${workspaceId}/reimbursements/${id}/submit`,
-      { method: "POST" },
-    ),
+    postWithOfflineQueue<ReimbursementSummary>({
+      path: `/workspaces/${workspaceId}/reimbursements/${id}/submit`,
+      body: "{}",
+      label: "ارسال بازپرداخت",
+    }),
   approveReimbursement: (workspaceId: string, id: string, note?: string) =>
-    apiFetch<ReimbursementSummary>(
-      `/workspaces/${workspaceId}/reimbursements/${id}/approve`,
-      { method: "POST", body: JSON.stringify({ note }) },
-    ),
+    postWithOfflineQueue<ReimbursementSummary>({
+      path: `/workspaces/${workspaceId}/reimbursements/${id}/approve`,
+      body: JSON.stringify({ note }),
+      label: "تأیید بازپرداخت",
+    }),
   rejectReimbursement: (workspaceId: string, id: string, note?: string) =>
-    apiFetch<ReimbursementSummary>(
-      `/workspaces/${workspaceId}/reimbursements/${id}/reject`,
-      { method: "POST", body: JSON.stringify({ note }) },
-    ),
+    postWithOfflineQueue<ReimbursementSummary>({
+      path: `/workspaces/${workspaceId}/reimbursements/${id}/reject`,
+      body: JSON.stringify({ note }),
+      label: "رد بازپرداخت",
+    }),
   markReimbursementPaid: (workspaceId: string, id: string) =>
-    apiFetch<ReimbursementSummary>(
-      `/workspaces/${workspaceId}/reimbursements/${id}/mark-paid`,
-      { method: "POST" },
-    ),
+    postWithOfflineQueue<ReimbursementSummary>({
+      path: `/workspaces/${workspaceId}/reimbursements/${id}/mark-paid`,
+      body: "{}",
+      label: "پرداخت بازپرداخت",
+    }),
   cancelReimbursement: (workspaceId: string, id: string) =>
-    apiFetch<ReimbursementSummary>(
-      `/workspaces/${workspaceId}/reimbursements/${id}/cancel`,
-      { method: "POST" },
-    ),
+    postWithOfflineQueue<ReimbursementSummary>({
+      path: `/workspaces/${workspaceId}/reimbursements/${id}/cancel`,
+      body: "{}",
+      label: "لغو بازپرداخت",
+    }),
   listCategoryBudgetUsage: (workspaceId: string) =>
     apiFetch<CategoryBudgetUsage[]>(
       `/workspaces/${workspaceId}/category-budgets/usage`,
     ),
   createCategoryBudget: (workspaceId: string, body: CreateCategoryBudgetRequest) =>
-    apiFetch<CategoryBudgetUsage>(`/workspaces/${workspaceId}/category-budgets`, {
-      method: "POST",
+    postWithOfflineQueue<CategoryBudgetUsage>({
+      path: `/workspaces/${workspaceId}/category-budgets`,
       body: JSON.stringify(body),
+      label: "بودجه دسته",
     }),
   getExpensePolicy: (workspaceId: string) =>
     apiFetch<WorkspaceExpensePolicySummary>(
@@ -69,10 +66,22 @@ export const waveFApi = {
     ),
   getNotificationPrefs: () =>
     apiFetch<NotificationPreferenceSummary>("/me/notification-prefs"),
-  putNotificationPrefs: (emailDigest: EmailDigestFrequency) =>
+  putNotificationPrefs: (body: {
+    emailDigest: EmailDigestFrequency;
+    expensePosted?: boolean;
+    settlementClaimed?: boolean;
+    inviteAccepted?: boolean;
+    securityAlert?: boolean;
+  }) =>
     apiFetch<NotificationPreferenceSummary>("/me/notification-prefs", {
       method: "PUT",
-      body: JSON.stringify({ emailDigest }),
+      body: JSON.stringify(body),
+    }),
+  getUiPrefs: () => apiFetch<UiPreferenceSummary>("/me/ui-prefs"),
+  putUiPrefs: (body: UpdateUiPreferenceRequest) =>
+    apiFetch<UiPreferenceSummary>("/me/ui-prefs", {
+      method: "PUT",
+      body: JSON.stringify(body),
     }),
   getWorkspacePlan: (workspaceId: string) =>
     apiFetch<WorkspacePlanSummary>(`/workspaces/${workspaceId}/plan`),
@@ -88,9 +97,43 @@ export const waveFApi = {
       method: "PUT",
       body: JSON.stringify(body),
     }),
-  importExpensesCsv: (workspaceId: string, body: ExpenseCsvImportRequest) =>
-    apiFetch<{ imported: number }>(
-      `/workspaces/${workspaceId}/expenses/import-csv`,
-      { method: "POST", body: JSON.stringify(body) },
+  saasUsage: (workspaceId: string) =>
+    apiFetch<SaasUsageSnapshot>(
+      `/workspaces/${workspaceId}/saas/usage`,
     ),
+  listSaasInvoices: (workspaceId: string) =>
+    apiFetch<SubscriptionInvoiceSummary[]>(
+      `/workspaces/${workspaceId}/saas/invoices`,
+    ),
+  createSaasInvoice: (
+    workspaceId: string,
+    body: CreateSubscriptionInvoiceRequest,
+  ) =>
+    postWithOfflineQueue<SubscriptionInvoiceSummary>({
+      path: `/workspaces/${workspaceId}/saas/invoices`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "فاکتور اشتراک",
+    }),
+  paySaasInvoice: (
+    workspaceId: string,
+    invoiceId: string,
+    body: PaySubscriptionInvoiceRequest,
+  ) =>
+    postWithOfflineQueue<{
+      invoice: SubscriptionInvoiceSummary;
+      paymentLink: PaymentLinkSummary;
+    }>({
+      path: `/workspaces/${workspaceId}/saas/invoices/${invoiceId}/pay`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "پرداخت فاکتور اشتراک",
+    }),
+  importExpensesCsv: (workspaceId: string, body: ExpenseCsvImportRequest) =>
+    postWithOfflineQueue<{ imported: number }>({
+      path: `/workspaces/${workspaceId}/expenses/import-csv`,
+      body: JSON.stringify(body),
+      label: "ورود CSV خرج",
+    }),
 };
+

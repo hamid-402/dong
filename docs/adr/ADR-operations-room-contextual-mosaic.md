@@ -69,7 +69,8 @@ navigation are not allowed.
 |---|---|---|
 | 1–8 | Inventory, shell, mosaic, Operations Room density | Done |
 | 9 | Performance / a11y / lazy routes | Done |
-| 10 | Classic route compatibility + hash-aware finance deep links | Done |
+| 10a | Classic route compatibility + hash-aware finance deep links | Done |
+| 10 | Hardening کامل: ممیزی S10 + استانداردهای R10-01…25 | Committed — see [ROADMAP-STAGE-10.md](../ROADMAP-STAGE-10.md) |
 
 ## Consequences
 

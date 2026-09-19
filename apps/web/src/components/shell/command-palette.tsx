@@ -6,14 +6,69 @@ import { useAppChrome } from "@/lib/use-app-chrome";
 import {
   accountNav,
   bottomTabsV2,
+  DOMAIN_GROUP_ORDER,
   expenseFabHref,
+  homeDomainHref,
+  mosaicItemSummary,
   spaceNav,
 } from "@/lib/navigation-v2";
+import { listRecentDestinations, rememberDestination } from "@/lib/recent-destinations";
+import { spaceNavFlagsFromCapabilities } from "@/lib/workspace-page-access";
 import { wPath } from "@/lib/workspace-paths";
 import { NAV_LABELS } from "@/lib/nav-labels";
+import {
+  memberStatementHref,
+  statementMonthBounds,
+  statementsListHref,
+} from "@/lib/statement-links";
 import { useShellV2Api } from "@/components/shell/shell-v2-context";
+import { t } from "@/lib/i18n";
 
-type PaletteItem = { id: string; label: string; href: string; group: string };
+type PaletteItem = {
+  id: string;
+  label: string;
+  href: string;
+  group: string;
+  /** Extra searchable text (mosaic summary, etc.) — not shown in the row. */
+  haystack?: string;
+};
+
+/**
+ * Pure fuzzy scorer: subsequence match with consecutive-run bonus.
+ * Higher is better; -1 means no match. Works for Persian/Latin labels.
+ */
+export function fuzzyScore(query: string, text: string): number {
+  const q = query.trim().toLowerCase();
+  const t = text.toLowerCase();
+  if (!q) return 0;
+  if (t === q) return 10_000;
+  const exactAt = t.indexOf(q);
+  if (exactAt >= 0) {
+    return 5_000 + Math.max(0, 1_000 - exactAt) - Math.max(0, t.length - q.length);
+  }
+
+  let qi = 0;
+  let score = 0;
+  let consecutive = 0;
+  let firstIndex = -1;
+
+  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+    if (t[ti] === q[qi]) {
+      if (firstIndex < 0) firstIndex = ti;
+      consecutive += 1;
+      score += 10 + consecutive * 5;
+      if (ti === 0 || /\s/.test(t[ti - 1]!)) score += 15;
+      qi += 1;
+    } else {
+      consecutive = 0;
+    }
+  }
+
+  if (qi !== q.length) return -1;
+  score -= firstIndex;
+  score -= Math.max(0, t.length - q.length);
+  return score;
+}
 
 /**
  * Ctrl/Cmd+K command palette — focus trap, Esc close, aria modal.
@@ -44,49 +99,126 @@ export function CommandPalette() {
       list.push(item);
     };
 
+    for (const recent of listRecentDestinations()) {
+      push({
+        id: `recent-${recent.key}`,
+        label: recent.label,
+        href: recent.href,
+        group: t("shell.groupRecent"),
+      });
+    }
+
     const fab = expenseFabHref(template, slug);
     if (fab) {
       push({
         id: "fab-expense",
         label: NAV_LABELS.addExpense,
         href: fab,
-        group: "میانبر",
+        group: t("shell.groupShortcut"),
       });
     }
     for (const tab of bottomTabsV2(template, slug)) {
-      push({ id: `tab-${tab.key}`, label: tab.label, href: tab.href, group: "میانبر" });
+      push({ id: `tab-${tab.key}`, label: tab.label, href: tab.href, group: t("shell.groupShortcut") });
     }
     if (slug) {
+      push({
+        id: "shortcut-expenses",
+        label: NAV_LABELS.expenses,
+        href: wPath(slug, "expenses"),
+        group: t("shell.groupShortcut"),
+        haystack: mosaicItemSummary("expenses"),
+      });
+      push({
+        id: "shortcut-space",
+        label: NAV_LABELS.space,
+        href: wPath(slug, "space"),
+        group: t("shell.groupShortcut"),
+      });
+      push({
+        id: "shortcut-more",
+        label: NAV_LABELS.more,
+        href: wPath(slug, "more"),
+        group: t("shell.groupShortcut"),
+      });
+      for (const domain of DOMAIN_GROUP_ORDER) {
+        push({
+          id: `folder-${domain}`,
+          label:
+            domain === "finance"
+              ? NAV_LABELS.sectionFinance
+              : domain === "buy"
+                ? NAV_LABELS.sectionBuy
+                : domain === "people"
+                  ? NAV_LABELS.sectionPeople
+                  : domain === "oversight"
+                    ? NAV_LABELS.sectionOversight
+                    : NAV_LABELS.sectionSettings,
+          href: homeDomainHref(slug, domain),
+          group: NAV_LABELS.home,
+          haystack: `پوشه خانه ${domain}`,
+        });
+      }
       push({
         id: "act-settlements",
         label: NAV_LABELS.settlements,
         href: wPath(slug, "settlements"),
-        group: "اقدام",
+        group: t("shell.groupAction"),
+        haystack: mosaicItemSummary("settlements"),
       });
+      if (chrome.capabilities?.providers?.statements === "csv_json_print_v1") {
+        const me = chrome.actor?.userId;
+        if (me) {
+          push({
+            id: "act-my-statement-month",
+            label: NAV_LABELS.myStatementThisMonth,
+            href: memberStatementHref(slug, me, statementMonthBounds()),
+            group: t("shell.groupAction"),
+            haystack: mosaicItemSummary("statements"),
+          });
+        }
+        push({
+          id: "act-statements",
+          label: NAV_LABELS.statements,
+          href: statementsListHref(slug),
+          group: t("shell.groupAction"),
+          haystack: mosaicItemSummary("statements"),
+        });
+      }
       push({
         id: "act-members",
-        label: NAV_LABELS.invite,
+        label: NAV_LABELS.members,
         href: wPath(slug, "members"),
-        group: "اقدام",
+        group: t("shell.groupAction"),
+        haystack: `${NAV_LABELS.members} ${NAV_LABELS.invite} عضو نقش`,
       });
       push({
         id: "act-settings",
-        label: "تنظیمات فضا",
+        label: t("shell.settingsSpace"),
         href: wPath(slug, "settings"),
-        group: "اقدام",
+        group: t("shell.groupAction"),
+        haystack: mosaicItemSummary("settings"),
       });
     }
-    for (const section of spaceNav(template, slug, chrome.capabilities?.productFlags)) {
+    for (const section of spaceNav(
+      template,
+      slug,
+      spaceNavFlagsFromCapabilities(chrome.capabilities),
+    )) {
       for (const item of section.items) {
         push({
           id: `nav-${item.key}`,
           label: item.label,
           href: item.href,
           group: section.label,
+          haystack: mosaicItemSummary(item.key),
         });
       }
     }
-    for (const item of accountNav()) {
+    for (const item of accountNav({
+      platformAdminLive:
+        chrome.capabilities?.providers?.platformAdmin === "platform_v1",
+      platformRole: chrome.platformRole,
+    })) {
       push({
         id: `acc-${item.key}`,
         label: item.label,
@@ -105,16 +237,41 @@ export function CommandPalette() {
     return list;
   }, [
     chrome.workspaces,
-    chrome.capabilities?.productFlags,
+    chrome.capabilities,
+    chrome.actor?.userId,
+    chrome.platformRole,
     slug,
     template,
+    open,
   ]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return items.slice(0, 20);
-    return items.filter((item) => item.label.toLowerCase().includes(q)).slice(0, 20);
+    const q = query.trim();
+    if (!q) {
+      const recentLabel = t("shell.groupRecent");
+      const recentFirst = items.filter((item) => item.group === recentLabel);
+      const rest = items.filter((item) => item.group !== recentLabel);
+      return [...recentFirst, ...rest].slice(0, 20);
+    }
+    return items
+      .map((item) => {
+        const labelScore = fuzzyScore(q, item.label);
+        const hayScore = item.haystack ? fuzzyScore(q, item.haystack) : -1;
+        const score = Math.max(labelScore, hayScore);
+        return { item, score };
+      })
+      .filter((row) => row.score >= 0)
+      .sort((a, b) => b.score - a.score || a.item.label.localeCompare(b.item.label, "fa"))
+      .slice(0, 20)
+      .map((row) => row.item);
   }, [items, query]);
+
+  useEffect(() => {
+    if (!open) return;
+    for (const item of filtered.slice(0, 8)) {
+      router.prefetch?.(item.href);
+    }
+  }, [open, filtered, router]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -173,6 +330,14 @@ export function CommandPalette() {
 
   function go(href: string) {
     setOpen(false);
+    const match = items.find((item) => item.href === href);
+    if (match) {
+      rememberDestination({
+        key: match.id,
+        label: match.label,
+        href: match.href,
+      });
+    }
     router.push(href);
   }
 
@@ -190,17 +355,19 @@ export function CommandPalette() {
         <div className="cmd-palette__head">
           <div>
             <h2 id={titleId} className="cmd-palette__title">
-              یافتن در دنگ
+              {t("shell.findInDong")}
             </h2>
             <span className="cmd-palette__count" aria-live="polite">
-              {filtered.length.toLocaleString("fa-IR")} نتیجه
+              {t("shell.resultCount", {
+                count: filtered.length.toLocaleString("fa-IR"),
+              })}
             </span>
           </div>
           <button
             type="button"
             className="cmd-palette__close"
             onClick={() => setOpen(false)}
-            aria-label="بستن جستجو"
+            aria-label={t("shell.searchClose")}
           >
             ×
           </button>
@@ -210,9 +377,9 @@ export function CommandPalette() {
           className="cmd-palette__input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="صفحه، فضا یا اکشن…"
+          placeholder={t("shell.searchPlaceholder")}
           role="combobox"
-          aria-label="جستجوی صفحه، فضا یا اقدام"
+          aria-label={t("shell.searchAria")}
           aria-expanded="true"
           aria-autocomplete="list"
           aria-controls="cmd-palette-list"
@@ -232,7 +399,7 @@ export function CommandPalette() {
         />
         <ul id="cmd-palette-list" className="cmd-palette__list" role="listbox">
           {filtered.length === 0 ? (
-            <li className="cmd-palette__empty">موردی پیدا نشد</li>
+            <li className="cmd-palette__empty">{t("shell.noResults")}</li>
           ) : (
             filtered.map((item, index) => (
               <li key={item.id} role="none">
@@ -243,7 +410,10 @@ export function CommandPalette() {
                   aria-selected={index === active}
                   className={`cmd-palette__item${index === active ? " is-active" : ""}`}
                   onClick={() => go(item.href)}
-                  onMouseEnter={() => setActive(index)}
+                  onMouseEnter={() => {
+                    setActive(index);
+                    router.prefetch(item.href);
+                  }}
                 >
                   <span>{item.label}</span>
                   <small>{item.group}</small>
@@ -252,7 +422,7 @@ export function CommandPalette() {
             ))
           )}
         </ul>
-        <p className="cmd-palette__hint">Ctrl+K · Esc برای بستن</p>
+        <p className="cmd-palette__hint">{t("shell.paletteHint")}</p>
       </div>
     </div>
   );

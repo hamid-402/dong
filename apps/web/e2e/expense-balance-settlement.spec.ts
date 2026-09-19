@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 import { installDevSession, resolveWorkspaceSlug } from "./helpers/dev-session";
 
@@ -9,7 +10,7 @@ import { installDevSession, resolveWorkspaceSlug } from "./helpers/dev-session";
  * never invents balances or expenses.
  */
 
-async function expectShellReady(page: import("@playwright/test").Page) {
+async function expectShellReady(page: Page) {
   await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
   await expect(page.getByText("در حال بررسی نشست…")).toHaveCount(0, {
     timeout: 15_000,

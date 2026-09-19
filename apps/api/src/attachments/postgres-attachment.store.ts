@@ -3,6 +3,7 @@ import {
   attachment,
   createDatabase,
   eq,
+  sql,
   withTenantContext,
   type AppDatabase,
 } from "@dang/db";
@@ -10,6 +11,7 @@ import type {
   AttachmentSummary,
   CommentTargetType,
   CreateAttachmentRequest,
+  OcrReceiptResult,
   QuarantineScanResult,
 } from "@dang/contracts";
 import { assertAllowedUploadMime, evaluateQuarantine } from "@dang/contracts";
@@ -18,6 +20,7 @@ import type { AttachmentStore } from "./attachment.store.js";
 const MAX_BYTES = 10 * 1024 * 1024;
 
 function mapAttachment(row: typeof attachment.$inferSelect): AttachmentSummary {
+  const ocr = row.ocrResult;
   return {
     id: row.id,
     workspaceId: row.workspaceId,
@@ -31,6 +34,16 @@ function mapAttachment(row: typeof attachment.$inferSelect): AttachmentSummary {
     uploadedByUserId: row.uploadedByUserId,
     createdAt: row.createdAt.toISOString(),
     ocrJobId: row.ocrJobId ?? undefined,
+    ocrResult: ocr
+      ? {
+          jobId: ocr.jobId,
+          status: ocr.status,
+          merchantHint: ocr.merchantHint,
+          amountMinorHint: ocr.amountMinorHint,
+          rawTextPreview: ocr.rawTextPreview,
+          completedAt: ocr.completedAt,
+        }
+      : undefined,
     quarantineStatus: row.quarantineStatus as AttachmentSummary["quarantineStatus"],
     hasBlob: Boolean(row.storagePath),
   };
@@ -184,5 +197,59 @@ export class PostgresAttachmentStore implements AttachmentStore {
       if (!updated[0]) throw new Error("ATTACHMENT_NOT_FOUND");
       return mapAttachment(updated[0]);
     });
+  }
+
+  saveOcrResult(
+    workspaceId: string,
+    attachmentId: string,
+    result: OcrReceiptResult,
+  ): Promise<AttachmentSummary> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const updated = await tx
+        .update(attachment)
+        .set({
+          ocrJobId: result.jobId,
+          ocrResult: {
+            jobId: result.jobId,
+            status: result.status,
+            merchantHint: result.merchantHint,
+            amountMinorHint: result.amountMinorHint,
+            rawTextPreview: result.rawTextPreview,
+            completedAt: result.completedAt,
+          },
+        })
+        .where(
+          and(eq(attachment.id, attachmentId), eq(attachment.workspaceId, workspaceId)),
+        )
+        .returning();
+      if (!updated[0]) throw new Error("ATTACHMENT_NOT_FOUND");
+      return mapAttachment(updated[0]);
+    });
+  }
+
+  async purgeOldBlockedBlobs(olderThanDays = 90, nowIso = new Date().toISOString()): Promise<number> {
+    const cutoff = new Date(Date.parse(nowIso) - olderThanDays * 24 * 60 * 60 * 1000);
+    // Cross-tenant sweep: works when DB role bypasses RLS (e.g. dang_migrator); else 0.
+    const result = await this.db.execute(sql`
+      UPDATE collab.attachment
+      SET storage_path = NULL
+      WHERE quarantine_status = 'blocked'
+        AND storage_path IS NOT NULL
+        AND created_at < ${cutoff}
+    `);
+    return Number((result as { rowCount?: number }).rowCount ?? 0);
+  }
+
+  async countOldBlockedBlobs(olderThanDays = 90, nowIso = new Date().toISOString()): Promise<number> {
+    const cutoff = new Date(Date.parse(nowIso) - olderThanDays * 24 * 60 * 60 * 1000);
+    const result = await this.db.execute(sql`
+      SELECT COUNT(*)::int AS n
+      FROM collab.attachment
+      WHERE quarantine_status = 'blocked'
+        AND storage_path IS NOT NULL
+        AND created_at < ${cutoff}
+    `);
+    const rows = (result as { rows?: Array<{ n: number }> }).rows;
+    return Number(rows?.[0]?.n ?? 0);
   }
 }

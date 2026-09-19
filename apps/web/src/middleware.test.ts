@@ -10,7 +10,6 @@ describe("pathMatchesPrefix", () => {
   });
 
   it("does not match sibling paths that only share a startsWith prefix", () => {
-    // Raw pathname.startsWith("/hub") would incorrectly allow /hub-fake.
     expect(pathMatchesPrefix("/hub-fake", "/hub")).toBe(false);
     expect(pathMatchesPrefix("/workspaces-old", "/workspaces")).toBe(false);
     expect(pathMatchesPrefix("/accountancy", "/account")).toBe(false);
@@ -33,14 +32,20 @@ describe("middleware session gate", () => {
     expect(res.headers.get("location")).toContain("next=%2Fwhats-new");
   });
 
-  it("allows protected paths with dang_web_session", () => {
+  it("rejects forgeable dang_web_session alone", () => {
     const res = run("/spaces", "dang_web_session=1");
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/login");
+  });
+
+  it("allows protected paths with dang_session", () => {
+    const res = run("/spaces", "dang_session=opaque-token");
     expect(res.status).toBe(200);
     expect(res.headers.get("location")).toBeNull();
   });
 
   it("protects classic /group and /daily-ledger without session", () => {
-    for (const path of ["/group", "/daily-ledger", "/proposals", "/onboarding"]) {
+    for (const path of ["/group", "/daily-ledger", "/proposals", "/onboarding", "/overview"]) {
       const res = run(path);
       expect(res.status).toBe(307);
       expect(res.headers.get("location")).toContain("/login");
@@ -49,7 +54,7 @@ describe("middleware session gate", () => {
   });
 
   it("redirects authenticated /onboarding to /spaces/new", () => {
-    const res = run("/onboarding", "dang_web_session=1");
+    const res = run("/onboarding", "dang_session=opaque-token");
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toContain("/spaces/new");
   });

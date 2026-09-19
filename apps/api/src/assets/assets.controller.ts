@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Inject, Param, Post, UseGuards } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import type {
+  AssetDepreciationReportRow,
+  AssetLifecycleRequest,
   AssetSummary,
   AssignAssetRequest,
   AuthActor,
@@ -10,6 +12,7 @@ import type {
   TransferAssetRequest,
 } from "@dang/contracts";
 import {
+  assetLifecycleRequestSchema,
   assignAssetRequestSchema,
   createAssetFromDeliveryRequestSchema,
   damageAssetRequestSchema,
@@ -84,5 +87,44 @@ export class AssetsController {
     @Body(new ZodValidationPipe(damageAssetRequestSchema)) body: DamageAssetRequest,
   ): Promise<AssetSummary> {
     return this.assets.markDamaged(actor, workspaceId, body);
+  }
+
+  @Post("assets/mark-repair")
+  @UseGuards(AuthGuard)
+  markRepair(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body(new ZodValidationPipe(assetLifecycleRequestSchema)) body: AssetLifecycleRequest,
+  ): Promise<AssetSummary> {
+    return this.assets.markRepair(actor, workspaceId, body);
+  }
+
+  @Post("assets/resume-active")
+  @UseGuards(AuthGuard)
+  resumeActive(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body(new ZodValidationPipe(assetLifecycleRequestSchema)) body: AssetLifecycleRequest,
+  ): Promise<AssetSummary> {
+    return this.assets.resumeActive(actor, workspaceId, body);
+  }
+
+  @Post("assets/retire")
+  @UseGuards(AuthGuard)
+  retire(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body(new ZodValidationPipe(assetLifecycleRequestSchema)) body: AssetLifecycleRequest,
+  ): Promise<AssetSummary> {
+    return this.assets.retire(actor, workspaceId, body);
+  }
+
+  @Get("assets/depreciation-report")
+  @UseGuards(AuthGuard)
+  depreciationReport(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+  ): Promise<AssetDepreciationReportRow[]> {
+    return this.assets.depreciationReport(actor, workspaceId);
   }
 }

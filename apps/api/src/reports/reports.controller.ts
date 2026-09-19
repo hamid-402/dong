@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Get,
-  Header,
   Inject,
   ForbiddenException,
   NotFoundException,
@@ -151,8 +150,7 @@ export class ReportsController {
 
   @Get("reports/exports/:exportId/file")
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: "Download completed CSV export bytes" })
-  @Header("Content-Type", "text/csv; charset=utf-8")
+  @ApiOperation({ summary: "Download completed CSV or XLSX export bytes" })
   async downloadExport(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
@@ -164,10 +162,21 @@ export class ReportsController {
     if (!row?.csvBody || row.status !== "completed") {
       throw new NotFoundException({ detail: "فایل آماده نیست" });
     }
+    const ext = row.format === "xlsx" ? "xlsx" : "csv";
+    reply.header(
+      "Content-Type",
+      row.format === "xlsx"
+        ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        : "text/csv; charset=utf-8",
+    );
     reply.header(
       "Content-Disposition",
-      `attachment; filename="dang-report-${exportId.slice(0, 8)}.csv"`,
+      `attachment; filename="dang-report-${exportId.slice(0, 8)}.${ext}"`,
     );
+    if (row.format === "xlsx") {
+      reply.send(Buffer.from(row.csvBody, "base64"));
+      return;
+    }
     reply.send(row.csvBody);
   }
 
@@ -248,6 +257,9 @@ export class ReportsController {
   @UseGuards(RecurrenceRunGuard)
   @ApiHeader({ name: "x-dang-internal-job", required: false })
   @ApiHeader({ name: "x-dang-internal-actor-user-id", required: false })
+  @ApiHeader({ name: "x-dang-internal-workspace-id", required: false })
+  @ApiHeader({ name: "x-dang-internal-ts", required: false })
+  @ApiHeader({ name: "x-dang-internal-sig", required: false })
   @ApiOperation({
     summary:
       "Run due recurring rules: create drafts, optionally submit/post, and advance next_run_on",

@@ -1,6 +1,8 @@
 import type {
+  AgreedPriceSummary,
   AgreementSummary,
   ContributionSummary,
+  CreateAgreedPriceRequest,
   CreateAgreementRequest,
   CreatePeriodLockRequest,
   MemberAccountReport,
@@ -19,6 +21,7 @@ type StoredContribution = ContributionSummary & { idempotencyKey: string };
 type StoredLoan = PartnerLoanSummary & { idempotencyKey: string };
 type StoredWithdrawal = WithdrawalSummary & { idempotencyKey: string };
 type StoredPeriodLock = PeriodLockSummary & { idempotencyKey: string };
+type StoredAgreedPrice = AgreedPriceSummary & { idempotencyKey: string };
 
 function stripAgreement(row: StoredAgreement): AgreementSummary {
   return {
@@ -56,6 +59,7 @@ export class MemoryPartnershipStore implements PartnershipStore {
   private readonly loans = new Map<string, StoredLoan>();
   private readonly withdrawals = new Map<string, StoredWithdrawal>();
   private readonly periodLocks = new Map<string, StoredPeriodLock>();
+  private readonly agreedPrices = new Map<string, StoredAgreedPrice>();
 
   createAgreement(
     actorUserId: string,
@@ -355,6 +359,71 @@ export class MemoryPartnershipStore implements PartnershipStore {
       displayName,
       lines,
       netPositionMinor: net.toString(),
+    };
+  }
+
+  createAgreedPrice(input: CreateAgreedPriceRequest): Promise<AgreedPriceSummary> {
+    const agreement = this.agreements.get(input.agreementId);
+    if (!agreement || agreement.workspaceId !== input.workspaceId) {
+      return Promise.reject(new Error("AGREEMENT_NOT_FOUND"));
+    }
+    const dup = [...this.agreedPrices.values()].find(
+      (p) =>
+        p.workspaceId === input.workspaceId &&
+        p.idempotencyKey === input.idempotencyKey.trim(),
+    );
+    if (dup) {
+      return Promise.resolve(this.stripAgreedPrice(dup));
+    }
+    const siblings = [...this.agreedPrices.values()].filter(
+      (p) => p.agreementId === input.agreementId,
+    );
+    const version = siblings.reduce((max, p) => Math.max(max, p.version), 0) + 1;
+    const id = crypto.randomUUID();
+    const row: StoredAgreedPrice = {
+      id,
+      workspaceId: input.workspaceId,
+      agreementId: input.agreementId,
+      catalogItemId: input.catalogItemId,
+      title: input.title.trim(),
+      amount: input.amount,
+      effectiveFrom: input.effectiveFrom,
+      version,
+      createdAt: new Date().toISOString(),
+      idempotencyKey: input.idempotencyKey.trim(),
+    };
+    this.agreedPrices.set(id, row);
+    return Promise.resolve(this.stripAgreedPrice(row));
+  }
+
+  listAgreedPrices(workspaceId: string, agreementId: string): Promise<AgreedPriceSummary[]> {
+    return Promise.resolve(
+      [...this.agreedPrices.values()]
+        .filter((p) => p.workspaceId === workspaceId && p.agreementId === agreementId)
+        .map((p) => this.stripAgreedPrice(p)),
+    );
+  }
+
+  getAgreedPrice(
+    workspaceId: string,
+    priceId: string,
+  ): Promise<AgreedPriceSummary | undefined> {
+    const row = this.agreedPrices.get(priceId);
+    if (!row || row.workspaceId !== workspaceId) return Promise.resolve(undefined);
+    return Promise.resolve(this.stripAgreedPrice(row));
+  }
+
+  private stripAgreedPrice(row: StoredAgreedPrice): AgreedPriceSummary {
+    return {
+      id: row.id,
+      workspaceId: row.workspaceId,
+      agreementId: row.agreementId,
+      catalogItemId: row.catalogItemId,
+      title: row.title,
+      amount: row.amount,
+      effectiveFrom: row.effectiveFrom,
+      version: row.version,
+      createdAt: row.createdAt,
     };
   }
 }

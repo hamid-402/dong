@@ -4,6 +4,7 @@ import type {
   SettlementStatus,
   SettlementSummary,
 } from "@dang/contracts";
+import type { AppDatabase } from "@dang/db";
 
 export type StoredSettlement = SettlementSummary & {
   note?: string;
@@ -11,8 +12,13 @@ export type StoredSettlement = SettlementSummary & {
   createdByUserId: string;
 };
 
+export type SettlementWriteOptions = {
+  tx?: AppDatabase;
+};
+
 export type SettlementStore = {
   readonly persistence: "memory" | "postgres";
+  readonly db?: AppDatabase;
   createClaim(
     actorUserId: string,
     input: CreateSettlementClaimRequest,
@@ -21,6 +27,7 @@ export type SettlementStore = {
     workspaceId: string,
     settlementId: string,
     actorUserId: string,
+    options?: SettlementWriteOptions,
   ): Promise<StoredSettlement>;
   dispute(
     workspaceId: string,
@@ -41,6 +48,12 @@ export type SettlementStore = {
     settlementId: string,
     actorUserId: string,
   ): Promise<StoredSettlement | null>;
+  /** Memory compensating write after journal failure. */
+  compensateStatus?(
+    workspaceId: string,
+    settlementId: string,
+    status: SettlementStatus,
+  ): Promise<void>;
 };
 
 export const SETTLEMENT_STORE = Symbol("SETTLEMENT_STORE");
@@ -92,6 +105,8 @@ export function toSettlementSummary(settlement: StoredSettlement): SettlementSum
     status: settlement.status,
     paymentLinkUrl: settlement.paymentLinkUrl,
     createdAt: settlement.createdAt,
+    createdByUserId: settlement.createdByUserId,
+    note: settlement.note,
   };
 }
 

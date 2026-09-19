@@ -35,9 +35,13 @@
 
 ## Chrome
 
-- Shell v2: تب‌ها + «بیشتر» روی `/w/[slug]/…`
+- Shell v2: چهار تب ثابت (خانه · خرج‌ها · فضا · ابزارها) روی `/w/[slug]/…`
+- **مسیر صفحه یکپارچه:** `ShellPageTrail` = بازگشت + breadcrumb (≤۳) روی زیرصفحات؛ بدون نوار جدا در هر صفحه
+- **بدون strip عملیات زیر عنوان:** `OperationsModuleHeader` بازنشسته است؛ سوییچ بخش‌ها از تب Shell / ابزارها / Palette / CTA عنوان صفحه
+- **دسته‌بندی واحد دامنه** برای ابزارها و جست‌وجو: مالی · خرید · اعضا · نظارت · تنظیمات (`domainGroupedNav` / `spaceNav`)
+- **سه لایه ناوبری موزاییکی (URL-as-state):** دامنه (`?folder=`) → زیرشاخه (`&group=`) → مقصد نهایی؛ Escape یک لایه عقب
+- خانه = launcher دامنه + مانده زنده؛ مرکز تأیید با badge واقعی در هدر وقتی صف خالی نیست
 - مسیرهای classic و `/hub/*` با redirect به `/w` حفظ bookmark می‌مانند
-- منوی classic از همان catalog قالب تغذیه می‌شود
 
 ## خانه و مسیر canonical
 
@@ -45,9 +49,9 @@
 |-----|-----|
 | فضای کاری (خانه / اتاق عملیات) | `/w/[slug]` |
 | نمای فضا (من / گروه / سازمان) | `/w/[slug]/space` |
-| مالی / خرج‌ها | `/w/[slug]/expenses` (تسویه `/settlements` · صورتحساب `/invoices` · تکرار `/recurring`) |
+| مالی / خرج‌ها | `/w/[slug]/expenses` (تسویه `/settlements` · صورتحساب کلی دوره `/invoices` · ریز حساب اعضا `/statements` · تکرار `/recurring`) — فیلتر لیست خرج: `visibility`/`from`/`to`/`catalogItemId` (با `providers.catalog`) |
 | مالی سازمان (Wave F) | `/w/[slug]/org-finance` — فقط وقتی flagهای مربوط در capabilities روشن باشد |
-| add-on / تأیید | `/addons` · `/approvals` — فقط با `addonAck` / `approvalQueue` |
+| add-on / تأیید | `/addons` · `/approvals` — فقط با `addonAck` / `approvalQueue`؛ تأیید همچنین از badge هدر |
 | دفتر روزانه | از تب‌ها / More همان slug |
 | دعوت / اعضا | `/w/[slug]/members` — ساخت دعوت فقط owner/admin |
 | پروفایل / تنظیمات | Shell More / settings |
@@ -67,6 +71,11 @@ Bookmarkهای `#settlement-panel` / `#period-invoice-panel` / `#reports-panel` 
 ### C — سازمان
 ورود → خانه org → بودجه / تأیید → خرج؛ خرید از More
 
+### D — رشد / دعوت و دوستان (W7)
+`/onboarding` → ساخت فضا → `/w/[slug]/members` (لینک دعوت + کپی) → `/invite?token=` (نشست واقعی) → خانه فضا · اختیاری: `/account/friends` (lookup / تطبیق مخاطبین / دعوت به فضا) · `/whats-new` از STATUS
+
+پایلوت میدانی: [`docs/ops/PILOT.md`](./ops/PILOT.md)
+
 ## قوانین ناوبری UI
 
 1. هر صفحه حداکثر یک CTA رقابتی در viewport اول (اصل سند ۲.۰).  
@@ -75,3 +84,11 @@ Bookmarkهای `#settlement-panel` / `#period-invoice-panel` / `#reports-panel` 
 4. ماژول خرید/اموال فقط وقتی template اجازه دهد.  
 5. یافتن و آمار فقط از دادهٔ API — بدون نتیجه یا badge جعلی.  
 6. فیچر ناتمام پشت `productFlags` در `/system/capabilities`؛ دکمهٔ مرده نشان داده نمی‌شود.
+
+## کنسول سامانه و امنیت فضا
+
+- کنسول پلتفرم (`/admin`، alias `/platform`) فقط وقتی `platformAdmin` زنده و نقش `platform_owner` / `platform_support` باشد از حساب، More و command palette کشف می‌شود (`accountNav({ platformAdminLive, platformRole })`).
+- عملیات امنیتی فضای کاری: `/w/[slug]/security-ops` — وقتی antifraud یا maker-checker در capabilities زنده باشد (نه لینک مرده).
+- صورتحساب سهم‌محور: `/w/[slug]/statements` — بازهٔ دلخواه، سهم قلم‌به‌قلم، قابل‌پرداخت/بستانکار؛ دستور واریز از تنظیمات فضا (`payoutInstructions` + DELETE/clear)؛ مقصد واریز در صورت وجود master key به‌صورت AES-GCM ذخیره می‌شود (`providers.payoutDestinationCrypto`); خروجی CSV/JSON با انقضای ۷ روز؛ اعلان `statement.ready` با rate-limit و audit؛ ABAC `statement.*` / `payout.manage` (`rbac_abac_v3`). راهنمای ارسال: [STATEMENTS-SEND.md](./ops/STATEMENTS-SEND.md). PDF سرور عمداً نیست.
+- Providerهای بیرونی: [PROVIDERS-RUNBOOK.md](./ops/PROVIDERS-RUNBOOK.md).
+- فهرست خرج: فیلتر `visibility`/`from`/`to` روی API و همگام با URL صفحهٔ expenses.

@@ -14,6 +14,7 @@ export type ZarinpalRequestInput = {
 export type ZarinpalRequestResult = {
   authority: string;
   checkoutUrl: string;
+  code: number;
 };
 
 export type ZarinpalVerifyInput = {
@@ -24,7 +25,11 @@ export type ZarinpalVerifyInput = {
 export type ZarinpalVerifyResult = {
   refId: string;
   cardPan?: string;
+  code: number;
 };
+
+const OK_REQUEST = new Set([100]);
+const OK_VERIFY = new Set([100, 101]);
 
 function baseUrl(): string {
   return zarinpalSandbox()
@@ -71,12 +76,14 @@ export async function zarinpalRequestPayment(
     errors?: unknown;
   };
   const authority = body.data?.authority;
-  if (!response.ok || !authority) {
+  const code = body.data?.code ?? 0;
+  if (!response.ok || !authority || !OK_REQUEST.has(code)) {
     throw new Error(`ZARINPAL_REQUEST_FAILED:${JSON.stringify(body.errors ?? body)}`);
   }
   return {
     authority,
     checkoutUrl: `${startPayBase()}${authority}`,
+    code,
   };
 }
 
@@ -103,11 +110,14 @@ export async function zarinpalVerifyPayment(
     errors?: unknown;
   };
   const refId = body.data?.ref_id;
-  if (!response.ok || refId === undefined || refId === null) {
+  const code = body.data?.code ?? 0;
+  // 100 = first verify; 101 = already verified (idempotent success)
+  if (!response.ok || refId === undefined || refId === null || !OK_VERIFY.has(code)) {
     throw new Error(`ZARINPAL_VERIFY_FAILED:${JSON.stringify(body.errors ?? body)}`);
   }
   return {
     refId: String(refId),
     cardPan: body.data?.card_pan,
+    code,
   };
 }

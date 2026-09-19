@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./session-cookies": {
+      "types": "./dist/session-cookies.d.ts",
+      "default": "./dist/session-cookies.js"
     }
   },
   "scripts": {

@@ -37,7 +37,7 @@ export const createReportExportRequestSchema = z
     from: isoDateSchema,
     to: isoDateSchema,
     groupBy: reportGroupBySchema.optional(),
-    format: z.literal("csv").optional(),
+    format: z.enum(["csv", "xlsx", "mohk_csv", "sepidar_csv"]).optional(),
     idempotencyKey: idempotencyKeySchema,
   })
   .strict();

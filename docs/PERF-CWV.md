@@ -33,12 +33,27 @@ Open `lighthouse-report.report.html` for the full breakdown. Focus metrics:
 | --- | --- |
 | Largest Contentful Paint (LCP) | < 2.5s |
 | Cumulative Layout Shift (CLS) | < 0.1 |
-| Total Blocking Time (TBT) | < 200ms |
+| Total Blocking Time (TBT) | < 200ms (lab proxy for INP) |
+| Interaction to Next Paint (INP) | < 200ms (field / user-flow only — see below) |
 | Performance score | ≥ 0.85 |
 
 Authenticated surfaces require a session cookie (`dang_web_session=1`) plus
 `localStorage["dang.auth.mode"]="dev"` — the same pattern used by the e2e specs in
 `apps/web/e2e/`.
+
+## INP in Lighthouse CI
+
+Standard **navigation-mode** Lighthouse (what `.github/workflows/lighthouse.yml` runs)
+does **not** emit a reliable `interaction-to-next-paint` audit: there is no user
+interaction during a cold load. True INP needs a [user-flow / timespan](https://github.com/GoogleChrome/lighthouse/blob/main/docs/user-flows.md)
+with scripted clicks, or field data (CrUX / RUM).
+
+Until we wire a Puppeteer user-flow gate:
+
+- Assert **Total Blocking Time ≤ 200ms** as the lab proxy for interaction readiness.
+- Keep a commented placeholder for `'interaction-to-next-paint': ['error', { maxNumericValue: 200 }]`
+  in the workflow for when flows land.
+- Do not treat a green navigation Lighthouse run as proof of good field INP.
 
 ## Automated Lighthouse (opt-in, honest)
 

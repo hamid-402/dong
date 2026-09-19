@@ -23,107 +23,74 @@ Worker   NestJS Standalone برای Queue Consumer
 اولین کاندیداهای استخراج آینده OCR، Notification و Webhook Delivery هستند.
 Accounting، Expense و Settlement آخرین گزینه‌های استخراج‌اند.
 
-## 3. ساختار هدف Monorepo
+## 3. ساختار فعلی Monorepo (S10-17)
 
 ```text
 apps/
-  web/
-  api/
-  worker/
+  web/       Next.js App Router (`app/`, `components/`, `lib/`)
+  api/       NestJS modular monolith (`src/<bounded-context>/`)
+  worker/    Queue consumer (Redis)
 packages/
-  workspaces/
-  expenses/
-  procurement/
-  assets/
-  partnerships/
-  accounting/
-  payments/
-  documents/
-  notifications/
-  audit/
-  reporting/
-  db/
-  contracts/
-  ui/
   config/
+  contracts/
+  db/
+  ui/
   observability/
-  testing/
 infra/
 docs/
 ```
 
-## 4. ساختار هر Bounded Context
+دامنه‌ها (expense، settlement، ledger، iam، jobs، …) امروز به‌صورت ماژول Nest داخل `apps/api/src` هستند — نه پکیج جدا.
+استخراج پکیج دامنهٔ جدا (expenses/ledger به packages) هدف برش ۲ همان **R10-11** است؛ مرز فعلی apps↔packages با `dependency-cruiser` در CI قفل شده (`.dependency-cruiser.cjs` · `pnpm depcruise`).
+
+## 4. الگوی Bounded Context داخل API
+
+هر پوشهٔ دامنه تقریباً این لایه‌ها را دارد (نه الزاماً همه):
 
 ```text
-src/
-  domain/
-    entities/
-    value-objects/
-    policies/
-    events/
-    errors/
-  application/
-    commands/
-    queries/
-    handlers/
-    ports/
-  infrastructure/
-    persistence/
-    messaging/
-    adapters/
-  presentation/
-    http/
-    schemas/
-  public-api.ts
+apps/api/src/<context>/
+  *.controller.ts
+  *.service.ts
+  *.module.ts
+  *-store.ts / memory-*.ts / postgres-*.ts
+  *.types.ts
 ```
 
-جهت وابستگی:
+جهت وابستگی مطلوب:
 
 ```text
-presentation → application → domain
-infrastructure → application ports + domain
-domain → هیچ Framework یا Database Package
+controller → service → store
+contracts/db به‌عنوان قرارداد و persistence مشترک
 ```
 
 ## 5. قوانین یکپارچگی کد
 
-- Import داخلی Context دیگر ممنوع؛ فقط `public-api.ts`.
-- Repository یا Table ماژول دیگر قابل استفاده مستقیم نیست.
-- ارتباط Async با Domain Event و Transactional Outbox.
-- API/Worker فقط Composition Root هستند.
-- DTO، Domain Entity و DB Record جدا هستند.
-- Controller نازک و بدون Query مستقیم.
-- Generic CRUD Repository ممنوع؛ Repository بر اساس Use Case است.
-- TypeScript strict و `any` در مرز مالی/امنیتی ممنوع.
+- Import بین apps فقط از طریق `packages/*` مجاز است.
+- Store یک دامنه نباید جدول دامنهٔ دیگر را مستقیم بنویسد مگر از طریق سرویس/قرارداد صریح.
+- ارتباط Async با Queue (Redis) و Transactional Outbox (`ops.outbox_event` · R10-03 برش ۱).
+- API/Worker Composition Root هستند.
+- DTO (`@dang/contracts`)، رکورد DB (`@dang/db`) و منطق سرویس جدا می‌مانند.
+- Controller نازک؛ validation با Zod.
+- TypeScript strict؛ `any` در مرز مالی/امنیتی ممنوع.
 - Naming کد و DB انگلیسی؛ ترجمه فقط UI.
 
-مرزها با ESLint `no-restricted-imports` یا Dependency Cruiser در CI کنترل می‌شوند.
+مرز پکیج‌های apps↔packages با Dependency Cruiser در CI (**R10-11**) enforce می‌شود؛ استخراج Domain Packages جدا (`R10-11b`) پس از موتور سیاست مرکزی.
 
 ## 6. Frontend
 
-- Next.js فقط Presentation و BFF محدود احراز هویت است.
-- قواعد مالی و Transaction در Server Action قرار نمی‌گیرند.
-- TanStack Query منبع Server State.
-- React Hook Form + Zod برای فرم.
-- OpenAPI Client تولیدشده؛ `fetch` پراکنده ممنوع.
-- URL منبع Tab، Filter و Pagination قابل اشتراک.
-- Local State فقط برای UI گذرا.
+- Next.js Presentation؛ منطق مالی در API.
+- Client HTTP متمرکز در `apps/web/src/lib/api/*` (نه `fetch` پراکنده).
+- URL منبع Tab/Filter قابل اشتراک (`/w/[slug]/…`).
+- Local State برای UI گذرا؛ Server State از API.
 - عملیات مالی حساس Optimistic Update ندارد.
 
-ساختار:
+ساختار فعلی:
 
 ```text
 apps/web/src/
-  app/
-  features/
-  entities/
-  shared/
-    api/
-    auth/
-    i18n/
-    ui/
-    validation/
-  service-worker/
+  app/            App Router + error/not-found/forbidden
+  components/     shell، views، ui-blocks
+  lib/            api، navigation، access، session
 ```
 
 ## 7. API

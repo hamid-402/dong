@@ -1,10 +1,4 @@
-import type {
-  AttachmentSummary,
-  CommentSummary,
-  CreateAttachmentRequest,
-  CreateCommentRequest,
-  NotificationSummary,
-} from "@dang/contracts";
+import type { AttachmentSummary, CommentSummary, CreateAttachmentRequest, CreateCommentRequest, NotificationSummary, OcrReceiptResult } from "@dang/contracts";
 import {
   API_BASE,
   ApiError,
@@ -13,20 +7,31 @@ import {
   getAuthClientMode,
   getDevIdentity,
 } from "./client";
+import { postWithOfflineQueue } from "./offline-post";
 
 /** Comment, attachment and notification endpoints — domain slice (dong-50 #30). */
 export const attachmentsApi = {
   createComment: (workspaceId: string, body: CreateCommentRequest) =>
-    apiFetch<CommentSummary>(`/workspaces/${workspaceId}/comments`, {
-      method: "POST",
+    postWithOfflineQueue<CommentSummary>({
+      path: `/workspaces/${workspaceId}/comments`,
       body: JSON.stringify(body),
+      label: "نظر",
     }),
-  createAttachment: (workspaceId: string, body: CreateAttachmentRequest) =>
-    apiFetch<AttachmentSummary>(
-      `/workspaces/${workspaceId}/attachments`,
-      { method: "POST", body: JSON.stringify(body) },
-      body.idempotencyKey,
+  listComments: (
+    workspaceId: string,
+    targetType: CreateCommentRequest["targetType"],
+    targetId: string,
+  ) =>
+    apiFetch<CommentSummary[]>(
+      `/workspaces/${workspaceId}/comments?targetType=${encodeURIComponent(targetType)}&targetId=${encodeURIComponent(targetId)}`,
     ),
+  createAttachment: (workspaceId: string, body: CreateAttachmentRequest) =>
+    postWithOfflineQueue<AttachmentSummary>({
+      path: `/workspaces/${workspaceId}/attachments`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: body.fileName?.trim() || "پیوست",
+    }),
   listAttachments: (
     workspaceId: string,
     targetType: CreateAttachmentRequest["targetType"],
@@ -63,11 +68,20 @@ export const attachmentsApi = {
     }
     return response.blob();
   },
-  listNotifications: (workspaceId: string) =>
-    apiFetch<NotificationSummary[]>(`/workspaces/${workspaceId}/notifications`),
-  markNotificationRead: (workspaceId: string, notificationId: string) =>
-    apiFetch<NotificationSummary>(
-      `/workspaces/${workspaceId}/notifications/${notificationId}/read`,
+  runAttachmentOcr: (workspaceId: string, attachmentId: string) =>
+    apiFetch<OcrReceiptResult>(
+      `/workspaces/${workspaceId}/attachments/${attachmentId}/ocr`,
       { method: "POST", body: "{}" },
     ),
+  listNotifications: (workspaceId: string) =>
+    apiFetch<NotificationSummary[]>(`/workspaces/${workspaceId}/notifications`),
+  /** SSE path for fetch-stream client (R10-18). */
+  notificationsStreamPath: (workspaceId: string) =>
+    `/workspaces/${workspaceId}/notifications/stream`,
+  markNotificationRead: (workspaceId: string, notificationId: string) =>
+    postWithOfflineQueue<NotificationSummary>({
+      path: `/workspaces/${workspaceId}/notifications/${notificationId}/read`,
+      body: "{}",
+      label: "خواندن اعلان",
+    }),
 };

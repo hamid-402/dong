@@ -58,6 +58,13 @@ export class MemoryExpenseStore implements ExpenseStore {
       source: input.source === "daily_ledger" ? "daily_ledger" : undefined,
       originalCurrency: input.originalCurrency,
       originalAmountMinor: input.originalAmountMinor,
+      catalogItemId: input.catalogItemId?.trim() || undefined,
+      unitCode: input.unitCode?.trim() || undefined,
+      quantity: input.quantity,
+      unitPriceMinor: input.unitPriceMinor,
+      fundingSourceKind: input.fundingSourceKind,
+      fundingRefId: input.fundingRefId?.trim() || undefined,
+      missionKind: input.missionKind,
       idempotencyKey: input.idempotencyKey.trim(),
       createdByUserId: actorUserId,
     };
@@ -178,6 +185,16 @@ export class MemoryExpenseStore implements ExpenseStore {
     }
   }
 
+  compensateStatus(
+    workspaceId: string,
+    expenseId: string,
+    status: StoredExpense["status"],
+  ): Promise<void> {
+    const existing = this.requireExpense(workspaceId, expenseId);
+    this.expenses.set(expenseId, { ...existing, status });
+    return Promise.resolve();
+  }
+
   updateVisibility(
     workspaceId: string,
     expenseId: string,
@@ -201,6 +218,65 @@ export class MemoryExpenseStore implements ExpenseStore {
     } catch (error: unknown) {
       return Promise.reject(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  remapUserId(
+    workspaceId: string,
+    fromUserId: string,
+    toUserId: string,
+  ): Promise<number> {
+    if (fromUserId === toUserId) return Promise.resolve(0);
+    let touched = 0;
+    for (const [id, expense] of this.expenses) {
+      if (expense.workspaceId !== workspaceId) continue;
+      let changed = false;
+      const next = { ...expense };
+      if (next.paidByUserId === fromUserId) {
+        next.paidByUserId = toUserId;
+        changed = true;
+      }
+      if (next.createdByUserId === fromUserId) {
+        next.createdByUserId = toUserId;
+        changed = true;
+      }
+      if (next.participantUserIds.includes(fromUserId)) {
+        next.participantUserIds = [
+          ...new Set(
+            next.participantUserIds.map((u) => (u === fromUserId ? toUserId : u)),
+          ),
+        ];
+        changed = true;
+      }
+      next.paymentLines = next.paymentLines.map((line) => {
+        if (line.userId !== fromUserId) return line;
+        changed = true;
+        return { ...line, userId: toUserId };
+      });
+      next.splits = next.splits.map((line) => {
+        if (line.userId !== fromUserId) return line;
+        changed = true;
+        return { ...line, userId: toUserId };
+      });
+      if (next.items?.length) {
+        next.items = next.items.map((item) => {
+          if (!item.assigneeUserIds.includes(fromUserId)) return item;
+          changed = true;
+          return {
+            ...item,
+            assigneeUserIds: [
+              ...new Set(
+                item.assigneeUserIds.map((u) => (u === fromUserId ? toUserId : u)),
+              ),
+            ],
+          };
+        });
+      }
+      if (changed) {
+        this.expenses.set(id, next);
+        touched += 1;
+      }
+    }
+    return Promise.resolve(touched);
   }
 
   private requireExpense(workspaceId: string, expenseId: string): StoredExpense {

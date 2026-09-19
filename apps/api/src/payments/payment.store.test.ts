@@ -9,19 +9,22 @@ test("pending zarinpal amount is server-owned and idempotent verify", async () =
     amountMinor: "250000",
     workspaceId: "ws1",
     paymentLinkId: "pl1",
+    returnUrl: "https://dang.local/return",
   });
 
   const pending = await store.findPendingZarinpal("A0001");
   assert.equal(pending?.amountMinor, "250000");
+  assert.equal(pending?.returnUrl, "https://dang.local/return");
   assert.equal(pending?.status, "pending");
 
   const verified = await store.markZarinpalVerified("A0001", "ref-9");
   assert.equal(verified.status, "verified");
   assert.equal(verified.refId, "ref-9");
 
-  const again = await store.findPendingZarinpal("A0001");
-  assert.equal(again?.status, "verified");
-  assert.equal(again?.amountMinor, "250000");
+  const again = await store.markZarinpalVerified("A0001", "ref-other");
+  assert.equal(again.status, "verified");
+  assert.equal(again.refId, "ref-9");
+  assert.equal(again.amountMinor, "250000");
 });
 
 test("unknown zarinpal authority returns null", async () => {

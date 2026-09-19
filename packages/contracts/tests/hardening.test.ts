@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   assertNoCustodyPayload,
+  buildLocalPspCheckoutUrl,
   buildStubCheckoutUrl,
   forbiddenPaymentFields,
 } from "../src/payments.js";
@@ -36,6 +37,12 @@ test("stub checkout URL never hosts card form path on dang app", () => {
   const url = buildStubCheckoutUrl("abc", "https://app.example/r");
   assert.match(url, /^https:\/\/pay\.dang\.local\/stub\/checkout/);
   assert.match(url, /linkId=abc/);
+});
+
+test("local PSP checkout URL points at web checkout with intentId", () => {
+  const url = buildLocalPspCheckoutUrl("intent-9", "http://localhost:3005");
+  assert.match(url, /^http:\/\/localhost:3005\/payments\/local\/checkout/);
+  assert.match(url, /intentId=intent-9/);
 });
 
 test("quarantine blocks executable filenames", () => {

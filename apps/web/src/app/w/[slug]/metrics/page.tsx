@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { RouteLoadingHint } from "@/components/shell/route-loading-hint";
+import { WorkspacePageGate } from "@/components/shell/workspace-page-gate";
 
 const ProductMetricsView = dynamic(
   () =>
@@ -15,5 +16,9 @@ const ProductMetricsView = dynamic(
 );
 
 export default function WorkspaceMetricsPage() {
-  return <ProductMetricsView />;
+  return (
+    <WorkspacePageGate page="metrics" needRole>
+      <ProductMetricsView />
+    </WorkspacePageGate>
+  );
 }

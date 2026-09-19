@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { newClientId } from "@/lib/id";
 
@@ -6,22 +6,24 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type {
+  AgreedPriceSummary,
   AssetSummary,
   BudgetSummary,
+  CatalogItemPrice,
   DeliverySummary,
   NeedSummary,
   PurchaseOrderSummary,
   PurchaseRequestSummary,
   VendorSummary,
 } from "@dang/contracts";
-import { isReadOnlyRole } from "@dang/contracts";
-import { Amount, Button, TextField } from "@dang/ui";
+import { isReadOnlyRole, procurementVerticalSliceSteps } from "@dang/contracts";
+import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { AppShell, ShellIconSvg } from "@/components/app-shell";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import {
   DataList,
   DataRow,
   EmptyHint,
+  EmptyStateBlock,
   FormStack,
   HeroBalance,
   ProductGrid,
@@ -30,10 +32,12 @@ import {
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import {
   assetStatusLabel,
   deliveryStatusLabel,
@@ -42,19 +46,29 @@ import {
   purchaseOrderStatusLabel,
   purchaseRequestStatusLabel,
 } from "@/lib/status-labels";
-import { useFlashMessage } from "@/lib/use-flash-message";
+import { FlashMessages, useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { formatFaDate } from "@/lib/fa-datetime";
 import { wPath } from "@/lib/workspace-paths";
 import type { ComponentProps } from "react";
 import styles from "./procurement-view.module.css";
 
 function statusTone(status: string): "neutral" | "ok" | "warn" | "danger" | "gold" {
-  if (status === "approved" || status === "delivered" || status === "closed" || status === "active") return "ok";
+  if (status === "approved" || status === "delivered" || status === "closed" || status === "active" || status === "fulfilled" || status === "complete") return "ok";
   if (status === "submitted" || status === "open" || status === "partially_delivered" || status === "ordered") return "gold";
   if (status === "rejected" || status === "cancelled") return "danger";
-  if (status === "draft") return "warn";
+  if (status === "draft" || status === "in_repair") return "warn";
   return "neutral";
 }
+
+const SLICE_LABELS: Record<(typeof procurementVerticalSliceSteps)[number], string> = {
+  create_need: "????",
+  create_purchase_request: "???????",
+  approve_request: "?????",
+  create_purchase_order: "?????",
+  record_delivery: "?????",
+  convert_to_asset: "?????",
+};
 
 export function ProcurementView() {
   const router = useRouter();
@@ -69,15 +83,24 @@ export function ProcurementView() {
   const [orders, setOrders] = useState<PurchaseOrderSummary[]>([]);
   const [deliveries, setDeliveries] = useState<DeliverySummary[]>([]);
   const [assets, setAssets] = useState<AssetSummary[]>([]);
-  const [needTitle, setNeedTitle] = useState("خرید لپ‌تاپ");
-  const [prTitle, setPrTitle] = useState("درخواست خرید لپ‌تاپ");
+  const [needTitle, setNeedTitle] = useState("???? ??????");
+  const [prTitle, setPrTitle] = useState("??????? ???? ??????");
   const [prToman, setPrToman] = useState("45000000");
-  const [budgetName, setBudgetName] = useState("بودجه تیم");
+  const [budgetName, setBudgetName] = useState("????? ???");
   const [budgetToman, setBudgetToman] = useState("500000000");
-  const [vendorName, setVendorName] = useState("فروشگاه دیجی");
+  const [vendorName, setVendorName] = useState("??????? ????");
   const [readOnly, setReadOnly] = useState(false);
   const [myRole, setMyRole] = useState("");
   const [selectedRequestId, setSelectedRequestId] = useState("");
+  const [partnerPrices, setPartnerPrices] = useState<AgreedPriceSummary[]>([]);
+  const [catalogPrices, setCatalogPrices] = useState<CatalogItemPrice[]>([]);
+  const [partnerPriceId, setPartnerPriceId] = useState("");
+  const [catalogPriceId, setCatalogPriceId] = useState("");
+  const [catalogItemId, setCatalogItemId] = useState("");
+
+  const poExpenseLive = chrome.capabilities?.providers?.poExpenseLink === "po_expense_v1";
+  const partnerPricesLive =
+    chrome.capabilities?.providers?.partnerPrices === "partner_prices_v1";
 
   function GuardedForm(props: ComponentProps<typeof FormStack>) {
     if (readOnly) return null;
@@ -96,7 +119,7 @@ export function ProcurementView() {
     void refresh(chrome.workspaceId)
       .then(() => setError(null))
       .catch((err: unknown) => {
-        setError(friendlyErrorMessage(err, "خطا"));
+        setError(friendlyErrorMessage(err, "???"));
       })
       .finally(() => setLoading(false));
   }, [chrome.workspaceId, chrome.ready]);
@@ -122,6 +145,38 @@ export function ProcurementView() {
     const role = members.find((m) => m.userId === chrome.actor?.userId)?.role ?? "";
     setMyRole(role);
     setReadOnly(isReadOnlyRole(role));
+
+    if (partnerPricesLive) {
+      try {
+        const agreements = await api.listAgreements(id);
+        if (agreements[0]) {
+          const prices = await api.listAgreedPrices(id, agreements[0].id);
+          setPartnerPrices(prices);
+        } else {
+          setPartnerPrices([]);
+        }
+      } catch {
+        setPartnerPrices([]);
+      }
+    } else {
+      setPartnerPrices([]);
+    }
+
+    try {
+      const catalogPage = await api.listCatalogItems(id, { activeOnly: true, limit: 20 });
+      const item = catalogPage.items[0];
+      if (item) {
+        setCatalogItemId(item.id);
+        const prices = await api.listCatalogPrices(id, item.id);
+        setCatalogPrices(prices);
+      } else {
+        setCatalogItemId("");
+        setCatalogPrices([]);
+      }
+    } catch {
+      setCatalogItemId("");
+      setCatalogPrices([]);
+    }
   }
 
   const approved = requests.filter((r) => r.status === "approved" || r.status === "ordered");
@@ -133,6 +188,15 @@ export function ProcurementView() {
     requests[0] ??
     null;
 
+  const sliceDone: Record<(typeof procurementVerticalSliceSteps)[number], boolean> = {
+    create_need: needs.length > 0,
+    create_purchase_request: requests.length > 0,
+    approve_request: requests.some((r) => r.status === "approved" || r.status === "ordered"),
+    create_purchase_order: orders.length > 0,
+    record_delivery: deliveries.length > 0,
+    convert_to_asset: assets.length > 0,
+  };
+
   return (
     <AppShell
       workspaceId={chrome.workspaceId}
@@ -140,68 +204,59 @@ export function ProcurementView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      {pageError ? <p className="liveError">{pageError}</p> : null}
-      {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
-      {workspaceId && workspace ? (
-        <OperationsModuleHeader
-          ariaLabel="عملیات تدارکات"
-          destinations={[
-            { key: "procurement", label: "تدارکات", href: wPath(workspace.slug, "procurement"), active: true },
-            { key: "proposals", label: "پیشنهاد و رأی", href: wPath(workspace.slug, "proposals"), active: false },
-            { key: "assets", label: "تجهیزات", href: wPath(workspace.slug, "assets"), active: false },
-            { key: "members", label: "اعضا", href: wPath(workspace.slug, "members"), active: false },
-          ]}
-          metrics={[
-            { label: "نیاز باز", value: String(openNeeds), detail: `${needs.length} نیاز در کل`, tone: openNeeds > 0 ? "attention" : "positive" },
-            { label: "درخواست خرید", value: String(requests.length), detail: `${approved.length} آماده سفارش` },
-            { label: "سفارش", value: String(orders.length), detail: `${vendors.length} فروشنده` },
-            { label: "تحویل", value: String(deliveries.length), detail: `${assets.length} دارایی ایجادشده` },
-          ]}
-          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
-          persistenceLabel={chrome.persistenceLabel}
-          pending={loading}
-          onRefresh={() => {
-            setLoading(true);
-            void refresh(workspaceId)
-              .catch((reason: unknown) => setError(friendlyErrorMessage(reason, "تازه‌سازی تدارکات ناموفق")))
-              .finally(() => setLoading(false));
-          }}
-        />
-      ) : null}
-      {readOnly && workspaceId ? (
-        <StatusLine>
-          نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ثبت نیاز، PR و بودجه فعال نیست.
-        </StatusLine>
-      ) : null}
+      <WorkspacePageFrame
+        title={NAV_LABELS.procurement}
+        description="????? ??????? ????? ????? ? ????? ?? API ???? ???."
+        primaryAction={
+          workspaceId ? (
+            <a href="#need-panel">??? ????</a>
+          ) : (
+            <Link href="/spaces/new?kind=org">{NAV_LABELS.createSpace}</Link>
+          )
+        }
+        secondaryActions={
+          workspace ? (
+            <Link href={wPath(workspace.slug, "assets")}>{NAV_LABELS.assets}</Link>
+          ) : undefined
+        }
+        state={!chrome.ready || loading ? "loading" : !workspaceId ? "empty" : "ready"}
+        loadingLabel="?? ??? ???????? ???????�"
+        empty={
+          <EmptyStateBlock
+            title="????? ?????? ????"
+            description="??????? ???? ?????? ???????/???????? ??? � ??? ??? ??????."
+            action={<Link href="/home">{NAV_LABELS.home}</Link>}
+          />
+        }
+      >
+        <FlashMessages error={pageError} successMessage={successMessage} />
+        {readOnly && workspaceId ? (
+          <StatusLine>
+            ??? {membershipRoleLabel(myRole)} ??? ?????? ???? � ??? ????? PR ? ????? ???? ????.
+          </StatusLine>
+        ) : null}
 
-      {loading ? (
-        <EmptyHint>در حال بارگذاری تدارکات…</EmptyHint>
-      ) : !workspaceId ? (
-        <EmptyHint>
-          ابتدا فضای کاری بسازید — <Link href={hubPathFor("/workspaces")}>بازگشت به مالی</Link> یا{" "}
-          <Link href={hubPathFor("/onboarding")}>ساخت فضای کاری</Link>
-        </EmptyHint>
-      ) : (
+        {workspaceId ? (
         <>
           <div className="heroGrid">
             <HeroBalance
-              label="نیازهای باز"
+              label="??????? ???"
               amount={String(openNeeds || needs.length)}
-              subtitle="در صف بررسی یا ثبت"
-              actionLabel="ثبت نیاز جدید"
+              subtitle="?? ?? ????? ?? ???"
+              actionLabel="??? ???? ????"
               onAction={() => document.getElementById("need-panel")?.scrollIntoView({ behavior: "smooth" })}
-              hint={`${budgets.length} بودجه فعال`}
+              hint={`${budgets.length} ????? ????`}
             />
             <QuickAction
-              title="درخواست خرید"
-              description="از نیاز تأییدشده، PR بسازید."
+              title="??????? ????"
+              description="?? ???? ????????? PR ??????."
               delayClass="delay1"
               icon={<ShellIconSvg name="cart" />}
               onClick={() => document.getElementById("pr-panel")?.scrollIntoView({ behavior: "smooth" })}
             />
             <QuickAction
-              title="تجهیزات"
-              description="پس از تحویل، دارایی ثبت کنید."
+              title="???????"
+              description="?? ?? ?????? ?????? ??? ????."
               delayClass="delay2"
               icon={<ShellIconSvg name="box" />}
               onClick={() =>
@@ -214,11 +269,27 @@ export function ProcurementView() {
             />
           </div>
 
+          <SectionCard title="?????? ???????" delayClass="delay1">
+            <DataList>
+              {procurementVerticalSliceSteps.map((step) => (
+                <DataRow
+                  key={step}
+                  title={SLICE_LABELS[step]}
+                  trailing={
+                    <StatusPill tone={sliceDone[step] ? "ok" : "neutral"}>
+                      {sliceDone[step] ? "?????????" : "??????????"}
+                    </StatusPill>
+                  }
+                />
+              ))}
+            </DataList>
+          </SectionCard>
+
           <ProductGrid>
-          <SectionCard title="نیاز" badge={needs.length} delayClass="delay1">
+          <SectionCard title="????" badge={needs.length} delayClass="delay1">
             <div id="need-panel" />
             <GuardedForm>
-              <TextField label="عنوان" value={needTitle} onChange={(e) => setNeedTitle(e.target.value)} />
+              <TextField label="?????" value={needTitle} onChange={(e) => setNeedTitle(e.target.value)} />
               <Button
                 type="button"
                 onClick={() => {
@@ -231,18 +302,18 @@ export function ProcurementView() {
                       });
                       await refresh(workspaceId);
                       setError(null);
-                      flashSuccess("نیاز ثبت شد");
+                      flashSuccess("???? ??? ??");
                     } catch (err: unknown) {
-                      setError(friendlyErrorMessage(err, "خطا"));
+                      setError(friendlyErrorMessage(err, "???"));
                     }
                   })();
                 }}
               >
-                ثبت نیاز
+                ??? ????
               </Button>
             </GuardedForm>
             {needs.length === 0 ? (
-              <EmptyHint>هنوز نیازی ثبت نشده.</EmptyHint>
+              <EmptyHint>???? ????? ??? ????.</EmptyHint>
             ) : (
               <DataList>
                 {needs.map((n) => (
@@ -250,17 +321,49 @@ export function ProcurementView() {
                     key={n.id}
                     title={n.title}
                     trailing={<StatusPill tone={statusTone(n.status)}>{needStatusLabel(n.status)}</StatusPill>}
+                    actions={
+                      !readOnly && n.status === "open" ? (
+                        <>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                              void api
+                                .fulfillNeed(workspaceId, n.id)
+                                .then(() => refresh(workspaceId))
+                                .then(() => flashSuccess("???? ??????? ??"))
+                                .catch((err: unknown) => setError(friendlyErrorMessage(err, "???")));
+                            }}
+                          >
+                            ???????
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                              void api
+                                .cancelNeed(workspaceId, n.id)
+                                .then(() => refresh(workspaceId))
+                                .then(() => flashSuccess("???? ??? ??"))
+                                .catch((err: unknown) => setError(friendlyErrorMessage(err, "???")));
+                            }}
+                          >
+                            ???
+                          </Button>
+                        </>
+                      ) : null
+                    }
                   />
                 ))}
               </DataList>
             )}
           </SectionCard>
 
-          <SectionCard title="درخواست خرید" badge={requests.length} delayClass="delay1">
+          <SectionCard title="??????? ????" badge={requests.length} delayClass="delay1">
             <div id="pr-panel" />
             <GuardedForm>
-              <TextField label="عنوان" value={prTitle} onChange={(e) => setPrTitle(e.target.value)} />
-              <TextField label="مبلغ (تومان)" value={prToman} onChange={(e) => setPrToman(e.target.value)} />
+              <TextField label="?????" value={prTitle} onChange={(e) => setPrTitle(e.target.value)} />
+              <TextField label="???? (?????)" value={prToman} onChange={(e) => setPrToman(e.target.value)} />
               <Button
                 type="button"
                 onClick={() => {
@@ -268,7 +371,7 @@ export function ProcurementView() {
                     try {
                       const amount = tomanInputToIrrMinor(prToman);
                       if (!amount) {
-                        setError("مبلغ نامعتبر است (فقط تومان / IRR)");
+                        setError("???? ??????? ??? (??? ????? / IRR)");
                         return;
                       }
                       await api.createPurchaseRequest(workspaceId, {
@@ -279,18 +382,18 @@ export function ProcurementView() {
                       });
                       await refresh(workspaceId);
                       setError(null);
-                      flashSuccess("درخواست خرید ثبت شد");
+                      flashSuccess("??????? ???? ??? ??");
                     } catch (err: unknown) {
-                      setError(friendlyErrorMessage(err, "خطا"));
+                      setError(friendlyErrorMessage(err, "???"));
                     }
                   })();
                 }}
               >
-                ثبت درخواست
+                ??? ???????
               </Button>
             </GuardedForm>
             {requests.length === 0 ? (
-              <EmptyHint>درخواست خریدی نیست.</EmptyHint>
+              <EmptyHint>??????? ????? ????.</EmptyHint>
             ) : (
               <div className={styles.masterDetail}>
               <DataList>
@@ -308,7 +411,7 @@ export function ProcurementView() {
                           aria-pressed={selectedRequest?.id === r.id}
                           onClick={() => setSelectedRequestId(r.id)}
                         >
-                          جزئیات
+                          ??????
                         </Button>
                         {r.status === "draft" ? (
                           <Button
@@ -318,7 +421,7 @@ export function ProcurementView() {
                               void api.submitPurchaseRequest(workspaceId, r.id).then(() => refresh(workspaceId));
                             }}
                           >
-                            ارسال
+                            ?????
                           </Button>
                         ) : null}
                         {r.status === "submitted" ? (
@@ -335,7 +438,7 @@ export function ProcurementView() {
                                 .then(() => refresh(workspaceId));
                             }}
                           >
-                            تأیید
+                            ?????
                           </Button>
                         ) : null}
                       </>
@@ -344,16 +447,16 @@ export function ProcurementView() {
                 ))}
               </DataList>
               {selectedRequest ? (
-                <aside className={styles.inspector} aria-label="جزئیات درخواست خرید انتخاب‌شده">
+                <aside className={styles.inspector} aria-label="?????? ??????? ???? ??????????">
                   <span>PURCHASE INSPECTOR</span>
                   <h3>{selectedRequest.title}</h3>
                   <Amount irrMinor={selectedRequest.amount.amountMinor} />
                   <dl>
-                    <div><dt>وضعیت</dt><dd>{purchaseRequestStatusLabel(selectedRequest.status)}</dd></div>
-                    <div><dt>فروشنده</dt><dd>{selectedRequest.vendorName ?? "انتخاب نشده"}</dd></div>
-                    <div><dt>نیاز مبنا</dt><dd>{selectedRequest.needId ? "متصل به نیاز" : "ثبت مستقیم"}</dd></div>
-                    <div><dt>ثبت‌کننده</dt><dd><code>{selectedRequest.createdByUserId.slice(0, 12)}</code></dd></div>
-                    <div><dt>تاریخ ثبت</dt><dd>{new Date(selectedRequest.createdAt).toLocaleDateString("fa-IR")}</dd></div>
+                    <div><dt>?????</dt><dd>{purchaseRequestStatusLabel(selectedRequest.status)}</dd></div>
+                    <div><dt>???????</dt><dd>{selectedRequest.vendorName ?? "?????? ????"}</dd></div>
+                    <div><dt>???? ????</dt><dd>{selectedRequest.needId ? "???? ?? ????" : "??? ??????"}</dd></div>
+                    <div><dt>?????????</dt><dd><code>{selectedRequest.createdByUserId.slice(0, 12)}</code></dd></div>
+                    <div><dt>????? ???</dt><dd>{formatFaDate(selectedRequest.createdAt)}</dd></div>
                   </dl>
                 </aside>
               ) : null}
@@ -361,9 +464,9 @@ export function ProcurementView() {
             )}
           </SectionCard>
 
-          <SectionCard title="فروشنده و سفارش" delayClass="delay2">
+          <SectionCard title="??????? ? ?????" delayClass="delay2">
             <GuardedForm>
-              <TextField label="نام فروشنده" value={vendorName} onChange={(e) => setVendorName(e.target.value)} />
+              <TextField label="??? ???????" value={vendorName} onChange={(e) => setVendorName(e.target.value)} />
               <Button
                 type="button"
                 onClick={() => {
@@ -376,44 +479,84 @@ export function ProcurementView() {
                       });
                       await refresh(workspaceId);
                       setError(null);
-                      flashSuccess("فروشنده ثبت شد");
+                      flashSuccess("??????? ??? ??");
                     } catch (err: unknown) {
-                      setError(friendlyErrorMessage(err, "خطا"));
+                      setError(friendlyErrorMessage(err, "???"));
                     }
                   })();
                 }}
               >
-                ثبت فروشنده
+                ??? ???????
               </Button>
               {approved.length > 0 && vendors[0] ? (
-                <Button
-                  type="button"
-                  onClick={() => {
-                    void (async () => {
-                      try {
-                        const pr = approved.find((r) => r.status === "approved") ?? approved[0];
-                        if (!pr || !vendors[0]) return;
-                        await api.createPurchaseOrder(workspaceId, {
-                          workspaceId,
-                          purchaseRequestId: pr.id,
-                          vendorId: vendors[0].id,
-                          idempotencyKey: newClientId(),
-                        });
-                        await refresh(workspaceId);
-                        setError(null);
-                        flashSuccess("سفارش خرید صادر شد");
-                      } catch (err: unknown) {
-                        setError(friendlyErrorMessage(err, "خطا"));
-                      }
-                    })();
-                  }}
-                >
-                  صدور سفارش از درخواست تأییدشده
-                </Button>
+                <>
+                  {partnerPricesLive && partnerPrices.length > 0 ? (
+                    <SelectField
+                      label="???? ?????? ???? (???????)"
+                      value={partnerPriceId}
+                      onChange={(e) => {
+                        setPartnerPriceId(e.target.value);
+                        if (e.target.value) setCatalogPriceId("");
+                      }}
+                    >
+                      <option value="">???? ???? ??????</option>
+                      {partnerPrices.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.title} � v{p.version}
+                        </option>
+                      ))}
+                    </SelectField>
+                  ) : null}
+                  {catalogPrices.length > 0 ? (
+                    <SelectField
+                      label="???? ??????? (???????)"
+                      value={catalogPriceId}
+                      onChange={(e) => {
+                        setCatalogPriceId(e.target.value);
+                        if (e.target.value) setPartnerPriceId("");
+                      }}
+                    >
+                      <option value="">???? ???? ???????</option>
+                      {catalogPrices.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {Number(p.priceMinor) / 10} ????? � ?? {p.effectiveFrom}
+                        </option>
+                      ))}
+                    </SelectField>
+                  ) : null}
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      void (async () => {
+                        try {
+                          const pr = approved.find((r) => r.status === "approved") ?? approved[0];
+                          if (!pr || !vendors[0]) return;
+                          await api.createPurchaseOrder(workspaceId, {
+                            workspaceId,
+                            purchaseRequestId: pr.id,
+                            vendorId: vendors[0].id,
+                            idempotencyKey: newClientId(),
+                            ...(partnerPriceId ? { partnerPriceId } : {}),
+                            ...(catalogPriceId && catalogItemId
+                              ? { catalogPriceId, catalogItemId }
+                              : {}),
+                          });
+                          await refresh(workspaceId);
+                          setError(null);
+                          flashSuccess("????? ???? ???? ??");
+                        } catch (err: unknown) {
+                          setError(friendlyErrorMessage(err, "???"));
+                        }
+                      })();
+                    }}
+                  >
+                    ???? ????? ?? ??????? ????????
+                  </Button>
+                </>
               ) : null}
             </GuardedForm>
             {vendors.length === 0 ? (
-              <EmptyHint>فروشنده‌ای ثبت نشده.</EmptyHint>
+              <EmptyHint>?????????? ??? ????.</EmptyHint>
             ) : (
               <DataList>
                 {vendors.map((v) => (
@@ -422,35 +565,76 @@ export function ProcurementView() {
               </DataList>
             )}
             {orders.length === 0 ? (
-              <EmptyHint>سفارشی ثبت نشده.</EmptyHint>
+              <EmptyHint>?????? ??? ????.</EmptyHint>
             ) : (
               <DataList>
                 {orders.map((o) => (
                   <DataRow
                     key={o.id}
                     title={o.title}
-                    meta={o.vendorName}
+                    meta={
+                      o.expenseId
+                        ? `${o.vendorName} � ????? ????`
+                        : o.partnerPriceId || o.catalogPriceId
+                          ? `${o.vendorName} � ???? ???????`
+                          : o.vendorName
+                    }
                     trailing={<StatusPill tone={statusTone(o.status)}>{purchaseOrderStatusLabel(o.status)}</StatusPill>}
                     actions={
-                      o.status === "open" || o.status === "partially_delivered" ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => {
-                            void api
-                              .recordDelivery(workspaceId, {
-                                workspaceId,
-                                purchaseOrderId: o.id,
-                                expectedQuantity: 1,
-                                receivedQuantity: 1,
-                                idempotencyKey: newClientId(),
-                              })
-                              .then(() => refresh(workspaceId));
-                          }}
-                        >
-                          ثبت تحویل
-                        </Button>
-                      ) : null
+                      <>
+                        {o.status === "open" || o.status === "partially_delivered" ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                              void api
+                                .recordDelivery(workspaceId, {
+                                  workspaceId,
+                                  purchaseOrderId: o.id,
+                                  expectedQuantity: 1,
+                                  receivedQuantity: 1,
+                                  idempotencyKey: newClientId(),
+                                })
+                                .then(() => refresh(workspaceId));
+                            }}
+                          >
+                            ??? ?????
+                          </Button>
+                        ) : null}
+                        {!readOnly && (o.status === "open" || o.status === "partially_delivered") ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                              void api
+                                .cancelPurchaseOrder(workspaceId, o.id)
+                                .then(() => refresh(workspaceId))
+                                .then(() => flashSuccess("????? ??? ??"))
+                                .catch((err: unknown) => setError(friendlyErrorMessage(err, "???")));
+                            }}
+                          >
+                            ??? ?????
+                          </Button>
+                        ) : null}
+                        {!readOnly && poExpenseLive && !o.expenseId && o.status !== "cancelled" ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                              void api
+                                .linkPurchaseOrderExpense(workspaceId, o.id, {
+                                  workspaceId,
+                                  idempotencyKey: newClientId(),
+                                })
+                                .then(() => refresh(workspaceId))
+                                .then(() => flashSuccess("????? ???????? ???? ??"))
+                                .catch((err: unknown) => setError(friendlyErrorMessage(err, "???")));
+                            }}
+                          >
+                            ????? ?? ?????
+                          </Button>
+                        ) : null}
+                      </>
                     }
                   />
                 ))}
@@ -458,15 +642,15 @@ export function ProcurementView() {
             )}
           </SectionCard>
 
-          <SectionCard title="تحویل و تجهیزات" delayClass="delay2">
+          <SectionCard title="????? ? ???????" delayClass="delay2">
             {deliveries.length === 0 && assets.length === 0 ? (
-              <EmptyHint>هنوز تحویل یا تجهیزی نیست.</EmptyHint>
+              <EmptyHint>???? ????? ?? ?????? ????.</EmptyHint>
             ) : (
               <DataList>
                 {deliveries.map((d) => (
                   <DataRow
                     key={d.id}
-                    title={`سفارش ${d.purchaseOrderId.slice(0, 8)}…`}
+                    title={`????? ${d.purchaseOrderId.slice(0, 8)}�`}
                     meta={`${d.receivedQuantity}/${d.expectedQuantity}`}
                     trailing={<StatusPill tone={statusTone(d.status)}>{deliveryStatusLabel(d.status)}</StatusPill>}
                     actions={
@@ -478,13 +662,13 @@ export function ProcurementView() {
                             .createAssetFromDelivery(workspaceId, {
                               workspaceId,
                               deliveryId: d.id,
-                              title: "تجهیز تحویلی",
+                              title: "????? ??????",
                               idempotencyKey: newClientId(),
                             })
                             .then(() => refresh(workspaceId));
                         }}
                       >
-                        تبدیل به تجهیز
+                        ????? ?? ?????
                       </Button>
                     }
                   />
@@ -493,7 +677,7 @@ export function ProcurementView() {
                   <DataRow
                     key={a.id}
                     title={a.title}
-                    meta={a.location ?? "—"}
+                    meta={a.location ?? "�"}
                     trailing={<StatusPill tone={statusTone(a.status)}>{assetStatusLabel(a.status)}</StatusPill>}
                   />
                 ))}
@@ -501,10 +685,10 @@ export function ProcurementView() {
             )}
           </SectionCard>
 
-          <SectionCard title="بودجه" badge={budgets.length} delayClass="delay3">
+          <SectionCard title="?????" badge={budgets.length} delayClass="delay3">
             <GuardedForm>
-              <TextField label="نام" value={budgetName} onChange={(e) => setBudgetName(e.target.value)} />
-              <TextField label="سقف (تومان)" value={budgetToman} onChange={(e) => setBudgetToman(e.target.value)} />
+              <TextField label="???" value={budgetName} onChange={(e) => setBudgetName(e.target.value)} />
+              <TextField label="??? (?????)" value={budgetToman} onChange={(e) => setBudgetToman(e.target.value)} />
               <Button
                 type="button"
                 onClick={() => {
@@ -512,7 +696,7 @@ export function ProcurementView() {
                     try {
                       const ceiling = tomanInputToIrrMinor(budgetToman);
                       if (!ceiling) {
-                        setError("سقف بودجه نامعتبر است (فقط تومان / IRR)");
+                        setError("??? ????? ??????? ??? (??? ????? / IRR)");
                         return;
                       }
                       const today = new Date().toISOString().slice(0, 10);
@@ -526,18 +710,18 @@ export function ProcurementView() {
                       });
                       await refresh(workspaceId);
                       setError(null);
-                      flashSuccess("بودجه ثبت شد");
+                      flashSuccess("????? ??? ??");
                     } catch (err: unknown) {
-                      setError(friendlyErrorMessage(err, "خطا"));
+                      setError(friendlyErrorMessage(err, "???"));
                     }
                   })();
                 }}
               >
-                ثبت بودجه
+                ??? ?????
               </Button>
             </GuardedForm>
             {budgets.length === 0 ? (
-              <EmptyHint>بودجه‌ای تعریف نشده.</EmptyHint>
+              <EmptyHint>???????? ????? ????.</EmptyHint>
             ) : (
               <DataList>
                 {budgets.map((b) => (
@@ -552,7 +736,8 @@ export function ProcurementView() {
           </SectionCard>
         </ProductGrid>
         </>
-      )}
+        ) : null}
+      </WorkspacePageFrame>
     </AppShell>
   );
 }

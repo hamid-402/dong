@@ -6,7 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Button, TextField } from "@dang/ui";
 import { AuthAlert, AuthDevLink, AuthDivider, AuthLinkRow, AuthShell } from "@/components/auth-shell";
 import { FormStack } from "@/components/ui-blocks";
-import { normalizeEmail, validateEmail } from "@/lib/auth-validation";
+import { normalizeEmail, validateLoginIdentifier } from "@/lib/auth-validation";
 import { authErrorMessage } from "@/lib/api-errors";
 import { api, api as apiClient, markClientSession } from "@/lib/api";
 import { completeClientAuth, safeAppPath } from "@/lib/auth-session";
@@ -28,7 +28,7 @@ export function LoginView() {
   const [oidcReady, setOidcReady] = useState(false);
   const loginTitle = t("login.title");
   const loginDescription = challengeId
-    ? "کد تأیید دو مرحله‌ای را وارد کنید"
+    ? t("login.mfaDescription")
     : t("login.description");
 
   useEffect(() => {
@@ -62,8 +62,8 @@ export function LoginView() {
       return;
     }
 
-    const normalizedEmail = normalizeEmail(email);
-    const nextEmailError = validateEmail(normalizedEmail);
+    const identifier = email.trim();
+    const nextEmailError = validateLoginIdentifier(identifier);
     const nextPasswordError = !password ? "رمز عبور را وارد کنید" : null;
     setEmailError(nextEmailError);
     setPasswordError(nextPasswordError);
@@ -74,7 +74,11 @@ export function LoginView() {
     startTransition(() => {
       void (async () => {
         try {
-          const result = await api.login({ email: normalizedEmail, password });
+          const body =
+            identifier.includes("@")
+              ? { email: normalizeEmail(identifier), password }
+              : { identifier, password };
+          const result = await api.login(body);
           if ("mfaRequired" in result && result.mfaRequired) {
             setChallengeId(result.challengeId);
             setFormError(null);
@@ -100,9 +104,9 @@ export function LoginView() {
       description={loginDescription}
       footer={
         <AuthLinkRow>
-          <Link href="/forgot-password">فراموشی رمز</Link>
+          <Link href="/forgot-password">{t("login.forgotLink")}</Link>
           <span aria-hidden>·</span>
-          <Link href="/register">ساخت حساب جدید</Link>
+          <Link href="/register">{t("login.registerLink")}</Link>
           <AuthDevLink />
         </AuthLinkRow>
       }
@@ -113,7 +117,7 @@ export function LoginView() {
           {challengeId ? (
             <TextField
               id="login-mfa"
-              label="کد تأیید"
+              label={t("login.mfaCode")}
               inputMode="numeric"
               autoComplete="one-time-code"
               value={mfaCode}
@@ -129,24 +133,23 @@ export function LoginView() {
             <>
               <TextField
                 id="login-email"
-                label="ایمیل"
-                type="email"
-                autoComplete="email"
-                inputMode="email"
+                label="ایمیل، نام کاربری یا موبایل"
+                type="text"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
                   setEmailError(null);
                   setFormError(null);
                 }}
-                hint="با ایمیل حساب وارد شوید (نام کاربری پذیرفته نمی‌شود)"
+                hint="با ایمیل، نام کاربری یا شماره موبایل وارد شوید"
                 error={emailError ?? undefined}
                 required
               />
               <div className="authLayout__passwordRow">
                 <TextField
                   id="login-password"
-                  label="رمز عبور"
+                  label={t("login.password")}
                   type="password"
                   autoComplete="current-password"
                   value={password}
@@ -159,19 +162,17 @@ export function LoginView() {
                   required
                 />
                 <Link href="/forgot-password" className="authLayout__inlineLink">
-                  فراموش کردید؟
+                  {t("login.forgotLink")}
                 </Link>
               </div>
             </>
           )}
           <Button type="submit" disabled={pending} className="authLayout__submit">
             {pending
-              ? challengeId
-                ? "در حال تأیید…"
-                : "در حال ورود…"
+              ? t("common.loading")
               : challengeId
-                ? "تأیید و ورود"
-                : "ورود"}
+                ? t("login.mfaSubmit")
+                : t("login.submit")}
           </Button>
           {challengeId ? (
             <Button

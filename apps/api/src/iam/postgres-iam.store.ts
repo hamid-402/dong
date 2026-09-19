@@ -9,14 +9,19 @@ import {
   userAccount,
   withTenantContext,
   workspace,
+  workspaceJoinRequest,
+  workspaceOwnershipTransfer,
   type AppDatabase,
 } from "@dang/db";
 import type {
   AuthActor,
   CreateInviteResponse,
   InviteSummary,
+  JoinRequestSummary,
+  MembershipAddedVia,
   MembershipRole,
   MembershipSummary,
+  OwnershipTransferSummary,
   WorkspaceSummary,
   WorkspaceTemplate,
 } from "@dang/contracts";
@@ -26,14 +31,25 @@ import {
   spaceKindForTemplate,
 } from "@dang/contracts";
 import type {
+  AddMemberByUserIdInput,
+  ChangeMemberRoleInput,
   CreateInviteInput,
+  CreateJoinRequestInput,
   CreateWorkspaceInput,
+  DecideJoinRequestInput,
+  DisableMemberInput,
   IamStore,
+  ProposeOwnershipTransferInput,
   UpdateWorkspaceProfileInput,
   UpsertDevActorInput,
 } from "./iam.types.js";
 import { INVITE_OWNER_ROLES } from "./iam.types.js";
 import { hashInviteToken, issueInviteToken } from "./invite-token.js";
+import {
+  ASSIGNABLE_MEMBER_ROLES,
+  isMembershipManager,
+  wouldRemoveLastFinanceManager,
+} from "./membership-rules.js";
 
 function asDisplayUnit(value: string): "toman" | "rial" {
   return value === "rial" ? "rial" : "toman";
@@ -51,6 +67,44 @@ function mapWorkspace(row: typeof workspace.$inferSelect): WorkspaceSummary {
     template: asTemplate(row.template),
     timezone: row.timezone,
     displayUnit: asDisplayUnit(row.displayUnit),
+  };
+}
+
+function asAddedVia(value: string | null | undefined): MembershipAddedVia {
+  if (
+    value === "friend" ||
+    value === "join_request" ||
+    value === "user_id" ||
+    value === "seed"
+  ) {
+    return value;
+  }
+  return "invite";
+}
+
+function mapMemberSummary(row: {
+  workspaceId: string;
+  userId: string;
+  role: MembershipRole;
+  defaultShares: number | null;
+  joinedAt: Date;
+  disabledAt: Date | null;
+  disabledReason: string | null;
+  addedVia: string | null;
+  addedByUserId: string | null;
+  displayName: string;
+}): MembershipSummary {
+  return {
+    workspaceId: row.workspaceId,
+    userId: row.userId,
+    displayName: row.displayName,
+    role: row.role,
+    defaultShares: row.defaultShares ?? 1,
+    joinedAt: row.joinedAt.toISOString(),
+    disabledAt: row.disabledAt?.toISOString(),
+    disabledReason: row.disabledReason ?? undefined,
+    addedVia: asAddedVia(row.addedVia),
+    addedByUserId: row.addedByUserId ?? undefined,
   };
 }
 
@@ -167,7 +221,7 @@ export class PostgresIamStore implements IamStore {
               slug: normalizedSlug,
               template: input.template,
               timezone: "Asia/Tehran",
-              displayUnit: "toman",
+              displayUnit: "rial",
               createdBy: input.actorUserId,
             })
             .returning();
@@ -181,6 +235,8 @@ export class PostgresIamStore implements IamStore {
             workspaceId: id,
             userId: input.actorUserId,
             role: "owner",
+            addedVia: "seed",
+            addedByUserId: input.actorUserId,
           });
 
           if (input.template === "personal") {
@@ -398,27 +454,29 @@ export class PostgresIamStore implements IamStore {
             role: membership.role,
             defaultShares: membership.defaultShares,
             joinedAt: membership.joinedAt,
+            disabledAt: membership.disabledAt,
+            disabledReason: membership.disabledReason,
+            addedVia: membership.addedVia,
+            addedByUserId: membership.addedByUserId,
             displayName: userAccount.displayName,
           })
           .from(membership)
           .innerJoin(userAccount, eq(userAccount.id, membership.userId))
-          .where(
-            and(
-              eq(membership.workspaceId, workspaceId),
-              isNull(membership.disabledAt),
-            ),
-          );
+          .where(eq(membership.workspaceId, workspaceId));
 
-        return rows.map((row) => ({
-          workspaceId: row.workspaceId,
-          userId: row.userId,
-          displayName: row.displayName,
-          role: row.role,
-          defaultShares: row.defaultShares ?? 1,
-          joinedAt: row.joinedAt.toISOString(),
-        }));
+        return rows.map((row) => mapMemberSummary(row));
       },
     );
+  }
+
+  async getWorkspaceBySlug(slug: string): Promise<WorkspaceSummary | undefined> {
+    const normalized = slug.trim().toLowerCase();
+    const rows = await this.db
+      .select()
+      .from(workspace)
+      .where(eq(workspace.slug, normalized))
+      .limit(1);
+    return rows[0] ? mapWorkspace(rows[0]) : undefined;
   }
 
   async setMemberDefaultShares(
@@ -467,13 +525,901 @@ export class PostgresIamStore implements IamStore {
           .limit(1);
         const user = users[0];
         if (!user) return undefined;
-        return {
+        return mapMemberSummary({
           workspaceId,
           userId: targetUserId,
-          displayName: user.displayName,
           role: row.role,
-          defaultShares: row.defaultShares ?? 1,
-          joinedAt: row.joinedAt.toISOString(),
+          defaultShares: row.defaultShares,
+          joinedAt: row.joinedAt,
+          disabledAt: row.disabledAt,
+          disabledReason: row.disabledReason,
+          addedVia: row.addedVia,
+          addedByUserId: row.addedByUserId,
+          displayName: user.displayName,
+        });
+      },
+    );
+  }
+
+  async addMemberByUserId(input: AddMemberByUserIdInput): Promise<MembershipSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId: input.workspaceId, userId: input.actorUserId },
+      async (tx) => {
+        const actorRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, input.workspaceId),
+              eq(membership.userId, input.actorUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        const actor = actorRows[0];
+        if (!actor || !isMembershipManager(actor.role)) {
+          throw new Error("MEMBERSHIP_FORBIDDEN");
+        }
+        if (input.role === "owner" || !ASSIGNABLE_MEMBER_ROLES.includes(input.role)) {
+          throw new Error("MEMBERSHIP_FORBIDDEN");
+        }
+
+        const users = await tx
+          .select()
+          .from(userAccount)
+          .where(eq(userAccount.id, input.userId))
+          .limit(1);
+        if (!users[0]) throw new Error("CANNOT_CREATE_USER_ACCOUNT");
+
+        const existing = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, input.workspaceId),
+              eq(membership.userId, input.userId),
+            ),
+          )
+          .limit(1);
+        if (existing[0] && !existing[0].disabledAt) {
+          throw new Error("MEMBER_ALREADY_EXISTS");
+        }
+
+        const wsRows = await tx
+          .select()
+          .from(workspace)
+          .where(eq(workspace.id, input.workspaceId))
+          .limit(1);
+        const ws = wsRows[0];
+        if (!ws) throw new Error("MEMBERSHIP_FORBIDDEN");
+
+        const memberRows = await tx
+          .select({ role: membership.role, disabledAt: membership.disabledAt })
+          .from(membership)
+          .where(eq(membership.workspaceId, input.workspaceId));
+        const active = memberRows.filter((m) => !m.disabledAt);
+        const financeCount = active.filter((m) => isFinanceManagerRole(m.role)).length;
+        const quorum = inviteSatisfiesFinanceQuorum({
+          spaceKind: spaceKindForTemplate(asTemplate(ws.template)),
+          currentMemberCount: active.length,
+          currentFinanceManagerCount: financeCount,
+          inviteRole: input.role,
+        });
+        if (!quorum.ok) throw new Error("FINANCE_QUORUM_REQUIRED");
+
+        let row: typeof membership.$inferSelect;
+        if (existing[0]) {
+          const updated = await tx
+            .update(membership)
+            .set({
+              role: input.role,
+              defaultShares: input.defaultShares ?? 1,
+              disabledAt: null,
+              disabledByUserId: null,
+              disabledReason: null,
+              addedVia: input.addedVia,
+              addedByUserId: input.actorUserId,
+            })
+            .where(
+              and(
+                eq(membership.workspaceId, input.workspaceId),
+                eq(membership.userId, input.userId),
+              ),
+            )
+            .returning();
+          row = updated[0]!;
+        } else {
+          const inserted = await tx
+            .insert(membership)
+            .values({
+              workspaceId: input.workspaceId,
+              userId: input.userId,
+              role: input.role,
+              defaultShares: input.defaultShares ?? 1,
+              addedVia: input.addedVia,
+              addedByUserId: input.actorUserId,
+            })
+            .returning();
+          row = inserted[0]!;
+        }
+
+        return mapMemberSummary({
+          workspaceId: row.workspaceId,
+          userId: row.userId,
+          role: row.role,
+          defaultShares: row.defaultShares,
+          joinedAt: row.joinedAt,
+          disabledAt: row.disabledAt,
+          disabledReason: row.disabledReason,
+          addedVia: row.addedVia,
+          addedByUserId: row.addedByUserId,
+          displayName: users[0].displayName,
+        });
+      },
+    );
+  }
+
+  async changeMemberRole(input: ChangeMemberRoleInput): Promise<MembershipSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId: input.workspaceId, userId: input.actorUserId },
+      async (tx) => {
+        const actorRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, input.workspaceId),
+              eq(membership.userId, input.actorUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        if (!actorRows[0] || !isMembershipManager(actorRows[0].role)) {
+          throw new Error("MEMBERSHIP_FORBIDDEN");
+        }
+        if (input.role === "owner") throw new Error("MEMBERSHIP_FORBIDDEN");
+        if (input.role !== undefined && !ASSIGNABLE_MEMBER_ROLES.includes(input.role)) {
+          throw new Error("MEMBERSHIP_FORBIDDEN");
+        }
+
+        const all = await tx
+          .select()
+          .from(membership)
+          .where(eq(membership.workspaceId, input.workspaceId));
+        const target = all.find((m) => m.userId === input.targetUserId);
+        if (!target || target.disabledAt) throw new Error("MEMBER_NOT_FOUND");
+
+        const memberLikes = all.map((m) => ({
+          userId: m.userId,
+          role: m.role,
+          disabledAt: m.disabledAt?.toISOString() ?? null,
+        }));
+        if (
+          input.role !== undefined &&
+          wouldRemoveLastFinanceManager(memberLikes, input.targetUserId, {
+            nextRole: input.role,
+          })
+        ) {
+          throw new Error("LAST_FINANCE_MANAGER");
+        }
+        // Owner handoff is two-step transfer only (even when other finance managers exist).
+        if (target.role === "owner" && input.role !== undefined) {
+          throw new Error("MEMBERSHIP_FORBIDDEN");
+        }
+
+        const updated = await tx
+          .update(membership)
+          .set({
+            role: input.role ?? target.role,
+            defaultShares: input.defaultShares ?? target.defaultShares,
+          })
+          .where(
+            and(
+              eq(membership.workspaceId, input.workspaceId),
+              eq(membership.userId, input.targetUserId),
+            ),
+          )
+          .returning();
+        const row = updated[0];
+        if (!row) throw new Error("MEMBER_NOT_FOUND");
+        const users = await tx
+          .select()
+          .from(userAccount)
+          .where(eq(userAccount.id, input.targetUserId))
+          .limit(1);
+        if (!users[0]) throw new Error("MEMBER_NOT_FOUND");
+        return mapMemberSummary({
+          workspaceId: row.workspaceId,
+          userId: row.userId,
+          role: row.role,
+          defaultShares: row.defaultShares,
+          joinedAt: row.joinedAt,
+          disabledAt: row.disabledAt,
+          disabledReason: row.disabledReason,
+          addedVia: row.addedVia,
+          addedByUserId: row.addedByUserId,
+          displayName: users[0].displayName,
+        });
+      },
+    );
+  }
+
+  async disableMember(input: DisableMemberInput): Promise<MembershipSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId: input.workspaceId, userId: input.actorUserId },
+      async (tx) => {
+        const actorRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, input.workspaceId),
+              eq(membership.userId, input.actorUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        if (!actorRows[0] || !isMembershipManager(actorRows[0].role)) {
+          throw new Error("MEMBERSHIP_FORBIDDEN");
+        }
+        if (input.targetUserId === input.actorUserId) {
+          throw new Error("MEMBERSHIP_FORBIDDEN");
+        }
+
+        const all = await tx
+          .select()
+          .from(membership)
+          .where(eq(membership.workspaceId, input.workspaceId));
+        const target = all.find((m) => m.userId === input.targetUserId);
+        if (!target || target.disabledAt) throw new Error("MEMBER_NOT_FOUND");
+        if (target.role === "owner") throw new Error("MEMBERSHIP_FORBIDDEN");
+
+        if (
+          wouldRemoveLastFinanceManager(
+            all.map((m) => ({
+              userId: m.userId,
+              role: m.role,
+              disabledAt: m.disabledAt?.toISOString() ?? null,
+            })),
+            input.targetUserId,
+            { disabling: true },
+          )
+        ) {
+          throw new Error("LAST_FINANCE_MANAGER");
+        }
+
+        const updated = await tx
+          .update(membership)
+          .set({
+            disabledAt: new Date(),
+            disabledByUserId: input.actorUserId,
+            disabledReason: input.reason,
+          })
+          .where(
+            and(
+              eq(membership.workspaceId, input.workspaceId),
+              eq(membership.userId, input.targetUserId),
+            ),
+          )
+          .returning();
+        const row = updated[0];
+        if (!row) throw new Error("MEMBER_NOT_FOUND");
+        const users = await tx
+          .select()
+          .from(userAccount)
+          .where(eq(userAccount.id, input.targetUserId))
+          .limit(1);
+        if (!users[0]) throw new Error("MEMBER_NOT_FOUND");
+        return mapMemberSummary({
+          workspaceId: row.workspaceId,
+          userId: row.userId,
+          role: row.role,
+          defaultShares: row.defaultShares,
+          joinedAt: row.joinedAt,
+          disabledAt: row.disabledAt,
+          disabledReason: row.disabledReason,
+          addedVia: row.addedVia,
+          addedByUserId: row.addedByUserId,
+          displayName: users[0].displayName,
+        });
+      },
+    );
+  }
+
+  async enableMember(
+    workspaceId: string,
+    actorUserId: string,
+    targetUserId: string,
+  ): Promise<MembershipSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const actorRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, actorUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        if (!actorRows[0] || !isMembershipManager(actorRows[0].role)) {
+          throw new Error("MEMBERSHIP_FORBIDDEN");
+        }
+
+        const targetRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, targetUserId),
+            ),
+          )
+          .limit(1);
+        const target = targetRows[0];
+        if (!target || !target.disabledAt) throw new Error("MEMBER_NOT_FOUND");
+
+        const updated = await tx
+          .update(membership)
+          .set({
+            disabledAt: null,
+            disabledByUserId: null,
+            disabledReason: null,
+          })
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, targetUserId),
+            ),
+          )
+          .returning();
+        const row = updated[0];
+        if (!row) throw new Error("MEMBER_NOT_FOUND");
+        const users = await tx
+          .select()
+          .from(userAccount)
+          .where(eq(userAccount.id, targetUserId))
+          .limit(1);
+        if (!users[0]) throw new Error("MEMBER_NOT_FOUND");
+        return mapMemberSummary({
+          workspaceId: row.workspaceId,
+          userId: row.userId,
+          role: row.role,
+          defaultShares: row.defaultShares,
+          joinedAt: row.joinedAt,
+          disabledAt: row.disabledAt,
+          disabledReason: row.disabledReason,
+          addedVia: row.addedVia,
+          addedByUserId: row.addedByUserId,
+          displayName: users[0].displayName,
+        });
+      },
+    );
+  }
+
+  private mapJoinRequest(
+    row: typeof workspaceJoinRequest.$inferSelect,
+    displayName: string,
+  ): JoinRequestSummary {
+    return {
+      id: row.id,
+      workspaceId: row.workspaceId,
+      userId: row.userId,
+      displayName,
+      message: row.message ?? undefined,
+      status: row.status as JoinRequestSummary["status"],
+      requestedAt: row.requestedAt.toISOString(),
+      decidedAt: row.decidedAt?.toISOString(),
+      decidedByUserId: row.decidedByUserId ?? undefined,
+      grantedRole: (row.grantedRole as MembershipRole | null) ?? undefined,
+    };
+  }
+
+  async listJoinRequests(
+    workspaceId: string,
+    actorUserId: string,
+  ): Promise<JoinRequestSummary[] | undefined> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const actorRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, actorUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        if (!actorRows[0] || !isMembershipManager(actorRows[0].role)) {
+          return undefined;
+        }
+
+        const rows = await tx
+          .select({
+            request: workspaceJoinRequest,
+            displayName: userAccount.displayName,
+          })
+          .from(workspaceJoinRequest)
+          .innerJoin(userAccount, eq(userAccount.id, workspaceJoinRequest.userId))
+          .where(eq(workspaceJoinRequest.workspaceId, workspaceId));
+
+        return rows.map((r) => this.mapJoinRequest(r.request, r.displayName));
+      },
+    );
+  }
+
+  async createJoinRequest(input: CreateJoinRequestInput): Promise<JoinRequestSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId: input.workspaceId, userId: input.userId },
+      async (tx) => {
+        const ws = await tx
+          .select()
+          .from(workspace)
+          .where(eq(workspace.id, input.workspaceId))
+          .limit(1);
+        if (!ws[0]) throw new Error("WORKSPACE_NOT_FOUND");
+
+        const existing = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, input.workspaceId),
+              eq(membership.userId, input.userId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        if (existing[0]) throw new Error("MEMBER_ALREADY_EXISTS");
+
+        try {
+          const inserted = await tx
+            .insert(workspaceJoinRequest)
+            .values({
+              workspaceId: input.workspaceId,
+              userId: input.userId,
+              message: input.message?.trim() || null,
+              status: "pending",
+            })
+            .returning();
+          const row = inserted[0];
+          if (!row) throw new Error("JOIN_REQUEST_INSERT_FAILED");
+          const users = await tx
+            .select()
+            .from(userAccount)
+            .where(eq(userAccount.id, input.userId))
+            .limit(1);
+          return this.mapJoinRequest(row, users[0]?.displayName ?? input.userId);
+        } catch (error: unknown) {
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            (error as { code?: string }).code === "23505"
+          ) {
+            throw new Error("JOIN_REQUEST_PENDING");
+          }
+          throw error;
+        }
+      },
+    );
+  }
+
+  async approveJoinRequest(input: DecideJoinRequestInput): Promise<JoinRequestSummary> {
+    const role = input.role ?? "member";
+    await this.addMemberByUserId({
+      workspaceId: input.workspaceId,
+      actorUserId: input.actorUserId,
+      userId: (
+        await withTenantContext(
+          this.db,
+          { workspaceId: input.workspaceId, userId: input.actorUserId },
+          async (tx) => {
+            const rows = await tx
+              .select()
+              .from(workspaceJoinRequest)
+              .where(eq(workspaceJoinRequest.id, input.requestId))
+              .limit(1);
+            const row = rows[0];
+            if (!row || row.workspaceId !== input.workspaceId || row.status !== "pending") {
+              throw new Error("JOIN_REQUEST_NOT_FOUND");
+            }
+            return row.userId;
+          },
+        )
+      ),
+      role,
+      addedVia: "join_request",
+    });
+
+    return withTenantContext(
+      this.db,
+      { workspaceId: input.workspaceId, userId: input.actorUserId },
+      async (tx) => {
+        const updated = await tx
+          .update(workspaceJoinRequest)
+          .set({
+            status: "approved",
+            decidedAt: new Date(),
+            decidedByUserId: input.actorUserId,
+            grantedRole: role,
+          })
+          .where(eq(workspaceJoinRequest.id, input.requestId))
+          .returning();
+        const row = updated[0];
+        if (!row) throw new Error("JOIN_REQUEST_NOT_FOUND");
+        const users = await tx
+          .select()
+          .from(userAccount)
+          .where(eq(userAccount.id, row.userId))
+          .limit(1);
+        return this.mapJoinRequest(row, users[0]?.displayName ?? row.userId);
+      },
+    );
+  }
+
+  async rejectJoinRequest(input: DecideJoinRequestInput): Promise<JoinRequestSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId: input.workspaceId, userId: input.actorUserId },
+      async (tx) => {
+        const actorRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, input.workspaceId),
+              eq(membership.userId, input.actorUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        if (!actorRows[0] || !isMembershipManager(actorRows[0].role)) {
+          throw new Error("MEMBERSHIP_FORBIDDEN");
+        }
+
+        const rows = await tx
+          .select()
+          .from(workspaceJoinRequest)
+          .where(eq(workspaceJoinRequest.id, input.requestId))
+          .limit(1);
+        const current = rows[0];
+        if (
+          !current ||
+          current.workspaceId !== input.workspaceId ||
+          current.status !== "pending"
+        ) {
+          throw new Error("JOIN_REQUEST_NOT_FOUND");
+        }
+
+        const updated = await tx
+          .update(workspaceJoinRequest)
+          .set({
+            status: "rejected",
+            decidedAt: new Date(),
+            decidedByUserId: input.actorUserId,
+          })
+          .where(eq(workspaceJoinRequest.id, input.requestId))
+          .returning();
+        const row = updated[0];
+        if (!row) throw new Error("JOIN_REQUEST_NOT_FOUND");
+        const users = await tx
+          .select()
+          .from(userAccount)
+          .where(eq(userAccount.id, row.userId))
+          .limit(1);
+        return this.mapJoinRequest(row, users[0]?.displayName ?? row.userId);
+      },
+    );
+  }
+
+  async withdrawJoinRequest(
+    requestId: string,
+    userId: string,
+  ): Promise<JoinRequestSummary> {
+    return withTenantContext(this.db, { userId }, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(workspaceJoinRequest)
+        .where(eq(workspaceJoinRequest.id, requestId))
+        .limit(1);
+      const current = rows[0];
+      if (!current || current.userId !== userId || current.status !== "pending") {
+        throw new Error("JOIN_REQUEST_NOT_FOUND");
+      }
+      const updated = await tx
+        .update(workspaceJoinRequest)
+        .set({
+          status: "withdrawn",
+          decidedAt: new Date(),
+        })
+        .where(eq(workspaceJoinRequest.id, requestId))
+        .returning();
+      const row = updated[0];
+      if (!row) throw new Error("JOIN_REQUEST_NOT_FOUND");
+      const users = await tx
+        .select()
+        .from(userAccount)
+        .where(eq(userAccount.id, row.userId))
+        .limit(1);
+      return this.mapJoinRequest(row, users[0]?.displayName ?? row.userId);
+    });
+  }
+
+  async proposeOwnershipTransfer(
+    input: ProposeOwnershipTransferInput,
+  ): Promise<OwnershipTransferSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId: input.workspaceId, userId: input.fromUserId },
+      async (tx) => {
+        const actorRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, input.workspaceId),
+              eq(membership.userId, input.fromUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        if (!actorRows[0] || actorRows[0].role !== "owner") {
+          throw new Error("MEMBERSHIP_FORBIDDEN");
+        }
+        if (input.toUserId === input.fromUserId) {
+          throw new Error("MEMBERSHIP_FORBIDDEN");
+        }
+        const targetRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, input.workspaceId),
+              eq(membership.userId, input.toUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        if (!targetRows[0]) throw new Error("MEMBER_NOT_FOUND");
+
+        const hours = input.expiresInHours ?? 72;
+        try {
+          const inserted = await tx
+            .insert(workspaceOwnershipTransfer)
+            .values({
+              workspaceId: input.workspaceId,
+              fromUserId: input.fromUserId,
+              toUserId: input.toUserId,
+              status: "pending",
+              expiresAt: new Date(Date.now() + hours * 60 * 60 * 1000),
+            })
+            .returning();
+          const row = inserted[0];
+          if (!row) throw new Error("OWNERSHIP_TRANSFER_INSERT_FAILED");
+          return {
+            id: row.id,
+            workspaceId: row.workspaceId,
+            fromUserId: row.fromUserId,
+            toUserId: row.toUserId,
+            status: row.status as OwnershipTransferSummary["status"],
+            createdAt: row.createdAt.toISOString(),
+            decidedAt: row.decidedAt?.toISOString(),
+            expiresAt: row.expiresAt.toISOString(),
+          };
+        } catch (error: unknown) {
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            (error as { code?: string }).code === "23505"
+          ) {
+            throw new Error("OWNERSHIP_TRANSFER_PENDING");
+          }
+          throw error;
+        }
+      },
+    );
+  }
+
+  async listOwnershipTransfers(
+    workspaceId: string,
+    actorUserId: string,
+  ): Promise<OwnershipTransferSummary[] | undefined> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const actorRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, actorUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        if (!actorRows[0]) return undefined;
+
+        const now = new Date();
+        const rows = await tx
+          .select()
+          .from(workspaceOwnershipTransfer)
+          .where(
+            and(
+              eq(workspaceOwnershipTransfer.workspaceId, workspaceId),
+              eq(workspaceOwnershipTransfer.status, "pending"),
+            ),
+          );
+
+        const pending: OwnershipTransferSummary[] = [];
+        for (const row of rows) {
+          if (row.expiresAt.getTime() < now.getTime()) {
+            await tx
+              .update(workspaceOwnershipTransfer)
+              .set({ status: "expired", decidedAt: now })
+              .where(eq(workspaceOwnershipTransfer.id, row.id));
+            continue;
+          }
+          pending.push({
+            id: row.id,
+            workspaceId: row.workspaceId,
+            fromUserId: row.fromUserId,
+            toUserId: row.toUserId,
+            status: row.status as OwnershipTransferSummary["status"],
+            createdAt: row.createdAt.toISOString(),
+            decidedAt: row.decidedAt?.toISOString(),
+            expiresAt: row.expiresAt.toISOString(),
+          });
+        }
+        return pending;
+      },
+    );
+  }
+
+  async acceptOwnershipTransfer(
+    workspaceId: string,
+    transferId: string,
+    actorUserId: string,
+  ): Promise<OwnershipTransferSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const rows = await tx
+          .select()
+          .from(workspaceOwnershipTransfer)
+          .where(eq(workspaceOwnershipTransfer.id, transferId))
+          .limit(1);
+        const current = rows[0];
+        if (!current || current.workspaceId !== workspaceId || current.status !== "pending") {
+          throw new Error("OWNERSHIP_TRANSFER_NOT_FOUND");
+        }
+        if (current.toUserId !== actorUserId) throw new Error("MEMBERSHIP_FORBIDDEN");
+        if (current.expiresAt.getTime() < Date.now()) {
+          await tx
+            .update(workspaceOwnershipTransfer)
+            .set({ status: "expired", decidedAt: new Date() })
+            .where(eq(workspaceOwnershipTransfer.id, transferId));
+          throw new Error("OWNERSHIP_TRANSFER_EXPIRED");
+        }
+
+        const fromRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, current.fromUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        const toRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, current.toUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        if (!fromRows[0] || !toRows[0] || fromRows[0].role !== "owner") {
+          throw new Error("MEMBER_NOT_FOUND");
+        }
+
+        await tx
+          .update(membership)
+          .set({ role: "admin" })
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, current.fromUserId),
+            ),
+          );
+        await tx
+          .update(membership)
+          .set({ role: "owner" })
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, current.toUserId),
+            ),
+          );
+
+        const updated = await tx
+          .update(workspaceOwnershipTransfer)
+          .set({ status: "accepted", decidedAt: new Date() })
+          .where(eq(workspaceOwnershipTransfer.id, transferId))
+          .returning();
+        const row = updated[0];
+        if (!row) throw new Error("OWNERSHIP_TRANSFER_NOT_FOUND");
+        return {
+          id: row.id,
+          workspaceId: row.workspaceId,
+          fromUserId: row.fromUserId,
+          toUserId: row.toUserId,
+          status: row.status as OwnershipTransferSummary["status"],
+          createdAt: row.createdAt.toISOString(),
+          decidedAt: row.decidedAt?.toISOString(),
+          expiresAt: row.expiresAt.toISOString(),
+        };
+      },
+    );
+  }
+
+  async cancelOwnershipTransfer(
+    workspaceId: string,
+    transferId: string,
+    actorUserId: string,
+  ): Promise<OwnershipTransferSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const rows = await tx
+          .select()
+          .from(workspaceOwnershipTransfer)
+          .where(eq(workspaceOwnershipTransfer.id, transferId))
+          .limit(1);
+        const current = rows[0];
+        if (!current || current.workspaceId !== workspaceId || current.status !== "pending") {
+          throw new Error("OWNERSHIP_TRANSFER_NOT_FOUND");
+        }
+        if (current.fromUserId !== actorUserId) throw new Error("MEMBERSHIP_FORBIDDEN");
+
+        const updated = await tx
+          .update(workspaceOwnershipTransfer)
+          .set({ status: "cancelled", decidedAt: new Date() })
+          .where(eq(workspaceOwnershipTransfer.id, transferId))
+          .returning();
+        const row = updated[0];
+        if (!row) throw new Error("OWNERSHIP_TRANSFER_NOT_FOUND");
+        return {
+          id: row.id,
+          workspaceId: row.workspaceId,
+          fromUserId: row.fromUserId,
+          toUserId: row.toUserId,
+          status: row.status as OwnershipTransferSummary["status"],
+          createdAt: row.createdAt.toISOString(),
+          decidedAt: row.decidedAt?.toISOString(),
+          expiresAt: row.expiresAt.toISOString(),
         };
       },
     );
@@ -497,6 +1443,9 @@ export class PostgresIamStore implements IamStore {
           .limit(1);
         const role = actorMembership[0]?.role;
         if (!role || !INVITE_OWNER_ROLES.includes(role)) {
+          if (role && isMembershipManager(role)) {
+            throw new Error("CANNOT_CREATE_USER_ACCOUNT");
+          }
           throw new Error("INVITE_FORBIDDEN");
         }
 
@@ -650,6 +1599,8 @@ export class PostgresIamStore implements IamStore {
             workspaceId,
             userId: actor.userId,
             role: matched.role,
+            addedVia: "invite",
+            addedByUserId: matched.invitedByUserId,
           });
         }
 

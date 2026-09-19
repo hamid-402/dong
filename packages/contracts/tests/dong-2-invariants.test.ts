@@ -100,6 +100,7 @@ test("product flags: production unset → off; development unset → on", () => 
     workspacePlans: false,
     planAdmin: false,
     approvalSteps: false,
+    makerChecker: false,
   };
   assert.deepEqual(readProductFeatureFlags({ NODE_ENV: "production" }), allOff);
   const allOn = Object.fromEntries(

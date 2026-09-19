@@ -39,7 +39,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     const requestId = headerValue(request.headers, "x-request-id");
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let title = "Internal Server Error";
+    let title = "خطای داخلی سرور";
     let detail: string | undefined;
     let type = "https://dang.local/problems/internal";
 
@@ -69,6 +69,19 @@ export class ProblemDetailsFilter implements ExceptionFilter {
           typeof record.type === "string"
             ? record.type
             : `https://dang.local/problems/http-${status}`;
+        const rateLimit = record.rateLimit;
+        if (rateLimit && typeof rateLimit === "object") {
+          const rl = rateLimit as Record<string, unknown>;
+          if (typeof rl.limit === "number") {
+            response.header("X-RateLimit-Limit", String(rl.limit));
+          }
+          if (typeof rl.remaining === "number") {
+            response.header("X-RateLimit-Remaining", String(Math.max(0, rl.remaining)));
+          }
+          if (typeof rl.reset === "number") {
+            response.header("X-RateLimit-Reset", String(rl.reset));
+          }
+        }
       }
     } else if (exception instanceof Error) {
       const isProduction = process.env.NODE_ENV === "production";
@@ -79,7 +92,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
             ? exception.cause
             : undefined;
       detail = isProduction
-        ? "An unexpected error occurred"
+        ? "خطای غیرمنتظره‌ای رخ داد"
         : causeMessage
           ? `${exception.message} | cause: ${causeMessage}`
           : exception.message;

@@ -1,5 +1,9 @@
 import type { APIRequestContext, BrowserContext, Page } from "@playwright/test";
 
+/** Keep aligned with `@dang/contracts` session-cookies (inline to avoid Playwright ESM/CJS load of package dist). */
+const CSRF_COOKIE = "dang_csrf";
+const CSRF_HEADER = "x-csrf-token";
+
 /** Stable subject for Playwright demo seed (must match ALLOW_DEV_AUTH API). */
 export const E2E_DEV_SUBJECT = "playwright-e2e-user";
 export const E2E_DEV_NAME = "Playwright E2E";
@@ -11,19 +15,34 @@ export type SeededWorkspace = {
   reused: boolean;
 };
 
+function encodeDevHeader(subject: string): string {
+  return `b64:${Buffer.from(subject, "utf8").toString("base64")}`;
+}
+
+const API_ORIGIN = (process.env.PLAYWRIGHT_API_ORIGIN ?? "http://127.0.0.1:3006").replace(
+  /\/$/,
+  "",
+);
+
+const WEB_ORIGIN = (process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3005").replace(
+  /\/$/,
+  "",
+);
+
+function devHeaders(extra?: Record<string, string>): Record<string, string> {
+  return {
+    "content-type": "application/json",
+    "x-dang-subject": encodeDevHeader(E2E_DEV_SUBJECT),
+    "x-dang-display-name": encodeDevHeader(E2E_DEV_NAME),
+    ...extra,
+  };
+}
+
 /**
- * Dev-session cookie + localStorage so middleware and API client accept the browser.
- * Also clears stale service workers that can hang /api/v1 in production builds.
+ * Dev localStorage + real HttpOnly dang_session via bootstrap-session.
+ * dang_web_session alone is no longer enough for middleware.
  */
 export async function installDevSession(context: BrowserContext, page: Page): Promise<void> {
-  await context.addCookies([
-    {
-      name: "dang_web_session",
-      value: "1",
-      domain: "127.0.0.1",
-      path: "/",
-    },
-  ]);
   await page.addInitScript(
     ({ subject, name }) => {
       window.localStorage.setItem("dang.auth.mode", "dev");
@@ -37,16 +56,42 @@ export async function installDevSession(context: BrowserContext, page: Page): Pr
     },
     { subject: E2E_DEV_SUBJECT, name: E2E_DEV_NAME },
   );
+
+  const headers = devHeaders();
+  const boot =
+    (await tryPost(context.request, `${WEB_ORIGIN}/api/v1/auth/dev/bootstrap-session`, headers)) ||
+    (await tryPost(context.request, `${API_ORIGIN}/api/v1/auth/dev/bootstrap-session`, headers));
+
+  if (!boot) {
+    await context.addCookies([
+      {
+        name: "dang_web_session",
+        value: "1",
+        domain: "127.0.0.1",
+        path: "/",
+      },
+    ]);
+  }
 }
 
-function encodeDevHeader(subject: string): string {
-  return `b64:${Buffer.from(subject, "utf8").toString("base64")}`;
+async function tryPost(
+  request: APIRequestContext,
+  url: string,
+  headers: Record<string, string>,
+): Promise<boolean> {
+  try {
+    const res = await request.post(url, { data: {}, headers });
+    return res.ok();
+  } catch {
+    return false;
+  }
 }
 
-const API_ORIGIN = (process.env.PLAYWRIGHT_API_ORIGIN ?? "http://127.0.0.1:3006").replace(
-  /\/$/,
-  "",
-);
+function csrfFromSetCookie(header: string | null): string | undefined {
+  if (!header) return undefined;
+  const match = new RegExp(`${CSRF_COOKIE}=([^;]+)`).exec(header);
+  return match?.[1];
+}
 
 /**
  * Calls real demo seed. Tries Next proxy first, then direct API (Windows/proxy 503s).
@@ -54,14 +99,20 @@ const API_ORIGIN = (process.env.PLAYWRIGHT_API_ORIGIN ?? "http://127.0.0.1:3006"
 export async function seedDemoWorkspace(
   request: APIRequestContext,
 ): Promise<SeededWorkspace | null> {
-  const headers = {
-    "content-type": "application/json",
-    "x-dang-subject": encodeDevHeader(E2E_DEV_SUBJECT),
-    "x-dang-display-name": encodeDevHeader(E2E_DEV_NAME),
-  };
-
   async function trySeed(url: string): Promise<SeededWorkspace | null> {
     try {
+      const bootUrl = url.includes("/api/v1/")
+        ? url.replace(/\/demo\/seed.?$/, "/auth/dev/bootstrap-session")
+        : `${API_ORIGIN}/api/v1/auth/dev/bootstrap-session`;
+      const bootRes = await request.post(bootUrl, { data: {}, headers: devHeaders() });
+      const setCookie =
+        bootRes.headers()["set-cookie"] ??
+        (bootRes.headers() as Record<string, string>)["Set-Cookie"];
+      const csrf = csrfFromSetCookie(
+        Array.isArray(setCookie) ? setCookie.join(",") : (setCookie ?? null),
+      );
+      const headers = devHeaders(csrf ? { [CSRF_HEADER]: csrf } : undefined);
+
       const res = await request.post(url, { data: {}, headers });
       if (!res.ok()) return null;
       const body = (await res.json()) as {

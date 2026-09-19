@@ -7,6 +7,7 @@ import {
   allocateItemizedSplit,
   allocatePercentSplit,
   allocateSharesSplit,
+  assertAmountMatchesQuantity,
   buildExpenseJournalLines,
   normalizePaymentLines,
 } from "../src/finance.js";
@@ -169,4 +170,29 @@ test("multi-payer journal stays balanced", () => {
     .filter((line) => line.side === "credit")
     .reduce((acc, line) => acc + BigInt(line.amount.amountMinor), 0n);
   assert.equal(debit, credit);
+});
+
+test("assertAmountMatchesQuantity accepts matching round(qty × price)", () => {
+  assertAmountMatchesQuantity({
+    amountMinor: "150000",
+    quantity: 1.5,
+    unitPriceMinor: "100000",
+  });
+});
+
+test("assertAmountMatchesQuantity throws AMOUNT_MISMATCH on drift", () => {
+  assert.throws(
+    () =>
+      assertAmountMatchesQuantity({
+        amountMinor: "100000",
+        quantity: 2,
+        unitPriceMinor: "300000",
+      }),
+    (err: unknown) => err instanceof Error && err.message === "AMOUNT_MISMATCH",
+  );
+});
+
+test("assertAmountMatchesQuantity skips when qty or price omitted", () => {
+  assertAmountMatchesQuantity({ amountMinor: "999", quantity: 2 });
+  assertAmountMatchesQuantity({ amountMinor: "999", unitPriceMinor: "100" });
 });

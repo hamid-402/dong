@@ -8,19 +8,23 @@ import { Button, SelectField, TextField } from "@dang/ui";
 import { AuthAlert } from "@/components/auth-shell";
 import { AppShell } from "@/components/app-shell";
 import {
+  EmptyHint,
   FormStack,
+  PageHeader,
   ProductGrid,
   SectionCard,
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
-import { validateDisplayName, validatePassword } from "@/lib/auth-validation";
+import { validateDisplayName, validatePassword, validatePhoneOptional, validateUsernameInput } from "@/lib/auth-validation";
 import { api, ApiError, clearClientSession, getDevIdentity, setDevIdentity } from "@/lib/api";
+import { formatFaDateTime } from "@/lib/fa-datetime";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { FlashMessages } from "@/lib/use-flash-message";
 import { MfaSettingsPanel } from "@/components/shell/mfa-settings-panel";
 import { NotificationPrefsPanel } from "@/components/notification-prefs-panel";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
+import { t } from "@/lib/i18n";
+import { NAV_LABELS } from "@/lib/nav-labels";
 
 function authModeLabel(mode: UserProfile["authMode"]): string {
   if (mode === "password") return "ورود با ایمیل";
@@ -33,9 +37,14 @@ export function ProfileView() {
   const chrome = useAppChrome();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
+  const [phone, setPhone] = useState("");
+  const [displayUnit, setDisplayUnit] = useState<"rial" | "toman" | "">("");
   const [locale, setLocale] = useState("fa-IR");
   const [timezone, setTimezone] = useState("Asia/Tehran");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -43,15 +52,22 @@ export function ProfileView() {
   const [debugVerifyUrl, setDebugVerifyUrl] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  function applyProfile(next: UserProfile) {
+    setProfile(next);
+    setDisplayName(next.displayName);
+    setUsername(next.username ?? "");
+    setPhone(next.phone ?? "");
+    setDisplayUnit(next.displayUnit ?? "");
+    setLocale(next.locale);
+    setTimezone(next.timezone);
+    setAvatarUrl(next.avatarUrl ?? "");
+  }
+
   useEffect(() => {
     void (async () => {
       try {
         const next = await api.profile();
-        setProfile(next);
-        setDisplayName(next.displayName);
-        setLocale(next.locale);
-        setTimezone(next.timezone);
-        setAvatarUrl(next.avatarUrl ?? "");
+        applyProfile(next);
       } catch (err: unknown) {
         if (err instanceof ApiError && err.status === 401) {
           router.push("/login?next=/account");
@@ -63,7 +79,10 @@ export function ProfileView() {
   }, [router]);
 
   function onSaveProfile() {
-    const validationError = validateDisplayName(displayName);
+    const validationError =
+      validateDisplayName(displayName) ??
+      (username.trim() ? validateUsernameInput(username) : profile?.usernameRequired ? "نام کاربری را انتخاب کنید" : null) ??
+      validatePhoneOptional(phone);
     if (validationError) {
       setError(validationError);
       setInfo(null);
@@ -77,8 +96,11 @@ export function ProfileView() {
             locale,
             timezone,
             avatarUrl: avatarUrl.trim() || null,
+            ...(username.trim() ? { username: username.trim() } : {}),
+            phone: phone.trim() ? phone.trim() : null,
+            displayUnit: displayUnit === "" ? null : displayUnit,
           });
-          setProfile(next);
+          applyProfile(next);
           try {
             const session = await api.session();
             if (session.actor) {
@@ -97,6 +119,36 @@ export function ProfileView() {
         } catch (err: unknown) {
           setInfo(null);
           setError(err instanceof Error ? err.message : "ذخیره ناموفق");
+        }
+      })();
+    });
+  }
+
+  function onChangeEmail() {
+    if (!newEmail.trim() || !emailPassword) {
+      setError("ایمیل جدید و رمز فعلی لازم است");
+      return;
+    }
+    startTransition(() => {
+      void (async () => {
+        try {
+          const result = await api.changeEmail({
+            newEmail: newEmail.trim(),
+            currentPassword: emailPassword,
+          });
+          applyProfile(result.profile);
+          setNewEmail("");
+          setEmailPassword("");
+          setDebugVerifyUrl(result.debugVerifyUrl ?? null);
+          setInfo(
+            result.debugVerifyUrl
+              ? "ایمیل عوض شد؛ لینک تأیید (حالت توسعه) آماده است."
+              : "ایمیل عوض شد؛ لینک تأیید ارسال شد.",
+          );
+          setError(null);
+        } catch (err: unknown) {
+          setInfo(null);
+          setError(err instanceof Error ? err.message : "تغییر ایمیل ناموفق");
         }
       })();
     });
@@ -167,54 +219,19 @@ export function ProfileView() {
       userName={profile?.displayName ?? chrome.userName}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <OperationsModuleHeader
-        ariaLabel="عملیات حساب"
-        destinations={[
-          { key: "profile", label: "پروفایل", href: "/account", active: true },
-          { key: "security", label: "امنیت", href: "/account/security", active: false },
-          { key: "spaces", label: "فضاهای من", href: "/spaces", active: false },
-        ]}
-        metrics={[
-          {
-            label: "هویت",
-            value: profile?.displayName ?? "در حال بارگذاری",
-            detail: profile?.email ?? "ایمیل ثبت نشده",
-          },
-          {
-            label: "تأیید ایمیل",
-            value: profile ? (profile.emailVerified ? "تأییدشده" : "در انتظار") : "…",
-            tone: profile?.emailVerified ? "positive" : "attention",
-          },
-          {
-            label: "تأیید دومرحله‌ای",
-            value: profile ? (profile.mfaEnabled ? "فعال" : "غیرفعال") : "…",
-            tone: profile?.mfaEnabled ? "positive" : "attention",
-          },
-          {
-            label: "شیوه ورود",
-            value: profile ? authModeLabel(profile.authMode) : "…",
-            detail: "از نشست احراز‌شده",
-          },
-        ]}
-        roleLabel={null}
-        persistenceLabel={chrome.persistenceLabel}
-        pending={pending || !profile}
-        onRefresh={() => {
-          startTransition(() => {
-            void api.profile().then((next) => {
-              setProfile(next);
-              setDisplayName(next.displayName);
-              setLocale(next.locale);
-              setTimezone(next.timezone);
-              setAvatarUrl(next.avatarUrl ?? "");
-              setError(null);
-            }).catch((reason: unknown) => {
-              setError(reason instanceof Error ? reason.message : "تازه‌سازی حساب ناموفق بود");
-            });
-          });
-        }}
-      />
       <FlashMessages error={error} successMessage={info} />
+      <PageHeader
+        eyebrow="حساب"
+        title="حساب من"
+        description="هویت، امنیت و ترجیح‌های شخصی — جدا از خانهٔ فضای کاری."
+        actions={
+          <>
+            <Link href="/spaces">{NAV_LABELS.spacesList}</Link>
+            <Link href="/account/security">امنیت</Link>
+            <Link href="/account/privacy">حریم خصوصی</Link>
+          </>
+        }
+      />
       {debugVerifyUrl ? (
         <AuthAlert tone="info">
           <a href={debugVerifyUrl}>تأیید ایمیل</a>
@@ -260,11 +277,7 @@ export function ProfileView() {
                   <li>
                     <small>عضویت از</small>
                     <b>
-                      {new Intl.DateTimeFormat("fa-IR", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      }).format(new Date(profile.createdAt))}
+                      {formatFaDateTime(profile.createdAt)}
                     </b>
                   </li>
                   <li>
@@ -295,6 +308,35 @@ export function ProfileView() {
                 hint="در هدر و فضاهای کاری دیده می‌شود"
               />
               <TextField
+                id="profile-username"
+                label="نام کاربری"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                hint={
+                  profile?.usernameRequired
+                    ? "حساب قدیمی است — یک نام کاربری یکتا انتخاب کنید"
+                    : "برای پیدا کردن و ورود"
+                }
+                required={Boolean(profile?.usernameRequired)}
+              />
+              <TextField
+                id="profile-phone"
+                label="شماره موبایل"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                hint="اختیاری — تا اتصال SMS تأییدشده اعلام نمی‌شود"
+              />
+              <SelectField
+                id="profile-display-unit"
+                label="واحد نمایش مبلغ"
+                value={displayUnit}
+                onChange={(e) => setDisplayUnit(e.target.value as "rial" | "toman" | "")}
+              >
+                <option value="">پیروی از فضای کاری (پیش‌فرض ریال)</option>
+                <option value="rial">ریال</option>
+                <option value="toman">تومان</option>
+              </SelectField>
+              <TextField
                 id="profile-avatar-url"
                 label="آدرس تصویر پروفایل"
                 value={avatarUrl}
@@ -303,9 +345,10 @@ export function ProfileView() {
               />
               <SelectField
                 id="profile-locale"
-                label="زبان / قالب تاریخ"
+                label="زبان رابط"
                 value={locale}
                 onChange={(e) => setLocale(e.target.value)}
+                hint="تقویم و نمایش تاریخ در محصول همیشه شمسی است؛ این فقط زبان متن‌هاست."
               >
                 <option value="fa-IR">فارسی (ایران)</option>
                 <option value="en-US">English (US)</option>
@@ -328,6 +371,36 @@ export function ProfileView() {
               </div>
             </FormStack>
           </div>
+
+          {profile?.hasPassword ? (
+            <div className="profileFormBlock">
+              <p className="profileFormBlock__label">تغییر ایمیل</p>
+              <FormStack>
+                <TextField
+                  id="profile-new-email"
+                  label="ایمیل جدید"
+                  type="email"
+                  autoComplete="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  hint="پس از تغییر باید دوباره تأیید شود"
+                />
+                <TextField
+                  id="profile-email-password"
+                  label="رمز فعلی"
+                  type="password"
+                  autoComplete="current-password"
+                  value={emailPassword}
+                  onChange={(e) => setEmailPassword(e.target.value)}
+                />
+                <div className="profileFormBlock__actions">
+                  <Button type="button" variant="ghost" onClick={onChangeEmail} disabled={pending}>
+                    تغییر ایمیل
+                  </Button>
+                </div>
+              </FormStack>
+            </div>
+          ) : null}
         </SectionCard>
 
         <SectionCard title="صندوق امنیت" tone="quiet" delayClass="delay2">
@@ -395,6 +468,89 @@ export function ProfileView() {
               خروج از حساب
             </button>
           </div>
+        </SectionCard>
+
+        <SectionCard title={t("privacy.dsar.title")}>
+          <StatusLine>{t("privacy.dsar.honestNote")}</StatusLine>
+          <EmptyHint>{t("privacy.dsar.noTicket")}</EmptyHint>
+          <FormStack>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={pending}
+              onClick={() => {
+                startTransition(() => {
+                  void (async () => {
+                    try {
+                      const password = window.prompt("برای خروجی داده، رمز فعلی را وارد کنید");
+                      if (!password) {
+                        setError("خروجی لغو شد — رمز لازم است");
+                        return;
+                      }
+                      const payload = await api.exportMyData({ password });
+                      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                        type: "application/json;charset=utf-8",
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `dang-account-export-${payload.exportedAt.slice(0, 10)}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      setInfo("خروجی داده ذخیره شد");
+                      setError(null);
+                    } catch (err: unknown) {
+                      setError(err instanceof Error ? err.message : "خروجی داده ناموفق");
+                    }
+                  })();
+                });
+              }}
+            >
+              {t("privacy.dsar.export")}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={pending}
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    "حساب ناشناس می‌شود و نشست‌ها باطل می‌گردند. ادامه؟",
+                  )
+                ) {
+                  return;
+                }
+                const typed = window.prompt('برای تأیید، عبارت DELETE را وارد کنید');
+                if (typed !== "DELETE") {
+                  setError("حذف لغو شد — عبارت تأیید نادرست بود");
+                  return;
+                }
+                const password = profile?.hasPassword
+                  ? window.prompt("رمز فعلی را وارد کنید") ?? ""
+                  : undefined;
+                if (profile?.hasPassword && !password) {
+                  setError("رمز برای حذف حساب لازم است");
+                  return;
+                }
+                startTransition(() => {
+                  void (async () => {
+                    try {
+                      await api.deleteMyAccount({
+                        confirm: "DELETE",
+                        ...(password ? { password } : {}),
+                      });
+                      clearClientSession();
+                      router.push("/login");
+                    } catch (err: unknown) {
+                      setError(err instanceof Error ? err.message : "حذف حساب ناموفق");
+                    }
+                  })();
+                });
+              }}
+            >
+              {t("privacy.dsar.anonymize")}
+            </Button>
+          </FormStack>
         </SectionCard>
 
         <MfaSettingsPanel profile={profile} onProfileChange={setProfile} />

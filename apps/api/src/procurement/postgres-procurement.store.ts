@@ -26,7 +26,8 @@ import type {
   RecordDeliveryRequest,
   VendorSummary,
 } from "@dang/contracts";
-import type { ProcurementStore } from "./procurement.types.js";
+import { assertNeedTransition, assertPoTransition } from "@dang/contracts";
+import type { FrozenPurchaseOrderPricing, ProcurementStore } from "./procurement.types.js";
 
 function asDateString(value: string | Date): string {
   return typeof value === "string" ? value.slice(0, 10) : value.toISOString().slice(0, 10);
@@ -103,6 +104,10 @@ function mapPo(
     status: row.status,
     createdByUserId: row.createdByUserId,
     createdAt: row.createdAt.toISOString(),
+    expenseId: row.expenseId ?? undefined,
+    catalogItemId: row.catalogItemId ?? undefined,
+    catalogPriceId: row.catalogPriceId ?? undefined,
+    partnerPriceId: row.partnerPriceId ?? undefined,
   };
 }
 
@@ -134,7 +139,7 @@ function deliveryStatus(
 export class PostgresProcurementStore implements ProcurementStore {
   readonly persistence = "postgres" as const;
 
-  constructor(private readonly db: AppDatabase) {}
+  constructor(readonly db: AppDatabase) {}
 
   static fromConnectionString(connectionString: string): PostgresProcurementStore {
     const { db } = createDatabase(connectionString);
@@ -184,6 +189,55 @@ export class PostgresProcurementStore implements ProcurementStore {
     return withTenantContext(this.db, { workspaceId }, async (tx) => {
       const rows = await tx.select().from(need).where(eq(need.workspaceId, workspaceId));
       return rows.map(mapNeed);
+    });
+  }
+
+  getNeed(workspaceId: string, needId: string): Promise<NeedSummary | undefined> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(need)
+        .where(and(eq(need.id, needId), eq(need.workspaceId, workspaceId)))
+        .limit(1);
+      return rows[0] ? mapNeed(rows[0]) : undefined;
+    });
+  }
+
+  fulfillNeed(workspaceId: string, needId: string): Promise<NeedSummary> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(need)
+        .where(and(eq(need.id, needId), eq(need.workspaceId, workspaceId)))
+        .limit(1);
+      const existing = rows[0];
+      if (!existing) throw new Error("NEED_NOT_FOUND");
+      assertNeedTransition(existing.status, "fulfilled");
+      const updated = await tx
+        .update(need)
+        .set({ status: "fulfilled" })
+        .where(eq(need.id, needId))
+        .returning();
+      return mapNeed(updated[0]!);
+    });
+  }
+
+  cancelNeed(workspaceId: string, needId: string): Promise<NeedSummary> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(need)
+        .where(and(eq(need.id, needId), eq(need.workspaceId, workspaceId)))
+        .limit(1);
+      const existing = rows[0];
+      if (!existing) throw new Error("NEED_NOT_FOUND");
+      assertNeedTransition(existing.status, "cancelled");
+      const updated = await tx
+        .update(need)
+        .set({ status: "cancelled" })
+        .where(eq(need.id, needId))
+        .returning();
+      return mapNeed(updated[0]!);
     });
   }
 
@@ -350,8 +404,9 @@ export class PostgresProcurementStore implements ProcurementStore {
     workspaceId: string,
     amountMinor: string,
     budgetId?: string,
+    options?: { tx?: AppDatabase },
   ): Promise<BudgetSummary | null> {
-    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+    const work = async (tx: AppDatabase) => {
       const rows = await tx
         .select()
         .from(budget)
@@ -367,7 +422,9 @@ export class PostgresProcurementStore implements ProcurementStore {
         .where(eq(budget.id, target.id))
         .returning();
       return updated[0] ? mapBudget(updated[0]) : null;
-    });
+    };
+    if (options?.tx) return work(options.tx);
+    return withTenantContext(this.db, { workspaceId }, work);
   }
 
   createVendor(input: CreateVendorRequest): Promise<VendorSummary> {
@@ -421,6 +478,7 @@ export class PostgresProcurementStore implements ProcurementStore {
   createPurchaseOrder(
     actorUserId: string,
     input: CreatePurchaseOrderRequest,
+    frozen?: FrozenPurchaseOrderPricing,
   ): Promise<PurchaseOrderSummary> {
     return withTenantContext(
       this.db,
@@ -468,6 +526,9 @@ export class PostgresProcurementStore implements ProcurementStore {
         const vendorRow = vendorRows[0];
         if (!vendorRow) throw new Error("VENDOR_NOT_FOUND");
 
+        const amountMinor = frozen
+          ? BigInt(frozen.amount.amountMinor)
+          : pr.amountMinor;
         const inserted = await tx
           .insert(purchaseOrder)
           .values({
@@ -475,9 +536,12 @@ export class PostgresProcurementStore implements ProcurementStore {
             purchaseRequestId: pr.id,
             vendorId: vendorRow.id,
             title: pr.title,
-            amountMinor: pr.amountMinor,
+            amountMinor,
             currency: pr.currency,
             status: "open",
+            catalogItemId: frozen?.catalogItemId ?? input.catalogItemId ?? null,
+            catalogPriceId: frozen?.catalogPriceId ?? input.catalogPriceId ?? null,
+            partnerPriceId: frozen?.partnerPriceId ?? input.partnerPriceId ?? null,
             createdByUserId: actorUserId,
             idempotencyKey: input.idempotencyKey.trim(),
           })
@@ -503,6 +567,61 @@ export class PostgresProcurementStore implements ProcurementStore {
         .innerJoin(vendor, eq(purchaseOrder.vendorId, vendor.id))
         .where(eq(purchaseOrder.workspaceId, workspaceId));
       return rows.map((row) => mapPo(row.po, row.vendorName));
+    });
+  }
+
+  cancelPurchaseOrder(workspaceId: string, orderId: string): Promise<PurchaseOrderSummary> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const rows = await tx
+        .select({ po: purchaseOrder, vendorName: vendor.name })
+        .from(purchaseOrder)
+        .innerJoin(vendor, eq(purchaseOrder.vendorId, vendor.id))
+        .where(
+          and(eq(purchaseOrder.id, orderId), eq(purchaseOrder.workspaceId, workspaceId)),
+        )
+        .limit(1);
+      const row = rows[0];
+      if (!row) throw new Error("PO_NOT_FOUND");
+      try {
+        assertPoTransition(row.po.status, "cancelled");
+      } catch {
+        throw new Error("PO_STATUS");
+      }
+      const updated = await tx
+        .update(purchaseOrder)
+        .set({ status: "cancelled" })
+        .where(eq(purchaseOrder.id, orderId))
+        .returning();
+      return mapPo(updated[0]!, row.vendorName);
+    });
+  }
+
+  linkPurchaseOrderExpense(
+    workspaceId: string,
+    orderId: string,
+    expenseId: string,
+  ): Promise<PurchaseOrderSummary> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const rows = await tx
+        .select({ po: purchaseOrder, vendorName: vendor.name })
+        .from(purchaseOrder)
+        .innerJoin(vendor, eq(purchaseOrder.vendorId, vendor.id))
+        .where(
+          and(eq(purchaseOrder.id, orderId), eq(purchaseOrder.workspaceId, workspaceId)),
+        )
+        .limit(1);
+      const row = rows[0];
+      if (!row) throw new Error("PO_NOT_FOUND");
+      if (row.po.status === "cancelled") throw new Error("PO_CANCELLED");
+      if (row.po.expenseId) {
+        return mapPo(row.po, row.vendorName);
+      }
+      const updated = await tx
+        .update(purchaseOrder)
+        .set({ expenseId })
+        .where(eq(purchaseOrder.id, orderId))
+        .returning();
+      return mapPo(updated[0]!, row.vendorName);
     });
   }
 
@@ -581,6 +700,11 @@ export class PostgresProcurementStore implements ProcurementStore {
 
         const poStatus: PurchaseOrderSummary["status"] =
           status === "complete" ? "delivered" : "partially_delivered";
+        try {
+          assertPoTransition(po.status, poStatus);
+        } catch {
+          throw new Error("PO_STATUS");
+        }
         await tx
           .update(purchaseOrder)
           .set({ status: poStatus })

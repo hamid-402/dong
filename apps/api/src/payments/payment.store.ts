@@ -12,9 +12,26 @@ export type PendingZarinpalPayment = {
   amountMinor: string;
   workspaceId: string;
   paymentLinkId?: string;
+  /** Absolute URL for browser redirect after Zarinpal callback. */
+  returnUrl?: string;
   status: "pending" | "verified";
   refId?: string;
   createdAt: string;
+  verifiedAt?: string;
+};
+
+export type PendingLocalPspPayment = {
+  intentId: string;
+  amountMinor: string;
+  currency: string;
+  description: string;
+  returnUrl: string;
+  workspaceId: string;
+  paymentLinkId?: string;
+  status: "pending" | "verified";
+  refId?: string;
+  createdAt: string;
+  expiresAt: string;
   verifiedAt?: string;
 };
 
@@ -39,6 +56,7 @@ export class MemoryPaymentStore implements PaymentStore {
   readonly persistence = "memory" as const;
   private readonly links = new Map<string, StoredLink>();
   private readonly pendingZarinpal = new Map<string, PendingZarinpalPayment>();
+  private readonly pendingLocalPsp = new Map<string, PendingLocalPspPayment>();
 
   create(
     provider: PaymentProviderId,
@@ -92,6 +110,7 @@ export class MemoryPaymentStore implements PaymentStore {
     amountMinor: string;
     workspaceId: string;
     paymentLinkId?: string;
+    returnUrl?: string;
   }): Promise<void> {
     const authority = input.authority.trim();
     if (!authority) throw new Error("ZARINPAL_AUTHORITY");
@@ -100,6 +119,7 @@ export class MemoryPaymentStore implements PaymentStore {
       amountMinor: input.amountMinor,
       workspaceId: input.workspaceId,
       paymentLinkId: input.paymentLinkId,
+      returnUrl: input.returnUrl?.trim() || undefined,
       status: "pending",
       createdAt: new Date().toISOString(),
     });
@@ -112,6 +132,7 @@ export class MemoryPaymentStore implements PaymentStore {
   async markZarinpalVerified(authority: string, refId: string): Promise<PendingZarinpalPayment> {
     const existing = this.pendingZarinpal.get(authority.trim());
     if (!existing) throw new Error("ZARINPAL_UNKNOWN_AUTHORITY");
+    if (existing.status === "verified") return existing;
     const next: PendingZarinpalPayment = {
       ...existing,
       status: "verified",
@@ -119,6 +140,50 @@ export class MemoryPaymentStore implements PaymentStore {
       verifiedAt: new Date().toISOString(),
     };
     this.pendingZarinpal.set(authority.trim(), next);
+    return next;
+  }
+
+  async savePendingLocalPsp(input: {
+    intentId: string;
+    amountMinor: string;
+    currency?: string;
+    description: string;
+    returnUrl: string;
+    workspaceId: string;
+    paymentLinkId?: string;
+    expiresAt: string;
+  }): Promise<void> {
+    const intentId = input.intentId.trim();
+    if (!intentId) throw new Error("LOCAL_PSP_INTENT");
+    this.pendingLocalPsp.set(intentId, {
+      intentId,
+      amountMinor: input.amountMinor,
+      currency: input.currency ?? "IRR",
+      description: input.description.trim(),
+      returnUrl: input.returnUrl.trim(),
+      workspaceId: input.workspaceId,
+      paymentLinkId: input.paymentLinkId,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      expiresAt: input.expiresAt,
+    });
+  }
+
+  async findPendingLocalPsp(intentId: string): Promise<PendingLocalPspPayment | null> {
+    return this.pendingLocalPsp.get(intentId.trim()) ?? null;
+  }
+
+  async markLocalPspVerified(intentId: string, refId: string): Promise<PendingLocalPspPayment> {
+    const existing = this.pendingLocalPsp.get(intentId.trim());
+    if (!existing) throw new Error("LOCAL_PSP_UNKNOWN_INTENT");
+    if (existing.status === "verified") return existing;
+    const next: PendingLocalPspPayment = {
+      ...existing,
+      status: "verified",
+      refId,
+      verifiedAt: new Date().toISOString(),
+    };
+    this.pendingLocalPsp.set(intentId.trim(), next);
     return next;
   }
 
@@ -161,9 +226,22 @@ export type PaymentStore = {
     amountMinor: string;
     workspaceId: string;
     paymentLinkId?: string;
+    returnUrl?: string;
   }): Promise<void>;
   findPendingZarinpal(authority: string): Promise<PendingZarinpalPayment | null>;
   markZarinpalVerified(authority: string, refId: string): Promise<PendingZarinpalPayment>;
+  savePendingLocalPsp(input: {
+    intentId: string;
+    amountMinor: string;
+    currency?: string;
+    description: string;
+    returnUrl: string;
+    workspaceId: string;
+    paymentLinkId?: string;
+    expiresAt: string;
+  }): Promise<void>;
+  findPendingLocalPsp(intentId: string): Promise<PendingLocalPspPayment | null>;
+  markLocalPspVerified(intentId: string, refId: string): Promise<PendingLocalPspPayment>;
 };
 
 export const PAYMENT_STORE = Symbol("PAYMENT_STORE");

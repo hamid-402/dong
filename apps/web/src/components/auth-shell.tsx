@@ -1,61 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
   type ReactNode,
 } from "react";
-import { api, markClientSession, type HealthReadyResponse, type SystemCapabilities } from "@/lib/api";
+import { markClientSession, bootstrapDevSession } from "@/lib/api";
 import { PageTrailBar } from "@/components/page-trail-bar";
-import { ThemeToggleButton } from "@/components/theme-toggle";
+import { StickerSvg } from "@/components/visual/stickers";
+import { AuthMark } from "@/components/site/auth-mark";
+import {
+  SiteFooter,
+  SiteHeader,
+  SiteStatusProvider,
+  useSiteStatus,
+} from "@/components/site/marketing-shell";
+import { SITE_SERVICE_ITEMS } from "@/lib/site-nav";
 
-const API_PUBLIC_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3006/api/v1";
+export { AuthMark };
 
-export function AuthMark({ size = "md" }: { size?: "sm" | "md" }) {
-  const dim = size === "sm" ? 18 : 22;
-  return (
-    <span className={`authLayout__mark authLayout__mark--${size}`} aria-hidden>
-      <svg width={dim} height={dim} viewBox="0 0 24 24" fill="none">
-        <path
-          d="M6 18V6l6 6 6-6v12"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </span>
-  );
-}
-
-const FEATURES = [
-  { label: "هزینه و تسویه مشترک", icon: "wallet" },
-  { label: "خرید، تجهیزات و بودجه", icon: "cart" },
-  { label: "حساب شرکا و گزارش دوره‌ای", icon: "partners" },
-] as const;
-
-const HEADER_NAV = [
-  { href: "#features", label: "امکانات" },
-  { href: "#security", label: "امنیت" },
-] as const;
-
-/** فقط مقصدهای عمومی — بدون لینک به صفحات نیازمند نشست. */
-const FOOTER_PRODUCT = [
-  { href: "#features", label: "امکانات" },
-  { href: "#security", label: "امنیت و اعتماد" },
-  { href: "/register", label: "شروع با ثبت‌نام" },
-] as const;
-
-const FOOTER_ACCOUNT = [
-  { href: "/login", label: "ورود" },
-  { href: "/register", label: "ثبت‌نام" },
-  { href: "/forgot-password", label: "فراموشی رمز" },
-] as const;
+const FEATURES = SITE_SERVICE_ITEMS.map((item) => ({
+  label: item.title,
+  icon:
+    item.title.includes("خرید")
+      ? ("cart" as const)
+      : item.title.includes("شرکا")
+        ? ("partners" as const)
+        : ("wallet" as const),
+}));
 
 function FeatureIcon({ name }: { name: (typeof FEATURES)[number]["icon"] }) {
   const common = {
@@ -94,210 +65,6 @@ function FeatureIcon({ name }: { name: (typeof FEATURES)[number]["icon"] }) {
   );
 }
 
-type AuthStatus = {
-  health: HealthReadyResponse | null;
-  caps: SystemCapabilities | null;
-  offline: boolean;
-  trustBadges: string[];
-  statusLabel: string;
-};
-
-const AuthStatusContext = createContext<AuthStatus | null>(null);
-
-function AuthStatusProvider({ children }: { children: ReactNode }) {
-  const [health, setHealth] = useState<HealthReadyResponse | null>(null);
-  const [caps, setCaps] = useState<SystemCapabilities | null>(null);
-  const [offline, setOffline] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const [h, c] = await Promise.all([api.healthReady(), api.capabilities()]);
-        if (!cancelled) {
-          setHealth(h);
-          setCaps(c);
-          setOffline(false);
-        }
-      } catch {
-        if (!cancelled) setOffline(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const trustBadges: string[] = [];
-  if (caps) {
-    if (caps.persistence.iam === "postgres" && caps.databaseConfigured) {
-      trustBadges.push("Postgres + RLS");
-    }
-    if (!caps.allowDevAuth) trustBadges.push("ورود production");
-    if (!caps.stubs.paymentProvider) trustBadges.push("PSP واقعی");
-    if (caps.providers?.email === "resend") trustBadges.push("ایمیل واقعی");
-    if (caps.providers?.jobs === "redis_queue") trustBadges.push("صف کار واقعی");
-    if (caps.persistence.attachmentBlob === "local") {
-      trustBadges.push("ذخیره رسید محلی");
-    }
-  }
-
-  const statusLabel = offline
-    ? "سرویس در دسترس نیست"
-    : health?.status === "ready"
-      ? `آماده · ${caps?.databaseConfigured ? "متصل" : "بدون DB"}`
-      : health?.status === "degraded"
-        ? "تخریب‌شده"
-        : "…";
-
-  const value: AuthStatus = { health, caps, offline, trustBadges, statusLabel };
-
-  return <AuthStatusContext.Provider value={value}>{children}</AuthStatusContext.Provider>;
-}
-
-function useAuthStatus(): AuthStatus {
-  const ctx = useContext(AuthStatusContext);
-  if (!ctx) {
-    throw new Error("useAuthStatus must be used within AuthShell");
-  }
-  return ctx;
-}
-
-function AuthHeader() {
-  const pathname = usePathname();
-  const onLogin = pathname === "/login";
-  const onRegister = pathname === "/register";
-  const { offline, statusLabel } = useAuthStatus();
-
-  return (
-    <header className="authLayout__header">
-      <div className="authLayout__headerInner">
-        <Link href="/" className="authLayout__brand">
-          <AuthMark size="sm" />
-          <span className="authLayout__brandText">
-            <b>دنگ همکاری</b>
-            <small>دفتر عملیات مشترک</small>
-          </span>
-        </Link>
-
-        <nav className="authLayout__headerNav" aria-label="ناوبری اصلی">
-          {HEADER_NAV.map((item) => (
-            <Link key={item.href} href={item.href}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="authLayout__headerActions">
-          <ThemeToggleButton />
-          <span
-            className={`authLayout__statusBadge${offline ? " authLayout__statusBadge--warn" : ""}`}
-          >
-            <i aria-hidden />
-            {statusLabel}
-          </span>
-          {!onRegister ? (
-            <Link href="/register" className="authLayout__headerBtn authLayout__headerBtn--primary">
-              ثبت‌نام
-            </Link>
-          ) : null}
-          {!onLogin ? (
-            <Link href="/login" className="authLayout__headerBtn">
-              ورود
-            </Link>
-          ) : null}
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function AuthSiteFooter() {
-  const year = new Date().getFullYear();
-  const { caps } = useAuthStatus();
-  const healthUrl = `${API_PUBLIC_BASE.replace(/\/api\/v1\/?$/, "")}/api/v1/health/ready`;
-  const allowDev = Boolean(caps?.allowDevAuth);
-
-  return (
-    <footer className="authLayout__siteFooter">
-      <div className="authLayout__footerInner">
-        <div className="authLayout__footerGrid">
-          <div className="authLayout__footerBrand">
-            <Link href="/" className="authLayout__brand authLayout__brand--footer">
-              <AuthMark size="sm" />
-              <span className="authLayout__brandText">
-                <b>دنگ همکاری</b>
-                <small>هزینه · خرید · تجهیزات · شرکا</small>
-              </span>
-            </Link>
-            <p>
-              پلتفرم عملیاتی برای تیم‌ها و پروژه‌های مشترک — شفاف، قابل پیگیری و
-              آمادهٔ رشد.
-            </p>
-          </div>
-
-          <div className="authLayout__footerCol">
-            <b>محصول</b>
-            <ul>
-              {FOOTER_PRODUCT.map((item) => (
-                <li key={item.href}>
-                  <Link href={item.href}>{item.label}</Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="authLayout__footerCol">
-            <b>حساب کاربری</b>
-            <ul>
-              {FOOTER_ACCOUNT.map((item) => (
-                <li key={item.href}>
-                  <Link href={item.href}>{item.label}</Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="authLayout__footerCol">
-            <b>پشتیبانی</b>
-            <ul>
-              <li>
-                <a href="mailto:support@dang.local">support@dang.local</a>
-              </li>
-              {allowDev ? (
-                <li>
-                  <Link
-                    href="/spaces/new"
-                    onClick={() => {
-                      markClientSession("dev");
-                    }}
-                  >
-                    حالت توسعه
-                  </Link>
-                </li>
-              ) : null}
-              <li>
-                <a href={healthUrl} target="_blank" rel="noreferrer">
-                  وضعیت سرویس (API)
-                </a>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="authLayout__footerBar">
-          <span>
-            © {year} دنگ همکاری · نسخه {caps?.version ?? "…"}
-            {caps
-              ? ` · IAM ${caps.persistence.iam} · اعلان ${caps.persistence.notification}`
-              : null}
-          </span>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
 function AuthShellFrame({
   eyebrow = "حساب کاربری",
   title,
@@ -311,17 +78,18 @@ function AuthShellFrame({
   children: ReactNode;
   footer?: ReactNode;
 }) {
-  const { trustBadges } = useAuthStatus();
+  const { trustBadges } = useSiteStatus();
 
   return (
     <div className="authLayout">
-      <div className="ambient ambient--rich" aria-hidden />
-      <AuthHeader />
+      <div className="ambient ambient--rich ambient--atmosphere" aria-hidden />
+      <SiteHeader compactAuth />
 
       <div className="authLayout__main">
         <div className="authLayout__frame">
           <aside className="authLayout__hero animated" id="features">
             <div className="authLayout__heroCopy">
+              <StickerSvg name="handshake" className="authLayout__heroSticker" />
               <span className="authLayout__heroEyebrow">همکاری شفاف</span>
               <h1>دنگ همکاری</h1>
               <p>
@@ -354,7 +122,7 @@ function AuthShellFrame({
 
           <main className="authLayout__panel card animated" id="main" tabIndex={-1}>
             <header className="authLayout__panelHead">
-              <PageTrailBar homeHref="/login" homeLabel="ورود" />
+              <PageTrailBar homeHref="/" homeLabel="خانه" />
               <span className="eyebrow">{eyebrow}</span>
               <h2>{title}</h2>
               {description ? <p>{description}</p> : null}
@@ -365,7 +133,7 @@ function AuthShellFrame({
         </div>
       </div>
 
-      <AuthSiteFooter />
+      <SiteFooter />
     </div>
   );
 }
@@ -378,9 +146,9 @@ export function AuthShell(props: {
   footer?: ReactNode;
 }) {
   return (
-    <AuthStatusProvider>
+    <SiteStatusProvider>
       <AuthShellFrame {...props} />
-    </AuthStatusProvider>
+    </SiteStatusProvider>
   );
 }
 
@@ -397,7 +165,7 @@ export function AuthLinkRow({ children }: { children: ReactNode }) {
 }
 
 export function AuthDevLink() {
-  const { caps } = useAuthStatus();
+  const { caps } = useSiteStatus();
   if (!caps?.allowDevAuth) return null;
   return (
     <>
@@ -405,8 +173,14 @@ export function AuthDevLink() {
       <Link
         href="/spaces/new"
         className="authLayout__devLink"
-        onClick={() => {
+        onClick={(event) => {
+          event.preventDefault();
           markClientSession("dev");
+          void bootstrapDevSession()
+            .catch(() => undefined)
+            .finally(() => {
+              window.location.assign("/spaces/new");
+            });
         }}
       >
         حالت توسعه

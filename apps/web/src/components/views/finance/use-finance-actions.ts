@@ -1,14 +1,19 @@
-﻿"use client";
+"use client";
 
 import { newClientId } from "@/lib/id";
 
-import type { PeriodKind, SettlementSummary } from "@dang/contracts";
+import type {
+  PeriodKind,
+  SettlementSummary,
+  WorkspaceBalancesResponse,
+} from "@dang/contracts";
 import {
   buildSplitPayloadFromComposer,
   type SplitComposerValue,
 } from "@/components/split-composer";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
+import { useLiveInvalidation } from "@/lib/live-invalidation";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
 import {
   listOfflineExpenseDrafts,
@@ -18,6 +23,7 @@ import {
 } from "@/lib/offline-drafts";
 import {
   loadWorkspaceData,
+  type FinanceLoadScope,
   type FinanceWorkspaceData,
 } from "@/components/views/finance/use-finance-data";
 
@@ -29,6 +35,8 @@ export type FinanceActionsDeps = {
   startTransition: (callback: () => void) => void;
   selectedId: string;
   selectedPeriodId: string;
+  /** Which finance route section is active - scopes reload fetches. */
+  loadScope: FinanceLoadScope;
   applyWorkspaceData: (data: FinanceWorkspaceData) => void;
   showSuccess: (message: string) => void;
   setError: (message: string | null) => void;
@@ -41,6 +49,8 @@ export type FinanceActionsDeps = {
   split: SplitComposerValue;
   expensePeriodId: string;
   costCenterId: string;
+  missionKind: "" | "advance" | "settlement";
+  requireCostCenter?: boolean;
   settleToUserId: string;
   settleAmountToman: string;
   periodTitle: string;
@@ -50,18 +60,30 @@ export type FinanceActionsDeps = {
   setOfflineDrafts: (drafts: OfflineExpenseDraft[]) => void;
   setLastDraftSavedAt: (value: string | null) => void;
   setSettlementNps: (value: boolean) => void;
+  /** When set, submit uses reviseExpense instead of create. */
+  revisingExpenseId: string | null;
+  setRevisingExpenseId: (value: string | null) => void;
+  reviseReason: string;
+  setReviseReason: (value: string) => void;
+  fundingSourceKind: "" | "personal" | "petty_cash";
+  fundingRefId: string;
+  /** Current balances for settle-link from debtor line. */
+  balances: WorkspaceBalancesResponse | null;
+  /** When false, issue invoice without creating checkout link. */
+  paymentsLive?: boolean;
 };
 
 /**
  * All finance write-action handlers (create expense/settlement/period, invoices,
- * offline drafts, …). Extracted from finance-view.tsx to keep the view lean;
- * behavior is identical — driven entirely by the passed-in deps.
+ * offline drafts, ...). Extracted from finance-view.tsx to keep the view lean;
+ * behavior is identical - driven entirely by the passed-in deps.
  */
 export function useFinanceActions(deps: FinanceActionsDeps) {
   const {
     startTransition,
     selectedId,
     selectedPeriodId,
+    loadScope,
     applyWorkspaceData,
     showSuccess,
     setError,
@@ -74,6 +96,8 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
     split,
     expensePeriodId,
     costCenterId,
+    missionKind,
+    requireCostCenter = false,
     settleToUserId,
     settleAmountToman,
     periodTitle,
@@ -83,13 +107,45 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
     setOfflineDrafts,
     setLastDraftSavedAt,
     setSettlementNps,
+    revisingExpenseId,
+    setRevisingExpenseId,
+    reviseReason,
+    setReviseReason,
+    fundingSourceKind,
+    fundingRefId,
+    balances,
+    paymentsLive = false,
   } = deps;
+
+  /**
+   * Server-pushed refresh: when someone else's expense hits the ledger, the
+   * balances / invoices on this screen reload immediately instead of on a timer.
+   */
+  useLiveInvalidation(
+    ["expenses", "balances", "statements", "invoices:", "periods", "settlements"],
+    () => {
+      if (!selectedId) return;
+      void (async () => {
+        try {
+          applyWorkspaceData(
+            await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope),
+          );
+        } catch {
+          // Keep the last good data on screen; the next push retries.
+        }
+      })();
+    },
+  );
 
   function onCreateExpense() {
     if (!selectedId) return;
     const titleTrim = title.trim();
     if (!titleTrim) {
       setError("عنوان خرج را وارد کنید");
+      return;
+    }
+    if (requireCostCenter && !costCenterId.trim()) {
+      setError("مرکز هزینه برای این فضا اجباری است");
       return;
     }
     startTransition(() => {
@@ -114,7 +170,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
               ? { amountMinor: payload.totalMinor, currency: "IRR" as const }
               : tomanInputToIrrMinor(amountToman);
           if (!total) {
-            setError("مبلغ تومان نامعتبر است (فقط IRR)");
+            setError("مبلغ معتبر وارد کنید (تومان)");
             return;
           }
           const participants =
@@ -122,14 +178,31 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
               ? [privateAssignee ?? me.actor.userId]
               : payload.participantUserIds;
           if (participants.length === 0) {
-            setError("حداقل یک شرکت‌کننده لازم است");
+            setError("حداقل یک سهیم‌کننده لازم است");
             return;
           }
-          const created = await api.createExpenseDraft(selectedId, {
+          const paidByUserId =
+            split.visibility === "private"
+              ? (privateAssignee ?? me.actor.userId)
+              : (payload.paidByUserId?.trim() ||
+                  split.paidByUserId?.trim() ||
+                  me.actor.userId);
+          if (payload.paymentLines && payload.paymentLines.length > 0) {
+            const sum = payload.paymentLines.reduce(
+              (acc, line) => acc + BigInt(line.amount.amountMinor),
+              0n,
+            );
+            if (sum !== BigInt(total.amountMinor)) {
+              setError("جمع مبلغ پرداخت‌کنندگان باید با کل خرج یکی باشد");
+              return;
+            }
+          }
+          const draftBody = {
             workspaceId: selectedId,
             title: titleTrim,
             total,
-            paidByUserId: privateAssignee ?? me.actor.userId,
+            paidByUserId,
+            paymentLines: payload.paymentLines,
             splitMethod: payload.splitMethod,
             participantUserIds: participants,
             splitLines: payload.splitLines,
@@ -137,29 +210,55 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
             tip: payload.tip,
             tax: payload.tax,
             discount: payload.discount,
+            formulaBasis: payload.formulaBasis,
             occurredOn: expenseDate,
             periodId: expensePeriodId || undefined,
             costCenterId: costCenterId || undefined,
+            missionKind: missionKind || undefined,
             visibility: split.visibility,
+            commit: "auto" as const,
             idempotencyKey: newClientId(),
-          });
-          if (split.visibility === "company") {
-            await api.submitExpense(selectedId, created.id);
-          } else {
-            await api.submitExpense(selectedId, created.id);
-            await api.postExpense(selectedId, created.id);
+            ...(fundingSourceKind === "petty_cash" && fundingRefId
+              ? {
+                  fundingSourceKind: "petty_cash" as const,
+                  fundingRefId,
+                }
+              : fundingSourceKind === "personal"
+                ? { fundingSourceKind: "personal" as const }
+                : {}),
+          };
+          if (revisingExpenseId) {
+            const result = await api.reviseExpense(selectedId, revisingExpenseId, {
+              ...draftBody,
+              reverseReason: reviseReason || "revise",
+            });
+            applyWorkspaceData(
+              await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope),
+            );
+            setTitle("");
+            setAmountToman("");
+            setRevisingExpenseId(null);
+            setReviseReason("");
+            setError(null);
+            showSuccess(
+              result.created.status === "posted"
+                ? "خرج اصلاح شد · جایگزین در دفترکل ثبت شد"
+                : "خرج اصلاح شد · جایگزین در انتظار تأیید",
+            );
+            return;
           }
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          const created = await api.createExpenseDraft(selectedId, draftBody);
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setTitle("");
           setAmountToman("");
           setError(null);
           showSuccess(
-            split.visibility === "company"
-              ? "خرج شرکتی ثبت شد و منتظر تأیید است"
-              : "خرج ثبت شد · روی مانده اعضا اعمال شد",
+            created.status === "posted"
+              ? "خرج ثبت شد · در دفترکل آمده و مانده‌ها به‌روز شد"
+              : "خرج ثبت شد · در انتظار تأیید",
           );
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -168,7 +267,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
   function onSaveOfflineDraft() {
     if (!selectedId) return;
     if (!tomanInputToIrrMinor(amountToman) && split.splitMethod !== "itemized") {
-      setError("مبلغ تومان نامعتبر است (فقط IRR)");
+      setError("مبلغ معتبر وارد کنید (تومان)");
       return;
     }
     const saved = saveOfflineExpenseDraft({
@@ -190,7 +289,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
     if (!selectedId) return;
     const total = tomanInputToIrrMinor(draft.totalToman);
     if (!total) {
-      setError("پیش‌نویس آفلاین مبلغ نامعتبر دارد");
+      setError("پیش‌نویس آفلاین مبلغ معتبری ندارد");
       return;
     }
     startTransition(() => {
@@ -211,14 +310,15 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
             note: draft.note,
             periodId: draft.periodId,
             visibility: draft.visibility,
+            commit: "auto",
             idempotencyKey: newClientId(),
           });
           removeOfflineExpenseDraft(draft.id);
           setOfflineDrafts(listOfflineExpenseDrafts(selectedId));
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -228,7 +328,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
     if (!selectedId || !settleToUserId) return;
     const amount = tomanInputToIrrMinor(settleAmountToman);
     if (!amount) {
-      setError("مبلغ تسویه نامعتبر است (فقط IRR)");
+      setError("مبلغ معتبر وارد کنید (تومان)");
       return;
     }
     startTransition(() => {
@@ -236,7 +336,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
         try {
           const me = await api.me();
           if (settleToUserId === me.actor.userId) {
-            setError("طرف تسویه باید شخص دیگری باشد");
+            setError("طرف مقابل نمی‌تواند خود شما باشد");
             return;
           }
           await api.createSettlementClaim(selectedId, {
@@ -244,14 +344,14 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
             fromUserId: me.actor.userId,
             toUserId: settleToUserId,
             amount,
-            note: "تسویه مانده گروه",
+            note: "ادعای تسویه دستی",
             idempotencyKey: newClientId(),
           });
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
           showSuccess("ادعای تسویه ثبت شد");
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -273,27 +373,98 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
                 : "http://127.0.0.1/workspaces#settlement-panel",
             idempotencyKey: newClientId(),
           });
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
   }
 
-  function onConfirmSettlement(settlementId: string) {
+  /**
+   * From a debtor balance line: claim against the largest creditor, then checkout link.
+   * Gated in UI by paymentsLive (local_psp / zarinpal).
+   */
+  function onBalanceSettleLink(debtorUserId: string, debtAbsMinor: string) {
+    if (!selectedId || !balances) return;
+    const creditors = balances.lines
+      .filter((l) => BigInt(l.net.amountMinor) > 0n)
+      .sort((a, b) =>
+        BigInt(a.net.amountMinor) > BigInt(b.net.amountMinor) ? -1 : 1,
+      );
+    const creditor = creditors[0];
+    if (!creditor || creditor.userId === debtorUserId) {
+      setError("طلبکاری برای ساخت لینک تسویه پیدا نشد");
+      return;
+    }
+    const debt = BigInt(debtAbsMinor);
+    const credit = BigInt(creditor.net.amountMinor);
+    const payAmount = (debt < credit ? debt : credit).toString();
+    if (BigInt(payAmount) <= 0n) {
+      setError("مبلغ تسویه نامعتبر است");
+      return;
+    }
+    startTransition(() => {
+      void (async () => {
+        try {
+          const claim = await api.createSettlementClaim(selectedId, {
+            workspaceId: selectedId,
+            fromUserId: debtorUserId,
+            toUserId: creditor.userId,
+            amount: { amountMinor: payAmount, currency: "IRR" },
+            note: "settle-link from balance",
+            idempotencyKey: newClientId(),
+          });
+          await api.createPaymentLink(selectedId, {
+            workspaceId: selectedId,
+            settlementId: claim.id,
+            amount: claim.amount,
+            description: `تسویه مانده ${debtorUserId.slice(0, 8)}`,
+            returnUrl:
+              typeof window !== "undefined"
+                ? `${window.location.origin}${window.location.pathname}#settlement-panel`
+                : "http://127.0.0.1/workspaces#settlement-panel",
+            idempotencyKey: newClientId(),
+          });
+          applyWorkspaceData(
+            await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope),
+          );
+          setError(null);
+          showSuccess("ادعای تسویه و لینک پرداخت ساخته شد");
+        } catch (err: unknown) {
+          setError(friendlyErrorMessage(err, "ساخت لینک تسویه ناموفق بود"));
+        }
+      })();
+    });
+  }
+
+  function onConfirmSettlement(
+    settlementId: string,
+    evidence?: {
+      evidenceKind?: "receipt" | "cash_ack" | "gateway";
+      receiptId?: string;
+      cashAckNote?: string;
+    },
+  ) {
     if (!selectedId) return;
     startTransition(() => {
       void (async () => {
         try {
-          await api.confirmSettlement(selectedId, settlementId);
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          await api.confirmSettlement(
+            selectedId,
+            settlementId,
+            evidence ?? {
+              evidenceKind: "cash_ack",
+              cashAckNote: "تسویه نقدی / حضوری تأیید شد",
+            },
+          );
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
           showSuccess("تسویه تأیید شد");
           setSettlementNps(true);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -305,10 +476,10 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
       void (async () => {
         try {
           await api.disputeSettlement(selectedId, settlementId);
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -320,10 +491,10 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
       void (async () => {
         try {
           await api.cancelSettlement(selectedId, settlementId);
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -335,10 +506,10 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
       void (async () => {
         try {
           await api.submitExpense(selectedId, expenseId);
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -350,11 +521,11 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
       void (async () => {
         try {
           await api.postExpense(selectedId, expenseId);
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
-          showSuccess("هزینه در دفتر ثبت شد");
+          showSuccess("خرج در دفترکل ثبت شد");
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -366,14 +537,40 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
       void (async () => {
         try {
           await api.promoteExpenseCompany(selectedId, expenseId);
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
-          showSuccess("خرج خصوصی به شرکتی تأیید شد");
+          showSuccess("خرج به حالت شرکتی ارتقا یافت");
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "تأیید شرکتی ناموفق"));
+          setError(friendlyErrorMessage(err, "ارتقا به شرکتی ناموفق بود"));
         }
       })();
     });
+  }
+
+  function onReverseExpense(expenseId: string, reason: string) {
+    if (!selectedId) return;
+    startTransition(() => {
+      void (async () => {
+        try {
+          await api.reverseExpense(selectedId, expenseId, {
+            reason: reason.trim() || "mistaken_entry",
+            idempotencyKey: newClientId(),
+          });
+          applyWorkspaceData(
+            await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope),
+          );
+          setError(null);
+          showSuccess("خرج برگشت داده شد · مانده‌ها اصلاح شد");
+        } catch (err: unknown) {
+          setError(friendlyErrorMessage(err, "برگشت خرج ناموفق بود"));
+        }
+      })();
+    });
+  }
+
+  function onCancelRevise() {
+    setRevisingExpenseId(null);
+    setReviseReason("");
   }
 
   function onCreatePeriod() {
@@ -396,17 +593,17 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
         try {
           const period = await api.createPeriod(selectedId, {
             workspaceId: selectedId,
-            title: periodTitle.trim() || "دوره هزینه",
+            title: periodTitle.trim() || "دوره مالی",
             kind: periodKind,
             startsOn,
             endsOn,
             idempotencyKey: newClientId(),
           });
-          applyWorkspaceData(await loadWorkspaceData(selectedId, period.id));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, period.id, undefined, loadScope));
           setError(null);
-          showSuccess("دوره هزینه ساخته شد");
+          showSuccess("دوره مالی ایجاد شد");
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -420,10 +617,10 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
           await api.generatePeriodInvoices(selectedId, selectedPeriodId, {
             sendForApproval: true,
           });
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -435,10 +632,10 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
       void (async () => {
         try {
           await api.approveInvoice(selectedId, invoiceId);
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -446,16 +643,42 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
 
   function onDisputeInvoice(invoiceId: string) {
     if (!selectedId) return;
-    const note = window.prompt("دلیل اعتراض را بنویسید:");
+    const note = window.prompt("دلیل اعتراض به صورتحساب:");
     if (!note?.trim()) return;
     startTransition(() => {
       void (async () => {
         try {
           await api.disputeInvoice(selectedId, invoiceId, note.trim());
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
+        }
+      })();
+    });
+  }
+
+  function onResolveInvoiceDispute(
+    invoiceId: string,
+    outcome: "accepted" | "rejected",
+  ) {
+    if (!selectedId) return;
+    const note = window.prompt(
+      outcome === "accepted"
+        ? "توضیح پذیرش اعتراض (اختیاری):"
+        : "دلیل رد اعتراض (اختیاری):",
+    );
+    if (note === null) return;
+    startTransition(() => {
+      void (async () => {
+        try {
+          await api.resolveInvoiceDispute(selectedId, invoiceId, outcome, note);
+          applyWorkspaceData(
+            await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope),
+          );
+          setError(null);
+        } catch (err: unknown) {
+          setError(friendlyErrorMessage(err, "رفع اختلاف صورتحساب ناموفق بود"));
         }
       })();
     });
@@ -467,21 +690,28 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
       void (async () => {
         try {
           const issued = await api.issueInvoice(selectedId, invoiceId);
-          await api.createPaymentLink(selectedId, {
-            workspaceId: selectedId,
-            invoiceId,
-            amount: issued.total,
-            description: `صورتحساب ${invoiceId.slice(0, 8)}`,
-            returnUrl:
-              typeof window !== "undefined"
-                ? `${window.location.origin}${window.location.pathname}#period-invoice-panel`
-                : "http://127.0.0.1/workspaces#period-invoice-panel",
-            idempotencyKey: `invoice-issue:${invoiceId}`,
-          });
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          if (paymentsLive) {
+            await api.createPaymentLink(selectedId, {
+              workspaceId: selectedId,
+              invoiceId,
+              amount: issued.total,
+              description: `صورتحساب ${invoiceId.slice(0, 8)}`,
+              returnUrl:
+                typeof window !== "undefined"
+                  ? `${window.location.origin}${window.location.pathname}#period-invoice-panel`
+                  : "http://127.0.0.1/workspaces#period-invoice-panel",
+              idempotencyKey: `invoice-issue:${invoiceId}`,
+            });
+          }
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
+          showSuccess(
+            paymentsLive
+              ? "صورتحساب صادر و لینک پرداخت ساخته شد"
+              : "صورتحساب صادر شد (درگاه آنلاین غیرفعال)",
+          );
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -493,10 +723,10 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
       void (async () => {
         try {
           await api.markInvoicePaid(selectedId, invoiceId);
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -508,10 +738,10 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
       void (async () => {
         try {
           await api.closePeriod(selectedId, selectedPeriodId, { requireAllPaid: true });
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -523,10 +753,10 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
       void (async () => {
         try {
           await api.cancelPeriod(selectedId, selectedPeriodId);
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -537,10 +767,10 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
     startTransition(() => {
       void (async () => {
         try {
-          applyWorkspaceData(await loadWorkspaceData(selectedId, next));
+          applyWorkspaceData(await loadWorkspaceData(selectedId, next, undefined, loadScope));
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
       })();
     });
@@ -557,16 +787,20 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
     onSyncOfflineDraft,
     onCreateSettlement,
     onCreatePaymentLink,
+    onBalanceSettleLink,
     onConfirmSettlement,
     onDisputeSettlement,
     onCancelSettlement,
     onSubmitExpense,
     onPostExpense,
     onPromoteCompany,
+    onReverseExpense,
+    onCancelRevise,
     onCreatePeriod,
     onGenerateInvoices,
     onApproveInvoice,
     onDisputeInvoice,
+    onResolveInvoiceDispute,
     onIssueInvoice,
     onMarkInvoicePaid,
     onClosePeriod,

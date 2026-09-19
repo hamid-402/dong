@@ -25,7 +25,12 @@ curl.exe -s -o NUL -w "%{http_code}" http://localhost:3005/workspaces
 
 ## Backup / DR
 
-`docs/BACKUP-RESTORE.md`
+`docs/BACKUP-RESTORE.md` · `docs/ops/PITR.md` · `pnpm dr:backup` / `pnpm dr:drill`
+
+## Load / Chaos / Canary / Contract
+
+`docs/ops/LOAD-K6.md` · `pnpm perf:k6` · `docs/ops/CHAOS-FAILOVER.md` · `pnpm chaos:local`  
+`docs/ops/CANARY-DEPLOY.md` · `pnpm canary:gate` · `docs/ops/CONTRACT-TESTING.md` · `pnpm contract:live`
 
 ## Hardening / DAST checklist
 

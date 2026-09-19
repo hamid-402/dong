@@ -57,6 +57,15 @@ export const attachment = collab.table(
       .references(() => userAccount.id),
     idempotencyKey: text("idempotency_key").notNull(),
     ocrJobId: text("ocr_job_id"),
+    /** Persisted OCR payload (merchant/amount hints) when a job completed. */
+    ocrResult: jsonb("ocr_result").$type<{
+      jobId: string;
+      status: "completed" | "failed" | "skipped";
+      merchantHint?: string;
+      amountMinorHint?: string;
+      rawTextPreview?: string;
+      completedAt: string;
+    }>(),
     quarantineStatus: text("quarantine_status").default("pending").notNull(),
     storagePath: text("storage_path"),
     createdAt: timestamp("created_at", { withTimezone: true })

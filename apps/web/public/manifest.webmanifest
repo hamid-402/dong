@@ -15,5 +15,33 @@
       "type": "image/svg+xml",
       "purpose": "any"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "ثبت خرج",
+      "short_name": "خرج",
+      "description": "ثبت هزینه جدید در فضای فعال",
+      "url": "/hub?action=record",
+      "icons": [
+        {
+          "src": "/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "خانه",
+      "short_name": "خانه",
+      "description": "مرور فضاها و فعالیت",
+      "url": "/home",
+      "icons": [
+        {
+          "src": "/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
   ]
 }

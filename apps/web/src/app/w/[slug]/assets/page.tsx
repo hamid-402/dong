@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { RouteLoadingHint } from "@/components/shell/route-loading-hint";
+import { WorkspacePageGate } from "@/components/shell/workspace-page-gate";
 
 const AssetsView = dynamic(
   () =>
@@ -13,5 +14,9 @@ const AssetsView = dynamic(
 );
 
 export default function WorkspaceAssetsPage() {
-  return <AssetsView />;
+  return (
+    <WorkspacePageGate page="assets">
+      <AssetsView />
+    </WorkspacePageGate>
+  );
 }

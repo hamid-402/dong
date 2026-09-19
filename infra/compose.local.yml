@@ -11,6 +11,38 @@ services:
       - "5435:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ../backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dang -d dang"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Optional PITR practice DB (R10-07). Not started by default.
+  #   docker compose -f infra/compose.local.yml --profile pitr up -d postgres-pitr
+  postgres-pitr:
+    profiles: ["pitr"]
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: dang
+      POSTGRES_USER: dang
+      POSTGRES_PASSWORD: dang-local-only
+    ports:
+      - "5436:5432"
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=test ! -f /wal_archive/%f && cp %p /wal_archive/%f
+      - -c
+      - archive_timeout=60
+    volumes:
+      - postgres-pitr-data:/var/lib/postgresql/data
+      - ../.dang/wal-archive:/wal_archive
+      - ../backups:/backups
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dang -d dang"]
       interval: 5s
@@ -42,7 +74,21 @@ services:
     volumes:
       - minio-data:/data
 
+  # Optional observability stack (R10-01). Not started by default.
+  #   docker compose -f infra/compose.local.yml --profile observability up -d otel-collector
+  # Then set in .env: OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
+  otel-collector:
+    profiles: ["observability"]
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+
 volumes:
   postgres-data:
+  postgres-pitr-data:
   valkey-data:
   minio-data:

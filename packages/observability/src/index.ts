@@ -1,25 +1,36 @@
-import { AsyncLocalStorage } from "node:async_hooks";
-
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export type LogFields = Record<string, unknown>;
 
-type RequestLogContext = {
-  requestId?: string;
-};
+export {
+  clearSpanSinksForTest,
+  formatTraceparent,
+  getRequestId,
+  getSpanId,
+  getSpanSamples,
+  getTraceId,
+  newSpanId,
+  newTraceId,
+  parseTraceparent,
+  registerSpanSink,
+  resetSpanSamplesForTest,
+  resolveTracingMode,
+  runWithRequestContext,
+  withSpan,
+  type RequestLogContext,
+  type SpanAttributes,
+  type SpanSampleSnapshot,
+  type TracingMode,
+} from "./tracing.js";
 
-const requestContext = new AsyncLocalStorage<RequestLogContext>();
+export {
+  resolveOtlpTracesUrl,
+  startOtlpSpanExporter,
+  type OtlpExporterHandle,
+  type OtlpExporterOptions,
+} from "./otlp.js";
 
-export function runWithRequestContext<T>(
-  context: RequestLogContext,
-  work: () => T,
-): T {
-  return requestContext.run(context, work);
-}
-
-export function getRequestId(): string | undefined {
-  return requestContext.getStore()?.requestId;
-}
+import { getRequestId, getTraceId } from "./tracing.js";
 
 const SENSITIVE_KEY =
   /password|secret|token|authorization|cookie|amountMinor.*card|pan|cvv/i;
@@ -48,12 +59,14 @@ function redactFields(fields: LogFields): LogFields {
 export function createLogger(service: string) {
   const write = (level: LogLevel, message: string, fields: LogFields = {}) => {
     const requestId = getRequestId();
+    const traceId = getTraceId();
     const payload = {
       ts: new Date().toISOString(),
       level,
       service,
       message,
       ...(requestId ? { requestId } : {}),
+      ...(traceId ? { traceId } : {}),
       ...redactFields(fields),
     };
     const line = JSON.stringify(payload);

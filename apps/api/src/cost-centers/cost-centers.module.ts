@@ -4,6 +4,7 @@ import { createLogger } from "@dang/observability";
 import { AuthModule } from "../auth/auth.module.js";
 import { createPersistenceStore } from "../common/postgres-store.factory.js";
 import { IamModule } from "../iam/iam.module.js";
+import { WaveFSettingsModule } from "../wave-f-settings/wave-f-settings.module.js";
 import { CostCentersController } from "./cost-centers.controller.js";
 import { CostCentersService } from "./cost-centers.service.js";
 import {
@@ -27,7 +28,7 @@ export function createCostCenterStore(): CostCenterStore {
 }
 
 @Module({
-  imports: [AuthModule, IamModule],
+  imports: [AuthModule, IamModule, WaveFSettingsModule],
   controllers: [CostCentersController],
   providers: [
     CostCentersService,

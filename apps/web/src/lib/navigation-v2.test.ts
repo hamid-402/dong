@@ -3,8 +3,15 @@ import {
   accountNav,
   bottomTabsV2,
   contextualMosaicSections,
+  domainDrillMosaicSections,
+  domainGroupedNav,
   expenseFabHref,
+  financeSubgroupSections,
+  homeDomainHref,
   isNavHrefActive,
+  moreDomainHref,
+  moreIntentHref,
+  parseDomainGroup,
   spaceNav,
 } from "@/lib/navigation-v2";
 import { NAV_LABELS } from "@/lib/nav-labels";
@@ -16,35 +23,40 @@ import {
 } from "@/lib/workspace-paths";
 
 describe("navigation-v2", () => {
-  it("keeps four primary tabs with kind-specific space labels", () => {
+  it("keeps two primary tabs: home and spaces hub", () => {
     const group = bottomTabsV2("friends_family", "demo");
-    expect(group.map((t) => t.key)).toEqual(["home", "expenses", "space", "more"]);
+    expect(group.map((t) => t.key)).toEqual(["home", "spaces"]);
     expect(group.map((t) => t.label)).toEqual([
       NAV_LABELS.home,
-      NAV_LABELS.expenses,
-      NAV_LABELS.spaceGroup,
-      NAV_LABELS.more,
+      NAV_LABELS.spacesList,
     ]);
-    expect(bottomTabsV2("personal", "me").find((t) => t.key === "space")?.label).toBe(
-      NAV_LABELS.spacePersonal,
-    );
-    expect(bottomTabsV2("small_team", "org").find((t) => t.key === "space")?.label).toBe(
-      NAV_LABELS.spaceOrg,
-    );
+    expect(group.find((t) => t.key === "spaces")?.href).toBe("/spaces");
   });
 
-  it("uses /w/[slug] paths when slug is known", () => {
+  it("keeps app home at /home even when a workspace slug is known", () => {
     const tabs = bottomTabsV2("personal", "my-space");
-    expect(tabs.find((t) => t.key === "home")?.href).toBe("/w/my-space");
-    expect(tabs.find((t) => t.key === "expenses")?.href).toBe("/w/my-space/expenses");
-    expect(tabs.find((t) => t.key === "space")?.href).toBe("/w/my-space/space");
-    expect(tabs.find((t) => t.key === "more")?.href).toBe("/w/my-space/more");
+    expect(tabs.find((t) => t.key === "home")?.href).toBe("/home");
+    expect(tabs.find((t) => t.key === "spaces")?.href).toBe("/spaces");
+    expect(expenseFabHref("personal", "my-space")).toBe("/w/my-space/record");
   });
 
   it("hides buy section for personal template", () => {
     const sections = spaceNav("personal", "p1");
     expect(sections.some((s) => s.key === "buy")).toBe(false);
     expect(sections.some((s) => s.key === "finance")).toBe(true);
+  });
+
+  it("includes catalog under buy when catalog_v1 capability is on", () => {
+    const sections = spaceNav("friends_family", "demo", { catalogV1: true });
+    const buy = sections.find((s) => s.key === "buy");
+    expect(buy?.items.some((i) => i.key === "catalog")).toBe(true);
+    expect(buy?.items.find((i) => i.key === "catalog")?.href).toBe("/w/demo/catalog");
+  });
+
+  it("hides catalog without catalog_v1 capability", () => {
+    const sections = spaceNav("friends_family", "demo", {});
+    const buy = sections.find((s) => s.key === "buy");
+    expect(buy?.items.some((i) => i.key === "catalog")).toBe(false);
   });
 
   it("includes procurement for org templates that enable it", () => {
@@ -55,31 +67,136 @@ describe("navigation-v2", () => {
   });
 
   it("exposes expense FAB only when expenses module exists", () => {
-    expect(expenseFabHref("friends_family", "g1")).toBe("/w/g1/expenses#quick-expense");
+    expect(expenseFabHref("friends_family", "g1")).toBe("/w/g1/record");
   });
 
-  it("includes metrics and audit in space management nav", () => {
-    const sections = spaceNav("friends_family", "g1");
-    const space = sections.find((s) => s.key === "space");
-    expect(space?.items.map((i) => i.key)).toEqual([
-      "invite",
-      "audit",
-      "metrics",
+  it("includes metrics and audit in oversight nav for finance roles", () => {
+    const sections = spaceNav("friends_family", "g1", undefined, "owner");
+    const oversight = sections.find((s) => s.key === "oversight");
+    expect(oversight?.items.map((i) => i.key)).toEqual(["audit", "metrics"]);
+    expect(sections.find((s) => s.key === "people")?.items.map((i) => i.key)).toEqual([
+      "members",
+    ]);
+    expect(sections.find((s) => s.key === "settings")?.items.map((i) => i.key)).toEqual([
       "settings",
     ]);
   });
 
-  it("lists account destinations without duplicating the account/spaces tabs", () => {
-    expect(accountNav().map((i) => i.key)).toEqual(["security", "whats-new"]);
+  it("includes subunits under people for building spaces", () => {
+    const people = spaceNav("residential_building", "b1", undefined, "owner").find(
+      (s) => s.key === "people",
+    );
+    expect(people?.items.map((i) => i.key)).toEqual(
+      expect.arrayContaining(["members", "subunits"]),
+    );
   });
 
-  it("does not repeat tab destination «خرج‌ها» in spaceNav", () => {
+  it("includes members under people for group spaces", () => {
+    const people = spaceNav("friends_family", "g1", undefined, "owner").find(
+      (s) => s.key === "people",
+    );
+    expect(people?.items.some((i) => i.key === "members")).toBe(true);
+  });
+
+  it("shows permissions only when accessPolicyGrants is on", () => {
+    const without = spaceNav("friends_family", "g1", undefined, "owner");
+    expect(
+      without.find((s) => s.key === "people")?.items.some((i) => i.key === "permissions"),
+    ).toBe(false);
+    const withGrants = spaceNav(
+      "friends_family",
+      "g1",
+      { accessPolicyGrants: true },
+      "owner",
+    );
+    expect(
+      withGrants.find((s) => s.key === "people")?.items.some((i) => i.key === "permissions"),
+    ).toBe(true);
+  });
+
+  it("hides metrics for guest role in oversight nav", () => {
+    const oversight = spaceNav("friends_family", "g1", undefined, "guest").find(
+      (s) => s.key === "oversight",
+    );
+    expect(oversight?.items.some((i) => i.key === "metrics")).toBe(false);
+    expect(oversight?.items.some((i) => i.key === "audit")).toBe(true);
+  });
+
+  it("shows jobs for owner when inline_stub or redis_queue is live", () => {
+    const without = spaceNav("friends_family", "g1", undefined, "owner");
+    expect(
+      without.find((s) => s.key === "oversight")?.items.some((i) => i.key === "jobs"),
+    ).toBe(false);
+
+    const withInline = spaceNav(
+      "friends_family",
+      "g1",
+      { jobsAvailable: true },
+      "owner",
+    );
+    expect(
+      withInline.find((s) => s.key === "oversight")?.items.some((i) => i.key === "jobs"),
+    ).toBe(true);
+
+    const withRedis = spaceNav(
+      "friends_family",
+      "g1",
+      { jobsRedisQueue: true },
+      "owner",
+    );
+    expect(
+      withRedis.find((s) => s.key === "oversight")?.items.some((i) => i.key === "jobs"),
+    ).toBe(true);
+
+    const member = spaceNav(
+      "friends_family",
+      "g1",
+      { jobsAvailable: true },
+      "member",
+    );
+    expect(
+      member.find((s) => s.key === "oversight")?.items.some((i) => i.key === "jobs"),
+    ).toBe(false);
+  });
+
+  it("omits daily ledger from personal template finance nav", () => {
+    const finance = spaceNav("personal", "p1").find((s) => s.key === "finance");
+    expect(finance?.items.some((i) => i.key === "ledger")).toBe(false);
+  });
+
+  it("lists account destinations without duplicating the account/spaces tabs", () => {
+    expect(accountNav().map((i) => i.key)).toEqual([
+      "friends",
+      "privacy",
+      "personal-finance",
+      "security",
+      "whats-new",
+    ]);
+  });
+
+  it("includes platform admin in accountNav only for live console + platform role", () => {
+    expect(
+      accountNav({
+        platformAdminLive: true,
+        platformRole: "platform_owner",
+      }).map((i) => i.key),
+    ).toContain("admin");
+    expect(
+      accountNav({
+        platformAdminLive: true,
+        platformRole: "user",
+      }).map((i) => i.key),
+    ).not.toContain("admin");
+  });
+
+  it("lists «خرج‌ها» first inside finance folder (group/org)", () => {
     const finance = spaceNav("friends_family", "g1").find((s) => s.key === "finance");
-    expect(finance?.items.some((i) => i.key === "expenses")).toBe(false);
+    expect(finance?.items.some((i) => i.key === "expenses")).toBe(true);
     expect(finance?.items.map((i) => i.key)).toEqual([
+      "expenses",
       "settlements",
-      "invoices",
       "recurring",
+      "invoices",
       "ledger",
     ]);
   });
@@ -98,17 +215,28 @@ describe("navigation-v2", () => {
       costCenter: true,
     }).find((s) => s.key === "finance");
     expect(finance?.items.map((i) => i.key)).toEqual([
+      "expenses",
       "settlements",
-      "invoices",
-      "recurring",
       "addons",
+      "recurring",
       "approvals",
-      "org-finance",
+      "invoices",
       "ledger",
+      "org-finance",
     ]);
     expect(finance?.items.find((i) => i.key === "org-finance")?.href).toBe(
       "/w/org/org-finance",
     );
+  });
+
+  it("moves charts into finance when charts_v1 is on", () => {
+    const sections = spaceNav("friends_family", "g1", { chartsV1: true }, "owner");
+    expect(sections.find((s) => s.key === "finance")?.items.some((i) => i.key === "charts")).toBe(
+      true,
+    );
+    expect(
+      sections.find((s) => s.key === "oversight")?.items.some((i) => i.key === "charts"),
+    ).toBe(false);
   });
 
   it("shows org-finance when fxRates flag alone is on", () => {
@@ -118,24 +246,175 @@ describe("navigation-v2", () => {
     expect(finance?.items.some((i) => i.key === "org-finance")).toBe(true);
   });
 
-  it("derives a concise contextual mosaic from the same gated navigation", () => {
+  it("home mosaic matches domain-grouped tools tree (two-layer IA)", () => {
+    const flags = { approvalQueue: true, costCenter: true };
+    const home = contextualMosaicSections("small_team", "org", flags, "home");
+    const tools = contextualMosaicSections("small_team", "org", flags, "all");
+    expect(home.map((s) => s.key)).toEqual(tools.map((s) => s.key));
+    const items = home.flatMap((section) => section.items);
+    expect(items.some((item) => item.key === "settlements")).toBe(true);
+    expect(items.some((item) => item.key === "expenses")).toBe(true);
+    expect(items.every((item) => item.summary.length > 12)).toBe(true);
+  });
+
+  it("ignores urgency/empty signals for home layout (facts only in UI)", () => {
+    const baseline = contextualMosaicSections(
+      "friends_family",
+      "g1",
+      undefined,
+      "home",
+      "owner",
+    );
+    const urgent = contextualMosaicSections(
+      "friends_family",
+      "g1",
+      undefined,
+      "home",
+      "owner",
+      { openSettlements: 2, pendingApprovals: 3 },
+    );
+    const empty = contextualMosaicSections(
+      "friends_family",
+      "g1",
+      undefined,
+      "home",
+      "owner",
+      { isEmptyWorkspace: true },
+    );
+    expect(urgent).toEqual(baseline);
+    expect(empty).toEqual(baseline);
+    expect(baseline.some((s) => s.key === "finance")).toBe(true);
+  });
+
+  it("splits finance tools into professional subgroups", () => {
+    const finance = domainGroupedNav("small_team", "org", {
+      approvalQueue: true,
+      chartsV1: true,
+      costCenter: true,
+    }).find((s) => s.key === "finance");
+    expect(finance).toBeTruthy();
+    const subgroups = financeSubgroupSections(finance!.items);
+    expect(subgroups.map((s) => s.key)).toEqual([
+      "finance-everyday",
+      "finance-schedule",
+      "finance-records",
+      "finance-insights",
+      "finance-organizational",
+    ]);
+    expect(subgroups[0]?.items.some((i) => i.key === "settlements")).toBe(true);
+    expect(subgroups.find((s) => s.key === "finance-insights")?.items.some((i) => i.key === "charts")).toBe(
+      true,
+    );
+    expect(
+      subgroups.find((s) => s.key === "finance-organizational")?.items.some(
+        (i) => i.key === "org-finance",
+      ),
+    ).toBe(true);
+  });
+
+  it("surfaces finance leaf tiles when no group is selected", () => {
+    const finance = domainGroupedNav("friends_family", "g1", {
+      chartsV1: true,
+    }).find((s) => s.key === "finance");
+    const drill = domainDrillMosaicSections("finance", finance!, {
+      slug: "g1",
+      folderBase: "home",
+    });
+    const leaves = drill.flatMap((s) => s.items);
+    expect(leaves.some((i) => i.key === "expenses")).toBe(true);
+    expect(leaves.some((i) => i.key === "settlements")).toBe(true);
+    expect(leaves.some((i) => i.key === "ledger")).toBe(true);
+    expect(leaves.some((i) => i.key === "everyday")).toBe(false);
+  });
+
+  it("filters finance leaves when group=everyday", () => {
+    const finance = domainGroupedNav("friends_family", "g1").find((s) => s.key === "finance");
+    const drill = domainDrillMosaicSections("finance", finance!, {
+      slug: "g1",
+      folderBase: "home",
+      group: "everyday",
+    });
+    expect(drill).toHaveLength(1);
+    expect(drill[0]?.items.some((i) => i.key === "expenses")).toBe(true);
+    expect(drill[0]?.items.some((i) => i.key === "settlements")).toBe(true);
+    expect(drill[0]?.items.some((i) => i.key === "ledger")).toBe(false);
+  });
+
+  it("exposes expenses and personal-finance for personal spaces", () => {
+    const sections = contextualMosaicSections("personal", "me", undefined, "home");
+    const items = sections.flatMap((section) => section.items);
+    expect(sections.length).toBeGreaterThan(0);
+    expect(items.some((item) => item.key === "expenses")).toBe(true);
+    expect(items.some((item) => item.key === "personal-finance")).toBe(true);
+    expect(items.some((item) => item.key === "ledger")).toBe(false);
+    expect(items.some((item) => item.key === "org-finance")).toBe(false);
+  });
+
+  it("keeps building finance leaves aligned with group", () => {
+    const group = contextualMosaicSections("friends_family", "g1", undefined, "home")
+      .find((s) => s.key === "finance")
+      ?.items.map((i) => i.key)
+      .sort();
+    const building = contextualMosaicSections(
+      "residential_building",
+      "tower",
+      undefined,
+      "home",
+    )
+      .find((s) => s.key === "finance")
+      ?.items.map((i) => i.key)
+      .sort();
+    expect(building).toEqual(group);
+  });
+
+  it("puts expenses in the everyday finance subgroup", () => {
+    const finance = contextualMosaicSections("friends_family", "g1", undefined, "home").find(
+      (s) => s.key === "finance",
+    );
+    const subgroups = financeSubgroupSections(finance?.items ?? []);
+    expect(subgroups[0]?.items.some((i) => i.key === "expenses")).toBe(true);
+  });
+
+  it("groups Tools/palette mosaic by domain (not intent)", () => {
     const sections = contextualMosaicSections(
       "small_team",
       "org",
       { approvalQueue: true, costCenter: true },
-      "home",
+      "all",
     );
-    const items = sections.flatMap((section) => section.items);
+    expect(sections.map((s) => s.key)).toEqual([
+      "finance",
+      "buy",
+      "people",
+      "oversight",
+      "settings",
+    ]);
+    const items = sections.flatMap((s) => s.items);
+    expect(items.every((item) => Boolean(item.gemKey))).toBe(true);
+    expect(items.find((item) => item.key === "approvals")?.gemKey).toBe("coral");
+  });
 
-    expect(items.length).toBeLessThanOrEqual(8);
-    expect(items[0]).toMatchObject({
-      key: "expenses",
-      href: "/w/org/expenses",
-      intent: "record",
-    });
-    expect(items.some((item) => item.key === "approvals")).toBe(true);
-    expect(items.some((item) => item.key === "org-finance")).toBe(false);
-    expect(items.every((item) => item.summary.length > 12)).toBe(true);
+  it("keeps domainGroupedNav aligned with spaceNav for the same flags", () => {
+    const flags = { approvalQueue: true, chartsV1: true, catalogV1: true } as const;
+    const nav = spaceNav("small_team", "org", flags, "owner");
+    const mosaic = domainGroupedNav("small_team", "org", flags, "owner");
+    expect(mosaic.map((s) => s.key)).toEqual(nav.map((s) => s.key));
+    expect(mosaic.map((s) => s.items.map((i) => i.key))).toEqual(
+      nav.map((s) => s.items.map((i) => i.key)),
+    );
+  });
+
+  it("parses more domain query and maps legacy intent hrefs", () => {
+    expect(parseDomainGroup("finance")).toBe("finance");
+    expect(parseDomainGroup("nope")).toBeNull();
+    expect(moreDomainHref("org")).toBe("/w/org/more");
+    expect(moreDomainHref("org", "buy")).toBe("/w/org/more?folder=buy");
+    expect(moreIntentHref("org", "record")).toBe("/w/org/more?folder=buy");
+  });
+
+  it("builds home folder hrefs on workspace root", () => {
+    expect(homeDomainHref("org")).toBe("/w/org");
+    expect(homeDomainHref("org", "finance")).toBe("/w/org?folder=finance");
   });
 
   it("keeps contextual mosaic feature gates honest", () => {

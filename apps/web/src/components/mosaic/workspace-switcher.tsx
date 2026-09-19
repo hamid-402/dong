@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { spaceKindForTemplate } from "@dang/contracts";
 import { workspaceTemplateLabel } from "@/lib/status-labels";
@@ -11,21 +11,43 @@ import { wPath } from "@/lib/workspace-paths";
 const KIND_LABEL = {
   personal: "شخصی",
   group: "گروه",
+  building: "ساختمان",
   org: "سازمان",
 } as const;
 
-export function WorkspaceSwitcher() {
+const FOCUSABLE =
+  'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+
+export function WorkspaceSwitcher({
+  compact = false,
+}: {
+  /** Hide the meta hint under the name (sub-headers). */
+  compact?: boolean;
+}) {
   const { workspaces, workspaceId, workspaceName, selectWorkspace, ready } = useAppChrome();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   const listId = useId();
   const router = useRouter();
+  const pathname = usePathname();
+  const inWorkspace = /^\/w\//.test(pathname);
+  const onAppHub =
+    pathname === "/home" ||
+    pathname.startsWith("/spaces") ||
+    pathname.startsWith("/account") ||
+    pathname.startsWith("/me");
+
+  const active = workspaces.find((w) => w.id === workspaceId);
+  const kind = spaceKindForTemplate(active?.template);
+  const kindLabel = KIND_LABEL[kind];
 
   const grouped = useMemo(() => {
-    const buckets: Record<"personal" | "group" | "org", typeof workspaces> = {
+    const buckets: Record<"personal" | "group" | "building" | "org", typeof workspaces> = {
       personal: [],
       group: [],
+      building: [],
       org: [],
     };
     for (const ws of workspaces) {
@@ -41,15 +63,31 @@ export function WorkspaceSwitcher() {
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        event.preventDefault();
         setOpen(false);
         triggerRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab" || !menuRef.current) return;
+      const focusable = Array.from(
+        menuRef.current.querySelectorAll<HTMLElement>(FOCUSABLE),
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
       }
     };
     const focusTimer = window.setTimeout(() => {
-      const selected = rootRef.current?.querySelector<HTMLButtonElement>(
+      const selected = menuRef.current?.querySelector<HTMLButtonElement>(
         '[data-workspace-option][aria-selected="true"]',
       );
-      const first = rootRef.current?.querySelector<HTMLButtonElement>(
+      const first = menuRef.current?.querySelector<HTMLButtonElement>(
         "[data-workspace-option]",
       );
       (selected ?? first)?.focus();
@@ -75,6 +113,15 @@ export function WorkspaceSwitcher() {
     );
   }
 
+  const triggerTitle =
+    onAppHub && !inWorkspace
+      ? "خانه"
+      : workspaceName || "انتخاب نشده";
+  const triggerMeta =
+    onAppHub && !inWorkspace
+      ? `${workspaces.length.toLocaleString("fa-IR")} فضا · انتخاب از تب‌ها`
+      : `${kindLabel}${workspaces.length > 1 ? ` · ${workspaces.length.toLocaleString("fa-IR")} فضا` : ""}`;
+
   return (
     <div className="mosaic-ws-switch" ref={rootRef}>
       <button
@@ -84,6 +131,11 @@ export function WorkspaceSwitcher() {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
+        aria-label={
+          onAppHub && !inWorkspace
+            ? "خانه — فهرست فضاها"
+            : `فضای کاری فعال: ${workspaceName || "انتخاب نشده"}`
+        }
         onClick={() => setOpen((v) => !v)}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -92,8 +144,13 @@ export function WorkspaceSwitcher() {
           }
         }}
       >
-        <span className="mosaic-ws-switch__label">فضای کاری</span>
-        <strong>{workspaceName || "انتخاب نشده"}</strong>
+        <span className="mosaic-ws-switch__label">{triggerMeta}</span>
+        <strong>{triggerTitle}</strong>
+        {!compact ? (
+          <span className="mosaic-ws-switch__hint" aria-hidden>
+            {onAppHub && !inWorkspace ? "باز کردن فضا" : "تعویض فضا"}
+          </span>
+        ) : null}
         <span className="mosaic-ws-switch__chev" aria-hidden>
           ⌄
         </span>
@@ -101,6 +158,7 @@ export function WorkspaceSwitcher() {
 
       {open ? (
         <ul
+          ref={menuRef}
           className="mosaic-ws-switch__menu"
           id={listId}
           role="listbox"
@@ -125,7 +183,7 @@ export function WorkspaceSwitcher() {
             }
           }}
         >
-          {(["personal", "group", "org"] as const).map((kind) => {
+          {(["personal", "group", "building", "org"] as const).map((kind) => {
             const list = grouped[kind];
             if (list.length === 0) return null;
             return (
@@ -133,19 +191,19 @@ export function WorkspaceSwitcher() {
                 <span className="mosaic-ws-switch__groupLabel">{KIND_LABEL[kind]}</span>
                 <ul>
                   {list.map((ws) => {
-                    const active = ws.id === workspaceId;
+                    const selected = inWorkspace && ws.id === workspaceId;
                     return (
                       <li key={ws.id} role="none">
                         <button
                           data-workspace-option
                           type="button"
                           role="option"
-                          aria-selected={active}
-                          className={`mosaic-ws-switch__option${active ? " is-active" : ""}`}
+                          aria-selected={selected}
+                          className={`mosaic-ws-switch__option${selected ? " is-active" : ""}`}
                           onClick={() => {
                             selectWorkspace(ws.id);
                             setOpen(false);
-                            router.push(wPath(ws.slug));
+                            router.push(wPath(ws.slug, "space"));
                           }}
                         >
                           <b>{ws.name}</b>
@@ -159,6 +217,9 @@ export function WorkspaceSwitcher() {
             );
           })}
           <li className="mosaic-ws-switch__footer">
+            <Link href="/home" onClick={() => setOpen(false)}>
+              خانه
+            </Link>
             <Link href="/spaces/new" onClick={() => setOpen(false)}>
               + فضای کاری جدید
             </Link>

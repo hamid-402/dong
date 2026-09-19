@@ -24,20 +24,29 @@ export type PersonalFinanceWorkspaceLine = {
   net: Money;
   /** Posted expenses in range where actor paid or had a share. */
   expenseCount: number;
+  /** Open settlements (claimed + disputed) visible to the actor in this workspace. */
+  openSettlements: number;
 };
 
 export type PersonalFinanceOverviewResponse = {
   from: string;
   to: string;
   currency: "IRR";
+  /** S11-10: which slice of totals/workspaces this response emphasizes. */
+  scope?: PersonalFinanceOverviewScope;
   totals: {
     paid: Money;
     share: Money;
+    /** Personal money_txn income in range (when scope includes personal). */
+    personalIncome?: Money;
+    /** Personal money_txn expenses in range (when scope includes personal). */
+    personalExpense?: Money;
   };
   workspaces: PersonalFinanceWorkspaceLine[];
   source: {
     expense: "memory" | "postgres";
     ledger: "memory" | "postgres";
+    personal?: "memory" | "postgres";
   };
 };
 
@@ -304,13 +313,20 @@ export function computePersonalAccountBalance(
 }
 
 export function sumPersonalExpenseInMonth(
-  txns: readonly { kind: PersonalMoneyTxnKind; amountMinor: bigint; occurredOn: string }[],
+  txns: readonly {
+    kind: PersonalMoneyTxnKind;
+    amountMinor: bigint;
+    occurredOn: string;
+    /** Precomputed month key (Jalali or Gregorian). Defaults to occurredOn.slice(0, 7). */
+    yearMonthKey?: string;
+  }[],
   yearMonth: string,
 ): bigint {
   let spent = 0n;
   for (const txn of txns) {
     if (txn.kind !== "expense") continue;
-    if (!txn.occurredOn.startsWith(yearMonth)) continue;
+    const key = txn.yearMonthKey ?? txn.occurredOn.slice(0, 7);
+    if (key !== yearMonth) continue;
     spent += txn.amountMinor;
   }
   return spent;
@@ -591,4 +607,328 @@ export function aggregatePersonalFinanceTrends(input: {
       personalExpense: irrMoney(totalPersonal),
     },
   };
+}
+
+/* —— S11-10 deep personal finance —— */
+
+export type IncomeSourceKind = "salary" | "bonus" | "freelance" | "rent" | "other";
+export type IncomeCadence = "monthly" | "weekly" | "yearly" | "irregular";
+export type SavingsGoalStatus = "active" | "reached" | "archived";
+export type SpendingAlertScope = "total" | "category" | "group" | "workspace";
+export type SpendingAlertPeriod = "month" | "week";
+export type SpendingAlertChannel = "inapp" | "email";
+export type PersonalFinanceOverviewScope = "personal" | "group" | "combined";
+
+export type IncomeSourceSummary = {
+  id: string;
+  name: string;
+  kind: IncomeSourceKind;
+  expected?: Money;
+  cadence: IncomeCadence;
+  currency: "IRR";
+  active: boolean;
+  createdAt: string;
+};
+
+export type CreateIncomeSourceRequest = {
+  name: string;
+  kind: IncomeSourceKind;
+  expected?: Money;
+  cadence?: IncomeCadence;
+  active?: boolean;
+  idempotencyKey: string;
+};
+
+export type UpdateIncomeSourceRequest = {
+  name?: string;
+  kind?: IncomeSourceKind;
+  expected?: Money | null;
+  cadence?: IncomeCadence;
+  active?: boolean;
+};
+
+export type SavingsGoalContributionSummary = {
+  id: string;
+  goalId: string;
+  amount: Money;
+  occurredAt: string;
+  txnId?: string;
+  note?: string;
+  createdAt: string;
+};
+
+export type SavingsGoalSummary = {
+  id: string;
+  name: string;
+  target: Money;
+  /** Sum of contributions — never a manually stored progress field. */
+  contributed: Money;
+  /** 0–100+ floored percent of target. */
+  progressPercent: number;
+  targetDate?: string;
+  accountId?: string;
+  status: SavingsGoalStatus;
+  createdAt: string;
+  reachedAt?: string;
+};
+
+export type CreateSavingsGoalRequest = {
+  name: string;
+  targetMinor: string;
+  targetDate?: string;
+  accountId?: string;
+  idempotencyKey: string;
+};
+
+export type UpdateSavingsGoalRequest = {
+  name?: string;
+  targetMinor?: string;
+  targetDate?: string | null;
+  accountId?: string | null;
+  status?: SavingsGoalStatus;
+};
+
+export type CreateSavingsGoalContributionRequest = {
+  amountMinor: string;
+  occurredAt: string;
+  txnId?: string;
+  note?: string;
+  idempotencyKey: string;
+};
+
+export type SpendingAlertSummary = {
+  id: string;
+  scope: SpendingAlertScope;
+  refId?: string;
+  period: SpendingAlertPeriod;
+  limit: Money;
+  thresholdPercent: number;
+  channel: SpendingAlertChannel;
+  active: boolean;
+  lastFiredAt?: string;
+  createdAt: string;
+};
+
+export type PutSpendingAlertsRequest = {
+  alerts: Array<{
+    id?: string;
+    scope: SpendingAlertScope;
+    refId?: string | null;
+    period?: SpendingAlertPeriod;
+    limitMinor: string;
+    thresholdPercent?: number;
+    channel?: SpendingAlertChannel;
+    active?: boolean;
+  }>;
+};
+
+export type MonthlyCloseSummary = {
+  yearMonth: string;
+  income: Money;
+  expense: Money;
+  groupShare: Money;
+  personal: Money;
+  saved: Money;
+  topCategoryId?: string;
+  computedAt: string;
+  /** True when no income/expense/share data existed for the month. */
+  empty: boolean;
+  emptyReason?: string;
+};
+
+export type RecomputeMonthlyCloseRequest = {
+  yearMonth: string;
+};
+
+/**
+ * Progress from explicit contributions plus optional ledger deposits
+ * (income / transfer_in on a linked savings account). Callers should exclude
+ * ledger rows already counted via contribution.txnId to avoid double-counting;
+ * when that split is unavailable, pass orphan contribution amounts only.
+ */
+export function computeSavingsGoalProgress(input: {
+  targetMinor: bigint;
+  contributionAmountMinors: readonly bigint[];
+  ledgerDepositMinors?: readonly bigint[];
+}): {
+  contributedMinor: bigint;
+  progressPercent: number;
+  reached: boolean;
+} {
+  let contributed = 0n;
+  for (const amount of input.contributionAmountMinors) {
+    if (amount > 0n) contributed += amount;
+  }
+  for (const amount of input.ledgerDepositMinors ?? []) {
+    if (amount > 0n) contributed += amount;
+  }
+  const target = input.targetMinor > 0n ? input.targetMinor : 1n;
+  const progressPercent = Number((contributed * 100n) / target);
+  return {
+    contributedMinor: contributed,
+    progressPercent,
+    reached: contributed >= input.targetMinor && input.targetMinor > 0n,
+  };
+}
+
+export function enrichSavingsGoalSummary(input: {
+  id: string;
+  name: string;
+  targetMinor: bigint;
+  contributionAmountMinors: readonly bigint[];
+  ledgerDepositMinors?: readonly bigint[];
+  targetDate?: string | null;
+  accountId?: string | null;
+  status: SavingsGoalStatus;
+  createdAt: string;
+  reachedAt?: string | null;
+}): SavingsGoalSummary {
+  const progress = computeSavingsGoalProgress({
+    targetMinor: input.targetMinor,
+    contributionAmountMinors: input.contributionAmountMinors,
+    ledgerDepositMinors: input.ledgerDepositMinors,
+  });
+  const status: SavingsGoalStatus =
+    input.status === "archived"
+      ? "archived"
+      : progress.reached
+        ? "reached"
+        : input.status === "reached"
+          ? "reached"
+          : "active";
+  return {
+    id: input.id,
+    name: input.name,
+    target: irrMoney(input.targetMinor),
+    contributed: irrMoney(progress.contributedMinor),
+    progressPercent: progress.progressPercent,
+    targetDate: input.targetDate ?? undefined,
+    accountId: input.accountId ?? undefined,
+    status,
+    createdAt: input.createdAt,
+    reachedAt: input.reachedAt ?? undefined,
+  };
+}
+
+/**
+ * Monthly close rollup from raw personal txns + group share.
+ * expense = personal + groupShare; saved = max(0, income − personal − groupShare).
+ */
+export function computeMonthlyCloseTotals(input: {
+  incomeMinor: bigint;
+  personalExpenseMinor: bigint;
+  groupShareMinor: bigint;
+}): {
+  incomeMinor: bigint;
+  expenseMinor: bigint;
+  groupShareMinor: bigint;
+  personalMinor: bigint;
+  savedMinor: bigint;
+  empty: boolean;
+} {
+  const income = input.incomeMinor < 0n ? 0n : input.incomeMinor;
+  const personal = input.personalExpenseMinor < 0n ? 0n : input.personalExpenseMinor;
+  const groupShare = input.groupShareMinor < 0n ? 0n : input.groupShareMinor;
+  const expense = personal + groupShare;
+  const remainder = income - personal - groupShare;
+  const saved = remainder > 0n ? remainder : 0n;
+  const empty = income === 0n && personal === 0n && groupShare === 0n;
+  return {
+    incomeMinor: income,
+    expenseMinor: expense,
+    groupShareMinor: groupShare,
+    personalMinor: personal,
+    savedMinor: saved,
+    empty,
+  };
+}
+
+export function yearMonthDateBounds(yearMonth: string): { from: string; to: string } {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(yearMonth)) {
+    throw new Error("YEAR_MONTH");
+  }
+  const [yRaw, mRaw] = yearMonth.split("-").map(Number);
+  const y = yRaw!;
+  const m = mRaw!;
+  // Jalali months (1300–1699) must use jalaliYearMonthDateBounds — Gregorian Date.UTC is wrong.
+  if (y >= 1300 && y <= 1699) {
+    throw new Error("YEAR_MONTH_JALALI");
+  }
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return {
+    from: `${yearMonth}-01`,
+    to: `${yearMonth}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
+/** Gregorian or Jalali year-month → inclusive ISO bounds. */
+export function resolveYearMonthDateBounds(
+  yearMonth: string,
+  jalaliBounds: (ym: string) => { from: string; to: string },
+): { from: string; to: string } {
+  const y = Number(yearMonth.slice(0, 4));
+  if (Number.isFinite(y) && y >= 1300 && y <= 1699) {
+    return jalaliBounds(yearMonth);
+  }
+  return yearMonthDateBounds(yearMonth);
+}
+
+/** Threshold amount = floor(limit × thresholdPercent / 100). */
+export function spendingAlertThresholdMinor(
+  limitMinor: bigint,
+  thresholdPercent: number,
+): bigint {
+  if (limitMinor <= 0n) return 0n;
+  const pct = Math.min(100, Math.max(1, Math.floor(thresholdPercent)));
+  return (limitMinor * BigInt(pct)) / 100n;
+}
+
+/** True only when real spent reaches/exceeds the configured threshold of the limit. */
+export function isSpendingAlertBreached(input: {
+  spentMinor: bigint;
+  limitMinor: bigint;
+  thresholdPercent: number;
+}): boolean {
+  if (input.spentMinor <= 0n || input.limitMinor <= 0n) return false;
+  const threshold = spendingAlertThresholdMinor(
+    input.limitMinor,
+    input.thresholdPercent,
+  );
+  return input.spentMinor >= threshold;
+}
+
+/**
+ * Notify at most once per period after a real breach.
+ * Does not fire when spent is under threshold.
+ */
+export function shouldNotifySpendingAlert(input: {
+  breached: boolean;
+  lastFiredAt?: string | null;
+  periodFrom: string;
+}): boolean {
+  if (!input.breached) return false;
+  if (!input.lastFiredAt) return true;
+  const firedDay = input.lastFiredAt.slice(0, 10);
+  return firedDay < input.periodFrom;
+}
+
+/** Calendar week (Mon–Sun UTC) containing isoDate YYYY-MM-DD. */
+export function weekDateBounds(isoDate: string): { from: string; to: string } {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) throw new Error("DATE");
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  const day = d.getUTCDay() || 7; // Mon=1 … Sun=7
+  d.setUTCDate(d.getUTCDate() - (day - 1));
+  const from = d.toISOString().slice(0, 10);
+  d.setUTCDate(d.getUTCDate() + 6);
+  const to = d.toISOString().slice(0, 10);
+  return { from, to };
+}
+
+export function spendingAlertPeriodBounds(
+  period: SpendingAlertPeriod,
+  refIsoDate: string,
+): { from: string; to: string } {
+  if (period === "week") return weekDateBounds(refIsoDate);
+  const yearMonth = refIsoDate.slice(0, 7);
+  return yearMonthDateBounds(yearMonth);
 }

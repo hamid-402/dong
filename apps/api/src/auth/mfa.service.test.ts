@@ -45,6 +45,7 @@ test("login challenge path: MFA enabled returns challenge without session", asyn
     email: "mfa-owner@example.com",
     displayName: "MFA Owner",
     passwordHash,
+    username: "mfa.owner",
   });
   await iam.createWorkspace({
     actorUserId: user.userId,
@@ -91,6 +92,7 @@ test("assertMfaEnrolledForFinanceAction blocks until MFA enabled", async () => {
     email: "needs-mfa@example.com",
     displayName: "Needs MFA",
     passwordHash,
+    username: "needs.mfa",
   });
   await iam.createWorkspace({
     actorUserId: user.userId,

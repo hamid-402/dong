@@ -7,6 +7,7 @@ export type AuditWriteInput = {
   result: "success" | "failure" | "denied";
   reason?: string;
   requestId?: string;
+  traceId?: string;
   metadata?: Record<string, string | number | boolean | null>;
 };
 

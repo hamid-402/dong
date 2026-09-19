@@ -66,6 +66,17 @@ jobs:
               console.error(`::error::Lighthouse performance ${perf} below minimum ${min}`);
               process.exit(1);
             }
+            // INP (interaction-to-next-paint) is not produced by navigation-mode Lighthouse.
+            // Placeholder for a future user-flow gate:
+            //   "interaction-to-next-paint": ["error", { maxNumericValue: 200 }]
+            // See docs/PERF-CWV.md. Proxy: Total Blocking Time ≤ 200ms.
+            const tbt = r.audits?.["total-blocking-time"]?.numericValue;
+            const maxTbt = Number(process.env.LH_MAX_TBT_MS || "200");
+            console.log("Lighthouse total-blocking-time (ms):", tbt);
+            if (typeof tbt === "number" && tbt > maxTbt) {
+              console.error(`::error::TBT ${tbt}ms above max ${maxTbt}ms (INP lab proxy)`);
+              process.exit(1);
+            }
           '
 
       - name: upload lighthouse report

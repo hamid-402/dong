@@ -11,6 +11,7 @@ import type {
 } from "@dang/contracts";
 import { readProductFeatureFlags } from "@dang/contracts";
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
+import { WaveFSettingsService } from "../wave-f-settings/wave-f-settings.service.js";
 import {
   COST_CENTER_STORE,
   type CostCenterStore,
@@ -23,6 +24,8 @@ export class CostCentersService {
     private readonly store: CostCenterStore,
     @Inject(WorkspaceAccessService)
     private readonly access: WorkspaceAccessService,
+    @Inject(WaveFSettingsService)
+    private readonly plans: WaveFSettingsService,
   ) {}
 
   async list(
@@ -42,6 +45,7 @@ export class CostCentersService {
     this.assertEnabled();
     const role = await this.access.requireMemberRole(workspaceId, actor.userId);
     this.access.assertNotReadOnly(role);
+    await this.plans.requirePlanFeature(actor, workspaceId, "costCenter");
     try {
       return await this.store.create(workspaceId, actor.userId, input);
     } catch (error: unknown) {

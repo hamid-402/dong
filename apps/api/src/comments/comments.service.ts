@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Optional,
 } from "@nestjs/common";
 import type { AuthActor, CommentSummary, CreateCommentRequest } from "@dang/contracts";
 import { resolveExpenseListOptions } from "../expenses/expense-list-options.js";
@@ -13,6 +14,7 @@ import {
 } from "../expenses/expense.types.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
+import { RealtimeHub } from "../notifications/realtime-hub.js";
 import { COMMENT_STORE, type CommentStore } from "./comment.store.js";
 
 @Injectable()
@@ -22,6 +24,7 @@ export class CommentsService {
     @Inject(IAM_STORE) private readonly iam: IamStore,
     @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
     @Inject(EXPENSE_STORE) private readonly expenses: ExpenseStore,
+    @Optional() @Inject(RealtimeHub) private readonly realtime?: RealtimeHub,
   ) {}
 
   async create(
@@ -37,7 +40,13 @@ export class CommentsService {
       body.targetId,
     );
     try {
-      return await this.comments.create(actor.userId, { ...body, workspaceId });
+      const created = await this.comments.create(actor.userId, { ...body, workspaceId });
+      const members = await this.iam.listMembers(workspaceId, actor.userId);
+      const userIds = (members ?? []).map((m) => m.userId);
+      this.realtime?.publishInvalidate(workspaceId, userIds, [
+        `comments:${body.targetType}:${body.targetId}`,
+      ]);
+      return created;
     } catch (error: unknown) {
       if (error instanceof Error && error.message === "COMMENT_BODY") {
         throw new BadRequestException({

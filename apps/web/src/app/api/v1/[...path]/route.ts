@@ -7,6 +7,9 @@ const API_ORIGIN = (process.env.API_ORIGIN ?? "http://127.0.0.1:3006").replace(
   "://127.0.0.1",
 );
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const HOP_BY_HOP = new Set([
   "connection",
   "keep-alive",
@@ -47,6 +50,8 @@ async function proxy(
     method: req.method,
     headers,
     redirect: "manual",
+    // Avoid hung landing/status when upstream accepts TCP but never responds.
+    signal: AbortSignal.timeout(12_000),
   };
 
   if (req.method !== "GET" && req.method !== "HEAD") {
@@ -82,13 +87,17 @@ async function proxy(
     });
   } catch (error: unknown) {
     const raw = error instanceof Error ? error.message : "API proxy failed";
-    const detail = /ECONNREFUSED|fetch failed|ENOTFOUND/i.test(raw)
-      ? `سرویس API روی پورت 3006 در دسترس نیست (${raw}). ترمینال: pnpm dev:api`
-      : raw;
+    const timedOut = /TimeoutError|aborted|AbortError|timed out/i.test(raw);
+    const detail =
+      timedOut
+        ? `سرویس API روی پورت 3006 پاسخ نداد (timeout). ترمینال: pnpm dev:api`
+        : /ECONNREFUSED|fetch failed|ENOTFOUND/i.test(raw)
+          ? `سرویس API روی پورت 3006 در دسترس نیست (${raw}). ترمینال: pnpm dev:api`
+          : raw;
     return NextResponse.json(
       {
         type: "https://dang.local/problems/api-unreachable",
-        title: "API unreachable",
+        title: timedOut ? "API timeout" : "API unreachable",
         status: 503,
         detail,
       },

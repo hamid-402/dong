@@ -1,18 +1,23 @@
 import {
+  agreedPrice,
   agreement,
   and,
   contribution,
   createDatabase,
+  desc,
   eq,
   partnerLoan,
   periodLock,
+  sql,
   withTenantContext,
   withdrawal,
   type AppDatabase,
 } from "@dang/db";
 import type {
+  AgreedPriceSummary,
   AgreementSummary,
   ContributionSummary,
+  CreateAgreedPriceRequest,
   CreateAgreementRequest,
   CreatePeriodLockRequest,
   MemberAccountReport,
@@ -28,6 +33,20 @@ import type { PartnershipStore } from "./partnership.types.js";
 
 function asDateString(value: string | Date): string {
   return typeof value === "string" ? value.slice(0, 10) : value.toISOString().slice(0, 10);
+}
+
+function mapAgreedPrice(row: typeof agreedPrice.$inferSelect): AgreedPriceSummary {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    agreementId: row.agreementId,
+    catalogItemId: row.catalogItemId ?? undefined,
+    title: row.title,
+    amount: { amountMinor: row.amountMinor.toString(), currency: row.currency as "IRR" },
+    effectiveFrom: asDateString(row.effectiveFrom),
+    version: row.version,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 function mapAgreement(row: typeof agreement.$inferSelect): AgreementSummary {
@@ -418,5 +437,84 @@ export class PostgresPartnershipStore implements PartnershipStore {
       lines,
       netPositionMinor: net.toString(),
     };
+  }
+
+  createAgreedPrice(input: CreateAgreedPriceRequest): Promise<AgreedPriceSummary> {
+    return withTenantContext(this.db, { workspaceId: input.workspaceId }, async (tx) => {
+      const existing = await tx
+        .select()
+        .from(agreedPrice)
+        .where(
+          and(
+            eq(agreedPrice.workspaceId, input.workspaceId),
+            eq(agreedPrice.idempotencyKey, input.idempotencyKey.trim()),
+          ),
+        )
+        .limit(1);
+      if (existing[0]) return mapAgreedPrice(existing[0]);
+
+      const agr = await tx
+        .select()
+        .from(agreement)
+        .where(
+          and(
+            eq(agreement.id, input.agreementId),
+            eq(agreement.workspaceId, input.workspaceId),
+          ),
+        )
+        .limit(1);
+      if (!agr[0]) throw new Error("AGREEMENT_NOT_FOUND");
+
+      const maxRow = await tx
+        .select({ v: sql<number>`coalesce(max(${agreedPrice.version}), 0)` })
+        .from(agreedPrice)
+        .where(eq(agreedPrice.agreementId, input.agreementId));
+      const version = Number(maxRow[0]?.v ?? 0) + 1;
+
+      const inserted = await tx
+        .insert(agreedPrice)
+        .values({
+          workspaceId: input.workspaceId,
+          agreementId: input.agreementId,
+          catalogItemId: input.catalogItemId ?? null,
+          title: input.title.trim(),
+          amountMinor: BigInt(input.amount.amountMinor),
+          currency: "IRR",
+          effectiveFrom: input.effectiveFrom,
+          version,
+          idempotencyKey: input.idempotencyKey.trim(),
+        })
+        .returning();
+      return mapAgreedPrice(inserted[0]!);
+    });
+  }
+
+  listAgreedPrices(workspaceId: string, agreementId: string): Promise<AgreedPriceSummary[]> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(agreedPrice)
+        .where(
+          and(eq(agreedPrice.workspaceId, workspaceId), eq(agreedPrice.agreementId, agreementId)),
+        )
+        .orderBy(desc(agreedPrice.version));
+      return rows.map(mapAgreedPrice);
+    });
+  }
+
+  getAgreedPrice(
+    workspaceId: string,
+    priceId: string,
+  ): Promise<AgreedPriceSummary | undefined> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(agreedPrice)
+        .where(
+          and(eq(agreedPrice.id, priceId), eq(agreedPrice.workspaceId, workspaceId)),
+        )
+        .limit(1);
+      return rows[0] ? mapAgreedPrice(rows[0]) : undefined;
+    });
   }
 }

@@ -11,9 +11,10 @@ import type {
   CreateWorkspaceRequest,
   MembershipSummary,
   UpdateWorkspaceRequest,
+  WorkspaceJoinPreview,
   WorkspaceSummary,
 } from "@dang/contracts";
-import { workspaceTemplateCatalog } from "@dang/contracts";
+import { spaceKindForTemplate, workspaceTemplateCatalog } from "@dang/contracts";
 import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 
@@ -63,6 +64,18 @@ export class WorkspacesService {
         slug,
         template,
       });
+      if (
+        body.ownerDefaultShares != null &&
+        body.ownerDefaultShares >= 1 &&
+        body.ownerDefaultShares <= 100
+      ) {
+        await this.iam.setMemberDefaultShares(
+          workspace.id,
+          actor.userId,
+          actor.userId,
+          body.ownerDefaultShares,
+        );
+      }
       await this.audit.append({
         workspaceId: workspace.id,
         actorUserId: actor.userId,
@@ -70,7 +83,11 @@ export class WorkspacesService {
         targetType: "workspace",
         targetId: workspace.id,
         result: "success",
-        metadata: { slug: workspace.slug, template: workspace.template },
+        metadata: {
+          slug: workspace.slug,
+          template: workspace.template,
+          ownerDefaultShares: body.ownerDefaultShares ?? null,
+        },
       });
       return workspace;
     } catch (error: unknown) {
@@ -87,6 +104,34 @@ export class WorkspacesService {
 
   listForActor(actor: AuthActor): Promise<WorkspaceSummary[]> {
     return this.iam.listWorkspacesForUser(actor.userId);
+  }
+
+  async previewBySlug(slugRaw: string): Promise<WorkspaceJoinPreview> {
+    const slug = slugRaw.trim().toLowerCase();
+    if (!SLUG_PATTERN.test(slug) || slug.length > 48) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "شناسه گروه نامعتبر است",
+        status: 400,
+        detail: "شناسه باید حروف انگلیسی کوچک و خط تیره باشد (مثل friends-trip).",
+        code: "INVALID_GROUP_ID",
+      });
+    }
+    const workspace = await this.iam.getWorkspaceBySlug(slug);
+    if (!workspace) {
+      throw new NotFoundException({
+        type: "https://dang.local/problems/not-found",
+        title: "گروهی با این شناسه پیدا نشد",
+        status: 404,
+        code: "WORKSPACE_NOT_FOUND",
+      });
+    }
+    return {
+      slug: workspace.slug,
+      name: workspace.name,
+      template: workspace.template,
+      spaceKind: spaceKindForTemplate(workspace.template),
+    };
   }
 
   async getForActor(actor: AuthActor, workspaceId: string): Promise<WorkspaceSummary> {

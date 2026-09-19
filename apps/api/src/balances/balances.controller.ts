@@ -1,12 +1,16 @@
-// Zod body-validation exempt: GET/body-less read controller. See docs/adr/ADR-zod-get-exemptions.md
-import { Controller, Get, Inject, Param, UseGuards } from "@nestjs/common";
+// Zod body-validation: GET + remind-debt POST. See docs/adr/ADR-zod-get-exemptions.md
+import { Body, Controller, Get, Inject, Param, Post, UseGuards } from "@nestjs/common";
 import { ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type {
   AuthActor,
   DebtSimplifySuggestionsResponse,
+  RemindDebtRequest,
+  RemindDebtResponse,
   WorkspaceBalancesResponse,
 } from "@dang/contracts";
+import { remindDebtRequestSchema } from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { BalancesService } from "./balances.service.js";
 
 @ApiTags("balances")
@@ -25,6 +29,20 @@ export class BalancesController {
     @Param("workspaceId") workspaceId: string,
   ): Promise<WorkspaceBalancesResponse> {
     return this.balances.getProvisional(actor, workspaceId);
+  }
+
+  @Post("remind-debt")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Send an in-app debt reminder to a member with negative net balance",
+  })
+  @ApiHeader({ name: "x-dang-subject", required: false })
+  remindDebt(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body(new ZodValidationPipe(remindDebtRequestSchema)) body: RemindDebtRequest,
+  ): Promise<RemindDebtResponse> {
+    return this.balances.remindDebt(actor, workspaceId, body.targetUserId);
   }
 
   @Get("simplify-suggestions")

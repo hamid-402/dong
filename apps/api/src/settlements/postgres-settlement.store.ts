@@ -37,7 +37,7 @@ function mapSettlement(row: typeof settlement.$inferSelect): StoredSettlement {
 export class PostgresSettlementStore implements SettlementStore {
   readonly persistence = "postgres" as const;
 
-  constructor(private readonly db: AppDatabase) {}
+  constructor(readonly db: AppDatabase) {}
 
   static fromConnectionString(connectionString: string): PostgresSettlementStore {
     const { db } = createDatabase(connectionString);
@@ -97,10 +97,16 @@ export class PostgresSettlementStore implements SettlementStore {
     workspaceId: string,
     settlementId: string,
     actorUserId: string,
+    options?: { tx?: AppDatabase },
   ): Promise<StoredSettlement> {
-    return this.transition(workspaceId, settlementId, actorUserId, "confirmed", [
-      "claimed",
-    ]);
+    return this.transition(
+      workspaceId,
+      settlementId,
+      actorUserId,
+      "confirmed",
+      ["claimed"],
+      options?.tx,
+    );
   }
 
   async dispute(
@@ -169,40 +175,43 @@ export class PostgresSettlementStore implements SettlementStore {
     actorUserId: string,
     nextStatus: StoredSettlement["status"],
     allowedFrom: StoredSettlement["status"][],
+    tx?: AppDatabase,
   ): Promise<StoredSettlement> {
+    const work = async (activeTx: AppDatabase) => {
+      const existing = await activeTx
+        .select()
+        .from(settlement)
+        .where(
+          and(eq(settlement.id, settlementId), eq(settlement.workspaceId, workspaceId)),
+        )
+        .limit(1);
+
+      const row = existing[0];
+      if (!row) {
+        throw new Error("SETTLEMENT_NOT_FOUND");
+      }
+      if (!allowedFrom.includes(row.status)) {
+        throw new Error("SETTLEMENT_STATUS");
+      }
+      assertSettlementStatusTransition(row.status, nextStatus);
+
+      const updated = await activeTx
+        .update(settlement)
+        .set({ status: nextStatus })
+        .where(eq(settlement.id, settlementId))
+        .returning();
+
+      const next = updated[0];
+      if (!next) {
+        throw new Error("SETTLEMENT_UPDATE_FAILED");
+      }
+      return mapSettlement(next);
+    };
+    if (tx) return work(tx);
     return withTenantContext(
       this.db,
       { workspaceId, userId: actorUserId },
-      async (tx) => {
-        const existing = await tx
-          .select()
-          .from(settlement)
-          .where(
-            and(eq(settlement.id, settlementId), eq(settlement.workspaceId, workspaceId)),
-          )
-          .limit(1);
-
-        const row = existing[0];
-        if (!row) {
-          throw new Error("SETTLEMENT_NOT_FOUND");
-        }
-        if (!allowedFrom.includes(row.status)) {
-          throw new Error("SETTLEMENT_STATUS");
-        }
-        assertSettlementStatusTransition(row.status, nextStatus);
-
-        const updated = await tx
-          .update(settlement)
-          .set({ status: nextStatus })
-          .where(eq(settlement.id, settlementId))
-          .returning();
-
-        const next = updated[0];
-        if (!next) {
-          throw new Error("SETTLEMENT_UPDATE_FAILED");
-        }
-        return mapSettlement(next);
-      },
+      work,
     );
   }
 }

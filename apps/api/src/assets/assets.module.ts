@@ -29,6 +29,6 @@ export function createAssetsStore(): AssetsStore {
     AssetsService,
     { provide: ASSETS_STORE, useFactory: createAssetsStore },
   ],
-  exports: [ASSETS_STORE],
+  exports: [ASSETS_STORE, AssetsService],
 })
 export class AssetsModule {}

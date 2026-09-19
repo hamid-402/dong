@@ -3,6 +3,8 @@ import {
   computePersonalAccountBalance,
   enrichPersonalBudgetSummary,
   irrMoney,
+  isJalaliYearMonthKey,
+  jalaliYearMonthFromIsoDate,
   normalizePersonalBudgetAlertPercent,
   slugifyPersonalCategory,
   sumPersonalExpenseInMonth,
@@ -148,6 +150,7 @@ export class MemoryPersonalResourcesStore implements PersonalResourcesStore {
   }
 
   private mapBudget(row: MemBudget): PersonalBudgetSummary {
+    const useJalali = isJalaliYearMonthKey(row.yearMonth);
     const spent = sumPersonalExpenseInMonth(
       [...this.txns.values()]
         .filter((t) => t.ownerUserId === row.ownerUserId)
@@ -155,6 +158,9 @@ export class MemoryPersonalResourcesStore implements PersonalResourcesStore {
           kind: t.kind,
           amountMinor: t.amountMinor,
           occurredOn: t.occurredOn,
+          yearMonthKey: useJalali
+            ? jalaliYearMonthFromIsoDate(t.occurredOn) ?? ""
+            : t.occurredOn.slice(0, 7),
         })),
       row.yearMonth,
     );
@@ -253,7 +259,7 @@ export class MemoryPersonalResourcesStore implements PersonalResourcesStore {
       if (a.occurredOn !== b.occurredOn) return b.occurredOn.localeCompare(a.occurredOn);
       return b.createdAt.localeCompare(a.createdAt);
     });
-    const limit = opts.limit && opts.limit > 0 ? Math.min(opts.limit, 200) : 100;
+    const limit = opts.limit && opts.limit > 0 ? Math.min(opts.limit, 50_000) : 100;
     return rows.slice(0, limit).map((t) => this.mapTxn(t));
   }
 

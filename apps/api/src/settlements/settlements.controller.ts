@@ -10,14 +10,22 @@ import {
 import { ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type {
   AuthActor,
+  ConfirmSettlementRequest,
+  ConfirmSimplifySettlementClaimsRequest,
+  ConfirmSimplifySettlementClaimsResponse,
   CreateSettlementClaimRequest,
   CreateSimplifySettlementClaimsRequest,
   CreateSimplifySettlementClaimsResponse,
+  PreviewSettlementEffectRequest,
+  PreviewSettlementEffectResponse,
   SettlementSummary,
 } from "@dang/contracts";
 import {
+  confirmSettlementRequestSchema,
+  confirmSimplifySettlementClaimsRequestSchema,
   createSettlementClaimRequestSchema,
   createSimplifySettlementClaimsRequestSchema,
+  previewSettlementEffectRequestSchema,
 } from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
@@ -33,7 +41,8 @@ export class SettlementsController {
   @Post()
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: "Claim a settlement (no ledger / no custody — Phase 2 stub)",
+    summary:
+      "Claim a settlement (status claimed only — no journal until confirm)",
   })
   @ApiHeader({ name: "x-dang-subject", required: false })
   @ApiHeader({ name: "idempotency-key", required: false })
@@ -62,17 +71,52 @@ export class SettlementsController {
     return this.settlements.createSimplifyClaims(actor, workspaceId, body);
   }
 
+  @Post("confirm-simplify-claims")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Confirm open debt-simplify claims the actor may confirm (ENABLE_DEBT_SIMPLIFY_API)",
+  })
+  @ApiHeader({ name: "x-dang-subject", required: false })
+  @ApiHeader({ name: "idempotency-key", required: false })
+  confirmSimplifyClaims(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body(new ZodValidationPipe(confirmSimplifySettlementClaimsRequestSchema))
+    body: ConfirmSimplifySettlementClaimsRequest,
+  ): Promise<ConfirmSimplifySettlementClaimsResponse> {
+    return this.settlements.confirmSimplifyClaims(actor, workspaceId, body);
+  }
+
+  @Post("preview-effect")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Preview balance nets before/after hypothetical settlement transfers from live ledger",
+  })
+  @ApiHeader({ name: "x-dang-subject", required: false })
+  previewEffect(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body(new ZodValidationPipe(previewSettlementEffectRequestSchema))
+    body: PreviewSettlementEffectRequest,
+  ): Promise<PreviewSettlementEffectResponse> {
+    return this.settlements.previewSettlementEffect(actor, workspaceId, body);
+  }
+
   @Post(":settlementId/confirm")
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: "Confirm a claimed settlement (status only — no ledger yet)",
+    summary: "Confirm a claimed settlement and post balanced journal lines",
   })
   confirm(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
     @Param("settlementId") settlementId: string,
+    @Body(new ZodValidationPipe(confirmSettlementRequestSchema))
+    body: ConfirmSettlementRequest,
   ): Promise<SettlementSummary> {
-    return this.settlements.confirm(actor, workspaceId, settlementId);
+    return this.settlements.confirm(actor, workspaceId, settlementId, body);
   }
 
   @Post(":settlementId/dispute")

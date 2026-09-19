@@ -8,6 +8,7 @@ import { FormStack } from "@/components/ui-blocks";
 import { validateEmail, normalizeEmail } from "@/lib/auth-validation";
 import { authErrorMessage } from "@/lib/api-errors";
 import { api } from "@/lib/api";
+import { t } from "@/lib/i18n";
 
 export function ForgotPasswordView() {
   const [email, setEmail] = useState("");
@@ -42,11 +43,11 @@ export function ForgotPasswordView() {
 
   return (
     <AuthShell
-      title="فراموشی رمز عبور"
-      description="لینک یک‌بارمصرف حدود یک ساعت معتبر است."
+      title={t("forgot.title")}
+      description={t("forgot.description")}
       footer={
         <AuthLinkRow>
-          <Link href="/login">بازگشت به ورود</Link>
+          <Link href="/login">{t("login.submit")}</Link>
         </AuthLinkRow>
       }
     >
@@ -69,7 +70,7 @@ export function ForgotPasswordView() {
             required
           />
           <Button type="submit" disabled={pending} className="authLayout__submit">
-            {pending ? "در حال ارسال…" : "ارسال لینک"}
+            {pending ? t("common.loading") : t("forgot.submit")}
           </Button>
         </FormStack>
       </form>

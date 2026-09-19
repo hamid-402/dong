@@ -74,6 +74,7 @@ const ASSET: Record<string, string> = {
   returned: "برگشتی",
   damaged: "آسیب‌دیده",
   retired: "از رده خارج",
+  in_repair: "در تعمیر",
   in_use: "در استفاده",
   maintenance: "تعمیر",
   reserved: "رزرو",
@@ -93,6 +94,7 @@ const WORKSPACE_TEMPLATE: Record<string, string> = {
   personal: "فضای شخصی",
   friends_family: "گروه دوستانه",
   household: "گروه خانواده",
+  residential_building: "ساختمان مسکونی",
   project_partners: "شرکای پروژه",
   small_team: "تیم / شرکت کوچک",
   construction: "ساختمان و پیمانکاری",
@@ -158,8 +160,11 @@ export function workspaceTemplateLabel(template: string): string {
   return labelFrom(WORKSPACE_TEMPLATE, template);
 }
 
-export function spaceKindForTemplateLabel(kind: "personal" | "group" | "org"): string {
+export function spaceKindForTemplateLabel(
+  kind: "personal" | "group" | "building" | "org",
+): string {
   if (kind === "personal") return "شخصی";
+  if (kind === "building") return "ساختمان";
   if (kind === "org") return "سازمانی";
   return "گروهی";
 }
@@ -186,6 +191,8 @@ export function membershipRoleLabel(role: string | undefined | null): string {
       return "ادمین";
     case "finance":
       return "مادرخرج / مدیر مالی";
+    case "deputy_finance":
+      return "جانشین مالی";
     case "approver":
       return "تأییدکننده";
     case "buyer":
@@ -231,6 +238,7 @@ export function approvalQueueKindLabel(kind: string): string {
   if (kind === "expense") return "خرج";
   if (kind === "member_invoice") return "صورتحساب";
   if (kind === "addon_charge") return "اضافه شخصی";
+  if (kind === "settlement") return "تسویه";
   return kind;
 }
 
@@ -239,6 +247,8 @@ export function approvalQueueStatusLabel(status: string): string {
   if (status === "submitted") return "ارسال‌شده";
   if (status === "draft") return "پیش‌نویس";
   if (status === "pending_approval") return "در انتظار تأیید";
+  if (status === "claimed_four_eyes") return "چهارچشم — در انتظار تأیید";
+  if (status === "claimed") return "ادعا‌شده";
   if (status.startsWith("step_") && status.endsWith("_pending")) {
     const n = status.replace(/^step_/, "").replace(/_pending$/, "");
     return `گام ${n} در انتظار`;

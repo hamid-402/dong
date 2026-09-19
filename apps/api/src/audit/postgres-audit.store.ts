@@ -1,7 +1,10 @@
+import { randomUUID } from "node:crypto";
+import { computeAuditEventHash } from "@dang/contracts";
 import {
   auditEvent,
   asc,
   createDatabase,
+  desc,
   eq,
   withTenantContext,
   type AppDatabase,
@@ -19,6 +22,7 @@ function mapAudit(row: typeof auditEvent.$inferSelect): AuditRecord {
     result: row.result as AuditRecord["result"],
     reason: row.reason ?? undefined,
     requestId: row.requestId ?? undefined,
+    traceId: row.traceId ?? undefined,
     metadata: (row.metadata ?? {}) as AuditRecord["metadata"],
     occurredAt: row.occurredAt.toISOString(),
   };
@@ -43,9 +47,31 @@ export class PostgresAuditStore implements AuditStore {
       this.db,
       { workspaceId: input.workspaceId, userId: input.actorUserId },
       async (tx) => {
+        const id = randomUUID();
+        const occurredAt = new Date();
+        const prior = await tx
+          .select({ eventHash: auditEvent.eventHash })
+          .from(auditEvent)
+          .where(eq(auditEvent.workspaceId, input.workspaceId))
+          .orderBy(desc(auditEvent.occurredAt), desc(auditEvent.id))
+          .limit(1);
+        const prevHash = prior[0]?.eventHash ?? null;
+        const eventHash = computeAuditEventHash({
+          id,
+          workspaceId: input.workspaceId,
+          actorUserId: input.actorUserId,
+          action: input.action,
+          targetType: input.targetType,
+          targetId: input.targetId,
+          result: input.result,
+          occurredAtIso: occurredAt.toISOString(),
+          prevHash,
+        });
+
         const inserted = await tx
           .insert(auditEvent)
           .values({
+            id,
             workspaceId: input.workspaceId,
             actorUserId: input.actorUserId,
             action: input.action,
@@ -54,7 +80,11 @@ export class PostgresAuditStore implements AuditStore {
             result: input.result,
             reason: input.reason,
             requestId: input.requestId,
+            traceId: input.traceId,
             metadata: input.metadata ?? {},
+            eventHash,
+            prevHash,
+            occurredAt,
           })
           .returning();
 
@@ -80,7 +110,6 @@ export class PostgresAuditStore implements AuditStore {
           .from(auditEvent)
           .where(eq(auditEvent.workspaceId, workspaceId))
           .orderBy(asc(auditEvent.occurredAt));
-
         return rows.map(mapAudit);
       },
     );

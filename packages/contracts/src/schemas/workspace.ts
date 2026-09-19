@@ -7,12 +7,14 @@ export const workspaceTemplateSchema = z.enum([
   "project_partners",
   "small_team",
   "construction",
+  "residential_building",
 ]);
 
 export const membershipRoleSchema = z.enum([
   "owner",
   "admin",
   "finance",
+  "deputy_finance",
   "approver",
   "buyer",
   "asset_custodian",
@@ -20,6 +22,44 @@ export const membershipRoleSchema = z.enum([
   "auditor",
   "guest",
 ]);
+
+export const workspaceSubunitKindSchema = z.enum([
+  "unit",
+  "department",
+  "subsidiary",
+]);
+
+export const createWorkspaceSubunitSchema = z
+  .object({
+    kind: workspaceSubunitKindSchema,
+    code: z
+      .string()
+      .trim()
+      .min(1)
+      .max(32)
+      .regex(/^[A-Za-z0-9._\-]+$/, "subunit_code_FORMAT"),
+    name: z.string().trim().min(1).max(120),
+    note: z.string().trim().max(500).optional(),
+    sortOrder: z.number().int().min(0).max(10_000).optional(),
+    areaSqm: z.number().positive().max(1_000_000).optional(),
+    occupancy: z.number().int().min(1).max(10_000).optional(),
+  })
+  .strict();
+
+export type CreateWorkspaceSubunitInput = z.infer<typeof createWorkspaceSubunitSchema>;
+
+export const updateWorkspaceSubunitSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    note: z.string().trim().max(500).nullable().optional(),
+    sortOrder: z.number().int().min(0).max(10_000).optional(),
+    memberUserIds: z.array(z.string().uuid()).max(200).optional(),
+    areaSqm: z.number().positive().max(1_000_000).nullable().optional(),
+    occupancy: z.number().int().min(1).max(10_000).nullable().optional(),
+  })
+  .strict();
+
+export type UpdateWorkspaceSubunitInput = z.infer<typeof updateWorkspaceSubunitSchema>;
 
 export const createWorkspaceRequestSchema = z
   .object({
@@ -31,6 +71,7 @@ export const createWorkspaceRequestSchema = z
       .max(64)
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "slug_FORMAT"),
     template: workspaceTemplateSchema,
+    ownerDefaultShares: z.number().int().positive().max(100).optional(),
   })
   .strict();
 

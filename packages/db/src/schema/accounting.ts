@@ -15,6 +15,8 @@ export const accounting = pgSchema("accounting");
 export const journalSourceType = accounting.enum("journal_source_type", [
   "expense",
   "settlement",
+  "payment_receipt",
+  "payment_on_behalf",
 ]);
 
 export const journalEntryStatus = accounting.enum("journal_entry_status", [

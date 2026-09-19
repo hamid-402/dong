@@ -13,7 +13,8 @@ import type {
   RecordDeliveryRequest,
   VendorSummary,
 } from "@dang/contracts";
-import type { ProcurementStore } from "./procurement.types.js";
+import { assertNeedTransition, assertPoTransition } from "@dang/contracts";
+import type { FrozenPurchaseOrderPricing, ProcurementStore } from "./procurement.types.js";
 
 type StoredNeed = NeedSummary & { idempotencyKey: string };
 type StoredPr = PurchaseRequestSummary & { idempotencyKey: string };
@@ -87,6 +88,10 @@ function stripPo(row: StoredPo): PurchaseOrderSummary {
     status: row.status,
     createdByUserId: row.createdByUserId,
     createdAt: row.createdAt,
+    expenseId: row.expenseId,
+    catalogItemId: row.catalogItemId,
+    catalogPriceId: row.catalogPriceId,
+    partnerPriceId: row.partnerPriceId,
   };
 }
 
@@ -146,6 +151,34 @@ export class MemoryProcurementStore implements ProcurementStore {
         .filter((n) => n.workspaceId === workspaceId)
         .map(stripNeed),
     );
+  }
+
+  getNeed(workspaceId: string, needId: string): Promise<NeedSummary | undefined> {
+    const row = this.needs.get(needId);
+    if (!row || row.workspaceId !== workspaceId) return Promise.resolve(undefined);
+    return Promise.resolve(stripNeed(row));
+  }
+
+  fulfillNeed(workspaceId: string, needId: string): Promise<NeedSummary> {
+    const existing = this.needs.get(needId);
+    if (!existing || existing.workspaceId !== workspaceId) {
+      return Promise.reject(new Error("NEED_NOT_FOUND"));
+    }
+    assertNeedTransition(existing.status, "fulfilled");
+    const updated: StoredNeed = { ...existing, status: "fulfilled" };
+    this.needs.set(needId, updated);
+    return Promise.resolve(stripNeed(updated));
+  }
+
+  cancelNeed(workspaceId: string, needId: string): Promise<NeedSummary> {
+    const existing = this.needs.get(needId);
+    if (!existing || existing.workspaceId !== workspaceId) {
+      return Promise.reject(new Error("NEED_NOT_FOUND"));
+    }
+    assertNeedTransition(existing.status, "cancelled");
+    const updated: StoredNeed = { ...existing, status: "cancelled" };
+    this.needs.set(needId, updated);
+    return Promise.resolve(stripNeed(updated));
   }
 
   createPurchaseRequest(
@@ -258,7 +291,9 @@ export class MemoryProcurementStore implements ProcurementStore {
     workspaceId: string,
     amountMinor: string,
     budgetId?: string,
+    _options?: { tx?: unknown },
   ): Promise<BudgetSummary | null> {
+    void _options;
     const amount = BigInt(amountMinor);
     const candidates = [...this.budgets.values()].filter(
       (b) =>
@@ -304,7 +339,15 @@ export class MemoryProcurementStore implements ProcurementStore {
   createPurchaseOrder(
     actorUserId: string,
     input: CreatePurchaseOrderRequest,
+    frozen?: FrozenPurchaseOrderPricing,
   ): Promise<PurchaseOrderSummary> {
+    const existingPo = [...this.orders.values()].find(
+      (o) =>
+        o.workspaceId === input.workspaceId &&
+        o.idempotencyKey === input.idempotencyKey.trim(),
+    );
+    if (existingPo) return Promise.resolve(stripPo(existingPo));
+
     const pr = this.requests.get(input.purchaseRequestId);
     if (!pr || pr.workspaceId !== input.workspaceId) {
       return Promise.reject(new Error("PR_NOT_FOUND"));
@@ -317,6 +360,7 @@ export class MemoryProcurementStore implements ProcurementStore {
       return Promise.reject(new Error("VENDOR_NOT_FOUND"));
     }
 
+    const amount = frozen?.amount ?? pr.amount;
     const id = crypto.randomUUID();
     const po: StoredPo = {
       id,
@@ -325,15 +369,53 @@ export class MemoryProcurementStore implements ProcurementStore {
       vendorId: vendor.id,
       vendorName: vendor.name,
       title: pr.title,
-      amount: pr.amount,
+      amount,
       status: "open",
       createdByUserId: actorUserId,
       createdAt: new Date().toISOString(),
       idempotencyKey: input.idempotencyKey.trim(),
+      catalogItemId: frozen?.catalogItemId ?? input.catalogItemId,
+      catalogPriceId: frozen?.catalogPriceId ?? input.catalogPriceId,
+      partnerPriceId: frozen?.partnerPriceId ?? input.partnerPriceId,
     };
     this.orders.set(id, po);
     this.requests.set(pr.id, { ...pr, status: "ordered" });
     return Promise.resolve(stripPo(po));
+  }
+
+  cancelPurchaseOrder(workspaceId: string, orderId: string): Promise<PurchaseOrderSummary> {
+    const po = this.orders.get(orderId);
+    if (!po || po.workspaceId !== workspaceId) {
+      return Promise.reject(new Error("PO_NOT_FOUND"));
+    }
+    try {
+      assertPoTransition(po.status, "cancelled");
+    } catch {
+      return Promise.reject(new Error("PO_STATUS"));
+    }
+    const updated: StoredPo = { ...po, status: "cancelled" };
+    this.orders.set(orderId, updated);
+    return Promise.resolve(stripPo(updated));
+  }
+
+  linkPurchaseOrderExpense(
+    workspaceId: string,
+    orderId: string,
+    expenseId: string,
+  ): Promise<PurchaseOrderSummary> {
+    const po = this.orders.get(orderId);
+    if (!po || po.workspaceId !== workspaceId) {
+      return Promise.reject(new Error("PO_NOT_FOUND"));
+    }
+    if (po.status === "cancelled") {
+      return Promise.reject(new Error("PO_CANCELLED"));
+    }
+    if (po.expenseId) {
+      return Promise.resolve(stripPo(po));
+    }
+    const updated: StoredPo = { ...po, expenseId };
+    this.orders.set(orderId, updated);
+    return Promise.resolve(stripPo(updated));
   }
 
   listPurchaseOrders(workspaceId: string): Promise<PurchaseOrderSummary[]> {
@@ -385,9 +467,14 @@ export class MemoryProcurementStore implements ProcurementStore {
     };
     this.deliveries.set(id, delivery);
 
-    const poStatus: PurchaseOrderSummary["status"] =
+    const nextStatus: PurchaseOrderSummary["status"] =
       status === "complete" ? "delivered" : "partially_delivered";
-    this.orders.set(po.id, { ...po, status: poStatus });
+    try {
+      assertPoTransition(po.status, nextStatus);
+    } catch {
+      return Promise.reject(new Error("PO_STATUS"));
+    }
+    this.orders.set(po.id, { ...po, status: nextStatus });
 
     return Promise.resolve(stripDelivery(delivery));
   }

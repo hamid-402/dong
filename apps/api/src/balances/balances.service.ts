@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -10,6 +11,7 @@ import {
   suggestMinimalSettlements,
   type AuthActor,
   type DebtSimplifySuggestionsResponse,
+  type RemindDebtResponse,
   type WorkspaceBalancesResponse,
 } from "@dang/contracts";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
@@ -51,6 +53,89 @@ export class BalancesService {
       lines,
       zeroSum: isZeroSumBalances(lines),
     };
+  }
+
+  async remindDebt(
+    actor: AuthActor,
+    workspaceId: string,
+    targetUserId: string,
+  ): Promise<RemindDebtResponse> {
+    const membership = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
+    if (!membership) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "Not a workspace member",
+        status: 403,
+      });
+    }
+    const targetMembership = await this.iam.getWorkspaceForUser(workspaceId, targetUserId);
+    if (!targetMembership) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/bad-request",
+        title: "Target is not a workspace member",
+        status: 400,
+      });
+    }
+    if (targetUserId === actor.userId) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/bad-request",
+        title: "Cannot remind yourself",
+        status: 400,
+      });
+    }
+
+    const lines = await this.ledger.balancesForWorkspace(workspaceId, actor.userId);
+    const target = lines.find((line) => line.userId === targetUserId);
+    const net = BigInt(target?.net.amountMinor ?? "0");
+    if (net >= 0n) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/bad-request",
+        title: "Target is not a debtor",
+        detail: "Reminders only apply when the member net balance is negative.",
+        status: 400,
+      });
+    }
+
+    return this.notifications.notifyDebtReminder(
+      workspaceId,
+      actor.userId,
+      targetUserId,
+      net.toString(),
+    );
+  }
+
+  /**
+   * Scheduled settle.remind (G11 #4): remind every debtor once (same daily skip as manual).
+   * Actor must be a workspace member (typically finance/owner via jobs ACL).
+   */
+  async runSettleRemindSweep(
+    actor: AuthActor,
+    workspaceId: string,
+  ): Promise<{ reminded: number; skipped: number }> {
+    const membership = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
+    if (!membership) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "Not a workspace member",
+        status: 403,
+      });
+    }
+    const lines = await this.ledger.balancesForWorkspace(workspaceId, actor.userId);
+    let reminded = 0;
+    let skipped = 0;
+    for (const line of lines) {
+      const net = BigInt(line.net.amountMinor);
+      if (net >= 0n || line.userId === actor.userId) continue;
+      const result = await this.notifications.notifyDebtReminder(
+        workspaceId,
+        actor.userId,
+        line.userId,
+        net.toString(),
+      );
+      if (result.skipped === "already_today") skipped += 1;
+      else reminded += 1;
+    }
+    return { reminded, skipped };
   }
 
   async getSimplifySuggestions(

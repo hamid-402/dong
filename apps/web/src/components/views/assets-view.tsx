@@ -4,34 +4,40 @@ import { newClientId } from "@/lib/id";
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import type { AssetSummary, MembershipSummary } from "@dang/contracts";
+import type {
+  AssetDepreciationReportRow,
+  AssetSummary,
+  MembershipSummary,
+} from "@dang/contracts";
 import { isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import {
   DataList,
   DataRow,
   EmptyHint,
+  EmptyStateBlock,
   FormStack,
   ProductGrid,
   SectionCard,
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
-import { hubPathFor } from "@/lib/hub-links";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import { assetStatusLabel, deliveryStatusLabel, membershipRoleLabel } from "@/lib/status-labels";
-import { useFlashMessage } from "@/lib/use-flash-message";
+import { FlashMessages, useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { formatFaDate } from "@/lib/fa-datetime";
 import { wPath } from "@/lib/workspace-paths";
 import styles from "./assets-view.module.css";
 
 function statusTone(status: string): "neutral" | "ok" | "warn" | "danger" | "gold" {
   if (status === "active" || status === "in_use") return "ok";
-  if (status === "maintenance" || status === "reserved") return "warn";
-  if (status === "retired" || status === "lost") return "danger";
+  if (status === "maintenance" || status === "reserved" || status === "in_repair") return "warn";
+  if (status === "retired" || status === "lost" || status === "damaged") return "danger";
   return "neutral";
 }
 
@@ -47,6 +53,10 @@ export function AssetsView() {
   const [deliveryId, setDeliveryId] = useState("");
   const [selectedAssetId, setSelectedAssetId] = useState("");
   const [pending, startTransition] = useTransition();
+  const [depRows, setDepRows] = useState<AssetDepreciationReportRow[] | null>(null);
+
+  const depreciationLive =
+    chrome.capabilities?.providers?.assetDepreciation === "depreciation_v1";
 
   async function refresh(id: string) {
     const [a, m, d] = await Promise.all([
@@ -86,7 +96,6 @@ export function AssetsView() {
   const myRole = members.find((m) => m.userId === chrome.actor?.userId)?.role;
   const readOnly = isReadOnlyRole(myRole);
   const workspace = chrome.workspaces.find((item) => item.id === workspaceId);
-  const activeAssets = assets.filter((asset) => asset.status === "active");
   const selectedAsset =
     assets.find((asset) => asset.id === selectedAssetId) ?? assets[0] ?? null;
   const memberLabel = (userId: string | undefined) =>
@@ -99,44 +108,33 @@ export function AssetsView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      {pageError ? <p className="liveError">{pageError}</p> : null}
-      {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
-      {workspaceId && workspace ? (
-        <OperationsModuleHeader
-          ariaLabel="عملیات تجهیزات"
-          destinations={[
-            { key: "procurement", label: "تدارکات", href: wPath(workspace.slug, "procurement"), active: false },
-            { key: "proposals", label: "پیشنهاد و رأی", href: wPath(workspace.slug, "proposals"), active: false },
-            { key: "assets", label: "تجهیزات", href: wPath(workspace.slug, "assets"), active: true },
-            { key: "members", label: "اعضا", href: wPath(workspace.slug, "members"), active: false },
-          ]}
-          metrics={[
-            { label: "کل دارایی", value: String(assets.length), detail: "ثبت‌شده در API" },
-            { label: "فعال یا در استفاده", value: String(activeAssets.length), detail: "قابل بهره‌برداری", tone: "positive" },
-            { label: "نیازمند رسیدگی", value: String(assets.filter((asset) => asset.status === "damaged").length), detail: "دارایی آسیب‌دیده", tone: assets.some((asset) => asset.status === "damaged") ? "attention" : "positive" },
-            { label: "تحویل قابل تبدیل", value: String(deliveries.length), detail: `${members.length} عضو` },
-          ]}
-          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
-          persistenceLabel={chrome.persistenceLabel}
-          pending={pending || loading}
-          onRefresh={() => {
-            setLoading(true);
-            void refresh(workspaceId)
-              .catch((reason: unknown) => setError(friendlyErrorMessage(reason, "تازه‌سازی دارایی‌ها ناموفق")))
-              .finally(() => setLoading(false));
-          }}
-        />
-      ) : null}
-
-      {loading ? (
-        <EmptyHint loading>در حال بارگذاری تجهیزات…</EmptyHint>
-      ) : null}
-      {!loading && !workspaceId ? (
-        <EmptyHint>
-          ابتدا فضای کاری بسازید — <Link href={hubPathFor("/onboarding")}>ساخت فضای کاری</Link>
-        </EmptyHint>
-      ) : null}
-      {!loading && workspaceId ? (
+      <WorkspacePageFrame
+        title={NAV_LABELS.assets}
+        description="دارایی‌های ثبت‌شده از تحویل خرید — فقط دادهٔ API همین فضا."
+        primaryAction={
+          workspaceId ? (
+            <a href="#asset-create-panel">ثبت دارایی</a>
+          ) : (
+            <Link href="/spaces/new">{NAV_LABELS.createSpace}</Link>
+          )
+        }
+        secondaryActions={
+          workspace ? (
+            <Link href={wPath(workspace.slug, "procurement")}>{NAV_LABELS.procurement}</Link>
+          ) : undefined
+        }
+        state={!chrome.ready || loading ? "loading" : !workspaceId ? "empty" : "ready"}
+        loadingLabel="در حال بارگذاری تجهیزات…"
+        empty={
+          <EmptyStateBlock
+            title="فضایی انتخاب نشده"
+            description="بعد از ساخت فضا و تحویل خرید، دارایی را از همین صفحه ثبت کنید."
+            action={<Link href="/home">{NAV_LABELS.home}</Link>}
+          />
+        }
+      >
+        <FlashMessages error={pageError} successMessage={successMessage} />
+        {workspaceId ? (
         <ProductGrid>
           {readOnly ? (
             <StatusLine>
@@ -144,6 +142,7 @@ export function AssetsView() {
             </StatusLine>
           ) : (
           <SectionCard title="ثبت دارایی از تحویل" delayClass="delay1">
+            <div id="asset-create-panel" />
             <FormStack>
               <TextField label="عنوان" value={title} onChange={(e) => setTitle(e.target.value)} />
               <SelectField
@@ -231,7 +230,7 @@ export function AssetsView() {
               </DataList>
               {selectedAsset ? (
                 <aside className={styles.inspector} aria-label="جزئیات دارایی انتخاب‌شده">
-                  <span>ASSET INSPECTOR</span>
+                  <span>جزئیات دارایی</span>
                   <h3>{selectedAsset.title}</h3>
                   <StatusPill tone={statusTone(selectedAsset.status)}>
                     {assetStatusLabel(selectedAsset.status)}
@@ -242,18 +241,166 @@ export function AssetsView() {
                     <div><dt>مکان</dt><dd>{selectedAsset.location ?? "ثبت نشده"}</dd></div>
                     <div><dt>شماره سریال</dt><dd>{selectedAsset.serialNumber ?? "ثبت نشده"}</dd></div>
                     <div><dt>منشأ تحویل</dt><dd>{selectedAsset.deliveryId ? "تحویل خرید" : "ثبت مستقیم"}</dd></div>
-                    <div><dt>تاریخ ثبت</dt><dd>{new Date(selectedAsset.createdAt).toLocaleDateString("fa-IR")}</dd></div>
+                    <div><dt>تاریخ ثبت</dt><dd>{formatFaDate(selectedAsset.createdAt)}</dd></div>
+                    {selectedAsset.accumulatedDepreciationMinor != null ? (
+                      <div>
+                        <dt>استهلاک انباشته</dt>
+                        <dd>
+                          <Amount irrMinor={selectedAsset.accumulatedDepreciationMinor} />
+                        </dd>
+                      </div>
+                    ) : null}
+                    {selectedAsset.lastDepreciatedOn ? (
+                      <div>
+                        <dt>آخرین استهلاک</dt>
+                        <dd>{selectedAsset.lastDepreciatedOn}</dd>
+                      </div>
+                    ) : null}
                   </dl>
                   {selectedAsset.acquisitionCost ? (
                     <p>بهای تحصیل <Amount irrMinor={selectedAsset.acquisitionCost.amountMinor} /></p>
+                  ) : null}
+                  {!readOnly ? (
+                    <div className="productHeaderActions" style={{ justifyContent: "flex-start", flexWrap: "wrap" }}>
+                      {selectedAsset.status === "active" || selectedAsset.status === "damaged" ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={pending}
+                          onClick={() => {
+                            startTransition(() => {
+                              void (async () => {
+                                try {
+                                  await api.markRepair(workspaceId, {
+                                    workspaceId,
+                                    assetId: selectedAsset.id,
+                                  });
+                                  await refresh(workspaceId);
+                                  flashSuccess("دارایی به تعمیر رفت");
+                                } catch (err: unknown) {
+                                  setError(friendlyErrorMessage(err, "خطا"));
+                                }
+                              })();
+                            });
+                          }}
+                        >
+                          ارسال به تعمیر
+                        </Button>
+                      ) : null}
+                      {selectedAsset.status === "in_repair" ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={pending}
+                          onClick={() => {
+                            startTransition(() => {
+                              void (async () => {
+                                try {
+                                  await api.resumeActive(workspaceId, {
+                                    workspaceId,
+                                    assetId: selectedAsset.id,
+                                  });
+                                  await refresh(workspaceId);
+                                  flashSuccess("دارایی فعال شد");
+                                } catch (err: unknown) {
+                                  setError(friendlyErrorMessage(err, "خطا"));
+                                }
+                              })();
+                            });
+                          }}
+                        >
+                          بازگشت به فعال
+                        </Button>
+                      ) : null}
+                      {selectedAsset.status !== "retired" ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={pending}
+                          onClick={() => {
+                            startTransition(() => {
+                              void (async () => {
+                                try {
+                                  await api.retire(workspaceId, {
+                                    workspaceId,
+                                    assetId: selectedAsset.id,
+                                  });
+                                  await refresh(workspaceId);
+                                  flashSuccess("دارایی از رده خارج شد");
+                                } catch (err: unknown) {
+                                  setError(friendlyErrorMessage(err, "خطا"));
+                                }
+                              })();
+                            });
+                          }}
+                        >
+                          از رده خارج
+                        </Button>
+                      ) : null}
+                    </div>
                   ) : null}
                 </aside>
               ) : null}
               </div>
             )}
           </SectionCard>
+
+          {depreciationLive ? (
+            <SectionCard title="گزارش استهلاک" badge={depRows?.length ?? 0} delayClass="delay3">
+              <FormStack>
+                <Button
+                  type="button"
+                  disabled={pending || !workspaceId}
+                  onClick={() => {
+                    startTransition(() => {
+                      void (async () => {
+                        try {
+                          const rows = await api.depreciationReport(workspaceId);
+                          setDepRows(rows);
+                          setError(null);
+                          flashSuccess("گزارش استهلاک بارگذاری شد");
+                        } catch (err: unknown) {
+                          setError(friendlyErrorMessage(err, "خطا"));
+                        }
+                      })();
+                    });
+                  }}
+                >
+                  بارگذاری گزارش
+                </Button>
+              </FormStack>
+              {depRows == null ? (
+                <EmptyHint>برای دیدن ارزش دفتری، گزارش را از API بارگذاری کنید.</EmptyHint>
+              ) : depRows.length === 0 ? (
+                <EmptyHint>دارایی قابل استهلاک ثبت نشده.</EmptyHint>
+              ) : (
+                <DataList>
+                  {depRows.map((row) => (
+                    <DataRow
+                      key={row.assetId}
+                      title={row.title}
+                      meta={
+                        row.lastDepreciatedOn
+                          ? `آخرین: ${row.lastDepreciatedOn}`
+                          : `عمر مفید ${row.usefulLifeMonths} ماه`
+                      }
+                      trailing={<Amount irrMinor={row.bookValueMinor} />}
+                    />
+                  ))}
+                </DataList>
+              )}
+            </SectionCard>
+          ) : (
+            <SectionCard title="گزارش استهلاک" delayClass="delay3">
+              <StatusLine>
+                استهلاک وقتی providers.assetDepreciation برابر depreciation_v1 باشد فعال
+                می‌شود — الان خاموش است؛ ارزش دفتری نمایشی نشان داده نمی‌شود.
+              </StatusLine>
+            </SectionCard>
+          )}
         </ProductGrid>
-      ) : null}
+        ) : null}
+      </WorkspacePageFrame>
     </AppShell>
   );
 }

@@ -58,7 +58,8 @@ describe("LoginView validation", () => {
     render(<LoginView />);
     const email = document.getElementById("login-email") as HTMLInputElement;
     const password = document.getElementById("login-password") as HTMLInputElement;
-    fireEvent.change(email, { target: { value: "bad" } });
+    // Login accepts username/phone too, so only a malformed email is rejected here.
+    fireEvent.change(email, { target: { value: "bad@example" } });
     fireEvent.change(password, { target: { value: "x" } });
     fireEvent.submit(email.closest("form")!);
     expect(await screen.findByText("آدرس ایمیل نامعتبر است")).toBeTruthy();

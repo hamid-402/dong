@@ -4,6 +4,7 @@ import type {
   MemberAllowanceUsage,
 } from "@dang/contracts";
 import { apiFetch } from "./client";
+import { postWithOfflineQueue } from "./offline-post";
 
 export const allowancesApi = {
   listAllowances: (workspaceId: string) =>
@@ -12,11 +13,12 @@ export const allowancesApi = {
     workspaceId: string,
     body: CreateMemberAllowanceRequest,
   ) =>
-    apiFetch<MemberAllowanceSummary>(
-      `/workspaces/${workspaceId}/allowances`,
-      { method: "POST", body: JSON.stringify(body) },
-      body.idempotencyKey,
-    ),
+    postWithOfflineQueue<MemberAllowanceSummary>({
+      path: `/workspaces/${workspaceId}/allowances`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "ایجاد سقف هزینه",
+    }),
   getAllowanceUsage: (workspaceId: string) =>
     apiFetch<MemberAllowanceUsage[]>(
       `/workspaces/${workspaceId}/allowances/usage`,

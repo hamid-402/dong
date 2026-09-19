@@ -6,6 +6,7 @@ import type {
   UpdateProposalSettingsRequest,
 } from "@dang/contracts";
 import { apiFetch } from "./client";
+import { postWithOfflineQueue } from "./offline-post";
 
 /** Proposal settings, proposal and vote endpoints — domain slice (dong-50 #30). */
 export const proposalsApi = {
@@ -19,23 +20,25 @@ export const proposalsApi = {
   listProposals: (workspaceId: string) =>
     apiFetch<ProposalSummary[]>(`/workspaces/${workspaceId}/proposals`),
   createProposal: (workspaceId: string, body: CreateProposalRequest) =>
-    apiFetch<ProposalSummary>(
-      `/workspaces/${workspaceId}/proposals`,
-      { method: "POST", body: JSON.stringify(body) },
-      body.idempotencyKey,
-    ),
+    postWithOfflineQueue<ProposalSummary>({
+      path: `/workspaces/${workspaceId}/proposals`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: body.title?.trim() || "ایجاد پیشنهاد",
+    }),
   castProposalVote: (
     workspaceId: string,
     proposalId: string,
     body: CastProposalVoteRequest,
   ) =>
-    apiFetch<ProposalSummary>(`/workspaces/${workspaceId}/proposals/${proposalId}/votes`, {
-      method: "POST",
+    postWithOfflineQueue<ProposalSummary>({
+      path: `/workspaces/${workspaceId}/proposals/${proposalId}/votes`,
       body: JSON.stringify(body),
+      label: "رأی به پیشنهاد",
     }),
   withdrawProposal: (workspaceId: string, proposalId: string) =>
-    apiFetch<ProposalSummary>(`/workspaces/${workspaceId}/proposals/${proposalId}/withdraw`, {
-      method: "POST",
-      body: "{}",
+    postWithOfflineQueue<ProposalSummary>({
+      path: `/workspaces/${workspaceId}/proposals/${proposalId}/withdraw`,
+      label: "پس‌گرفتن پیشنهاد",
     }),
 };

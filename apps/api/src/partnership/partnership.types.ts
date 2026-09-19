@@ -1,6 +1,8 @@
 import type {
+  AgreedPriceSummary,
   AgreementSummary,
   ContributionSummary,
+  CreateAgreedPriceRequest,
   CreateAgreementRequest,
   CreatePeriodLockRequest,
   MemberAccountReport,
@@ -47,6 +49,12 @@ export type PartnershipStore = {
     memberUserId: string,
     displayName: string,
   ): Promise<MemberAccountReport>;
+  createAgreedPrice(input: CreateAgreedPriceRequest): Promise<AgreedPriceSummary>;
+  listAgreedPrices(workspaceId: string, agreementId: string): Promise<AgreedPriceSummary[]>;
+  getAgreedPrice(
+    workspaceId: string,
+    priceId: string,
+  ): Promise<AgreedPriceSummary | undefined>;
 };
 
 export const PARTNERSHIP_STORE = Symbol("PARTNERSHIP_STORE");

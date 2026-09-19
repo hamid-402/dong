@@ -4,20 +4,26 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
+  forwardRef,
 } from "@nestjs/common";
 import {
   assertNoCustodyPayload,
   isFinanceManagerRole,
   type AuthActor,
   type CreatePaymentLinkRequest,
+  type LocalPspIntentSummary,
+  type LocalPspVerifyResponse,
   type MembershipRole,
   type PaymentLinkSummary,
 } from "@dang/contracts";
-import { isZarinpalLive, loadAppEnv } from "@dang/config";
+import { isZarinpalLive, loadAppEnv, resolveZarinpalCallbackUrl, zarinpalCallbackMisconfig } from "@dang/config";
 import { createLogger } from "@dang/observability";
 import { BILLING_STORE, type BillingStore } from "../billing/billing.types.js";
+import { InvoiceEventsService } from "../billing/invoice-events.service.js";
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
+import { LEDGER_STORE, type LedgerStore } from "../ledger/ledger.types.js";
 import {
   SETTLEMENT_STORE,
   type SettlementStore,
@@ -25,23 +31,34 @@ import {
 import {
   PAYMENT_STORE,
   type PaymentStore,
+  type PendingLocalPspPayment,
   type PendingZarinpalPayment,
 } from "./payment.store.js";
 import { zarinpalRequestPayment } from "./zarinpal.client.js";
+import { confirmSettlementFromGateway, ZARINPAL_SYSTEM_ACTOR } from "./gateway-settlement-confirm.js";
+import { SaasBillingService } from "../saas-billing/saas-billing.service.js";
+import { LocalPspAdapter } from "./local-psp.adapter.js";
 
 const logger = createLogger("dang-api-payments");
 
-/** Synthetic actor for PSP-driven invoice transitions (no interactive user). */
-const ZARINPAL_SYSTEM_ACTOR = "00000000-0000-4000-8000-000000000021";
-
 @Injectable()
 export class PaymentsService {
+  private readonly localPsp: LocalPspAdapter;
+
   constructor(
     @Inject(PAYMENT_STORE) private readonly store: PaymentStore,
     @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
     @Inject(SETTLEMENT_STORE) private readonly settlements: SettlementStore,
     @Inject(BILLING_STORE) private readonly billing: BillingStore,
-  ) {}
+    @Inject(InvoiceEventsService)
+    private readonly invoiceEvents: InvoiceEventsService,
+    @Inject(LEDGER_STORE) private readonly ledger: LedgerStore,
+    @Optional()
+    @Inject(forwardRef(() => SaasBillingService))
+    private readonly saasBilling?: SaasBillingService,
+  ) {
+    this.localPsp = new LocalPspAdapter(store);
+  }
 
   async createLink(
     actor: AuthActor,
@@ -86,12 +103,23 @@ export class PaymentsService {
 
     try {
       if (!live) {
-        return await this.store.create("stub", { ...body, workspaceId });
+        const { link } = await this.localPsp.createPaymentIntent({
+          ...body,
+          workspaceId,
+        });
+        return link;
       }
 
-      const callbackUrl =
-        process.env.ZARINPAL_CALLBACK_URL?.trim() ||
-        `${env.apiBaseUrl.replace(/\/api\/v1\/?$/, "")}/api/v1/payments/zarinpal/callback`;
+      const callbackUrl = resolveZarinpalCallbackUrl(env.apiBaseUrl);
+      const misconfig = zarinpalCallbackMisconfig(callbackUrl);
+      if (misconfig) {
+        throw new ServiceUnavailableException({
+          type: "https://dang.local/problems/psp-misconfigured",
+          title: "Zarinpal callback URL is not production-ready",
+          status: 503,
+          detail: misconfig,
+        });
+      }
 
       const requested = await zarinpalRequestPayment({
         amountMinor: body.amount.amountMinor,
@@ -118,6 +146,7 @@ export class PaymentsService {
         amountMinor: body.amount.amountMinor,
         workspaceId,
         paymentLinkId: link.id,
+        returnUrl: body.returnUrl.trim(),
       });
 
       return link;
@@ -163,6 +192,32 @@ export class PaymentsService {
     );
   }
 
+  async getLocalPspIntent(intentId: string): Promise<LocalPspIntentSummary> {
+    const pending = await this.store.findPendingLocalPsp(intentId.trim());
+    if (!pending) {
+      throw new NotFoundException({
+        type: "https://dang.local/problems/not-found",
+        title: "LocalPSP intent not found",
+        status: 404,
+      });
+    }
+    return this.localPsp.toPublicSummary(pending);
+  }
+
+  /**
+   * Checkout confirm → verify (idempotent) → settlement/invoice/SaaS follow-on.
+   * Client amount is ignored; server-owned intent amount is authoritative.
+   */
+  async verifyLocalPsp(intentId: string): Promise<LocalPspVerifyResponse> {
+    const { pending, response } = await this.localPsp.verify(intentId);
+    if (!response.ok || !pending) return response;
+    await this.applyVerifiedPaymentFollowOn({
+      workspaceId: pending.workspaceId,
+      paymentLinkId: pending.paymentLinkId,
+    });
+    return response;
+  }
+
   /**
    * After PSP verify: mark pending verified, set linked payment_link to paid,
    * and mark linked invoice paid when present.
@@ -179,16 +234,19 @@ export class PaymentsService {
         ? pending
         : await this.store.markZarinpalVerified(authority, refId);
 
-    await this.applyVerifiedPaymentFollowOn(verified);
+    await this.applyVerifiedPaymentFollowOn({
+      workspaceId: verified.workspaceId,
+      paymentLinkId: verified.paymentLinkId,
+    });
     return verified;
   }
 
-  private async applyVerifiedPaymentFollowOn(
-    pending: PendingZarinpalPayment,
-  ): Promise<void> {
+  private async applyVerifiedPaymentFollowOn(pending: {
+    workspaceId: string;
+    paymentLinkId?: string;
+  }): Promise<void> {
     if (!pending.paymentLinkId) {
-      logger.warn("Zarinpal verified without paymentLinkId; no link/invoice follow-on", {
-        authority: pending.authority,
+      logger.warn("PSP verified without paymentLinkId; no link/invoice follow-on", {
         workspaceId: pending.workspaceId,
       });
       return;
@@ -202,7 +260,7 @@ export class PaymentsService {
       );
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : String(error);
-      logger.error("Failed to mark payment link paid after Zarinpal verify", {
+      logger.error("Failed to mark payment link paid after PSP verify", {
         detail,
         paymentLinkId: pending.paymentLinkId,
         workspaceId: pending.workspaceId,
@@ -210,31 +268,64 @@ export class PaymentsService {
       return;
     }
 
-    if (!link.invoiceId) return;
-
-    try {
-      await this.billing.markInvoicePaid(
-        pending.workspaceId,
-        link.invoiceId,
-        ZARINPAL_SYSTEM_ACTOR,
-      );
-      logger.info("Invoice marked paid after Zarinpal verify", {
-        invoiceId: link.invoiceId,
-        paymentLinkId: link.id,
+    if (link.settlementId) {
+      await confirmSettlementFromGateway({
+        settlements: this.settlements,
+        ledger: this.ledger,
+        workspaceId: pending.workspaceId,
+        settlementId: link.settlementId,
       });
+    }
+
+    if (link.invoiceId) {
+      try {
+        const paid = await this.billing.markInvoicePaid(
+          pending.workspaceId,
+          link.invoiceId,
+          ZARINPAL_SYSTEM_ACTOR,
+        );
+        await this.invoiceEvents.announce({
+          workspaceId: pending.workspaceId,
+          periodId: paid.periodId,
+          memberUserIds: [paid.memberUserId],
+          reason: "invoice.paid.gateway",
+        });
+        logger.info("Invoice marked paid after PSP verify", {
+          invoiceId: link.invoiceId,
+          paymentLinkId: link.id,
+        });
+      } catch (error: unknown) {
+        const detail = error instanceof Error ? error.message : String(error);
+        if (detail === "INVOICE_STATUS") {
+          logger.warn("Invoice not transitioned to paid after PSP verify", {
+            detail,
+            invoiceId: link.invoiceId,
+          });
+        } else {
+          logger.error("Failed to mark invoice paid after PSP verify", {
+            detail,
+            invoiceId: link.invoiceId,
+          });
+        }
+      }
+    }
+
+    await this.completeSaasIfMapped(pending.workspaceId, link.id);
+  }
+
+  private async completeSaasIfMapped(
+    workspaceId: string,
+    paymentLinkId: string,
+  ): Promise<void> {
+    if (!this.saasBilling) return;
+    try {
+      await this.saasBilling.completePaidFromPaymentLink(workspaceId, paymentLinkId);
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : String(error);
-      if (detail === "INVOICE_STATUS") {
-        // Idempotent / already paid / not yet issued — verify still succeeded.
-        logger.warn("Invoice not transitioned to paid after Zarinpal verify", {
-          detail,
-          invoiceId: link.invoiceId,
-        });
-        return;
-      }
-      logger.error("Failed to mark invoice paid after Zarinpal verify", {
+      logger.warn("SaaS subscription follow-on after PSP verify skipped", {
         detail,
-        invoiceId: link.invoiceId,
+        workspaceId,
+        paymentLinkId,
       });
     }
   }
@@ -280,3 +371,6 @@ export class PaymentsService {
     }
   }
 }
+
+/** Re-export for tests that need the pending type. */
+export type { PendingLocalPspPayment };

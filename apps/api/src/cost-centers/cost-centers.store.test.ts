@@ -2,6 +2,7 @@ import "reflect-metadata";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
+import { WaveFSettingsService } from "../wave-f-settings/wave-f-settings.service.js";
 import { CostCentersController } from "./cost-centers.controller.js";
 import { CostCentersService } from "./cost-centers.service.js";
 import { COST_CENTER_STORE } from "./cost-centers.types.js";
@@ -47,5 +48,6 @@ test("cost center controller and service declare every runtime injection explici
   assert.deepEqual(serviceDeps?.slice().sort((a, b) => a.index - b.index), [
     { index: 0, param: COST_CENTER_STORE },
     { index: 1, param: WorkspaceAccessService },
+    { index: 2, param: WaveFSettingsService },
   ]);
 });

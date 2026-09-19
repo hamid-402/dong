@@ -122,3 +122,150 @@ export const createPersonalFinanceExportRequestSchema = z
 export type CreatePersonalFinanceExportRequestInput = z.infer<
   typeof createPersonalFinanceExportRequestSchema
 >;
+
+export const incomeSourceKindSchema = z.enum([
+  "salary",
+  "bonus",
+  "freelance",
+  "rent",
+  "other",
+]);
+
+export const incomeCadenceSchema = z.enum([
+  "monthly",
+  "weekly",
+  "yearly",
+  "irregular",
+]);
+
+export const createIncomeSourceRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    kind: incomeSourceKindSchema,
+    expected: nonNegativeMoneySchema.optional(),
+    cadence: incomeCadenceSchema.optional(),
+    active: z.boolean().optional(),
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict();
+
+export type CreateIncomeSourceRequestInput = z.infer<
+  typeof createIncomeSourceRequestSchema
+>;
+
+export const updateIncomeSourceRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    kind: incomeSourceKindSchema.optional(),
+    expected: nonNegativeMoneySchema.nullable().optional(),
+    cadence: incomeCadenceSchema.optional(),
+    active: z.boolean().optional(),
+  })
+  .strict();
+
+export type UpdateIncomeSourceRequestInput = z.infer<
+  typeof updateIncomeSourceRequestSchema
+>;
+
+export const createSavingsGoalRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    targetMinor: z
+      .string()
+      .regex(/^\d+$/)
+      .refine((v) => BigInt(v) > 0n, { message: "target_RANGE" }),
+    targetDate: isoDateSchema.optional(),
+    accountId: entityIdSchema.optional(),
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict();
+
+export type CreateSavingsGoalRequestInput = z.infer<
+  typeof createSavingsGoalRequestSchema
+>;
+
+export const updateSavingsGoalRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    targetMinor: z
+      .string()
+      .regex(/^\d+$/)
+      .refine((v) => BigInt(v) > 0n, { message: "target_RANGE" })
+      .optional(),
+    targetDate: isoDateSchema.nullable().optional(),
+    accountId: entityIdSchema.nullable().optional(),
+    status: z.enum(["active", "reached", "archived"]).optional(),
+  })
+  .strict();
+
+export type UpdateSavingsGoalRequestInput = z.infer<
+  typeof updateSavingsGoalRequestSchema
+>;
+
+export const createSavingsGoalContributionRequestSchema = z
+  .object({
+    amountMinor: z
+      .string()
+      .regex(/^\d+$/)
+      .refine((v) => BigInt(v) > 0n, { message: "amount_RANGE" }),
+    occurredAt: z.string().trim().min(1).max(40),
+    txnId: entityIdSchema.optional(),
+    note: z.string().max(2000).optional(),
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict();
+
+export type CreateSavingsGoalContributionRequestInput = z.infer<
+  typeof createSavingsGoalContributionRequestSchema
+>;
+
+export const spendingAlertScopeSchema = z.enum([
+  "total",
+  "category",
+  "group",
+  "workspace",
+]);
+
+export const putSpendingAlertsRequestSchema = z
+  .object({
+    alerts: z
+      .array(
+        z
+          .object({
+            id: entityIdSchema.optional(),
+            scope: spendingAlertScopeSchema,
+            refId: entityIdSchema.nullable().optional(),
+            period: z.enum(["month", "week"]).optional(),
+            limitMinor: z
+              .string()
+              .regex(/^\d+$/)
+              .refine((v) => BigInt(v) > 0n, { message: "limit_RANGE" }),
+            thresholdPercent: z.number().int().min(1).max(100).optional(),
+            channel: z.enum(["inapp", "email"]).optional(),
+            active: z.boolean().optional(),
+          })
+          .strict(),
+      )
+      .max(50),
+  })
+  .strict();
+
+export type PutSpendingAlertsRequestInput = z.infer<
+  typeof putSpendingAlertsRequestSchema
+>;
+
+export const recomputeMonthlyCloseRequestSchema = z
+  .object({
+    yearMonth: yearMonthSchema,
+  })
+  .strict();
+
+export type RecomputeMonthlyCloseRequestInput = z.infer<
+  typeof recomputeMonthlyCloseRequestSchema
+>;
+
+export const personalFinanceOverviewScopeSchema = z.enum([
+  "personal",
+  "group",
+  "combined",
+]);

@@ -62,6 +62,8 @@ export type AppEnv = {
   smtpFrom?: string;
   /** PSP merchant id (Zarinpal). Live only with ZARINPAL_ENABLED=1. */
   zarinpalMerchantId?: string;
+  /** Override Zarinpal browser return endpoint (defaults from API_BASE_URL). */
+  zarinpalCallbackUrl?: string;
 };
 
 function requireString(name: string, fallback?: string): string {
@@ -114,6 +116,7 @@ export function loadAppEnv(partial: EnvBag = readEnv()): AppEnv {
     smtpUrl: partial.SMTP_URL || undefined,
     smtpFrom: partial.SMTP_FROM || undefined,
     zarinpalMerchantId: partial.ZARINPAL_MERCHANT_ID || undefined,
+    zarinpalCallbackUrl: partial.ZARINPAL_CALLBACK_URL || undefined,
   };
 }
 
@@ -125,8 +128,9 @@ export function isSmtpConfigured(env: AppEnv = loadAppEnv()): boolean {
   return Boolean(env.smtpUrl);
 }
 
-export function isPaymentProviderConfigured(env: AppEnv = loadAppEnv()): boolean {
-  return Boolean(env.zarinpalMerchantId);
+export function isPaymentProviderConfigured(_env: AppEnv = loadAppEnv()): boolean {
+  /** LocalPSP is always available; Zarinpal is optional. */
+  return true;
 }
 
 export function isRedisConfigured(env: AppEnv = loadAppEnv()): boolean {

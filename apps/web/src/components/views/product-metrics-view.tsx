@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import type { MembershipRole, MembershipSummary, WorkspaceProductMetricsResponse } from "@dang/contracts";
+import type {
+  AnalyticsWarehouseSnapshot,
+  ChartSeriesResponse,
+  MembershipRole,
+  MembershipSummary,
+  WorkspaceProductMetricsResponse,
+} from "@dang/contracts";
+import { Button } from "@dang/ui";
 import {
   EmptyHint,
   EmptyStateBlock,
@@ -9,24 +16,41 @@ import {
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
+import { ContentSkeleton } from "@/components/shell/content-skeleton";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
+import { SimpleBarChart } from "@/components/charts/simple-bar-chart";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
-import { membershipRoleLabel } from "@/lib/status-labels";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useWorkspaceScope } from "@/components/shell/workspace-scope";
 import { wPath } from "@/lib/workspace-paths";
+import { formatFaDateTime } from "@/lib/fa-datetime";
 import styles from "./product-metrics-view.module.css";
 
 function formatWhen(iso: string | null): string {
-  if (!iso) return "—";
+  return formatFaDateTime(iso);
+}
+
+function formatMinorIrr(minor: string): string {
   try {
-    return new Intl.DateTimeFormat("fa-IR", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(iso));
+    const toman = Number(BigInt(minor) / 10n);
+    return new Intl.NumberFormat("fa-IR").format(toman);
   } catch {
-    return iso;
+    return minor;
+  }
+}
+
+function warehouseModeLabel(mode: AnalyticsWarehouseSnapshot["mode"]): string {
+  switch (mode) {
+    case "postgres_replica_etl":
+      return "Postgres replica + ETL";
+    case "postgres_etl":
+      return "Postgres schema analytics";
+    case "memory_etl":
+      return "حافظه (dev)";
+    default:
+      return mode;
   }
 }
 
@@ -34,16 +58,61 @@ export function ProductMetricsView() {
   const chrome = useAppChrome();
   const scope = useWorkspaceScope();
   const workspaceId = scope.workspaceId || chrome.workspaceId;
+  const warehouseEnabled = Boolean(chrome.capabilities?.providers?.analyticsWarehouse);
+  const chartsEnabled = chrome.capabilities?.providers?.charts === "charts_v1";
   const [metrics, setMetrics] = useState<WorkspaceProductMetricsResponse | null>(null);
-  const [myRole, setMyRole] = useState<MembershipRole | "">("");
+  const [warehouse, setWarehouse] = useState<AnalyticsWarehouseSnapshot | null>(null);
+  const [expenseTrend, setExpenseTrend] = useState<ChartSeriesResponse | null>(null);
+  const [, setMyRole] = useState<MembershipRole | "">("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warehouseError, setWarehouseError] = useState<string | null>(null);
+  const [chartError, setChartError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [etlPending, startEtl] = useTransition();
+
+  function refreshWarehouse() {
+    if (!workspaceId || !warehouseEnabled) {
+      setWarehouse(null);
+      setWarehouseError(null);
+      return;
+    }
+    void api
+      .analyticsWarehouse(workspaceId)
+      .then((data) => {
+        setWarehouse(data);
+        setWarehouseError(null);
+      })
+      .catch((err: unknown) => {
+        setWarehouse(null);
+        setWarehouseError(friendlyErrorMessage(err, "خواندن انبار تحلیلی ممکن نشد"));
+      });
+  }
+
+  function refreshCharts() {
+    if (!workspaceId || !chartsEnabled) {
+      setExpenseTrend(null);
+      setChartError(null);
+      return;
+    }
+    void api
+      .workspaceChartExpenseTrend(workspaceId, 6)
+      .then((data) => {
+        setExpenseTrend(data);
+        setChartError(null);
+      })
+      .catch((err: unknown) => {
+        setExpenseTrend(null);
+        setChartError(friendlyErrorMessage(err, "خواندن روند خرج ممکن نشد"));
+      });
+  }
 
   function refresh() {
     if (!workspaceId) {
       setMetrics(null);
       setMyRole("");
+      setWarehouse(null);
+      setExpenseTrend(null);
       return;
     }
     startTransition(() => {
@@ -63,12 +132,26 @@ export function ProductMetricsView() {
           setMetrics(null);
           setError(friendlyErrorMessage(err, "خواندن متریک ممکن نشد"));
         });
+      refreshWarehouse();
+      refreshCharts();
+    });
+  }
+
+  function runEtl() {
+    if (!workspaceId || !warehouseEnabled) return;
+    startEtl(() => {
+      void api
+        .runAnalyticsEtl(workspaceId)
+        .then(() => refreshWarehouse())
+        .catch((err: unknown) => {
+          setWarehouseError(friendlyErrorMessage(err, "اجرای ETL ممکن نشد"));
+        });
     });
   }
 
   useEffect(() => {
     refresh();
-  }, [workspaceId, chrome.actor?.userId]);
+  }, [workspaceId, chrome.actor?.userId, warehouseEnabled, chartsEnabled]);
 
   const rows = metrics
     ? ([
@@ -77,6 +160,12 @@ export function ProductMetricsView() {
           label: "ساخت فضا",
           milestone: metrics.milestones.onboardingWorkspaceCreated,
           count: metrics.counts.workspaceCreates,
+        },
+        {
+          key: "inviteCreate",
+          label: "ساخت دعوت",
+          milestone: metrics.milestones.inviteCreated,
+          count: metrics.counts.inviteCreates,
         },
         {
           key: "invite",
@@ -99,68 +188,29 @@ export function ProductMetricsView() {
       ] as const)
     : [];
   const selected = rows.find((row) => row.key === selectedKey) ?? null;
-  const reachedCount = rows.filter((row) => row.milestone.reached).length;
 
   return (
-    <div>
-      <OperationsModuleHeader
-        ariaLabel="متریک محصول فضای کاری"
-        destinations={[
-          { key: "metrics", label: "متریک محصول", href: wPath(scope.slug, "metrics"), active: true },
-          { key: "audit", label: "تاریخچه", href: wPath(scope.slug, "audit"), active: false },
-          { key: "settings", label: "تنظیمات", href: wPath(scope.slug, "settings"), active: false },
-          { key: "members", label: "اعضا", href: wPath(scope.slug, "members"), active: false },
-        ]}
-        metrics={[
-          {
-            label: "رویداد قابل‌خواندن",
-            value: metrics
-              ? new Intl.NumberFormat("fa-IR").format(metrics.eventCount)
-              : pending
-                ? "…"
-                : "—",
-            detail: metrics
-              ? `audit · ${metrics.auditPersistence === "postgres" ? "Postgres" : "حافظه"}`
-              : "از audit همین فضا",
-          },
-          {
-            label: "مایلستون رسیده",
-            value: metrics ? new Intl.NumberFormat("fa-IR").format(reachedCount) : "—",
-            detail: "از ۴ نقطه قیف واقعی",
-            tone: reachedCount > 0 ? "positive" : "neutral",
-          },
-          {
-            label: "خرج posted",
-            value: metrics
-              ? new Intl.NumberFormat("fa-IR").format(metrics.counts.expensePosts)
-              : "—",
-            detail: "action: expense.post",
-          },
-          {
-            label: "تسویه تأییدشده",
-            value: metrics
-              ? new Intl.NumberFormat("fa-IR").format(metrics.counts.settlementConfirms)
-              : "—",
-            detail: "action: settlement.claim.confirm",
-            tone: metrics && metrics.counts.settlementConfirms > 0 ? "positive" : "neutral",
-          },
-        ]}
-        roleLabel={myRole ? membershipRoleLabel(myRole) : null}
-        persistenceLabel={chrome.persistenceLabel}
-        pending={pending}
-        onRefresh={refresh}
-      />
+    <WorkspacePageFrame
+      title={NAV_LABELS.metrics}
+      description={"قیف و مایلستون‌ها از audit همین فضا."}
+      primaryAction={<Button type="button" onClick={refresh} disabled={pending}>تازه‌سازی</Button>}
+      state="ready"
+    >
+      <div>
 
       {!workspaceId ? (
         <EmptyStateBlock
           title="فضایی انتخاب نشده"
           description="از فهرست فضاها یک فضا باز کنید تا متریک همان فضا از audit خوانده شود."
+          sticker="folder"
         />
       ) : null}
 
-      {pending && !metrics ? <EmptyHint loading>در حال خواندن audit…</EmptyHint> : null}
+      {pending && !metrics ? (
+        <ContentSkeleton rows={3} label="در حال خواندن متریک از audit…" />
+      ) : null}
       {error ? (
-        <EmptyStateBlock title="خواندن متریک ممکن نشد" description={error} />
+        <EmptyStateBlock title="خواندن متریک ممکن نشد" description={error} sticker="shield" />
       ) : null}
 
       {metrics && !error ? (
@@ -173,7 +223,11 @@ export function ProductMetricsView() {
           {metrics.eventCount === 0 ? (
             <EmptyStateBlock
               title="هنوز رویدادی در audit نیست"
-              description="بعد از ساخت فضا، ثبت خرج و تأیید تسویه، شمارش‌ها از همان رویدادها پر می‌شوند."
+              description="بعد از ساخت فضا، دعوت اعضا، ثبت خرج و تأیید تسویه، شمارش‌ها از همان رویدادها پر می‌شوند."
+              sticker="calendar"
+              action={
+                <a href={wPath(scope.slug, "members")}>رفتن به اعضا / دعوت</a>
+              }
             />
           ) : (
             <SectionCard title="قیف فضا (شمارش واقعی)">
@@ -241,6 +295,80 @@ export function ProductMetricsView() {
           )}
         </>
       ) : null}
+
+      {warehouseEnabled ? (
+        <SectionCard title="انبار تحلیلی (R10-20)">
+          {warehouseError ? (
+            <EmptyStateBlock title="انبار در دسترس نیست" description={warehouseError} sticker="folder" />
+          ) : null}
+          {warehouse ? (
+            <>
+              <StatusLine>
+                حالت: {warehouseModeLabel(warehouse.mode)} · پایداری:{" "}
+                {warehouse.persistence === "postgres" ? "Postgres" : "حافظه"} · آخرین ETL:{" "}
+                {warehouse.lastRun
+                  ? `${warehouse.lastRun.status} · ${formatWhen(warehouse.lastRun.finishedAt)} · ${warehouse.lastRun.rowsUpserted} روز`
+                  : "هنوز اجرا نشده"}
+              </StatusLine>
+              <p style={{ marginTop: "0.5rem", opacity: 0.85 }}>{warehouse.note}</p>
+              <div style={{ marginBlock: "0.75rem", display: "flex", gap: "0.5rem" }}>
+                <button type="button" className="textButton" disabled={etlPending} onClick={runEtl}>
+                  {etlPending ? "در حال ETL…" : "اجرای ETL از OLTP"}
+                </button>
+                <button
+                  type="button"
+                  className="textButton"
+                  disabled={pending}
+                  onClick={refreshWarehouse}
+                >
+                  بازخوانی انبار
+                </button>
+              </div>
+              {warehouse.facts.length === 0 ? (
+                <EmptyHint>
+                  هنوز fact روزانه در انبار نیست — بعد از ثبت خرج posted، ETL را اجرا کنید.
+                </EmptyHint>
+              ) : (
+                <ul className={styles.funnelList}>
+                  {[...warehouse.facts]
+                    .reverse()
+                    .slice(0, 31)
+                    .map((fact) => (
+                      <li key={fact.day}>
+                        <span>
+                          <b>{fact.day}</b>
+                          <small>
+                            {fact.expenseCount.toLocaleString("fa-IR")} خرج ·{" "}
+                            {formatMinorIrr(fact.totalMinor)} تومان · به‌روز{" "}
+                            {formatWhen(fact.refreshedAt)}
+                          </small>
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </>
+          ) : !warehouseError ? (
+            <EmptyHint loading>در حال خواندن انبار…</EmptyHint>
+          ) : null}
+        </SectionCard>
+      ) : null}
+
+      {chartsEnabled ? (
+        <SectionCard title="نمودار خرج (S11-11)">
+          <p style={{ marginBottom: "0.75rem" }}>
+            <a href={wPath(scope.slug, "charts")}>همهٔ نمودارهای فضا</a>
+          </p>
+          <SimpleBarChart
+            title="روند خرج"
+            series={expenseTrend}
+            loading={pending && !expenseTrend}
+            error={chartError}
+            primaryLabel="جمع خرج (تومان)"
+          />
+        </SectionCard>
+      ) : null}
     </div>
+    </WorkspacePageFrame>
   );
 }

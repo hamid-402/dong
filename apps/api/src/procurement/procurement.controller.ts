@@ -12,6 +12,7 @@ import type {
   NeedSummary,
   PurchaseOrderSummary,
   PurchaseRequestSummary,
+  LinkPurchaseOrderExpenseRequest,
   RecordDeliveryRequest,
   SubmitApprovalRequest,
   VendorSummary,
@@ -22,6 +23,7 @@ import {
   createPurchaseOrderRequestSchema,
   createPurchaseRequestRequestSchema,
   createVendorRequestSchema,
+  linkPurchaseOrderExpenseRequestSchema,
   recordDeliveryRequestSchema,
   submitApprovalRequestSchema,
 } from "@dang/contracts";
@@ -52,6 +54,26 @@ export class ProcurementController {
     @Param("workspaceId") workspaceId: string,
   ): Promise<NeedSummary[]> {
     return this.procurement.listNeeds(actor, workspaceId);
+  }
+
+  @Post("needs/:needId/fulfill")
+  @UseGuards(AuthGuard)
+  fulfillNeed(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("needId") needId: string,
+  ): Promise<NeedSummary> {
+    return this.procurement.fulfillNeed(actor, workspaceId, needId);
+  }
+
+  @Post("needs/:needId/cancel")
+  @UseGuards(AuthGuard)
+  cancelNeed(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("needId") needId: string,
+  ): Promise<NeedSummary> {
+    return this.procurement.cancelNeed(actor, workspaceId, needId);
   }
 
   @Post("purchase-requests")
@@ -151,6 +173,28 @@ export class ProcurementController {
     @Param("workspaceId") workspaceId: string,
   ): Promise<PurchaseOrderSummary[]> {
     return this.procurement.listPurchaseOrders(actor, workspaceId);
+  }
+
+  @Post("purchase-orders/:orderId/cancel")
+  @UseGuards(AuthGuard)
+  cancelPurchaseOrder(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("orderId") orderId: string,
+  ): Promise<PurchaseOrderSummary> {
+    return this.procurement.cancelPurchaseOrder(actor, workspaceId, orderId);
+  }
+
+  @Post("purchase-orders/:orderId/link-expense")
+  @UseGuards(AuthGuard)
+  linkPurchaseOrderExpense(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("orderId") orderId: string,
+    @Body(new ZodValidationPipe(linkPurchaseOrderExpenseRequestSchema))
+    body: LinkPurchaseOrderExpenseRequest,
+  ): Promise<PurchaseOrderSummary> {
+    return this.procurement.linkPurchaseOrderExpense(actor, workspaceId, orderId, body);
   }
 
   @Post("deliveries")

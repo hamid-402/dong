@@ -1,10 +1,16 @@
-import { createLogger } from "@dang/observability";
+import { createLogger, runWithRequestContext, withSpan } from "@dang/observability";
 import {
   buildDeadLetterJob,
+  buildInternalJobHeaders,
+  INTERNAL_DIGEST_ACTOR_USER_ID,
+  INTERNAL_DIGEST_WORKSPACE_ID,
+  INTERNAL_RETENTION_ACTOR_USER_ID,
+  INTERNAL_RETENTION_WORKSPACE_ID,
   readProductFeatureFlags,
   type QueuedWorkerJob,
 } from "@dang/contracts";
 import { blpopJob, pushDeadLetter, touchHeartbeat } from "../queue/redis-queue.js";
+import { writeBackJobRun } from "./job-run-writeback.js";
 
 const logger = createLogger("dang-worker-consumer");
 
@@ -102,8 +108,14 @@ async function processRecurrenceTick(job: QueuedWorkerJob): Promise<JobProcessRe
   const headers: Record<string, string> = {};
   const internalToken = process.env.DANG_INTERNAL_JOB_TOKEN?.trim();
   if (internalToken) {
-    headers["x-dang-internal-job"] = internalToken;
-    headers["x-dang-internal-actor-user-id"] = actorUserId;
+    Object.assign(
+      headers,
+      buildInternalJobHeaders({
+        secret: internalToken,
+        workspaceId: job.workspaceId,
+        actorUserId,
+      }),
+    );
   } else {
     const actorSubject = job.meta?.actorSubject?.trim();
     if (!actorSubject) throw new Error("recurrence_internal_auth_missing");
@@ -156,7 +168,11 @@ async function processWeeklyDigest(job: QueuedWorkerJob): Promise<JobProcessResu
   if (!base || !token) throw new Error("digest_internal_api_not_configured");
   const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/system/digest/weekly-tick`, {
     method: "POST",
-    headers: { "x-dang-internal-job": token },
+    headers: buildInternalJobHeaders({
+      secret: token,
+      workspaceId: INTERNAL_DIGEST_WORKSPACE_ID,
+      actorUserId: INTERNAL_DIGEST_ACTOR_USER_ID,
+    }),
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new Error(`digest_api_${response.status}:${(await response.text()).slice(0,500)}`);
@@ -164,51 +180,196 @@ async function processWeeklyDigest(job: QueuedWorkerJob): Promise<JobProcessResu
   return { ok:true,name:job.name,jobId:job.jobId,workspaceId:job.workspaceId,result:{action:"digest_weekly",eligible:payload.eligible??0,sent:payload.sent??0} };
 }
 
-export async function processQueuedJob(job: QueuedWorkerJob): Promise<JobProcessResult | void> {
-  switch (job.name) {
-    case "ledger.rebuild_balances":
-      return processLedgerRebuildBalances(job);
-    case "recurrence.tick":
-      return processRecurrenceTick(job);
-    case "digest.weekly":
-      return processWeeklyDigest(job);
-    case "report.export":
-      logger.info("Processed report.export (file generation hook ready)", {
-        jobId: job.jobId,
+async function processAnalyticsEtl(job: QueuedWorkerJob): Promise<JobProcessResult> {
+  const base = apiInternalBase();
+  if (!base) throw new Error("analytics_etl_api_internal_url_missing");
+
+  const actorUserId = job.meta?.actorUserId?.trim();
+  if (!actorUserId) throw new Error("analytics_etl_actor_user_id_missing");
+
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
+  const internalToken = process.env.DANG_INTERNAL_JOB_TOKEN?.trim();
+  if (internalToken) {
+    Object.assign(
+      headers,
+      buildInternalJobHeaders({
+        secret: internalToken,
         workspaceId: job.workspaceId,
-      });
-      break;
-    case "webhook.dispatch":
-      logger.info("Processed webhook.dispatch (delivery hook ready)", {
-        jobId: job.jobId,
-        workspaceId: job.workspaceId,
-      });
-      break;
-    case "ocr.receipt":
-      logger.info("OCR job consumed (provider live only with OCR_ENABLED)", {
-        jobId: job.jobId,
-        attachmentId: job.meta?.attachmentId ?? "",
-      });
-      break;
-    case "quarantine.scan":
-      logger.info("AV job consumed (ClamAV live only with CLAMAV_ENABLED)", {
-        jobId: job.jobId,
-        attachmentId: job.meta?.attachmentId ?? "",
-      });
-      break;
-    case "notify.email":
-      logger.info("Email notify job consumed (delivery via API mailer path)", {
-        jobId: job.jobId,
-      });
-      break;
-    case "notify.push":
-      logger.info("Push notify stub consumed (no push provider)", {
-        jobId: job.jobId,
-      });
-      break;
-    default:
-      logger.warn("Unknown job name", { name: String(job.name), jobId: job.jobId });
+        actorUserId,
+      }),
+    );
+  } else {
+    const actorSubject = job.meta?.actorSubject?.trim();
+    if (!actorSubject) throw new Error("analytics_etl_internal_auth_missing");
+    headers["x-dang-subject"] = actorSubject;
+    headers["x-dang-user-id"] = actorUserId;
   }
+
+  const url =
+    `${base.replace(/\/$/, "")}/api/v1/workspaces/` +
+    `${encodeURIComponent(job.workspaceId)}/analytics/etl/run`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: "{}",
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!response.ok) {
+    throw new Error(`analytics_etl_api_${response.status}:${(await response.text()).slice(0, 500)}`);
+  }
+  const payload = (await response.json()) as {
+    status?: string;
+    rowsWritten?: number;
+  };
+  return {
+    ok: true,
+    name: job.name,
+    jobId: job.jobId,
+    workspaceId: job.workspaceId,
+    result: {
+      action: "analytics_etl",
+      status: payload.status ?? "ok",
+      rowsWritten: payload.rowsWritten ?? 0,
+    },
+  };
+}
+
+async function processRetentionPurge(job: QueuedWorkerJob): Promise<JobProcessResult> {
+  const base = apiInternalBase();
+  const token = process.env.DANG_INTERNAL_JOB_TOKEN?.trim();
+  if (!base || !token) throw new Error("retention_internal_api_not_configured");
+  const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/system/retention/purge`, {
+    method: "POST",
+    headers: buildInternalJobHeaders({
+      secret: token,
+      workspaceId: INTERNAL_RETENTION_WORKSPACE_ID,
+      actorUserId: INTERNAL_RETENTION_ACTOR_USER_ID,
+    }),
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!response.ok) {
+    throw new Error(`retention_api_${response.status}:${(await response.text()).slice(0, 500)}`);
+  }
+  const payload = (await response.json()) as {
+    statementBodies?: number;
+    attachmentBlobs?: number;
+  };
+  return {
+    ok: true,
+    name: job.name,
+    jobId: job.jobId,
+    workspaceId: job.workspaceId,
+    result: {
+      action: "retention_purge",
+      statementBodies: payload.statementBodies ?? 0,
+      attachmentBlobs: payload.attachmentBlobs ?? 0,
+    },
+  };
+}
+
+export async function processQueuedJob(job: QueuedWorkerJob): Promise<JobProcessResult | void> {
+  return runWithRequestContext(
+    { requestId: job.requestId, traceId: job.traceId },
+    () =>
+      withSpan(
+        "jobs.process",
+        { name: job.name, jobId: job.jobId, workspaceId: job.workspaceId },
+        async () => {
+          switch (job.name) {
+            case "ledger.rebuild_balances":
+              return processLedgerRebuildBalances(job);
+            case "recurrence.tick":
+              return processRecurrenceTick(job);
+            case "digest.weekly":
+              return processWeeklyDigest(job);
+            case "analytics.etl":
+              return processAnalyticsEtl(job);
+            case "analytics.threshold":
+              logger.info("analytics.threshold handled_by_api_inline", {
+                jobId: job.jobId,
+                workspaceId: job.workspaceId,
+                actorUserId: job.meta?.actorUserId ?? "",
+              });
+              return {
+                ok: true,
+                name: job.name,
+                jobId: job.jobId,
+                workspaceId: job.workspaceId,
+                result: { action: "analytics_threshold", mode: "handled_by_api_inline" },
+              };
+            case "building.charge.generate":
+              logger.info("building.charge.generate handled_by_api_inline", {
+                jobId: job.jobId,
+                workspaceId: job.workspaceId,
+                yearMonth: job.meta?.yearMonth ?? "",
+              });
+              return {
+                ok: true,
+                name: job.name,
+                jobId: job.jobId,
+                workspaceId: job.workspaceId,
+                result: { action: "building_charge_generate", mode: "handled_by_api_inline" },
+              };
+            case "assets.depreciate.monthly":
+              logger.info("assets.depreciate.monthly handled_by_api_inline", {
+                jobId: job.jobId,
+                workspaceId: job.workspaceId,
+                asOf: job.meta?.asOf ?? "",
+              });
+              return {
+                ok: true,
+                name: job.name,
+                jobId: job.jobId,
+                workspaceId: job.workspaceId,
+                result: { action: "assets_depreciate_monthly", mode: "handled_by_api_inline" },
+              };
+            case "retention.purge":
+              return processRetentionPurge(job);
+            case "report.export":
+              logger.info("Processed report.export (file generation hook ready)", {
+                jobId: job.jobId,
+                workspaceId: job.workspaceId,
+              });
+              break;
+            case "webhook.dispatch":
+              logger.info("Processed webhook.dispatch (delivery hook ready)", {
+                jobId: job.jobId,
+                workspaceId: job.workspaceId,
+              });
+              break;
+            case "ocr.receipt":
+              logger.info("OCR job consumed (provider live only with OCR_ENABLED)", {
+                jobId: job.jobId,
+                attachmentId: job.meta?.attachmentId ?? "",
+              });
+              break;
+            case "quarantine.scan":
+              logger.info("AV job consumed (ClamAV live only with CLAMAV_ENABLED)", {
+                jobId: job.jobId,
+                attachmentId: job.meta?.attachmentId ?? "",
+              });
+              break;
+            case "notify.email":
+              logger.info("Email notify job consumed (delivery via API mailer path)", {
+                jobId: job.jobId,
+              });
+              break;
+            case "notify.push":
+              logger.info("Push notify stub consumed (no push provider)", {
+                jobId: job.jobId,
+              });
+              break;
+            default:
+              logger.warn("Unknown job name", {
+                name: String(job.name),
+                jobId: job.jobId,
+              });
+          }
+        },
+      ),
+  );
 }
 
 /**
@@ -221,16 +382,23 @@ export async function processQueuedJobWithRetries(
     maxAttempts?: number;
     process?: (j: QueuedWorkerJob) => Promise<void | JobProcessResult>;
     pushDlq?: (entry: ReturnType<typeof buildDeadLetterJob>) => Promise<boolean>;
+    writeBack?: typeof writeBackJobRun;
   },
 ): Promise<"ok" | "dlq" | "dlq_push_failed"> {
   const maxAttempts = opts?.maxAttempts ?? JOB_MAX_ATTEMPTS;
   const run = opts?.process ?? processQueuedJob;
   const pushDlq = opts?.pushDlq ?? pushDeadLetter;
+  const writeBack = opts?.writeBack ?? writeBackJobRun;
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       await run(job);
+      await writeBack({
+        jobId: job.jobId,
+        workspaceId: job.workspaceId,
+        status: "completed",
+      });
       return "ok";
     } catch (err: unknown) {
       lastError = err;
@@ -248,6 +416,12 @@ export async function processQueuedJobWithRetries(
   }
 
   const entry = buildDeadLetterJob(job, lastError, maxAttempts);
+  await writeBack({
+    jobId: job.jobId,
+    workspaceId: job.workspaceId,
+    status: "failed",
+    lastError: entry.error,
+  });
   const pushed = await pushDlq(entry);
   if (!pushed) {
     logger.error("Failed to RPUSH dead-letter after retries", {

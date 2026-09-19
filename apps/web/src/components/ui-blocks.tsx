@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { StickerSvg, type StickerName } from "@/components/visual/stickers";
 import { useHubEmbed } from "@/components/mosaic/hub-embed";
 
 export function PageHeader({
@@ -43,6 +44,8 @@ export function PageHeader({
 export function SectionCard({
   title,
   badge,
+  description,
+  actions,
   children,
   delayClass,
   className = "",
@@ -51,6 +54,8 @@ export function SectionCard({
 }: {
   title: string;
   badge?: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
   children: ReactNode;
   delayClass?: string;
   className?: string;
@@ -64,16 +69,29 @@ export function SectionCard({
       className={`sectionCard card animated sectionCard--${tone} ${delayClass ?? ""} ${className}`.trim()}
     >
       <div className="sectionCardHead">
-        <b>{title}</b>
+        <div className="sectionCardHeadMain">
+          <b>{title}</b>
+          {description ? <small className="sectionCardDesc">{description}</small> : null}
+        </div>
         {badge != null ? <span className="sectionBadge">{badge}</span> : null}
+        {actions != null ? <div className="sectionCardActions">{actions}</div> : null}
       </div>
       <div className="sectionCardBody">{children}</div>
     </section>
   );
 }
 
-export function DataList({ children }: { children: ReactNode }) {
-  return <div className="dataList">{children}</div>;
+export function DataList({
+  children,
+  scroll = true,
+}: {
+  children: ReactNode;
+  /** Cap height + local scroll for lists that can grow (expenses, members, queues). */
+  scroll?: boolean;
+}) {
+  return (
+    <div className={scroll ? "dataList" : "dataList dataList--flush"}>{children}</div>
+  );
 }
 
 export function DataRow({
@@ -133,13 +151,22 @@ export function EmptyStateBlock({
   title,
   description,
   action,
+  illustration,
+  sticker = "spark",
 }: {
   title: string;
   description?: ReactNode;
   action?: ReactNode;
+  /** Optional visual accent (e.g. EmptyStateIllustration) — never used for loading. */
+  illustration?: ReactNode;
+  /** Built-in SVG sticker when illustration is omitted; null disables. */
+  sticker?: StickerName | null;
 }) {
+  const art =
+    illustration ?? (sticker ? <StickerSvg name={sticker} /> : null);
   return (
     <div className="emptyStateBlock" role="status">
+      {art ? <div className="emptyStateBlock__art">{art}</div> : null}
       <strong>{title}</strong>
       {description ? <p>{description}</p> : null}
       {action ? <div className="emptyStateBlock__action">{action}</div> : null}
@@ -155,11 +182,17 @@ export function StatusLine({ children }: { children: ReactNode }) {
 export function FormStack({
   children,
   density = "default",
+  className,
 }: {
   children: ReactNode;
   density?: "default" | "compact" | "inline";
+  className?: string;
 }) {
-  return <div className={`formStack formStack--${density}`}>{children}</div>;
+  return (
+    <div className={`formStack formStack--${density}${className ? ` ${className}` : ""}`}>
+      {children}
+    </div>
+  );
 }
 
 export function ProductGrid({ children, cols }: { children: ReactNode; cols?: 1 | 2 }) {
@@ -235,13 +268,34 @@ export function PanelList({
   children,
   footer,
   delayClass,
+  collapsible = false,
+  defaultOpen = true,
 }: {
   title: string;
   badge?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
   delayClass?: string;
+  /** Expand/collapse long panels with an internal scroll body. */
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }) {
+  if (collapsible) {
+    return (
+      <details
+        className={`panel card animated scrollDisclosure ${delayClass ?? ""}`.trim()}
+        open={defaultOpen}
+      >
+        <summary className="panelHeader">
+          <b>{title}</b>
+          {badge != null ? <span>{badge}</span> : null}
+        </summary>
+        <div className="scrollDisclosure__body tasks">{children}</div>
+        {footer}
+      </details>
+    );
+  }
+
   return (
     <section className={`panel card animated ${delayClass ?? ""}`.trim()}>
       <div className="panelHeader">

@@ -13,6 +13,7 @@ import {
   type CreateWorkspaceRequest,
   type MembershipSummary,
   type UpdateWorkspaceRequest,
+  type WorkspaceJoinPreview,
   type WorkspaceSummary,
   type WorkspaceTemplateCatalogItem,
 } from "@dang/contracts";
@@ -42,6 +43,17 @@ export class WorkspacesController {
   })
   listTemplates(): WorkspaceTemplateCatalogItem[] {
     return workspaceTemplateCatalog;
+  }
+
+  @Get("by-slug/:slug")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Preview a workspace by public group id (slug) for join requests",
+  })
+  previewBySlug(
+    @Param("slug") slug: string,
+  ): Promise<WorkspaceJoinPreview> {
+    return this.workspaces.previewBySlug(slug);
   }
 
   @Get()

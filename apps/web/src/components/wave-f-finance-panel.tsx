@@ -63,6 +63,10 @@ export function WaveFFinancePanel({
   const [budgetToman, setBudgetToman] = useState("");
   const [approvalToman, setApprovalToman] = useState("");
   const [receiptToman, setReceiptToman] = useState("");
+  const [receiptCategoryIds, setReceiptCategoryIds] = useState<string[]>([]);
+  const [requireCostCenter, setRequireCostCenter] = useState(false);
+  const [perDiemToman, setPerDiemToman] = useState("");
+  const [tiersJson, setTiersJson] = useState("");
   const [pending, startTransition] = useTransition();
 
   function reload() {
@@ -73,7 +77,7 @@ export function WaveFFinancePanel({
       flags.categoryBudget
         ? api.listCategoryBudgetUsage(workspaceId)
         : Promise.resolve([] as CategoryBudgetUsage[]),
-      flags.categoryBudget
+      flags.categoryBudget || flags.expensePolicy
         ? api.listCategories(workspaceId).catch(() => [])
         : Promise.resolve([] as Array<{ id: string; name: string }>),
       flags.expensePolicy
@@ -88,6 +92,14 @@ export function WaveFFinancePanel({
       if (pol) {
         setApprovalToman(minorToTomanField(pol.approvalThresholdMinor));
         setReceiptToman(minorToTomanField(pol.requireReceiptAboveMinor));
+        setReceiptCategoryIds(pol.requireReceiptCategoryIds ?? []);
+        setRequireCostCenter(Boolean(pol.requireCostCenter));
+        setPerDiemToman(minorToTomanField(pol.perDiemDailyMinor ?? null));
+        setTiersJson(
+          pol.approvalTiers && pol.approvalTiers.length > 0
+            ? JSON.stringify(pol.approvalTiers, null, 2)
+            : "",
+        );
       }
     });
   }
@@ -150,6 +162,8 @@ export function WaveFFinancePanel({
       approvalToman.trim() === "" ? null : tomanToMinorString(approvalToman);
     const receipt =
       receiptToman.trim() === "" ? null : tomanToMinorString(receiptToman);
+    const perDiem =
+      perDiemToman.trim() === "" ? null : tomanToMinorString(perDiemToman);
     if (approvalToman.trim() && !approval) {
       onError("آستانه تأیید نامعتبر است");
       return;
@@ -158,10 +172,34 @@ export function WaveFFinancePanel({
       onError("آستانه رسید نامعتبر است");
       return;
     }
+    if (perDiemToman.trim() && !perDiem) {
+      onError("سقف روزانه مأموریت نامعتبر است");
+      return;
+    }
+    let approvalTiers: WorkspaceExpensePolicySummary["approvalTiers"] = null;
+    if (tiersJson.trim()) {
+      try {
+        const parsed = JSON.parse(tiersJson) as unknown;
+        if (!Array.isArray(parsed)) {
+          onError("پله‌های تأیید باید آرایه JSON باشد");
+          return;
+        }
+        approvalTiers = parsed as NonNullable<
+          WorkspaceExpensePolicySummary["approvalTiers"]
+        >;
+      } catch {
+        onError("JSON پله‌های تأیید نامعتبر است");
+        return;
+      }
+    }
     run(async () => {
       await api.putExpensePolicy(workspaceId, {
         approvalThresholdMinor: approval,
         requireReceiptAboveMinor: receipt,
+        requireReceiptCategoryIds: receiptCategoryIds,
+        requireCostCenter,
+        perDiemDailyMinor: perDiem,
+        approvalTiers,
       });
     });
   }
@@ -352,6 +390,11 @@ export function WaveFFinancePanel({
             <StatusLine>
               آستانه تأیید: {approvalToman || "—"} تومان · رسید اجباری بالای:{" "}
               {receiptToman || "—"} تومان
+              {requireCostCenter ? " · مرکز هزینه اجباری" : ""}
+              {perDiemToman ? ` · سقف روزانه ${perDiemToman} تومان` : ""}
+              {receiptCategoryIds.length
+                ? ` · ${receiptCategoryIds.length} دسته با رسید اجباری`
+                : ""}
             </StatusLine>
           ) : (
             <FormStack>
@@ -365,6 +408,62 @@ export function WaveFFinancePanel({
                 value={receiptToman}
                 onChange={(e) => setReceiptToman(e.target.value)}
               />
+              <TextField
+                label="سقف روزانه مأموریت / per-diem (تومان)"
+                value={perDiemToman}
+                onChange={(e) => setPerDiemToman(e.target.value)}
+                hint="خالی = بدون سقف روزانه؛ تجاوز → صف تأیید"
+              />
+              <label className="field">
+                <input
+                  type="checkbox"
+                  checked={requireCostCenter}
+                  disabled={pending}
+                  onChange={(e) => setRequireCostCenter(e.target.checked)}
+                />{" "}
+                مرکز هزینه اجباری روی ثبت خرج
+              </label>
+              <label>
+                پله‌های تأیید (JSON اختیاری — خالی = پیش‌فرض سامانه)
+                <textarea
+                  value={tiersJson}
+                  onChange={(e) => setTiersJson(e.target.value)}
+                  rows={5}
+                  dir="ltr"
+                  placeholder='[{"minAmountMinor":"0","requiredApprovals":1},{"minAmountMinor":"10000000","requiredApprovals":2}]'
+                />
+              </label>
+              {categories.length > 0 ? (
+                <fieldset className="field">
+                  <legend>دسته‌های با رسید اجباری</legend>
+                  <div className="formStack">
+                    {categories.map((cat) => {
+                      const checked = receiptCategoryIds.includes(cat.id);
+                      return (
+                        <label key={cat.id} className="field">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={pending}
+                            onChange={() => {
+                              setReceiptCategoryIds((prev) =>
+                                checked
+                                  ? prev.filter((id) => id !== cat.id)
+                                  : [...prev, cat.id],
+                              );
+                            }}
+                          />{" "}
+                          {cat.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              ) : (
+                <StatusLine>
+                  برای اجبار رسید بر اساس دسته، ابتدا دستهٔ خرج بسازید.
+                </StatusLine>
+              )}
               <Button type="button" disabled={pending} onClick={savePolicy}>
                 ذخیره سیاست
               </Button>

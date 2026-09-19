@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { newClientId } from "@/lib/id";
 
 import { useEffect, useState, useTransition } from "react";
@@ -18,6 +19,7 @@ import type {
   WorkspaceSummary,
 } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import {
   EmptyHint,
@@ -25,22 +27,26 @@ import {
   SectionCard,
   StatusLine,
 } from "@/components/ui-blocks";
+import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
+import { useLiveInvalidation } from "@/lib/live-invalidation";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
 import { membershipRoleLabel } from "@/lib/status-labels";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
+import { FlashMessages } from "@/lib/use-flash-message";
 import { useIsNarrow } from "@/lib/use-viewport";
 import { DailyLedgerLockPanel } from "@/components/views/daily-ledger/daily-ledger-lock-panel";
 import { DailyLedgerToolbar } from "@/components/views/daily-ledger/daily-ledger-toolbar";
 import { DailyLedgerGrid } from "@/components/views/daily-ledger/daily-ledger-grid";
 import { DailyLedgerSidePanels } from "@/components/views/daily-ledger/daily-ledger-side-panels";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
+import { DailyTickPanel } from "@/components/views/daily-ledger/daily-tick-panel";
+import { CatalogPicker } from "@/components/catalog-picker";
 import {
   dayItemCount,
-  formatTomanMinor,
   rangeHeadline,
   todayIsoLocal,
   type DraftTarget,
@@ -59,7 +65,6 @@ export function DailyLedgerView() {
   const [from, setFrom] = useState(() => resolveDailyLedgerRange("week").from);
   const [to, setTo] = useState(() => resolveDailyLedgerRange("week").to);
   const [daysCount, setDaysCount] = useState(7);
-  const [showGregorian, setShowGregorian] = useState(false);
   const [ledger, setLedger] = useState<DailyLedgerResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -68,6 +73,12 @@ export function DailyLedgerView() {
   const [draftColumn, setDraftColumn] = useState<string>("shared");
   const [itemName, setItemName] = useState("");
   const [itemToman, setItemToman] = useState("");
+  const [draftCatalog, setDraftCatalog] = useState<{
+    catalogItemId: string;
+    unitCode: string;
+    quantity: number;
+    unitPriceMinor: string;
+  } | null>(null);
   const [dayNote, setDayNote] = useState<{ date: string; note: string } | null>(null);
   const [importCsv, setImportCsv] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
@@ -159,6 +170,7 @@ export function DailyLedgerView() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setDraft(null);
+        setDraftCatalog(null);
         setDayNote(null);
       }
     };
@@ -196,6 +208,13 @@ export function DailyLedgerView() {
     load();
   }, [chrome.ready, workspaceId, from, to]);
 
+  // Someone else's expense or settlement changes this grid and the balances
+  // beside it, so the server tells us to reload instead of us polling.
+  useLiveInvalidation(["expenses", "balances", "settlements"], () => {
+    if (!chrome.ready || !workspaceId) return;
+    load();
+  });
+
   function openDraft(target: DraftTarget, item?: DailyLedgerItem) {
     if (readOnly) return;
     setDraft(target);
@@ -203,6 +222,16 @@ export function DailyLedgerView() {
     setDraftColumn(target.kind === "member" ? target.userId : "shared");
     setItemName(item?.title ?? "");
     setItemToman(item ? String(Number(item.amount.amountMinor) / 10) : "");
+    setDraftCatalog(
+      item?.catalogItemId
+        ? {
+            catalogItemId: item.catalogItemId,
+            unitCode: item.unitCode ?? "piece",
+            quantity: item.quantity ?? 1,
+            unitPriceMinor: item.unitPriceMinor ?? item.amount.amountMinor,
+          }
+        : null,
+    );
   }
 
   function submitEntry() {
@@ -217,6 +246,14 @@ export function DailyLedgerView() {
       return;
     }
     const memberUserId = draftColumn === "shared" ? null : draftColumn;
+    const catalogFields = draftCatalog
+      ? {
+          catalogItemId: draftCatalog.catalogItemId,
+          unitCode: draftCatalog.unitCode,
+          quantity: draftCatalog.quantity,
+          unitPriceMinor: draftCatalog.unitPriceMinor,
+        }
+      : {};
     startTransition(() => {
       void (async () => {
         try {
@@ -227,6 +264,7 @@ export function DailyLedgerView() {
               date: draftDate,
               memberUserId,
               idempotencyKey: newClientId(),
+              ...catalogFields,
             });
           } else {
             await api.createDailyLedgerEntry(workspaceId, {
@@ -235,9 +273,11 @@ export function DailyLedgerView() {
               amount,
               memberUserId,
               idempotencyKey: newClientId(),
+              ...catalogFields,
             });
           }
           setDraft(null);
+          setDraftCatalog(null);
           setError(null);
           load();
         } catch (err: unknown) {
@@ -399,52 +439,28 @@ export function DailyLedgerView() {
   const settlementsHref = selectedWorkspace
     ? wPath(selectedWorkspace.slug, "settlements")
     : `${hubPathFor("/workspaces")}#settlement-panel`;
-  const totalItems = ledger
-    ? ledger.days.reduce((sum, day) => sum + dayItemCount(ledger, day.date), 0)
-    : 0;
 
   return (
-    <>
-      {selectedWorkspace ? (
-        <OperationsModuleHeader
-          ariaLabel="دفتر روزانه"
-          destinations={[
-            { key: "ledger", label: "دفتر روزانه", href: wPath(selectedWorkspace.slug, "ledger"), active: true },
-            { key: "expenses", label: "خرج‌ها", href: wPath(selectedWorkspace.slug, "expenses"), active: false },
-            { key: "settlements", label: "تسویه", href: wPath(selectedWorkspace.slug, "settlements"), active: false },
-            { key: "audit", label: "تاریخچه", href: wPath(selectedWorkspace.slug, "audit"), active: false },
-          ]}
-          metrics={[
-            {
-              label: "جمع بازه",
-              value: ledger ? `${formatTomanMinor(ledger.totals.grand.amountMinor)} تومان` : "—",
-              detail: ledger ? rangeHeadline(ledger.from, ledger.to, preset) : "در حال بارگذاری",
-            },
-            {
-              label: "تعداد قلم",
-              value: ledger ? new Intl.NumberFormat("fa-IR").format(totalItems) : "—",
-              detail: "از ردیف‌های واقعی دفتر",
-            },
-            {
-              label: "روز تعطیل",
-              value: ledger ? new Intl.NumberFormat("fa-IR").format(ledger.days.filter((day) => day.isHoliday).length) : "—",
-              detail: "در بازه انتخابی",
-            },
-            {
-              label: "قفل فعال",
-              value: ledger ? new Intl.NumberFormat("fa-IR").format(ledger.rangeLocks.filter((lock) => lock.active).length) : "—",
-              detail: ledger?.canManageLocks ? "قابل مدیریت با نقش جاری" : "فقط مشاهده",
-              tone: ledger?.rangeLocks.some((lock) => lock.active) ? "attention" : "neutral",
-            },
-          ]}
-          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
-          persistenceLabel={chrome.persistenceLabel}
-          pending={pending}
-          onRefresh={load}
-        />
-      ) : null}
+    <WorkspacePageFrame
+      title={NAV_LABELS.ledger}
+      description={"دفتر روزانه از خرج‌های ثبت‌شدهٔ بازه."}
+      primaryAction={selectedWorkspace ? <Link href={wPath(selectedWorkspace.slug, "expenses")}>{NAV_LABELS.addExpense}</Link> : null}
+      state="ready"
+    >
+      <>
+      <FlashMessages error={error} successMessage={info} />
       <SectionCard title="دفتر روزانه گروه" delayClass="delay1">
       <FormStack>
+        <p className="liveHint">
+          دفتر روزانه مصرف روز×عضو را ثبت می‌کند (ویرایش/حذف = برگشت دفترکل).
+          خرج‌های فرم مالی و شارژ تنخواه مسیر جدا دارند — برای شارژ صندوق گروه به{" "}
+          {selectedWorkspace ? (
+            <Link href={wPath(selectedWorkspace.slug, "payments")}>پرداخت‌ها / تنخواه</Link>
+          ) : (
+            "پرداخت‌ها"
+          )}{" "}
+          بروید؛ برای برگشت خرج ثبت‌شده از فرم، فهرست هزینه‌ها را باز کنید.
+        </p>
         {showTip ? (
           <div className="dlOnboard" role="note">
             <b>شروع سریع دفتر روزانه</b>
@@ -452,6 +468,7 @@ export function DailyLedgerView() {
               <li>با دکمه‌های ‹ › بین هفته‌های شمسی جابه‌جا شوید.</li>
               <li>روی «+ کالا» نام و مبلغ (تومان) را جدا وارد کنید.</li>
               <li>تاریخ و ستون هر قلم در فرم قابل تغییر است.</li>
+              <li>ویرایش یا حذف قلم، همان خرج را در دفترکل برگشت می‌دهد (حذف سخت نیست).</li>
             </ol>
             <Button type="button" onClick={dismissTip}>
               متوجه شدم
@@ -471,7 +488,6 @@ export function DailyLedgerView() {
             daysCount={daysCount}
             showCustomRange={showCustomRange}
             viewMode={viewMode}
-            showGregorian={showGregorian}
             pending={pending}
             hasLedger={!!ledger}
             onShiftPeriod={shiftPeriod}
@@ -492,12 +508,17 @@ export function DailyLedgerView() {
               setViewModeTouched(true);
               setViewMode(mode);
             }}
-            onToggleGregorian={() => setShowGregorian((v) => !v)}
             onExportCsv={exportCsv}
           />
 
-          {error ? <p className="liveError">{error}</p> : null}
-          {info ? <p className="liveSuccess">{info}</p> : null}
+          {error && !ledger ? (
+            <EmptyHint>
+              {error}{" "}
+              <Button type="button" variant="secondary" onClick={load} disabled={pending}>
+                تلاش دوباره
+              </Button>
+            </EmptyHint>
+          ) : null}
 
           {ledger ? (
             <div className="dlSummary" aria-label="خلاصه بازه">
@@ -526,6 +547,23 @@ export function DailyLedgerView() {
             </div>
           ) : null}
 
+          {workspaceId && selectedDate ? (
+            <DailyTickPanel
+              workspaceId={workspaceId}
+              date={selectedDate}
+              members={ledger?.members ?? []}
+              catalogEnabled={chrome.capabilities?.providers?.catalog === "catalog_v1"}
+              readOnly={readOnly}
+              pending={pending}
+              onPosted={() => {
+                setInfo("مصرف روزانه ثبت شد");
+                setError(null);
+                load();
+              }}
+              onError={(message) => setError(message)}
+            />
+          ) : null}
+
         {ledger?.canManageLocks ? (
           <DailyLedgerLockPanel
             rangeLocks={ledger.rangeLocks}
@@ -550,7 +588,9 @@ export function DailyLedgerView() {
           readOnly={readOnly}
         />
 
-        {!ledger && !error ? <EmptyHint loading>در حال بارگذاری دفتر…</EmptyHint> : null}
+        {!ledger && !error ? (
+          <ContentSkeleton rows={4} label="در حال بارگذاری دفتر…" />
+        ) : null}
 
         {ledger ? (
           <>
@@ -603,7 +643,6 @@ export function DailyLedgerView() {
               <DailyLedgerGrid
                 ledger={ledger}
                 viewMode={viewMode}
-                showGregorian={showGregorian}
                 todayIso={todayIso}
                 pending={pending}
                 readOnly={readOnly}
@@ -620,7 +659,6 @@ export function DailyLedgerView() {
                     <header>
                       <span>روز انتخاب‌شده</span>
                       <h3>{formatJalaliIso(selectedDay.date)}</h3>
-                      <small>{selectedDay.date}</small>
                     </header>
                     <dl>
                       <div>
@@ -695,9 +733,34 @@ export function DailyLedgerView() {
               <TextField
                 label="نام کالا"
                 value={itemName}
-                onChange={(e) => setItemName(e.target.value)}
+                onChange={(e) => {
+                  setItemName(e.target.value);
+                  setDraftCatalog(null);
+                }}
                 placeholder="مثلاً لیموناد بطری"
               />
+              {workspaceId && chrome.capabilities?.providers?.catalog === "catalog_v1" ? (
+                <CatalogPicker
+                  workspaceId={workspaceId}
+                  enabled
+                  label="انتخاب از کاتالوگ"
+                  onSelect={(sel) => {
+                    setItemName(sel.title);
+                    setItemToman(String(Number(sel.amountMinor) / 10));
+                    setDraftCatalog({
+                      catalogItemId: sel.catalogItemId,
+                      unitCode: sel.unitCode,
+                      quantity: sel.quantity,
+                      unitPriceMinor: sel.unitPriceMinor,
+                    });
+                  }}
+                />
+              ) : null}
+              {draftCatalog ? (
+                <StatusLine>
+                  کاتالوگ · {draftCatalog.unitCode} · تعداد {draftCatalog.quantity}
+                </StatusLine>
+              ) : null}
               <TextField
                 label="مبلغ (تومان)"
                 value={itemToman}
@@ -708,7 +771,13 @@ export function DailyLedgerView() {
                 <Button type="button" onClick={submitEntry} disabled={pending}>
                   {draft.expenseId ? "ذخیره" : "ثبت"}
                 </Button>
-                <Button type="button" onClick={() => setDraft(null)}>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setDraft(null);
+                    setDraftCatalog(null);
+                  }}
+                >
                   انصراف
                 </Button>
               </div>
@@ -745,5 +814,6 @@ export function DailyLedgerView() {
       </FormStack>
       </SectionCard>
     </>
+    </WorkspacePageFrame>
   );
 }

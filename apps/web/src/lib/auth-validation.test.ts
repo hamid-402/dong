@@ -24,7 +24,8 @@ describe("auth-validation", () => {
   });
 
   it("validateRegisterInput aggregates", () => {
-    expect(validateRegisterInput("a@b.co", "StrongPass1", "Ali")).toBeNull();
-    expect(validateRegisterInput("a@b.co", "StrongPass1", "")).toMatch(/نام/);
+    expect(validateRegisterInput("a@b.co", "StrongPass1", "Ali", "ali.user")).toBeNull();
+    expect(validateRegisterInput("a@b.co", "StrongPass1", "", "ali.user")).toMatch(/نام/);
+    expect(validateRegisterInput("a@b.co", "StrongPass1", "Ali", "ab")).toMatch(/۳/);
   });
 });

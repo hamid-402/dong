@@ -1,5 +1,6 @@
 import type { Money } from "./money.js";
-import type { ExpenseSummary } from "./finance.js";
+import type { CatalogFrequentItem, CatalogPin } from "./catalog.js";
+import type { CatalogLineFields, ExpenseSummary } from "./finance.js";
 import { irrMoney, zeroIrr } from "./personal-finance.js";
 
 export type DailyLedgerRangePreset =
@@ -10,7 +11,7 @@ export type DailyLedgerRangePreset =
   | "year"
   | "custom";
 
-export type DailyLedgerItem = {
+export type DailyLedgerItem = CatalogLineFields & {
   expenseId: string;
   title: string;
   amount: Money;
@@ -102,7 +103,7 @@ export type WorkspaceRangeLockSummary = {
   active: boolean;
 };
 
-export type CreateDailyLedgerEntryRequest = {
+export type CreateDailyLedgerEntryRequest = CatalogLineFields & {
   /** YYYY-MM-DD */
   date: string;
   /** Item name (separate from amount). */
@@ -116,7 +117,41 @@ export type CreateDailyLedgerEntryRequest = {
   idempotencyKey: string;
 };
 
-export type UpdateDailyLedgerEntryRequest = {
+/** One line in a batch day post — shared (equal) or personal (S11-07). */
+export type LedgerDayLineInput = CatalogLineFields & {
+  itemName: string;
+  amount: Money;
+  /**
+   * null/omit = shared equal-split column; set = that member’s personal column.
+   */
+  memberUserId?: string | null;
+};
+
+/** POST /workspaces/:id/ledger/day — shared + personal lines in one request. */
+export type PostLedgerDayRequest = {
+  date: string;
+  idempotencyKey: string;
+  lines: LedgerDayLineInput[];
+};
+
+export type DailyLedgerTemplateYesterdayLine = CatalogLineFields & {
+  itemName: string;
+  amount: Money;
+  memberUserId?: string | null;
+};
+
+/**
+ * GET /workspaces/:id/ledger/day/:date/template
+ * Frequent items and yesterday lines come from real usage only — empty when none.
+ */
+export type DailyLedgerDayTemplateResponse = {
+  date: string;
+  frequentItems: CatalogFrequentItem[];
+  pins: CatalogPin[];
+  yesterdayLines: DailyLedgerTemplateYesterdayLine[];
+};
+
+export type UpdateDailyLedgerEntryRequest = CatalogLineFields & {
   itemName: string;
   amount: Money;
   idempotencyKey: string;
@@ -262,6 +297,46 @@ export function parseIsoToJalali(isoDate: string): { jy: number; jm: number; jd:
   const gd = Number(ds);
   if (!gy || !gm || !gd) return null;
   return gregorianToJalali(gy, gm, gd);
+}
+
+/**
+ * Jalali civil year-month keys use years 1300–1699 so they never collide with
+ * Gregorian 19xx/20xx budget keys still accepted for backward compatibility.
+ */
+export function isJalaliYearMonthKey(yearMonth: string): boolean {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(yearMonth)) return false;
+  const y = Number(yearMonth.slice(0, 4));
+  return y >= 1300 && y <= 1699;
+}
+
+/** ISO Gregorian date → Jalali `YYYY-MM` (e.g. 2026-09-19 → 1405-06). */
+export function jalaliYearMonthFromIsoDate(isoDate: string): string | null {
+  const j = parseIsoToJalali(isoDate.slice(0, 10));
+  if (!j) return null;
+  return `${j.jy}-${String(j.jm).padStart(2, "0")}`;
+}
+
+export function currentJalaliYearMonth(now = new Date()): string {
+  const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const key = jalaliYearMonthFromIsoDate(iso);
+  if (!key) throw new Error("JALALI_YEAR_MONTH");
+  return key;
+}
+
+/** Inclusive Gregorian ISO bounds covering a Jalali year-month. */
+export function jalaliYearMonthDateBounds(yearMonth: string): {
+  from: string;
+  to: string;
+} {
+  if (!isJalaliYearMonthKey(yearMonth)) throw new Error("YEAR_MONTH");
+  const [yRaw, mRaw] = yearMonth.split("-").map(Number);
+  const jy = yRaw!;
+  const jm = mRaw!;
+  const last = jalaliMonthLength(jy, jm);
+  return {
+    from: isoFromJalali(jy, jm, 1),
+    to: isoFromJalali(jy, jm, last),
+  };
 }
 
 function csvEscape(value: string): string {
@@ -535,6 +610,10 @@ export function buildDailyLedgerMatrix(input: {
     | "splits"
     | "participantUserIds"
     | "source"
+    | "catalogItemId"
+    | "unitCode"
+    | "quantity"
+    | "unitPriceMinor"
   >[];
   dayMeta: readonly { date: string; isHoliday: boolean; note?: string }[];
   /** Active locks overlapping the range (optional). */
@@ -582,6 +661,10 @@ export function buildDailyLedgerMatrix(input: {
       amount: expense.total,
       visibility: expense.visibility,
       status: expense.status,
+      catalogItemId: expense.catalogItemId,
+      unitCode: expense.unitCode,
+      quantity: expense.quantity,
+      unitPriceMinor: expense.unitPriceMinor,
     };
 
     const isSharedBucket =

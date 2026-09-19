@@ -1,5 +1,7 @@
+import type { AppDatabase } from "@dang/db";
 import {
   allocateExpenseSplit,
+  assertAmountMatchesQuantity,
   moneySchema,
   normalizePaymentLines,
   type CreateExpenseDraftRequest,
@@ -17,10 +19,16 @@ export type StoredExpense = ExpenseSummary & {
   createdByUserId: string;
 };
 
-export type ExpenseViewOptions = { viewAllPrivate?: boolean };
+export type ExpenseViewOptions = {
+  viewAllPrivate?: boolean;
+  /** Join an outer tenant transaction (postgres orchestration). */
+  tx?: AppDatabase;
+};
 
 export type ExpenseStore = {
   readonly persistence: "memory" | "postgres";
+  /** Shared drizzle handle when persistence is postgres. */
+  readonly db?: AppDatabase;
   createDraft(
     actorUserId: string,
     input: CreateExpenseDraftRequest,
@@ -60,6 +68,15 @@ export type ExpenseStore = {
     actorUserId: string,
     options?: ExpenseViewOptions,
   ): Promise<StoredExpense>;
+  /**
+   * Memory compensating write after journal failure (no lifecycle checks).
+   * Postgres paths rely on transaction rollback instead.
+   */
+  compensateStatus?(
+    workspaceId: string,
+    expenseId: string,
+    status: ExpenseStatus,
+  ): Promise<void>;
   updateVisibility?(
     workspaceId: string,
     expenseId: string,
@@ -67,6 +84,15 @@ export type ExpenseStore = {
     actorUserId: string,
     options?: ExpenseViewOptions,
   ): Promise<StoredExpense>;
+  /**
+   * Remap a participant/payer user id across all workspace expenses (guest claim).
+   * Returns number of expenses touched.
+   */
+  remapUserId?(
+    workspaceId: string,
+    fromUserId: string,
+    toUserId: string,
+  ): Promise<number>;
 };
 
 export const EXPENSE_STORE = Symbol("EXPENSE_STORE");
@@ -88,8 +114,15 @@ export function validateExpenseDraftInput(input: CreateExpenseDraftRequest): {
   if (!input.title?.trim() || input.title.trim().length > 120) {
     throw new Error("EXPENSE_TITLE");
   }
-  if (input.splitMethod !== "itemized" && !input.participantUserIds?.length) {
+  if (
+    input.splitMethod !== "itemized" &&
+    input.splitMethod !== "formula" &&
+    !input.participantUserIds?.length
+  ) {
     throw new Error("EXPENSE_PARTICIPANTS");
+  }
+  if (input.splitMethod === "formula" && !input.formulaWeights?.length) {
+    throw new Error("EXPENSE_SPLIT_FORMULA");
   }
   if (!input.idempotencyKey?.trim()) {
     throw new Error("EXPENSE_IDEMPOTENCY");
@@ -102,6 +135,26 @@ export function validateExpenseDraftInput(input: CreateExpenseDraftRequest): {
   }
   if ((input.originalCurrency === undefined) !== (input.originalAmountMinor === undefined)) {
     throw new Error("EXPENSE_ORIGINAL_MONEY");
+  }
+
+  try {
+    assertAmountMatchesQuantity({
+      amountMinor: input.total.amountMinor,
+      quantity: input.quantity,
+      unitPriceMinor: input.unitPriceMinor,
+    });
+    for (const item of input.items ?? []) {
+      assertAmountMatchesQuantity({
+        amountMinor: item.amount.amountMinor,
+        quantity: item.quantity,
+        unitPriceMinor: item.unitPriceMinor,
+      });
+    }
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message === "AMOUNT_MISMATCH") {
+      throw error;
+    }
+    throw error;
   }
 
   let paymentLines: ExpensePaymentLine[];
@@ -131,6 +184,7 @@ export function validateExpenseDraftInput(input: CreateExpenseDraftRequest): {
         splitMethod: input.splitMethod,
         participantUserIds,
         splitLines: input.splitLines,
+        formulaWeights: input.formulaWeights,
       });
     }
     paymentLines = normalizePaymentLines(
@@ -155,6 +209,7 @@ export function validateExpenseDraftInput(input: CreateExpenseDraftRequest): {
         SPLIT_ITEM_TITLE: "EXPENSE_SPLIT_ITEMS",
         SPLIT_ITEM_ASSIGNEES: "EXPENSE_SPLIT_ITEMS",
         SPLIT_DISCOUNT: "EXPENSE_SPLIT_ITEMS",
+        SPLIT_FORMULA: "EXPENSE_SPLIT_FORMULA",
         PAYMENT_AMOUNT: "EXPENSE_PAYMENT_AMOUNT",
         PAYMENT_SUM: "EXPENSE_PAYMENT_SUM",
       };
@@ -203,10 +258,19 @@ export function toExpenseSummary(expense: StoredExpense): ExpenseSummary {
     approvedAt: expense.approvedAt,
     occurredOn: expense.occurredOn,
     createdAt: expense.createdAt,
+    createdByUserId: expense.createdByUserId,
     source: expense.source === "daily_ledger" ? "daily_ledger" : undefined,
     originalCurrency: expense.originalCurrency,
     originalAmountMinor: expense.originalAmountMinor,
     fxRateId: expense.fxRateId,
+    catalogItemId: expense.catalogItemId,
+    unitCode: expense.unitCode,
+    quantity: expense.quantity,
+    unitPriceMinor: expense.unitPriceMinor,
+    fundingSourceKind: expense.fundingSourceKind,
+    fundingRefId: expense.fundingRefId,
+    missionKind: expense.missionKind,
+    note: expense.note,
   };
 }
 

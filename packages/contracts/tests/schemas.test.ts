@@ -57,6 +57,52 @@ test("createExpenseDraftSchema accepts equal split draft", () => {
   assert.equal(result.success, true);
 });
 
+test("createExpenseDraftSchema rejects AMOUNT_MISMATCH on catalog line", () => {
+  const result = createExpenseDraftSchema.safeParse({
+    ...baseDraft,
+    splitMethod: "itemized",
+    participantUserIds: [],
+    items: [
+      {
+        title: "نوشابه",
+        amount: { amountMinor: "100000", currency: "IRR" },
+        assigneeUserIds: ["alice"],
+        catalogItemId: "item-1",
+        unitCode: "piece",
+        quantity: 2,
+        unitPriceMinor: "300000",
+      },
+    ],
+    total: { amountMinor: "600000", currency: "IRR" },
+  });
+  assert.equal(result.success, false);
+  if (!result.success) {
+    const messages = result.error.issues.map((i) => i.message);
+    assert.ok(messages.includes("AMOUNT_MISMATCH"));
+  }
+});
+
+test("createExpenseDraftSchema accepts matching catalog quantity × price", () => {
+  const result = createExpenseDraftSchema.safeParse({
+    ...baseDraft,
+    splitMethod: "itemized",
+    participantUserIds: [],
+    items: [
+      {
+        title: "نوشابه",
+        amount: { amountMinor: "600000", currency: "IRR" },
+        assigneeUserIds: ["alice"],
+        catalogItemId: "item-1",
+        unitCode: "piece",
+        quantity: 2,
+        unitPriceMinor: "300000",
+      },
+    ],
+    total: { amountMinor: "600000", currency: "IRR" },
+  });
+  assert.equal(result.success, true);
+});
+
 test("previewExpenseSplitSchema rejects empty participants for equal", () => {
   const result = previewExpenseSplitSchema.safeParse({
     total: { amountMinor: "100", currency: "IRR" },

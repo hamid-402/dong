@@ -8,9 +8,11 @@ import {
 import {
   assertReportCategoriesSeparated,
   buildMemberReportExport,
+  type AgreedPriceSummary,
   type AgreementSummary,
   type AuthActor,
   type ContributionSummary,
+  type CreateAgreedPriceRequest,
   type CreateAgreementRequest,
   type CreatePeriodLockRequest,
   type MemberAccountReport,
@@ -23,6 +25,7 @@ import {
   type ReportExportPayload,
   type WithdrawalSummary,
 } from "@dang/contracts";
+import { PARTNERSHIP_MANAGER_ROLES, roleInSet } from "@dang/contracts";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { PARTNERSHIP_STORE, type PartnershipStore } from "./partnership.types.js";
 
@@ -45,6 +48,47 @@ export class PartnershipService {
   async listAgreements(actor: AuthActor, workspaceId: string): Promise<AgreementSummary[]> {
     await this.requireMember(workspaceId, actor.userId);
     return this.store.listAgreements(workspaceId);
+  }
+
+  async createAgreedPrice(
+    actor: AuthActor,
+    workspaceId: string,
+    agreementId: string,
+    body: CreateAgreedPriceRequest,
+  ): Promise<AgreedPriceSummary> {
+    await this.requireFinance(workspaceId, actor.userId);
+    if (BigInt(body.amount.amountMinor) <= 0n) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "Agreed price must be positive",
+        status: 400,
+      });
+    }
+    try {
+      return await this.store.createAgreedPrice({
+        ...body,
+        workspaceId,
+        agreementId,
+      });
+    } catch (error: unknown) {
+      this.rethrow(error);
+    }
+  }
+
+  async listAgreedPrices(
+    actor: AuthActor,
+    workspaceId: string,
+    agreementId: string,
+  ): Promise<AgreedPriceSummary[]> {
+    await this.requireMember(workspaceId, actor.userId);
+    if (!(await this.store.getAgreement(workspaceId, agreementId))) {
+      throw new NotFoundException({
+        type: "https://dang.local/problems/not-found",
+        title: "Agreement not found",
+        status: 404,
+      });
+    }
+    return this.store.listAgreedPrices(workspaceId, agreementId);
   }
 
   async recordContribution(
@@ -218,7 +262,7 @@ export class PartnershipService {
   private async requireFinance(workspaceId: string, userId: string): Promise<void> {
     const members = await this.iam.listMembers(workspaceId, userId);
     const self = members?.find((m) => m.userId === userId);
-    if (!self || !["owner", "admin", "finance"].includes(self.role)) {
+    if (!self || !roleInSet(self.role, PARTNERSHIP_MANAGER_ROLES)) {
       throw new ForbiddenException({
         type: "https://dang.local/problems/forbidden",
         title: "Finance role required",

@@ -3,25 +3,23 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type { MembershipSummary } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
-import { EmptyHint, SectionCard, StatusPill } from "@/components/ui-blocks";
+import { EmptyHint, SectionCard, StatusLine, StatusPill } from "@/components/ui-blocks";
+import { ContentSkeleton } from "@/components/shell/content-skeleton";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { useWorkspaceScope } from "@/components/shell/workspace-scope";
 import { api, type AuditEventDto } from "@/lib/api";
+import { friendlyErrorMessage } from "@/lib/api-errors";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { FlashMessages } from "@/lib/use-flash-message";
-import { membershipRoleLabel } from "@/lib/status-labels";
-import { wPath } from "@/lib/workspace-paths";
+import { NAV_LABELS } from "@/lib/nav-labels";
+import { t } from "@/lib/i18n";
+import { formatFaDateTime } from "@/lib/fa-datetime";
 import styles from "./audit.module.css";
 
 type ResultFilter = "all" | AuditEventDto["result"];
 
 function formatTimestamp(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("fa-IR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatFaDateTime(value);
 }
 
 function resultLabel(result: AuditEventDto["result"]): string {
@@ -68,7 +66,7 @@ export default function WorkspaceAuditPage() {
           setError(null);
         })
         .catch((reason: unknown) => {
-          setError(reason instanceof Error ? reason.message : "بارگذاری تاریخچه ناموفق بود");
+          setError(friendlyErrorMessage(reason, "بارگذاری تاریخچه ناموفق بود"));
         });
     });
   }
@@ -97,53 +95,47 @@ export default function WorkspaceAuditPage() {
     });
   }, [events, memberNames, query, resultFilter]);
   const selected = events.find((event) => event.id === selectedId) ?? null;
-  const myRole = members.find((member) => member.userId === chrome.actor?.userId)?.role ?? null;
-  const successfulCount = events.filter((event) => event.result === "success").length;
-  const deniedCount = events.filter((event) => event.result === "denied").length;
-  const actorCount = new Set(events.map((event) => event.actorUserId).filter(Boolean)).size;
 
   return (
-    <div>
-      <OperationsModuleHeader
-        ariaLabel="تاریخچه عملیات فضای کاری"
-        destinations={[
-          { key: "audit", label: "تاریخچه", href: wPath(scope.slug, "audit"), active: true },
-          { key: "settings", label: "تنظیمات", href: wPath(scope.slug, "settings"), active: false },
-          { key: "members", label: "اعضا", href: wPath(scope.slug, "members"), active: false },
-          { key: "metrics", label: "متریک محصول", href: wPath(scope.slug, "metrics"), active: false },
-        ]}
-        metrics={[
-          {
-            label: "کل رخداد",
-            value: pending && events.length === 0 ? "—" : new Intl.NumberFormat("fa-IR").format(events.length),
-            detail: "از audit store",
-          },
-          {
-            label: "موفق",
-            value: pending && events.length === 0 ? "—" : new Intl.NumberFormat("fa-IR").format(successfulCount),
-            tone: "positive",
-          },
-          {
-            label: "رد دسترسی",
-            value: pending && events.length === 0 ? "—" : new Intl.NumberFormat("fa-IR").format(deniedCount),
-            tone: deniedCount ? "attention" : "neutral",
-          },
-          {
-            label: "عامل ثبت‌شده",
-            value: pending && events.length === 0 ? "—" : new Intl.NumberFormat("fa-IR").format(actorCount),
-            detail: "شناسه‌های یکتای واقعی",
-          },
-        ]}
-        roleLabel={myRole ? membershipRoleLabel(myRole) : null}
-        persistenceLabel={chrome.persistenceLabel}
-        pending={pending}
-        onRefresh={refresh}
-      />
+    <WorkspacePageFrame
+      title={NAV_LABELS.audit}
+      description="رخدادهای واقعی audit همین فضا — فیلتر و جزئیات بدون دادهٔ نمایشی."
+      primaryAction={
+        <Button type="button" onClick={refresh} disabled={pending || !scope.workspaceId}>
+          {pending ? "در حال همگام‌سازی…" : "تازه‌سازی"}
+        </Button>
+      }
+      state={
+        !scope.workspaceId
+          ? "empty"
+          : pending && events.length === 0
+            ? "loading"
+            : error && events.length === 0
+              ? "error"
+              : "ready"
+      }
+      loadingLabel="در حال بارگذاری رخدادها…"
+      skeletonRows={4}
+      empty={<EmptyHint>فضای کاری را انتخاب کنید.</EmptyHint>}
+      error={
+        <StatusLine>
+          {error}{" "}
+          <Button type="button" variant="secondary" onClick={refresh} disabled={pending}>
+            تلاش دوباره
+          </Button>
+        </StatusLine>
+      }
+    >
       <FlashMessages error={error} />
+      {chrome.capabilities ? (
+        <StatusLine>
+          {t("audit.integrityHint", {
+            mode: chrome.capabilities.providers?.auditIntegrity ?? "—",
+          })}
+        </StatusLine>
+      ) : null}
 
-      {!scope.workspaceId ? (
-        <EmptyHint>فضای کاری را انتخاب کنید.</EmptyHint>
-      ) : (
+      {scope.workspaceId ? (
       <SectionCard title="جستجو و بازبینی رخدادها">
         <div className={styles.filters}>
           <TextField
@@ -167,7 +159,9 @@ export default function WorkspaceAuditPage() {
 
         <div className={styles.masterDetail}>
           <div className={styles.eventList} aria-label="فهرست رخدادهای audit">
-            {filtered.length ? (
+            {pending && events.length === 0 ? (
+              <ContentSkeleton rows={4} label="در حال بارگذاری رخدادها…" />
+            ) : filtered.length ? (
               filtered.map((event) => (
                 <article
                   key={event.id}
@@ -200,9 +194,7 @@ export default function WorkspaceAuditPage() {
                 </article>
               ))
             ) : (
-              <p className="liveHint">
-                {pending ? "در حال بارگذاری رخدادها…" : "رخدادی مطابق این فیلتر ثبت نشده است."}
-              </p>
+              <EmptyHint>رخدادی مطابق این فیلتر ثبت نشده است.</EmptyHint>
             )}
           </div>
 
@@ -240,12 +232,12 @@ export default function WorkspaceAuditPage() {
                 </section>
               </>
             ) : (
-              <p className="liveHint">برای مشاهده جزئیات، یک رخداد را انتخاب کنید.</p>
+              <EmptyHint>برای مشاهده جزئیات، یک رخداد را انتخاب کنید.</EmptyHint>
             )}
           </aside>
         </div>
       </SectionCard>
-      )}
-    </div>
+      ) : null}
+    </WorkspacePageFrame>
   );
 }

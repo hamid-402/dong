@@ -6,6 +6,8 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import type {
+  AssetDepreciationReportRow,
+  AssetLifecycleRequest,
   AssetSummary,
   AssignAssetRequest,
   AuthActor,
@@ -14,6 +16,7 @@ import type {
   ReturnAssetRequest,
   TransferAssetRequest,
 } from "@dang/contracts";
+import { ASSET_MANAGER_ROLES, roleInSet } from "@dang/contracts";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import {
   PROCUREMENT_STORE,
@@ -99,6 +102,60 @@ export class AssetsService {
     }
   }
 
+  async markRepair(
+    actor: AuthActor,
+    workspaceId: string,
+    body: AssetLifecycleRequest,
+  ): Promise<AssetSummary> {
+    await this.requireCustodianRole(workspaceId, actor.userId);
+    try {
+      return await this.store.markRepair(workspaceId, { ...body, workspaceId });
+    } catch (error: unknown) {
+      this.rethrowAssetError(error);
+    }
+  }
+
+  async resumeActive(
+    actor: AuthActor,
+    workspaceId: string,
+    body: AssetLifecycleRequest,
+  ): Promise<AssetSummary> {
+    await this.requireCustodianRole(workspaceId, actor.userId);
+    try {
+      return await this.store.resumeActive(workspaceId, { ...body, workspaceId });
+    } catch (error: unknown) {
+      this.rethrowAssetError(error);
+    }
+  }
+
+  async retire(
+    actor: AuthActor,
+    workspaceId: string,
+    body: AssetLifecycleRequest,
+  ): Promise<AssetSummary> {
+    await this.requireCustodianRole(workspaceId, actor.userId);
+    try {
+      return await this.store.retire(workspaceId, { ...body, workspaceId });
+    } catch (error: unknown) {
+      this.rethrowAssetError(error);
+    }
+  }
+
+  async depreciationReport(
+    actor: AuthActor,
+    workspaceId: string,
+  ): Promise<AssetDepreciationReportRow[]> {
+    await this.requireMember(workspaceId, actor.userId);
+    return this.store.depreciationReport(workspaceId);
+  }
+
+  async runMonthlyDepreciation(
+    workspaceId: string,
+    asOfIso: string,
+  ): Promise<{ updated: number; skipped: number }> {
+    return this.store.runMonthlyDepreciation(workspaceId, asOfIso);
+  }
+
   private rethrowAssetError(error: unknown): never {
     if (error instanceof Error) {
       if (error.message === "DELIVERY_NOT_FOUND" || error.message === "ASSET_NOT_FOUND") {
@@ -135,7 +192,7 @@ export class AssetsService {
     const self = members?.find((m) => m.userId === userId);
     if (
       !self ||
-      !["owner", "admin", "buyer", "asset_custodian"].includes(self.role)
+      !roleInSet(self.role, ASSET_MANAGER_ROLES)
     ) {
       throw new ForbiddenException({
         type: "https://dang.local/problems/forbidden",

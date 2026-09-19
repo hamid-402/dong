@@ -7,7 +7,25 @@ export type WorkerJobName =
   | "webhook.dispatch"
   | "ledger.rebuild_balances"
   | "recurrence.tick"
-  | "digest.weekly";
+  | "digest.weekly"
+  | "analytics.etl"
+  /** Sweeps personal spending alerts and fires in-app/email notifications. */
+  | "analytics.threshold"
+  | "retention.purge"
+  /** Opens the next cadence period for auto-rollover periods that ended. */
+  | "billing.period.rollover"
+  /** Proves ledger debt and live invoice totals still agree. */
+  | "billing.invoice.reconcile"
+  /** Reminds finance managers before a period ends (issuing stays manual). */
+  | "billing.period.finalize.reminder"
+  /** Monthly per-unit building charge drafts (G08 — runs inline in API). */
+  | "building.charge.generate"
+  /** Remind inviters about pending invites nearing expiry (G09 #52). */
+  | "invite.remind"
+  /** Scheduled settlement debt reminders (G11 #4 — runs inline in API). */
+  | "settle.remind"
+  /** Monthly straight-line asset depreciation (G10 — runs inline in API). */
+  | "assets.depreciate.monthly";
 
 /** Body for POST …/jobs (dev in-process runner). */
 export type RunJobRequest = {
@@ -36,6 +54,9 @@ export type QueuedWorkerJob = {
   workspaceId: string;
   meta?: Record<string, string>;
   enqueuedAt: string;
+  /** Correlation from API enqueue (R10-01). */
+  requestId?: string;
+  traceId?: string;
 };
 
 /** Payload written to `DANG_JOB_DLQ_KEY` after process retries are exhausted. */

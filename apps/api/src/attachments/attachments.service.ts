@@ -153,7 +153,7 @@ export class AttachmentsService {
       fileName: attachment.fileName,
     });
     const blob = await this.blobs.read(workspaceId, attachmentId);
-    return runReceiptOcr({
+    const result = await runReceiptOcr({
       attachmentId,
       workspaceId,
       jobId: job.jobId,
@@ -161,6 +161,8 @@ export class AttachmentsService {
       mimeType: attachment.mimeType,
       bytes: blob ?? undefined,
     });
+    await this.attachments.saveOcrResult(workspaceId, attachmentId, result);
+    return result;
   }
 
   async uploadContent(

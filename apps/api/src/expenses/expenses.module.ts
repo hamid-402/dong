@@ -1,21 +1,32 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { loadAppEnv } from "@dang/config";
 import { createLogger } from "@dang/observability";
 import { AuthModule } from "../auth/auth.module.js";
-import { AttachmentsModule } from "../attachments/attachments.module.js";
 import { ApprovalStepsModule } from "../approval-steps/approval-steps.module.js";
 import { createPersistenceStore } from "../common/postgres-store.factory.js";
 import { IamModule } from "../iam/iam.module.js";
 import { ExpensePolicyModule } from "../expense-policy/expense-policy.module.js";
 import { LedgerModule } from "../ledger/ledger.module.js";
+import { MakerCheckerModule } from "../maker-checker/maker-checker.module.js";
 import { ProcurementModule } from "../procurement/procurement.module.js";
+import { CatalogModule } from "../catalog/catalog.module.js";
+import { SubunitsModule } from "../subunits/subunits.module.js";
 import { DailyLedgerController } from "./daily-ledger.controller.js";
+import { LedgerDayController } from "./ledger-day.controller.js";
 import { DailyLedgerService } from "./daily-ledger.service.js";
 import { EXPENSE_STORE, type ExpenseStore } from "./expense.types.js";
 import { ExpensesController } from "./expenses.controller.js";
 import { ExpensesService } from "./expenses.service.js";
 import { MemoryExpenseStore } from "./memory-expense.store.js";
 import { PostgresExpenseStore } from "./postgres-expense.store.js";
+import { ExpenseTagsController } from "./expense-tags.controller.js";
+import { ExpenseTagsService } from "./expense-tags.service.js";
+import {
+  EXPENSE_TAGS_STORE,
+  MemoryExpenseTagsStore,
+  type ExpenseTagsStore,
+} from "./expense-tags.store.js";
+import { PostgresExpenseTagsStore } from "./postgres-expense-tags.store.js";
 import {
   MemberSharesController,
   OutingsController,
@@ -47,6 +58,17 @@ export function createExpenseStore(): ExpenseStore {
   });
 }
 
+function createExpenseTagsStore(): ExpenseTagsStore {
+  const env = loadAppEnv();
+  return createPersistenceStore<ExpenseTagsStore>({
+    name: "expense tags store",
+    databaseUrl: env.databaseUrl,
+    logger,
+    createPostgres: (url) => PostgresExpenseTagsStore.fromConnectionString(url),
+    createMemory: () => new MemoryExpenseTagsStore(),
+  });
+}
+
 function createWorkspaceDayStore(): WorkspaceDayStore {
   const env = loadAppEnv();
   return createPersistenceStore<WorkspaceDayStore>({
@@ -75,23 +97,32 @@ function createWorkspaceRangeLockStore(): WorkspaceRangeLockStore {
     AuthModule,
     LedgerModule,
     IamModule,
-    ProcurementModule,
+    forwardRef(() => ProcurementModule),
     ExpensePolicyModule,
-    AttachmentsModule,
     ApprovalStepsModule,
+    MakerCheckerModule,
+    CatalogModule,
+    SubunitsModule,
   ],
   controllers: [
     ExpensesController,
+    ExpenseTagsController,
     OutingsController,
     MemberSharesController,
     DailyLedgerController,
+    LedgerDayController,
   ],
   providers: [
     ExpensesService,
+    ExpenseTagsService,
     DailyLedgerService,
     {
       provide: EXPENSE_STORE,
       useFactory: createExpenseStore,
+    },
+    {
+      provide: EXPENSE_TAGS_STORE,
+      useFactory: createExpenseTagsStore,
     },
     {
       provide: OUTING_STORE,
@@ -108,7 +139,9 @@ function createWorkspaceRangeLockStore(): WorkspaceRangeLockStore {
   ],
   exports: [
     ExpensesService,
+    ExpenseTagsService,
     EXPENSE_STORE,
+    EXPENSE_TAGS_STORE,
     OUTING_STORE,
     WORKSPACE_DAY_STORE,
     WORKSPACE_RANGE_LOCK_STORE,

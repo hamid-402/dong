@@ -3,6 +3,9 @@
 مبنای کنترل: OWASP ASVS سطح ۲، کنترل‌های منتخب سطح ۳ برای مدیریت Tenant، عملیات
 مالی، Export و Admin، به‌همراه OWASP API Security Top 10 و NIST SSDF.
 
+بستهٔ شواهد کنترل→کد: [`docs/security/ASVS-L2-EVIDENCE.md`](./security/ASVS-L2-EVIDENCE.md).
+DAST: [`docs/ops/DAST-ZAP.md`](./ops/DAST-ZAP.md).
+
 ## 1. Threat Model پایه
 
 تهدیدهای اولویت‌دار:
@@ -33,12 +36,14 @@ Production Data وارد Development نمی‌شود. داده Test مصنوعی
 - OIDC استاندارد؛ Token سفارشی ممنوع
 - Passkey/WebAuthn ترجیحی و TOTP جایگزین
 - SMS فقط OTP/Recovery کم‌اعتماد
-- **MFA (TOTP) برای Owner/Admin/Finance:** پیاده‌سازی شده — لاگین با رمز سپس چالش MFA قبل از کوکی نشست؛ کدهای بازیابی یک‌بارمصرف و Hash‌شده (SHA-256). نقش‌های حساس بدون MFA همچنان نشست می‌گیرند ولی `profile.mfaEnrollmentRequired=true` برمی‌گردد (مسدودسازی عملیات حساس می‌تواند در مراحل بعد روی همین پرچم بنا شود). `totp_secret` فعلاً base32 در DB (مناسب local؛ در production ترجیح KMS/AEAD)
+- **MFA (TOTP) برای Owner/Admin/Finance در فضاهای غیرشخصی و نقش‌های platform:** پیاده‌سازی شده — لاگین با رمز سپس چالش MFA قبل از کوکی نشست وقتی TOTP فعال است؛ برای نقش‌های حساس بدون MFA، `profile.mfaEnrollmentRequired=true` و **مسدودسازی سخت** عملیات مالی/حساس با `assertMfaEnrolledForSensitiveAction`. مالک فقط-شخصی برای ثبت‌نام MFA تحت فشار soft می‌ماند تا enrollment ممکن باشد. `totp_secret` با AES-256-GCM ذخیره می‌شود.
+- **Step-up reauth:** `POST /auth/reauth` کوکی کوتاه‌عمر `dang_reauth` می‌سازد؛ برای export داده، حذف حساب، و عملیات admin vault (seal/unseal/rotate) الزامی است.
+- **Job داخلی (worker→API):** علاوه بر `DANG_INTERNAL_JOB_TOKEN`، هدرهای HMAC (`x-dang-internal-ts` / `workspace-id` / `actor-user-id` / `sig`) الزامی‌اند؛ عضویت actor در workspace بررسی می‌شود.
 - **Argon2id** برای پسوردهای جدید؛ هش‌های قدیمی scrypt در لاگین موفق به‌صورت transparent به Argon2id ارتقا می‌یابند
-- Cookie با Secure، HttpOnly و SameSite
-- CSRF Protection
+- Cookie با Secure، HttpOnly و SameSite=Lax برای `dang_session`
+- **CSRF Protection (double-submit):** کوکی خوانا `dang_csrf` + هدر `X-CSRF-Token` روی mutationهای دارای نشست؛ کلاینت وب خودکار هدر می‌فرستد. مسیرهای ورود/ثبت‌نام/بازیابی رمز/`mfa/verify`/`logout` از CSRF معاف‌اند تا نشست کهنه بدون CSRF لاگین را قفل نکند؛ بقیهٔ mutationهای نشست‌دار همچنان اجباری‌اند.
 - Rotation Session پس از Login یا تغییر Privilege
-- Re-auth برای MFA، Export، Role Change و عملیات مالی حساس (چالش MFA در لاگین؛ گسترش re-auth برای export/role در بک‌لاگ)
+- Re-auth برای Export / حذف حساب / vault admin فعال است؛ گسترش به role-change در بک‌لاگ باقی است
 - Recovery Code یک‌بارمصرف و Hash‌شده (فعال با MFA)
 - Rate Limit و Anti-enumeration
 
@@ -120,6 +125,8 @@ Presigned Upload
 - AEAD استاندارد برای Field Encryption
 - Password فقط Hash
 - Key Inventory با Owner، Purpose و Rotation Date
+- **Master key (MVP):** منبع کلید اصلی Local Key Vault از `DANG_MASTER_KEY` (یا فایل غیرprod `.dang/master.key`) است — در capabilities به‌صورت `providers.masterKeySource=env` گزارش می‌شود. برای مسیر اختیاری HTTP به HashiCorp Vault، `VAULT_ADDR` + `VAULT_TOKEN` (+ اختیاری `VAULT_MASTER_KEY_PATH`) را تنظیم کنید تا `masterKeySource=http_vault` شود؛ بدون این envها provider HTTP استفاده نمی‌شود و ادعای Vault بیرونی نمی‌شود. نبود کلید: `none` (vault sealed / فیلدهای بدون AEAD ممکن است plaintext بمانند).
+- دسترسی encrypt/decrypt در `ops.vault_access_log` ثبت می‌شود (async، بدون بلاک مسیر گرم).
 
 ## 10. حریم خصوصی و Retention
 

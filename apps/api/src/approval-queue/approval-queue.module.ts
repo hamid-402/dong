@@ -4,6 +4,8 @@ import { AuthModule } from "../auth/auth.module.js";
 import { BillingModule } from "../billing/billing.module.js";
 import { ExpensesModule } from "../expenses/expenses.module.js";
 import { IamModule } from "../iam/iam.module.js";
+import { MakerCheckerModule } from "../maker-checker/maker-checker.module.js";
+import { SettlementsModule } from "../settlements/settlements.module.js";
 import { ApprovalQueueController } from "./approval-queue.controller.js";
 import { ApprovalQueueService } from "./approval-queue.service.js";
 import { ApprovalStepsModule } from "../approval-steps/approval-steps.module.js";
@@ -15,6 +17,8 @@ import { ApprovalStepsModule } from "../approval-steps/approval-steps.module.js"
     AddonChargesModule,
     BillingModule,
     ExpensesModule,
+    SettlementsModule,
+    MakerCheckerModule,
     ApprovalStepsModule,
   ],
   controllers: [ApprovalQueueController],

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { newClientId } from "@/lib/id";
 
@@ -7,8 +7,10 @@ import { useEffect, useState, useTransition } from "react";
 import type {
   PersonalFinanceMetricFocus,
   PersonalFinanceOverviewResponse,
+  PersonalFinanceOverviewScope,
   PersonalFinanceTrendGroupBy,
   PersonalFinanceTrendsResponse,
+  SpaceKind,
 } from "@dang/contracts";
 import { resolveDailyLedgerRange } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
@@ -23,6 +25,7 @@ import {
 import { JalaliDateField } from "@/components/jalali-date-field";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
+import { formatFaDate, todayIsoLocal } from "@/lib/fa-datetime";
 import { hubPathFor } from "@/lib/hub-links";
 import { spaceKindForTemplateLabel } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
@@ -33,26 +36,28 @@ function monthStart(): string {
 }
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayIsoLocal();
 }
 
 function spaceHomeHref(
   workspaceId: string,
-  spaceKind: "personal" | "group" | "org",
+  spaceKind: SpaceKind,
   workspaces: Array<{ id: string; slug: string }>,
 ): string {
   const slug = workspaces.find((workspace) => workspace.id === workspaceId)?.slug;
   if (slug) return wPath(slug, "space");
   if (spaceKind === "personal") return hubPathFor("/me");
+  if (spaceKind === "building") return hubPathFor("/group");
   if (spaceKind === "org") return hubPathFor("/orgs");
   return hubPathFor("/group");
 }
 
-/** Cross-workspace personal finance — only API-backed numbers. */
+/** Cross-workspace personal finance � only API-backed numbers. */
 export function PersonalFinanceOverviewPanel() {
   const chrome = useAppChrome();
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(todayIso);
+  const [scope, setScope] = useState<PersonalFinanceOverviewScope>("combined");
   const [focus, setFocus] = useState<PersonalFinanceMetricFocus>("paid");
   const [groupBy, setGroupBy] = useState<PersonalFinanceTrendGroupBy>("day");
   const [overview, setOverview] = useState<PersonalFinanceOverviewResponse | null>(null);
@@ -65,16 +70,17 @@ export function PersonalFinanceOverviewPanel() {
     startTransition(() => {
       void (async () => {
         try {
-          const [dash, tr] = await Promise.all([
+          const [dash, ov, tr] = await Promise.all([
             api.personalDashboard(from, to),
+            api.personalFinanceOverview({ from, to, scope }),
             api.personalFinanceTrends({ from, to, groupBy }),
           ]);
-          setOverview(dash.finance);
+          setOverview(ov);
           setWorkspaceCount(dash.workspaceCount);
           setTrends(tr);
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "بارگذاری مالیه شخصی ناموفق"));
+          setError(friendlyErrorMessage(err, "???????? ????? ???? ??????"));
         }
       })();
     });
@@ -97,16 +103,16 @@ export function PersonalFinanceOverviewPanel() {
     : 0n;
 
   return (
-    <SectionCard title="مالیه من در همه فضاها" delayClass="delay1">
+    <SectionCard title="????? ?? ?? ??? ?????" delayClass="delay1">
       <FormStack>
         <StatusLine>
-          پرداخت از جیب، سهم مصرف، و مانده فعلی هر گروه/سازمان — جدا از هم.
+          ?????? ?? ???? ??? ????? ? ????? ???? ?? ????/?????? � ??? ?? ??.
         </StatusLine>
         <div className="pfRangeRow">
-          <JalaliDateField label="از تاریخ" value={from} onChange={setFrom} />
-          <JalaliDateField label="تا تاریخ" value={to} onChange={setTo} />
+          <JalaliDateField label="?? ?????" value={from} onChange={setFrom} />
+          <JalaliDateField label="?? ?????" value={to} onChange={setTo} />
           <Button type="button" onClick={load} disabled={pending}>
-            {pending ? "در حال محاسبه…" : "اعمال بازه"}
+            {pending ? "?? ??? ??????�" : "????? ????"}
           </Button>
           <Button
             type="button"
@@ -121,7 +127,7 @@ export function PersonalFinanceOverviewPanel() {
                       idempotencyKey: newClientId(),
                     });
                     if (!created.hasFile) {
-                      setError(created.errorDetail || "فایل CSV آماده نشد");
+                      setError(created.errorDetail || "???? CSV ????? ???");
                       return;
                     }
                     window.open(
@@ -130,23 +136,61 @@ export function PersonalFinanceOverviewPanel() {
                     );
                     setError(null);
                   } catch (err: unknown) {
-                    setError(friendlyErrorMessage(err, "خروجی ناموفق"));
+                    setError(friendlyErrorMessage(err, "????? ??????"));
                   }
                 })();
               });
             }}
             disabled={pending}
           >
-            CSV فضاها
+            CSV ?????
           </Button>
         </div>
 
-        <div className="pfFocusRow" role="tablist" aria-label="معیار نمایش">
+        <div className="pfFocusRow" role="tablist" aria-label="????? ???? ???">
           {(
             [
-              ["paid", "پرداخت من"],
-              ["share", "سهم مصرف"],
-              ["net", "مانده فعلی"],
+              ["combined", "??????"],
+              ["personal", "????"],
+              ["group", "?????"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={scope === id}
+              className={scope === id ? "pfFocusChip isActive" : "pfFocusChip"}
+              onClick={() => {
+                setScope(id);
+                startTransition(() => {
+                  void (async () => {
+                    try {
+                      const ov = await api.personalFinanceOverview({
+                        from,
+                        to,
+                        scope: id,
+                      });
+                      setOverview(ov);
+                      setError(null);
+                    } catch (err: unknown) {
+                      setError(friendlyErrorMessage(err, "???????? ???? ??? ??????"));
+                    }
+                  })();
+                });
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="pfFocusRow" role="tablist" aria-label="????? ?????">
+          {(
+            [
+              ["paid", "?????? ??"],
+              ["share", "??? ????"],
+              ["net", "????? ????"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -165,30 +209,42 @@ export function PersonalFinanceOverviewPanel() {
         {error ? <p className="liveError">{error}</p> : null}
 
         {!overview && !error ? (
-          <EmptyHint>در حال بارگذاری…</EmptyHint>
+          <EmptyHint>?? ??? ????????�</EmptyHint>
         ) : null}
 
         {overview ? (
           <>
             <div className="pfTotals">
               <div>
-                <span className="pfTotalsLabel">جمع پرداخت در بازه</span>
+                <span className="pfTotalsLabel">??? ?????? ?? ????</span>
                 <Amount irrMinor={overview.totals.paid.amountMinor} />
               </div>
               <div>
-                <span className="pfTotalsLabel">جمع سهم مصرف در بازه</span>
+                <span className="pfTotalsLabel">??? ??? ???? ?? ????</span>
                 <Amount irrMinor={overview.totals.share.amountMinor} />
               </div>
+              {overview.totals.personalIncome ? (
+                <div>
+                  <span className="pfTotalsLabel">????? ????</span>
+                  <Amount irrMinor={overview.totals.personalIncome.amountMinor} />
+                </div>
+              ) : null}
+              {overview.totals.personalExpense ? (
+                <div>
+                  <span className="pfTotalsLabel">????? ????</span>
+                  <Amount irrMinor={overview.totals.personalExpense.amountMinor} />
+                </div>
+              ) : null}
             </div>
             <StatusLine>
-              {workspaceCount != null ? `${workspaceCount} فضا · ` : null}
-              منبع: خرج {overview.source.expense === "postgres" ? "Postgres" : "حافظه"} · دفترکل{" "}
-              {overview.source.ledger === "postgres" ? "Postgres" : "حافظه"} ·{" "}
-              {overview.from} تا {overview.to}
+              {workspaceCount != null ? `${workspaceCount} ??? � ` : null}
+              ????: ??? {overview.source.expense === "postgres" ? "Postgres" : "?????"} � ??????{" "}
+              {overview.source.ledger === "postgres" ? "Postgres" : "?????"} �{" "}
+              {formatFaDate(overview.from)} ?? {formatFaDate(overview.to)}
             </StatusLine>
 
             {overview.workspaces.length === 0 ? (
-              <EmptyHint>هنوز عضویت فضایی ندارید.</EmptyHint>
+              <EmptyHint>???? ????? ????? ??????.</EmptyHint>
             ) : (
               <DataList>
                 {overview.workspaces.map((line) => {
@@ -206,24 +262,24 @@ export function PersonalFinanceOverviewPanel() {
                         <span className="pfRowMeta">
                           {spaceKindForTemplateLabel(line.spaceKind)}
                           {line.expenseCount > 0
-                            ? ` · ${line.expenseCount} خرج در بازه`
-                            : " · بدون خرج در بازه"}
+                            ? ` � ${line.expenseCount} ??? ?? ????`
+                            : " � ???? ??? ?? ????"}
                           {focus !== "paid" ? (
                             <>
                               {" "}
-                              · پرداخت <Amount irrMinor={line.paid.amountMinor} />
+                              � ?????? <Amount irrMinor={line.paid.amountMinor} />
                             </>
                           ) : null}
                           {focus !== "share" ? (
                             <>
                               {" "}
-                              · سهم <Amount irrMinor={line.share.amountMinor} />
+                              � ??? <Amount irrMinor={line.share.amountMinor} />
                             </>
                           ) : null}
                           {focus !== "net" ? (
                             <>
                               {" "}
-                              · مانده <Amount irrMinor={line.net.amountMinor} />
+                              � ????? <Amount irrMinor={line.net.amountMinor} />
                             </>
                           ) : null}
                         </span>
@@ -247,13 +303,13 @@ export function PersonalFinanceOverviewPanel() {
 
         {trends ? (
           <div className="pfTrends">
-            <StatusLine>سری زمانی (فقط داده واقعی API)</StatusLine>
-            <div className="pfFocusRow" role="tablist" aria-label="گروه‌بندی زمان">
+            <StatusLine>??? ????? (??? ???? ????? API)</StatusLine>
+            <div className="pfFocusRow" role="tablist" aria-label="????????? ????">
               {(
                 [
-                  ["day", "روز"],
-                  ["week", "هفته"],
-                  ["month", "ماه"],
+                  ["day", "???"],
+                  ["week", "????"],
+                  ["month", "???"],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -275,7 +331,7 @@ export function PersonalFinanceOverviewPanel() {
                           setTrends(tr);
                           setError(null);
                         } catch (err: unknown) {
-                          setError(friendlyErrorMessage(err, "بارگذاری روند ناموفق"));
+                          setError(friendlyErrorMessage(err, "???????? ???? ??????"));
                         }
                       })();
                     });
@@ -286,7 +342,7 @@ export function PersonalFinanceOverviewPanel() {
               ))}
             </div>
             {trends.buckets.length === 0 ? (
-              <EmptyHint>در این بازه تراکنشی نیست.</EmptyHint>
+              <EmptyHint>?? ??? ???? ??????? ????.</EmptyHint>
             ) : (
               <ul className="pfTrendList">
                 {trends.buckets.map((b) => {
@@ -309,9 +365,9 @@ export function PersonalFinanceOverviewPanel() {
                         aria-hidden
                       />
                       <small>
-                        سهم <Amount irrMinor={b.share.amountMinor} /> · شخصی{" "}
+                        ??? <Amount irrMinor={b.share.amountMinor} /> � ????{" "}
                         <Amount irrMinor={b.personalExpense.amountMinor} />
-                        {b.expenseCount > 0 ? ` · ${b.expenseCount} خرج` : ""}
+                        {b.expenseCount > 0 ? ` � ${b.expenseCount} ???` : ""}
                       </small>
                     </li>
                   );
@@ -319,10 +375,10 @@ export function PersonalFinanceOverviewPanel() {
               </ul>
             )}
             <StatusLine>
-              جمع شخصی در بازه:{" "}
-              <Amount irrMinor={trends.totals.personalExpense.amountMinor} /> · منبع{" "}
-              {trends.source.expense === "postgres" ? "Postgres" : "حافظه"}/
-              {trends.source.personal === "postgres" ? "Postgres" : "حافظه"}
+              ??? ???? ?? ????:{" "}
+              <Amount irrMinor={trends.totals.personalExpense.amountMinor} /> � ????{" "}
+              {trends.source.expense === "postgres" ? "Postgres" : "?????"}/
+              {trends.source.personal === "postgres" ? "Postgres" : "?????"}
             </StatusLine>
           </div>
         ) : null}

@@ -13,11 +13,17 @@ test("valid auth login passes", () => {
   assert.equal(result.success, true);
 });
 
-test("extra key on login fails", () => {
+test("login with username identifier passes schema", () => {
   const result = loginRequestSchema.safeParse({
-    email: "user@example.com",
+    identifier: "hamid.kazemi",
     password: "secret-password",
-    role: "admin",
+  });
+  assert.equal(result.success, true);
+});
+
+test("login without email or identifier fails", () => {
+  const result = loginRequestSchema.safeParse({
+    password: "secret-password",
   });
   assert.equal(result.success, false);
 });

@@ -7,13 +7,17 @@ import type {
   DailyLedgerRangePreset,
   DailyLedgerResponse,
 } from "@dang/contracts";
+import { formatMoneyFromIrrMinor, type DisplayUnit } from "@dang/ui";
 
 /** Shared pure helpers + types for the daily-ledger view and its extracted panels. */
 
+/** @deprecated Prefer formatLedgerMoney with an explicit unit. */
 export function formatTomanMinor(minor: string): string {
-  const toman = Number(minor) / 10;
-  if (!Number.isFinite(toman)) return "0";
-  return new Intl.NumberFormat("fa-IR").format(toman);
+  return formatMoneyFromIrrMinor(minor, "toman");
+}
+
+export function formatLedgerMoney(minor: string, unit: DisplayUnit = "rial"): string {
+  return formatMoneyFromIrrMinor(minor, unit);
 }
 
 export function todayIsoLocal(): string {

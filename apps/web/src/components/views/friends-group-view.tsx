@@ -14,6 +14,7 @@ import type {
 } from "@dang/contracts";
 import { isFinanceManagerRole, isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
 import {
   DataList,
@@ -26,10 +27,15 @@ import {
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
+import { EmptyStateIllustration } from "@/components/ui/empty-state-illustration";
+import { ContentSkeleton } from "@/components/shell/content-skeleton";
+import { GuestPlaceholdersPanel } from "@/components/guest-placeholders-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
+import { todayIsoLocal } from "@/lib/fa-datetime";
 import { hubPathFor } from "@/lib/hub-links";
+import { useLiveInvalidation } from "@/lib/live-invalidation";
+import { memberStatementHref, statementsListHref } from "@/lib/statement-links";
 import { wPath } from "@/lib/workspace-paths";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { expenseStatusLabel, membershipRoleLabel, workspaceTemplateLabel } from "@/lib/status-labels";
@@ -39,6 +45,10 @@ import { templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
 import { AddonChargesPanel } from "@/components/views/friends-group/addon-charges-panel";
 import { DebtSimplifyPanel } from "@/components/views/friends-group/debt-simplify-panel";
 import { AllowancesPanel } from "@/components/allowances-panel";
+import { GroupBalanceHero } from "@/components/shell/group-balance-hero";
+import { GroupOpsRail } from "@/components/shell/group-ops-rail";
+import { GroupPublicIdCard } from "@/components/shell/group-public-id";
+import { GroupSetupChecklist } from "@/components/shell/group-setup-checklist";
 
 type ExpenseFilter = "all" | "shared" | "private" | "company";
 
@@ -63,14 +73,24 @@ export function FriendsGroupView() {
   const [members, setMembers] = useState<MembershipSummary[]>([]);
   const [expenses, setExpenses] = useState<ExpenseSummary[]>([]);
   const [balances, setBalances] = useState<WorkspaceBalancesResponse | null>(null);
+  const [openSettlementCount, setOpenSettlementCount] = useState(0);
   const [filter, setFilter] = useState<ExpenseFilter>("all");
   const [groupName, setGroupName] = useState("");
   const [groupTemplate, setGroupTemplate] = useState<"friends_family" | "household">(
     "friends_family",
   );
+  const [ownerDefaultShares, setOwnerDefaultShares] = useState("1");
   const [outingTitle, setOutingTitle] = useState("");
+  const [outingBudgetToman, setOutingBudgetToman] = useState("");
+  const [outingEndsOn, setOutingEndsOn] = useState("");
   const [outings, setOutings] = useState<
-    Array<{ id: string; title: string; total: { amountMinor: string }; expenseIds: string[] }>
+    Array<{
+      id: string;
+      title: string;
+      total: { amountMinor: string };
+      expenseIds: string[];
+      budgetCapMinor?: string;
+    }>
   >([]);
   const [selectedOutingId, setSelectedOutingId] = useState("");
   const [pending, startTransition] = useTransition();
@@ -85,24 +105,33 @@ export function FriendsGroupView() {
     ? wPath(slug, "settlements")
     : `${hubPathFor("/workspaces")}#settlement-panel`;
   const invoicesHref = slug ? wPath(slug, "invoices") : hubPathFor("/workspaces");
+  const statementsLive =
+    chrome.capabilities?.providers?.statements === "csv_json_print_v1";
+  const statementsHref = slug ? statementsListHref(slug) : hubPathFor("/workspaces");
   const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
   const myRole = members.find((m) => m.userId === actorUserId)?.role;
   const canManageFinance = isFinanceManagerRole(myRole);
   const readOnlySpace = isReadOnlyRole(myRole);
 
   async function refresh(workspaceId: string) {
-    const [memberList, expenseList, balanceData, outingList] = await Promise.all([
-      api.listMembers(workspaceId),
-      api.listExpenses(workspaceId),
-      api.getBalances(workspaceId),
-      api.listOutings(workspaceId).catch(() => []),
-    ]);
+    const [memberList, expenseList, balanceData, outingList, settlementList] =
+      await Promise.all([
+        api.listMembers(workspaceId),
+        api.listExpenses(workspaceId),
+        api.getBalances(workspaceId),
+        api.listOutings(workspaceId).catch(() => []),
+        api.listSettlements(workspaceId).catch(() => []),
+      ]);
     const current = chrome.workspaces.find((item) => item.id === workspaceId) ?? null;
     setWorkspace((prev) => current ?? (prev?.id === workspaceId ? prev : null));
     setMembers(memberList);
     setExpenses(expenseList);
     setBalances(balanceData);
     setOutings(outingList);
+    setOpenSettlementCount(
+      settlementList.filter((s) => s.status === "claimed" || s.status === "disputed")
+        .length,
+    );
   }
 
   useEffect(() => {
@@ -129,6 +158,15 @@ export function FriendsGroupView() {
       .catch((err: unknown) => setError(friendlyErrorMessage(err, "خطا")))
       .finally(() => setLoading(false));
   }, [chrome.workspaceId, chrome.ready]);
+
+  // A group screen is shared by definition: whoever records the next expense,
+  // everyone else's list and who-owes-whom move with it.
+  useLiveInvalidation(["expenses", "balances", "settlements"], () => {
+    if (!chrome.ready || !chrome.workspaceId) return;
+    void refresh(chrome.workspaceId).catch(() => {
+      // Keep the last good data on screen; the next push retries.
+    });
+  });
 
   const filteredExpenses = useMemo(() => {
     if (filter === "all") return expenses;
@@ -168,6 +206,10 @@ export function FriendsGroupView() {
               name,
               slug,
               template: groupTemplate,
+              ownerDefaultShares: Math.max(
+                1,
+                Math.min(100, Number(ownerDefaultShares) || 1),
+              ),
             },
             newClientId(),
           );
@@ -199,12 +241,25 @@ export function FriendsGroupView() {
     startTransition(() => {
       void (async () => {
         try {
+          const budgetMinor =
+            outingBudgetToman.trim() === ""
+              ? undefined
+              : String(Math.round(Number(outingBudgetToman.replaceAll(",", "")) * 10));
+          if (outingBudgetToman.trim() && (!budgetMinor || !/^\d+$/.test(budgetMinor))) {
+            setError("سقف بودجه تومان نامعتبر است");
+            return;
+          }
           const created = await api.createOuting(chrome.workspaceId, {
             title,
-            occurredOn: new Date().toISOString().slice(0, 10),
+            occurredOn: todayIsoLocal(),
+            startsOn: todayIsoLocal(),
+            endsOn: outingEndsOn.trim() || undefined,
+            budgetCapMinor: budgetMinor,
             idempotencyKey: newClientId(),
           });
           setOutingTitle("");
+          setOutingBudgetToman("");
+          setOutingEndsOn("");
           setSelectedOutingId(created.id);
           flashSuccess(`گردش «${created.title}» ساخته شد`);
           await refresh(chrome.workspaceId);
@@ -220,10 +275,6 @@ export function FriendsGroupView() {
   }
 
   const pageError = error ?? chrome.error;
-  const openBalances = balances
-    ? balances.lines.filter((line) => line.net.amountMinor !== "0").length
-    : 0;
-  const postedExpenses = expenses.filter((expense) => expense.status === "posted").length;
 
   return (
     <AppShell
@@ -232,97 +283,119 @@ export function FriendsGroupView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      {slug ? (
-        <OperationsModuleHeader
-          ariaLabel="خانه گروه و خانواده"
-          destinations={[
-            { key: "space", label: NAV_LABELS.spaceGroup, href: wPath(slug, "space"), active: true },
-            { key: "expenses", label: NAV_LABELS.expenses, href: expensesHref, active: false },
-            { key: "settlements", label: NAV_LABELS.settlements, href: settlementsHref, active: false },
-            { key: "members", label: NAV_LABELS.invite, href: membersHref, active: false },
-            { key: "ledger", label: NAV_LABELS.ledger, href: wPath(slug, "ledger"), active: false },
-          ]}
-          metrics={[
-            {
-              label: "اعضا",
-              value: new Intl.NumberFormat("fa-IR").format(members.length),
-              detail: workspace ? workspaceTemplateLabel(workspace.template) : "از عضویت",
-            },
-            {
-              label: "خرج‌ها",
-              value: new Intl.NumberFormat("fa-IR").format(expenses.length),
-              detail: `${new Intl.NumberFormat("fa-IR").format(postedExpenses)} posted`,
-            },
-            {
-              label: "مانده غیرصفر",
-              value: balances
-                ? new Intl.NumberFormat("fa-IR").format(openBalances)
-                : "—",
-              detail: "از balances API",
-              tone: openBalances > 0 ? "attention" : "positive",
-            },
-            {
-              label: "گردش‌ها",
-              value: new Intl.NumberFormat("fa-IR").format(outings.length),
-              detail: "از listOutings",
-            },
-          ]}
-          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
-          persistenceLabel={chrome.persistenceLabel}
-          pending={pending || loading}
-          onRefresh={() => {
-            if (!chrome.workspaceId) return;
-            startTransition(() => {
-              void refresh(chrome.workspaceId)
-                .then(() => setError(null))
-                .catch((err: unknown) => setError(friendlyErrorMessage(err, "تازه‌سازی ناموفق")));
-            });
-          }}
-        />
-      ) : null}
+      <WorkspacePageFrame
+      title={NAV_LABELS.spaceGroup}
+      kicker={
+        workspace
+          ? `${workspaceTemplateLabel(workspace.template)} · ${members.length.toLocaleString("fa-IR")} عضو`
+          : undefined
+      }
+      description="مانده، اعضا و مسیر تسویه — از داده زنده همین فضا."
+      primaryAction={slug ? <Link href={expensesHref}>{NAV_LABELS.addExpense}</Link> : <Link href="/spaces">{NAV_LABELS.spacesList}</Link>}
+      state="ready"
+    >
       <FlashMessages error={pageError} successMessage={successMessage} />
 
       {loading ? (
-        <EmptyHint loading>در حال بارگذاری گروه…</EmptyHint>
+        <ContentSkeleton rows={4} label="در حال بارگذاری گروه…" />
       ) : (
         <ProductGrid>
+          {workspace && balances && actorUserId ? (
+            <GroupBalanceHero
+              workspaceName={workspace.name}
+              myNetMinor={
+                balances.lines.find((l) => l.userId === actorUserId)?.net.amountMinor ?? "0"
+              }
+              peers={balances.lines
+                .filter((l) => l.userId !== actorUserId)
+                .map((l) => ({
+                  userId: l.userId,
+                  name: memberLabel(l.userId),
+                  amountMinor: l.net.amountMinor,
+                }))}
+              settleHref={settlementsHref}
+              expenseHref={`${expensesHref}#quick-expense`}
+              simplifyHref="#group-settle"
+              simplifyAvailable={Boolean(
+                chrome.capabilities?.productFlags?.debtSimplifyApi,
+              )}
+              openSettlements={openSettlementCount}
+              recentExpenses={expenses.slice(0, 5).map((e) => ({
+                id: e.id,
+                title: e.title,
+                toman: Math.round(Number(e.total.amountMinor) / 10),
+                status: e.status,
+              }))}
+            />
+          ) : null}
+
+          {slug ? (
+            <>
+              <GroupPublicIdCard
+                slug={slug}
+                name={workspace?.name}
+              />
+              <GroupSetupChecklist
+                slug={slug}
+                memberCount={members.length}
+                financeManagerCount={members.filter(
+                  (m) => !m.disabledAt && isFinanceManagerRole(m.role),
+                ).length}
+                postedCount={expenses.filter((e) => e.status === "posted").length}
+                canManageMembers={
+                  myRole === "owner" || myRole === "admin" || canManageFinance
+                }
+              />
+              <GroupOpsRail
+                slug={slug}
+                spaceKind="group"
+                memberCount={members.length}
+                openSettlements={openSettlementCount}
+                canManageMembers={
+                  myRole === "owner" ||
+                  myRole === "admin" ||
+                  canManageFinance
+                }
+              />
+            </>
+          ) : null}
+
           {workspace && canManageFinance ? (
             <SectionCard title={NAV_LABELS.invoices} delayClass="delay1" tone="quiet">
               <p className="liveHint">
-                مادرخرج: دوره و صورتحساب اعضا در صفحهٔ جداگانهٔ صورتحساب است.
+                مادرخرج:{" "}
+                {statementsLive
+                  ? `صورتحساب سهم‌محور اعضا در ${NAV_LABELS.statements}؛ `
+                  : null}
+                دوره‌های صورتحساب در {NAV_LABELS.invoices}.
               </p>
-              <Link href={invoicesHref} className="textButton">
-                رفتن به {NAV_LABELS.invoices}
-              </Link>
+              <p className="liveHint" style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+                {statementsLive ? (
+                  <Link href={statementsHref} className="textButton">
+                    رفتن به {NAV_LABELS.statements}
+                  </Link>
+                ) : null}
+                <Link href={invoicesHref} className="textButton">
+                  رفتن به {NAV_LABELS.invoices}
+                </Link>
+              </p>
             </SectionCard>
           ) : null}
 
           {workspace ? (
-            <div className="motherSpendJourney" aria-label="مسیر مادرخرج">
-              <div>
-                <strong>۱. ثبت</strong>
-                <span>خرج را با تقسیم اعضا بنویسید</span>
-              </div>
-              <div>
-                <strong>۲. مشاهده</strong>
-                <span>هر عضو سهم و جزئیات را می‌بیند</span>
-              </div>
-              <div>
-                <strong>۳. تسویه</strong>
-                <span>تأیید و پرداخت مانده</span>
-              </div>
-            </div>
-          ) : null}
-
-          {workspace ? (
-            <SectionCard title="گروه فعال" delayClass="delay1">
+            <SectionCard title="اعضا و گروه" delayClass="delay1" tone="quiet">
               <StatusLine>
-                فعال: <b>{workspace.name}</b> · {workspaceTemplateLabel(workspace.template)}
+                {workspace.name} · {workspaceTemplateLabel(workspace.template)} ·{" "}
+                {members.length.toLocaleString("fa-IR")} عضو
               </StatusLine>
+              <p className="liveHint" style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+                <Link href={`${membersHref}#member-add-panel`} className="textButton">
+                  مدیریت اعضا و نقش‌ها
+                </Link>
+              </p>
               <details className="reportDetails">
                 <summary>
                   <span>ساخت گروه دیگر</span>
-                  <span>{members.length} عضو</span>
                 </summary>
                 <div className="reportDetails__body">
                   <FormStack density="compact">
@@ -368,6 +441,12 @@ export function FriendsGroupView() {
                   <option value="friends_family">دوستان</option>
                   <option value="household">خانواده</option>
                 </SelectField>
+                <TextField
+                  label="سهم پیش‌فرض شما"
+                  value={ownerDefaultShares}
+                  onChange={(e) => setOwnerDefaultShares(e.target.value)}
+                  hint="مثلاً ۲ برای والدین در خانواده — بعداً برای اعضا قابل ویرایش است"
+                />
                 <Button type="button" onClick={onCreateGroup} disabled={pending}>
                   ساخت گروه
                 </Button>
@@ -380,6 +459,7 @@ export function FriendsGroupView() {
             <div id="group-settle" />
             {!balances || balances.lines.length === 0 ? (
               <EmptyStateBlock
+                illustration={<EmptyStateIllustration variant="no-expense" />}
                 title="هنوز خرجی ثبت نشده"
                 description="با ثبت اولین خرج گروه، مانده هر عضو اینجا محاسبه و نمایش داده می‌شود."
                 action={
@@ -412,6 +492,16 @@ export function FriendsGroupView() {
                         )
                       }
                       trailing={<Amount irrMinor={abs} />}
+                      actions={
+                        slug && statementsLive ? (
+                          <Link
+                            className="textButton"
+                            href={memberStatementHref(slug, line.userId)}
+                          >
+                            {NAV_LABELS.statements}
+                          </Link>
+                        ) : undefined
+                      }
                     />
                   );
                 })}
@@ -423,7 +513,9 @@ export function FriendsGroupView() {
                 workspaceId={chrome.workspaceId}
                 memberLabel={memberLabel}
                 enabled
+                currentUserId={chrome.actor?.userId}
                 readOnly={readOnlySpace}
+                canApplyClaims={canManageFinance}
                 onError={setError}
                 onSuccess={flashSuccess}
                 onApplied={() => {
@@ -438,6 +530,15 @@ export function FriendsGroupView() {
               >
                 {NAV_LABELS.settlements}
               </Button>
+              {slug && statementsLive ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => router.push(statementsHref)}
+                >
+                  {NAV_LABELS.statements}
+                </Button>
+              ) : null}
             </div>
           </SectionCard>
 
@@ -472,18 +573,31 @@ export function FriendsGroupView() {
               <>
                 {readOnlySpace ? (
                   <StatusLine>
-                    نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — دعوت از صفحهٔ اعضا برای
+                    نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — افزودن عضو از صفحهٔ اعضا برای
                     مدیران.
                   </StatusLine>
                 ) : (
                   <div className="dataRowActions">
-                    <Button type="button" onClick={() => router.push(membersHref)}>
-                      {NAV_LABELS.invite}
+                    <Button type="button" onClick={() => router.push(`${membersHref}#member-add-panel`)}>
+                      {NAV_LABELS.members} · افزودن
                     </Button>
                   </div>
                 )}
                 {members.length === 0 ? (
-                  <EmptyHint>عضوی نیست.</EmptyHint>
+                  <EmptyStateBlock
+                    title="هنوز عضوی نیست"
+                    description="حداقل یک نفر دیگر را اضافه کنید تا خرج مشترک و تسویه معنا پیدا کند."
+                    action={
+                      !readOnlySpace ? (
+                        <Button
+                          type="button"
+                          onClick={() => router.push(`${membersHref}#member-add-panel`)}
+                        >
+                          افزودن عضو
+                        </Button>
+                      ) : undefined
+                    }
+                  />
                 ) : (
                   <DataList>
                     {members.map((member) => (
@@ -541,6 +655,15 @@ export function FriendsGroupView() {
             )}
           </SectionCard>
 
+          {chrome.workspaceId ? (
+            <GuestPlaceholdersPanel
+              workspaceId={chrome.workspaceId}
+              readOnly={readOnlySpace}
+              onError={setError}
+              onSuccess={flashSuccess}
+            />
+          ) : null}
+
           <details className="reportDetails">
             <summary>
               <span>گردش چندخرجی (اختیاری)</span>
@@ -560,6 +683,16 @@ export function FriendsGroupView() {
                     value={outingTitle}
                     onChange={(e) => setOutingTitle(e.target.value)}
                     hint="مثلاً بیرون‌رفتن جمعه = بستنی + ناهار"
+                  />
+                  <TextField
+                    label="سقف بودجه (تومان، اختیاری)"
+                    value={outingBudgetToman}
+                    onChange={(e) => setOutingBudgetToman(e.target.value)}
+                  />
+                  <TextField
+                    label="پایان بازه (YYYY-MM-DD، اختیاری)"
+                    value={outingEndsOn}
+                    onChange={(e) => setOutingEndsOn(e.target.value)}
                   />
                   <Button type="button" onClick={onCreateOuting} disabled={pending}>
                     ساخت گردش
@@ -631,7 +764,15 @@ export function FriendsGroupView() {
                           {expenseStatusLabel(expense.status)}
                         </StatusPill>
                         <span className="liveHint">
-                          پرداخت: {memberLabel(expense.paidByUserId)}
+                          پرداخت:{" "}
+                          {expense.paymentLines && expense.paymentLines.length > 1
+                            ? expense.paymentLines
+                                .map(
+                                  (line) =>
+                                    `${memberLabel(line.userId)} ${Math.round(Number(line.amount.amountMinor) / 10).toLocaleString("fa-IR")}`,
+                                )
+                                .join(" · ")
+                            : memberLabel(expense.paidByUserId)}
                           {expense.splits?.length
                             ? ` · ${expense.splits.length} سهم`
                             : ""}
@@ -653,6 +794,7 @@ export function FriendsGroupView() {
           </SectionCard>
         </ProductGrid>
       )}
-    </AppShell>
+    
+      </WorkspacePageFrame></AppShell>
   );
 }

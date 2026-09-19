@@ -46,3 +46,14 @@ export const disputeInvoiceRequestSchema = z
   .strict();
 
 export type DisputeInvoiceRequestInput = z.infer<typeof disputeInvoiceRequestSchema>;
+
+export const resolveInvoiceDisputeRequestSchema = z
+  .object({
+    outcome: z.enum(["accepted", "rejected"]),
+    note: z.string().max(2000).optional(),
+  })
+  .strict();
+
+export type ResolveInvoiceDisputeRequestInput = z.infer<
+  typeof resolveInvoiceDisputeRequestSchema
+>;

@@ -7,6 +7,7 @@ import type {
   CreatePurchaseRequestRequest,
   CreateVendorRequest,
   DeliverySummary,
+  Money,
   NeedSummary,
   PurchaseOrderSummary,
   PurchaseRequestSummary,
@@ -14,10 +15,22 @@ import type {
   VendorSummary,
 } from "@dang/contracts";
 
+export type FrozenPurchaseOrderPricing = {
+  amount: Money;
+  catalogItemId?: string;
+  catalogPriceId?: string;
+  partnerPriceId?: string;
+};
+import type { AppDatabase } from "@dang/db";
+
 export type ProcurementStore = {
   readonly persistence: "memory" | "postgres";
+  readonly db?: AppDatabase;
   createNeed(actorUserId: string, input: CreateNeedRequest): Promise<NeedSummary>;
   listNeeds(workspaceId: string): Promise<NeedSummary[]>;
+  getNeed(workspaceId: string, needId: string): Promise<NeedSummary | undefined>;
+  fulfillNeed(workspaceId: string, needId: string): Promise<NeedSummary>;
+  cancelNeed(workspaceId: string, needId: string): Promise<NeedSummary>;
   createPurchaseRequest(
     actorUserId: string,
     input: CreatePurchaseRequestRequest,
@@ -43,6 +56,7 @@ export type ProcurementStore = {
     workspaceId: string,
     amountMinor: string,
     budgetId?: string,
+    options?: { tx?: AppDatabase },
   ): Promise<BudgetSummary | null>;
   createVendor(input: CreateVendorRequest): Promise<VendorSummary>;
   listVendors(workspaceId: string): Promise<VendorSummary[]>;
@@ -50,6 +64,13 @@ export type ProcurementStore = {
   createPurchaseOrder(
     actorUserId: string,
     input: CreatePurchaseOrderRequest,
+    frozen?: FrozenPurchaseOrderPricing,
+  ): Promise<PurchaseOrderSummary>;
+  cancelPurchaseOrder(workspaceId: string, orderId: string): Promise<PurchaseOrderSummary>;
+  linkPurchaseOrderExpense(
+    workspaceId: string,
+    orderId: string,
+    expenseId: string,
   ): Promise<PurchaseOrderSummary>;
   listPurchaseOrders(workspaceId: string): Promise<PurchaseOrderSummary[]>;
   getPurchaseOrder(

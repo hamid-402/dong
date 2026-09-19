@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useAppChrome } from "@/lib/use-app-chrome";
 
-/** Header avatar — حساب از پروفایل؛ ابزارها از تب «بیشتر». */
+/** Compact header avatar — matches theme/bell icon controls. */
 export function HeaderProfileButton() {
   const chrome = useAppChrome();
   const name = chrome.userName?.trim() || "پروفایل";
@@ -18,13 +18,7 @@ export function HeaderProfileButton() {
       aria-label={`پروفایل ${name}`}
     >
       <span className="header-profile__orb" aria-hidden>
-        <span className="header-profile__halo" />
-        <span className="header-profile__ring" />
         <span className="header-profile__initial">{initial}</span>
-        <span className="header-profile__pulse" />
-      </span>
-      <span className="header-profile__meta">
-        <b>{name}</b>
       </span>
     </Link>
   );

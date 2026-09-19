@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -15,8 +16,14 @@ import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import type {
   AuthActionResponse,
   AuthActor,
+  AccountDataExport,
   AccountSessionSummary,
+  ChangeEmailRequest,
+  ChangeEmailResponse,
   ChangePasswordRequest,
+  ClaimUsernameRequest,
+  DeleteAccountRequest,
+  DeleteAccountResponse,
   ForgotPasswordRequest,
   ForgotPasswordResponse,
   LoginRequest,
@@ -26,18 +33,25 @@ import type {
   MfaDisableRequest,
   MfaSetupResponse,
   MfaVerifyRequest,
+  ReauthRequest,
+  ReauthResponse,
   RegisterRequest,
   ResetPasswordRequest,
   UpdateProfileRequest,
   UserProfile,
+  UsernameAvailableResponse,
 } from "@dang/contracts";
 import {
+  changeEmailRequestSchema,
   changePasswordRequestSchema,
+  claimUsernameRequestSchema,
+  deleteAccountRequestSchema,
   forgotPasswordRequestSchema,
   loginRequestSchema,
   mfaConfirmRequestSchema,
   mfaDisableRequestSchema,
   mfaVerifyRequestSchema,
+  reauthRequestSchema,
   registerRequestSchema,
   resetPasswordRequestSchema,
   updateProfileRequestSchema,
@@ -49,6 +63,7 @@ import { AuthGuard, CurrentActor } from "./auth.guard.js";
 import { AccountService } from "./account.service.js";
 import { MfaService } from "./mfa.service.js";
 import { SESSION_COOKIE } from "./account.types.js";
+import { REAUTH_COOKIE } from "@dang/contracts";
 
 @ApiTags("account")
 @Controller("auth")
@@ -73,7 +88,7 @@ export class AccountController {
 
   @Post("login")
   @ApiOperation({
-    summary: "Login with email/password (may return MFA challenge without cookie)",
+    summary: "Login with email, username, or phone + password (may return MFA challenge)",
   })
   login(
     @Body(new ZodValidationPipe(loginRequestSchema)) body: LoginRequest,
@@ -84,6 +99,16 @@ export class AccountController {
       ip: req.ip,
       userAgent: req.headers["user-agent"],
     });
+  }
+
+  @Get("username-available")
+  @ApiOperation({ summary: "Check whether a username is available (rate-limited)" })
+  usernameAvailable(
+    @Query("username") username: string,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<UsernameAvailableResponse> {
+    return this.accounts.usernameAvailable(username ?? "", { ip: req.ip }, reply);
   }
 
   @Post("logout")
@@ -99,8 +124,9 @@ export class AccountController {
   @ApiOperation({ summary: "Request password reset (anti-enumeration)" })
   forgot(
     @Body(new ZodValidationPipe(forgotPasswordRequestSchema)) body: ForgotPasswordRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<ForgotPasswordResponse> {
-    return this.accounts.forgotPassword(body);
+    return this.accounts.forgotPassword(body, reply);
   }
 
   @Post("reset-password")
@@ -125,12 +151,32 @@ export class AccountController {
 
   @Patch("profile")
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: "Update display name / locale / timezone" })
+  @ApiOperation({ summary: "Update profile, username, phone, or display unit" })
   updateProfile(
     @CurrentActor() actor: AuthActor,
     @Body(new ZodValidationPipe(updateProfileRequestSchema)) body: UpdateProfileRequest,
   ): Promise<UserProfile> {
     return this.accounts.updateProfile(actor, body);
+  }
+
+  @Post("email/change")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Change email with current password; requires re-verification" })
+  changeEmail(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(changeEmailRequestSchema)) body: ChangeEmailRequest,
+  ): Promise<ChangeEmailResponse> {
+    return this.accounts.changeEmail(actor, body);
+  }
+
+  @Post("username/claim")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Claim a username for legacy accounts that have none" })
+  claimUsername(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(claimUsernameRequestSchema)) body: ClaimUsernameRequest,
+  ): Promise<UserProfile> {
+    return this.accounts.claimUsername(actor, body);
   }
 
   @Post("change-password")
@@ -158,6 +204,55 @@ export class AccountController {
     @Req() req: FastifyRequest,
   ): Promise<AccountSessionSummary[]> {
     return this.accounts.listSessions(actor, req.cookies?.[SESSION_COOKIE]);
+  }
+
+  @Post("reauth")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Step-up password reauth; sets short-lived dang_reauth cookie",
+  })
+  reauth(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(reauthRequestSchema)) body: ReauthRequest,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<ReauthResponse> {
+    return this.accounts.reauth(actor, body, reply, { ip: req.ip });
+  }
+
+  @Get("me/data-export")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Export account profile + workspace memberships (R10-14; requires reauth + MFA if sensitive)",
+  })
+  exportMyData(
+    @CurrentActor() actor: AuthActor,
+    @Req() req: FastifyRequest,
+  ): Promise<AccountDataExport> {
+    return this.accounts.exportMyData(
+      actor,
+      req.cookies?.[SESSION_COOKIE],
+      req.cookies?.[REAUTH_COOKIE],
+    );
+  }
+
+  @Post("me/delete-account")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Anonymize account PII and revoke sessions (requires reauth + password)",
+  })
+  deleteMyAccount(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(deleteAccountRequestSchema)) body: DeleteAccountRequest,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<DeleteAccountResponse> {
+    return this.accounts.deleteMyAccount(
+      actor,
+      body,
+      reply,
+      req.cookies?.[REAUTH_COOKIE],
+    );
   }
 
   @Delete("sessions/:sessionId")

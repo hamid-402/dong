@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
+import { t } from "@/lib/i18n";
 
 /** Client-side QR for otpauth URLs — no third-party image host. */
 export function MfaQrCode({ otpauthUrl }: { otpauthUrl: string }) {
@@ -34,7 +35,7 @@ export function MfaQrCode({ otpauthUrl }: { otpauthUrl: string }) {
     };
   }, [otpauthUrl]);
 
-  const openLabel = useMemo(() => "باز کردن در Authenticator", []);
+  const openLabel = useMemo(() => t("shell.mfaOpenAuthenticator"), []);
 
   return (
     <div className="mfa-qr">
@@ -45,12 +46,12 @@ export function MfaQrCode({ otpauthUrl }: { otpauthUrl: string }) {
           width={180}
           height={180}
           unoptimized
-          alt="کد QR برای فعال‌سازی MFA"
+          alt={t("shell.mfaQrAlt")}
         />
       ) : failed ? (
-        <p className="liveHint">ساخت QR ممکن نشد — از لینک یا secret دستی استفاده کنید.</p>
+        <p className="liveHint">{t("shell.mfaQrFail")}</p>
       ) : (
-        <p className="liveHint">در حال ساخت QR…</p>
+        <p className="liveHint">{t("shell.mfaQrBuilding")}</p>
       )}
       <a className="mfa-qr__link" href={otpauthUrl}>
         {openLabel}

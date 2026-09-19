@@ -8,6 +8,7 @@ import { MfaQrCode } from "@/components/shell/mfa-qr-code";
 import { FormStack, SectionCard, StatusLine, StatusPill } from "@/components/ui-blocks";
 import { api, ApiError } from "@/lib/api";
 import { useOptionalAppChrome } from "@/lib/use-app-chrome";
+import { t } from "@/lib/i18n";
 
 type Props = {
   profile: UserProfile | null;
@@ -33,16 +34,16 @@ export function MfaSettingsPanel({ profile, onProfileChange }: Props) {
 
   if (!capsReady) {
     return (
-      <SectionCard title="تأیید دو مرحله‌ای (MFA)" tone="quiet">
-        <p className="liveHint">در حال بررسی قابلیت MFA…</p>
+      <SectionCard title={t("shell.mfaTitle")} tone="quiet">
+        <p className="liveHint">{t("shell.mfaChecking")}</p>
       </SectionCard>
     );
   }
 
   if (!mfaAvailable) {
     return (
-      <SectionCard title="تأیید دو مرحله‌ای (MFA)" tone="quiet">
-        <StatusLine>MFA روی این استقرار فعال نیست.</StatusLine>
+      <SectionCard title={t("shell.mfaTitle")} tone="quiet">
+        <StatusLine>{t("shell.mfaUnavailable")}</StatusLine>
       </SectionCard>
     );
   }
@@ -55,9 +56,9 @@ export function MfaSettingsPanel({ profile, onProfileChange }: Props) {
         try {
           const next = await api.mfaSetup();
           setSetup(next);
-          setInfo("رمز را در اپ Authenticator اسکن کنید، سپس کد ۶ رقمی را وارد کنید.");
+          setInfo(t("shell.mfaScanHint"));
         } catch (err: unknown) {
-          setError(err instanceof Error ? err.message : "شروع MFA ناموفق");
+          setError(err instanceof Error ? err.message : t("shell.mfaStartFail"));
         }
       })();
     });
@@ -65,7 +66,7 @@ export function MfaSettingsPanel({ profile, onProfileChange }: Props) {
 
   function confirmSetup() {
     if (!/^\d{6}$/.test(code.trim())) {
-      setError("کد باید ۶ رقم باشد");
+      setError(t("shell.mfaCodeSix"));
       return;
     }
     startTransition(() => {
@@ -74,9 +75,9 @@ export function MfaSettingsPanel({ profile, onProfileChange }: Props) {
           const result = await api.mfaConfirm({ code: code.trim() });
           onProfileChange(result.profile);
           setCode("");
-          setInfo("MFA فعال شد. کدهای بازیابی را در جای امن نگه دارید — دیگر نمایش داده نمی‌شوند.");
+          setInfo(t("shell.mfaEnabledInfo"));
         } catch (err: unknown) {
-          setError(err instanceof Error ? err.message : "تأیید MFA ناموفق");
+          setError(err instanceof Error ? err.message : t("shell.mfaConfirmFail"));
         }
       })();
     });
@@ -84,7 +85,7 @@ export function MfaSettingsPanel({ profile, onProfileChange }: Props) {
 
   function disableMfa() {
     if (!password || !/^\d{6}$/.test(disableCode.trim())) {
-      setError("رمز عبور و کد ۶ رقمی لازم است");
+      setError(t("shell.mfaNeedPasswordCode"));
       return;
     }
     startTransition(() => {
@@ -96,11 +97,15 @@ export function MfaSettingsPanel({ profile, onProfileChange }: Props) {
           setPassword("");
           setDisableCode("");
           setSetup(null);
-          setInfo("MFA غیرفعال شد");
+          setInfo(t("shell.mfaDisabledInfo"));
           setError(null);
         } catch (err: unknown) {
           setError(
-            err instanceof ApiError ? err.message : err instanceof Error ? err.message : "غیرفعال‌سازی ناموفق",
+            err instanceof ApiError
+              ? err.message
+              : err instanceof Error
+                ? err.message
+                : t("shell.mfaDisableFail"),
           );
         }
       })();
@@ -108,32 +113,32 @@ export function MfaSettingsPanel({ profile, onProfileChange }: Props) {
   }
 
   return (
-    <SectionCard title="تأیید دو مرحله‌ای (MFA)" tone="quiet">
+    <SectionCard title={t("shell.mfaTitle")} tone="quiet">
       {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
       {info ? <AuthAlert tone="success">{info}</AuthAlert> : null}
 
       <StatusLine>
-        وضعیت:{" "}
+        {t("shell.mfaStatus")}{" "}
         <StatusPill tone={profile?.mfaEnabled ? "ok" : "warn"}>
-          {profile?.mfaEnabled ? "فعال" : "غیرفعال"}
+          {profile?.mfaEnabled ? t("shell.mfaOn") : t("shell.mfaOff")}
         </StatusPill>
-        {profile?.mfaEnrollmentRequired ? " · برای نقش‌های حساس توصیه می‌شود" : null}
+        {profile?.mfaEnrollmentRequired ? t("shell.mfaSensitiveHint") : null}
       </StatusLine>
 
       {profile?.mfaEnabled ? (
         <FormStack density="compact">
           <TextField
             id="mfa-disable-password"
-            label="رمز عبور"
+            label={t("shell.mfaPassword")}
             type="password"
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            hint="برای غیرفعال‌سازی MFA"
+            hint={t("shell.mfaDisableHint")}
           />
           <TextField
             id="mfa-disable-code"
-            label="کد ۶ رقمی Authenticator"
+            label={t("shell.mfaAuthenticatorCode")}
             inputMode="numeric"
             autoComplete="one-time-code"
             value={disableCode}
@@ -141,26 +146,26 @@ export function MfaSettingsPanel({ profile, onProfileChange }: Props) {
             aria-describedby="mfa-disable-hint"
           />
           <p id="mfa-disable-hint" className="liveHint">
-            کد فعلی اپ Authenticator را وارد کنید.
+            {t("shell.mfaDisableCodeHint")}
           </p>
           <Button type="button" variant="secondary" onClick={disableMfa} disabled={pending}>
-            غیرفعال‌سازی MFA
+            {t("shell.mfaDisableBtn")}
           </Button>
         </FormStack>
       ) : (
         <FormStack density="compact">
           {!setup ? (
             <Button type="button" onClick={startSetup} disabled={pending}>
-              شروع فعال‌سازی MFA
+              {t("shell.mfaStartEnable")}
             </Button>
           ) : (
             <>
               <MfaQrCode otpauthUrl={setup.otpauthUrl} />
               <p>
-                Secret (دستی): <code dir="ltr">{setup.secret}</code>
+                {t("shell.mfaSecretManual")} <code dir="ltr">{setup.secret}</code>
               </p>
               <div>
-                <p className="profileFormBlock__label">کدهای بازیابی (یک‌بار نمایش)</p>
+                <p className="profileFormBlock__label">{t("shell.mfaRecoveryOnce")}</p>
                 <ul dir="ltr">
                   {setup.recoveryCodes.map((c) => (
                     <li key={c}>
@@ -171,14 +176,14 @@ export function MfaSettingsPanel({ profile, onProfileChange }: Props) {
               </div>
               <TextField
                 id="mfa-confirm-code"
-                label="کد تأیید ۶ رقمی"
+                label={t("shell.mfaConfirmCode")}
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
               />
               <Button type="button" onClick={confirmSetup} disabled={pending}>
-                تأیید و فعال‌سازی
+                {t("shell.mfaConfirmBtn")}
               </Button>
             </>
           )}

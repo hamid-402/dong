@@ -7,13 +7,20 @@
 .inspector {
   align-self: start;
   position: sticky;
-  top: 12px;
+  top: var(--shell-chrome-offset, 60px);
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background:
     linear-gradient(145deg, color-mix(in srgb, var(--gold) 6%, transparent), transparent 55%),
     var(--surface-2);
+}
+
+@media (max-width: 900px) {
+  .inspector {
+    position: static;
+    top: auto;
+  }
 }
 
 .inspector > span {

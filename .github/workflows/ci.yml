@@ -76,14 +76,35 @@ jobs:
       - name: migrate schema
         run: pnpm --filter @dang/db db:migrate
 
+      - name: install postgres client (DR drill)
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: DR restore drill (R10-07)
+        env:
+          DATABASE_URL: postgresql://dang:dang@localhost:5432/dang_test
+          DR_OUT_DIR: backups
+        run: pnpm dr:drill
+
+      - name: WAL RPO dry-run (R10-07 local)
+        run: pnpm dr:wal:dry-run
+
       - name: schema drift check
         run: pnpm --filter @dang/db db:check
 
       - name: bootstrap dang_runtime (NOBYPASSRLS)
         run: node packages/db/scripts/ci-bootstrap-runtime.mjs
 
+      - name: motion tokens present (reduced-motion)
+        run: |
+          set -e
+          grep -q -- '--motion-duration-base' packages/ui/src/tokens.css
+          grep -q 'prefers-reduced-motion' packages/ui/src/tokens.css
+
       - name: lint / typecheck / build
         run: pnpm check
+
+      - name: package boundary cruise (R10-11)
+        run: pnpm depcruise
 
       - name: unit + cross-tenant RLS tests
         env:
@@ -110,11 +131,15 @@ jobs:
           unset PLAYWRIGHT_CHANNEL || true
           pnpm --filter @dang/web test:a11y
 
-      - name: e2e smoke (auth pages)
+      - name: e2e smoke (auth + finance journeys)
         run: |
           unset PLAYWRIGHT_CHANNEL || true
           # webServer in playwright.config starts next after build (from pnpm check)
-          pnpm --filter @dang/web exec playwright test e2e/login.spec.ts
+          pnpm --filter @dang/web exec playwright test \
+            e2e/login.spec.ts \
+            e2e/expense-balance-settlement.spec.ts \
+            e2e/debt-simplify-smoke.spec.ts \
+            e2e/statements-journey.spec.ts
 
       - name: i18n scaffold key parity
         run: node scripts/i18n-scaffold-check.mjs
@@ -123,7 +148,7 @@ jobs:
         if: always()
         run: |
           echo "## CI gates" >> "$GITHUB_STEP_SUMMARY"
-          echo "- secret-scan, audit, migrate, check, tests, coverage, license, bundle, a11y, e2e-login, i18n-scaffold" >> "$GITHUB_STEP_SUMMARY"
+          echo "- secret-scan, audit, migrate, dr-drill, check, tests, coverage, license, bundle, a11y, e2e-auth-finance×4, i18n-scaffold" >> "$GITHUB_STEP_SUMMARY"
 
   storybook:
     name: storybook build (soft)
@@ -148,3 +173,38 @@ jobs:
           name: storybook-static
           path: packages/ui/storybook-static
           retention-days: 7
+
+  visual-regression-soft:
+    name: visual regression (soft / artifact)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: build web for playwright
+        run: pnpm --filter @dang/web build
+      - name: install playwright chromium
+        run: pnpm --filter @dang/web exec playwright install --with-deps chromium
+      - name: visual shell (opt-in; soft-fail until Linux baselines committed)
+        env:
+          VISUAL_REGRESSION: "1"
+        run: |
+          pnpm --filter @dang/web exec playwright test e2e/visual-shell.spec.ts || true
+          echo "Soft visual job — see docs/ops/VISUAL-REGRESSION.md for Linux baseline commit before hard-fail."
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-shell-results
+          path: |
+            apps/web/test-results
+            apps/web/e2e/visual-shell.spec.ts-snapshots
+          retention-days: 7
+          if-no-files-found: ignore

@@ -112,6 +112,30 @@ export const withdrawal = partnership.table("withdrawal", {
   recordedAt: timestamp("recorded_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const agreedPrice = partnership.table(
+  "agreed_price",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    agreementId: uuid("agreement_id")
+      .notNull()
+      .references(() => agreement.id, { onDelete: "cascade" }),
+    catalogItemId: uuid("catalog_item_id"),
+    title: text("title").notNull(),
+    amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
+    currency: text("currency").default("IRR").notNull(),
+    effectiveFrom: date("effective_from").notNull(),
+    version: bigint("version", { mode: "number" }).default(1).notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("agreed_price_idempotency_uq").on(table.workspaceId, table.idempotencyKey),
+  ],
+);
+
 export const periodLock = partnership.table(
   "period_lock",
   {

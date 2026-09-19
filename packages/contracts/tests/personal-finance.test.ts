@@ -4,12 +4,16 @@ import {
   actorExpenseSlice,
   aggregatePersonalFinanceTrends,
   buildPersonalTransactionsCsv,
+  computeMonthlyCloseTotals,
   computePersonalAccountBalance,
+  computeSavingsGoalProgress,
   personalBudgetAlertLevel,
   personalBudgetUsedPercent,
   personalFinanceTrendBucketKey,
   groupDebtAlertLevel,
+  isSpendingAlertBreached,
   shouldNotifyPersonalBudgetAlert,
+  shouldNotifySpendingAlert,
   sumActorExpensesInRange,
   sumPersonalExpenseInMonth,
   type ExpenseSummary,
@@ -91,6 +95,37 @@ test("computePersonalAccountBalance and month expense sum", () => {
   assert.equal(spent, 100n);
 });
 
+test("sumPersonalExpenseInMonth matches precomputed Jalali yearMonthKey", () => {
+  const spent = sumPersonalExpenseInMonth(
+    [
+      {
+        kind: "expense",
+        amountMinor: 200n,
+        occurredOn: "2026-09-19",
+        yearMonthKey: "1405-06",
+      },
+      {
+        kind: "expense",
+        amountMinor: 50n,
+        occurredOn: "2026-08-01",
+        yearMonthKey: "1405-05",
+      },
+    ],
+    "1405-06",
+  );
+  assert.equal(spent, 200n);
+});
+
+test("computeSavingsGoalProgress includes ledger deposits", () => {
+  const progress = computeSavingsGoalProgress({
+    targetMinor: 1_000_000n,
+    contributionAmountMinors: [100_000n],
+    ledgerDepositMinors: [150_000n],
+  });
+  assert.equal(progress.contributedMinor, 250_000n);
+  assert.equal(progress.progressPercent, 25);
+});
+
 test("personalBudgetAlertLevel warn and exceeded", () => {
   assert.equal(personalBudgetAlertLevel(70n, 100n, 80), "ok");
   assert.equal(personalBudgetAlertLevel(80n, 100n, 80), "warn");
@@ -157,4 +192,45 @@ test("buildPersonalTransactionsCsv has header and toman", () => {
   ]);
   assert.match(csv, /^date,kind,account,category,amount_toman,note/);
   assert.match(csv, /100/);
+});
+
+test("S11-10 savings progress and monthly close helpers", () => {
+  const progress = computeSavingsGoalProgress({
+    targetMinor: 1_000_000n,
+    contributionAmountMinors: [400_000n],
+  });
+  assert.equal(progress.progressPercent, 40);
+  assert.equal(progress.reached, false);
+
+  const empty = computeMonthlyCloseTotals({
+    incomeMinor: 0n,
+    personalExpenseMinor: 0n,
+    groupShareMinor: 0n,
+  });
+  assert.equal(empty.empty, true);
+
+  assert.equal(
+    isSpendingAlertBreached({
+      spentMinor: 50n,
+      limitMinor: 100n,
+      thresholdPercent: 80,
+    }),
+    false,
+  );
+  assert.equal(
+    isSpendingAlertBreached({
+      spentMinor: 80n,
+      limitMinor: 100n,
+      thresholdPercent: 80,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldNotifySpendingAlert({
+      breached: true,
+      lastFiredAt: null,
+      periodFrom: "2026-09-01",
+    }),
+    true,
+  );
 });

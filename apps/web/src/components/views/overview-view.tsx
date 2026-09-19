@@ -1,33 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { spaceKindForTemplate } from "@dang/contracts";
+import type { ActivityItem } from "@dang/contracts";
+import { spaceKindForTemplate, isFinanceManagerRole } from "@dang/contracts";
 import { formatToman } from "@dang/ui";
-import { AppShell, ShellIconSvg } from "@/components/app-shell";
-import {
-  ContextualMosaicHub,
-  type ContextualMosaicFact,
-} from "@/components/shell/contextual-mosaic-hub";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
-import {
-  HeroBalance,
-  PanelList,
-  QuickAction,
-} from "@/components/ui-blocks";
+import { AppShell } from "@/components/app-shell";
+import type { ContextualMosaicFact } from "@/components/shell/contextual-mosaic-hub";
+import { HomeRootLauncher } from "@/components/shell/home-root-launcher";
+import { HomeBalanceCue } from "@/components/shell/home-balance-cue";
+import { GroupOpsRail } from "@/components/shell/group-ops-rail";
+import { GroupPublicIdCard } from "@/components/shell/group-public-id";
+import { GroupSetupChecklist } from "@/components/shell/group-setup-checklist";
+import { EmptyHint, StatusLine } from "@/components/ui-blocks";
+import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { api, getDevIdentity, setDevIdentity } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
+import { useLiveInvalidation } from "@/lib/live-invalidation";
 import { wPath } from "@/lib/workspace-paths";
-import { NAV_LABELS } from "@/lib/nav-labels";
-import { contextualMosaicSections } from "@/lib/navigation-v2";
+import {
+  contextualMosaicSections,
+  homeDomainHref,
+  parseDomainGroup,
+} from "@/lib/navigation-v2";
+import {
+  filterLivePinned,
+  listPinnedDestinations,
+  togglePinnedDestination,
+  type PinnedDestination,
+} from "@/lib/pinned-destinations";
+import { spaceNavFlagsFromCapabilities } from "@/lib/workspace-page-access";
 import {
   expenseStatusLabel,
   needStatusLabel,
 } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { formatFaDate } from "@/lib/fa-datetime";
 import { FlashMessages } from "@/lib/use-flash-message";
+import { FirstRunTour } from "@/components/views/first-run-tour";
+import { DemoConfirmDialog } from "@/components/views/demo-confirm-dialog";
 
 function useAnimatedBalance(target: number, motionEnabled: boolean, ready: boolean) {
   const [mounted, setMounted] = useState(false);
@@ -64,92 +77,6 @@ function useAnimatedBalance(target: number, motionEnabled: boolean, ready: boole
   return formatToman(value);
 }
 
-function MobileExpensePreview({
-  amountLabel,
-  payerName,
-  title,
-  members,
-  financeHref,
-}: {
-  amountLabel: string;
-  payerName: string;
-  title: string;
-  members: string[];
-  financeHref: string;
-}) {
-  return (
-    <aside className="phoneWrap" aria-label="پیش‌نمایش فرم موبایل">
-      <div className="phone">
-        <div className="phoneScreen">
-          <div className="phoneStatus">
-            <span>9:41</span>
-            <span>● ● ●</span>
-          </div>
-          <div className="phoneHeader">
-            <small>مرحله ۱ از ۲</small>
-            <h2>ثبت خرج جدید</h2>
-          </div>
-          <div className="phoneBody">
-            <div className="stepper">
-              <span className="step">۱</span>
-              <span />
-              <span className="step off">۲</span>
-            </div>
-            <label className="field">
-              <span>مبلغ</span>
-              <div className="input amountInput">
-                <b>{amountLabel}</b>
-                <small>تومان</small>
-              </div>
-            </label>
-            <label className="field">
-              <span>پرداخت‌کننده</span>
-              <div className="input">
-                <b>{payerName}</b>
-                <small>⌄</small>
-              </div>
-            </label>
-            <label className="field">
-              <span>عنوان خرج</span>
-              <div className="input">
-                <b>{title}</b>
-              </div>
-            </label>
-            <div className="field">
-              <span>افراد سهیم</span>
-              <div className="memberRow">
-                {members.length === 0 ? (
-                  <span className="member selected">شما</span>
-                ) : (
-                  members.slice(0, 4).map((name, index) => (
-                    <span className={index < 3 ? "member selected" : "member"} key={name}>
-                      {name}
-                    </span>
-                  ))
-                )}
-              </div>
-            </div>
-            <div className="field">
-              <span>روش تقسیم</span>
-              <div className="choices">
-                <span className="selected">مساوی</span>
-                <span>سفارشی</span>
-              </div>
-            </div>
-            <Link
-              className="primaryButton"
-              href={financeHref}
-              style={{ display: "grid", placeItems: "center", textDecoration: "none" }}
-            >
-              ادامه در مالی
-            </Link>
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
 type DashboardState = {
   workspaceId: string;
   workspaceName: string;
@@ -158,12 +85,17 @@ type DashboardState = {
   postedCount: number;
   postedSpendToman: number;
   openSettlementCount: number;
+  pendingApprovalCount: number;
   needCount: number;
   notificationCount: number;
   persistence: string;
   recentExpenses: Array<{ id: string; title: string; toman: number; status: string }>;
   recentNeeds: Array<{ id: string; title: string; status: string }>;
   memberNames: string[];
+  /** Active membership role of the current actor (for ops rail). */
+  myRole: string;
+  /** Active finance managers (owner/admin/finance) — for setup checklist. */
+  financeManagerCount: number;
   previewExpenseTitle: string;
   previewExpenseToman: string;
   rangeLabel: string;
@@ -171,19 +103,27 @@ type DashboardState = {
 
 export function OverviewView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const folderQuery = searchParams.get("folder");
+  const homeFolder = parseDomainGroup(folderQuery);
+  const homeGroup = searchParams.get("group");
   const chrome = useAppChrome();
   const [motionEnabled, setMotionEnabled] = useState(true);
   const [data, setData] = useState<DashboardState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [allowDemoSeed, setAllowDemoSeed] = useState(false);
+  const [demoConfirm, setDemoConfirm] = useState<
+    "seed" | "colleagues" | "purge" | "purge-aftab" | null
+  >(null);
   const [pending, startTransition] = useTransition();
+  const [feedItems, setFeedItems] = useState<ActivityItem[]>([]);
   const balance = useAnimatedBalance(data?.balanceToman ?? 0, motionEnabled, Boolean(data));
+  const activityLive = chrome.capabilities?.providers?.activityFeed === "activity_v1";
   const activeWs = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const slug = activeWs?.slug ?? null;
   const expensesHref = slug ? `${wPath(slug, "expenses")}#quick-expense` : hubPathFor("/workspaces");
   const financeHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
   const spaceHref = slug ? wPath(slug, "space") : hubPathFor("/group");
-  const ledgerHref = slug ? wPath(slug, "ledger") : hubPathFor("/daily-ledger");
   const procurementHref = slug ? wPath(slug, "procurement") : hubPathFor("/workspaces/procurement");
   const settlementsHref = slug
     ? wPath(slug, "settlements")
@@ -204,12 +144,19 @@ export function OverviewView() {
             setData(null);
             return;
           }
-          const [dashboard, needs, members] = await Promise.all([
+          const [dashboard, needs, members, approvalCount, activityPage] = await Promise.all([
             api.workspaceDashboard(workspace.id),
             api.listNeeds(workspace.id).catch(() => []),
             api.listMembers(workspace.id).catch(() => []),
+            chrome.capabilities?.productFlags?.approvalQueue
+              ? api.approvalQueueCount(workspace.id).catch(() => ({ count: 0 }))
+              : Promise.resolve({ count: 0 }),
+            chrome.capabilities?.providers?.activityFeed === "activity_v1"
+              ? api.listActivity(workspace.id, { limit: 12 }).catch(() => ({ items: [] }))
+              : Promise.resolve({ items: [] as ActivityItem[] }),
           ]);
-          setAllowDemoSeed(chrome.allowDevAuth);
+          setFeedItems(activityPage.items);
+          setAllowDemoSeed(Boolean(chrome.demoSeedAllowed));
           const netMinor = Number(dashboard.actorNet.amountMinor);
           const firstExpense = dashboard.activity.recentExpenses[0];
           const sourceBits = [
@@ -235,6 +182,7 @@ export function OverviewView() {
               Number(dashboard.spend.postedTotal.amountMinor) / 10,
             ),
             openSettlementCount: dashboard.settlements.openCount,
+            pendingApprovalCount: approvalCount.count,
             needCount: needs.length,
             notificationCount: dashboard.activity.unreadNotifications,
             persistence,
@@ -250,6 +198,11 @@ export function OverviewView() {
               status: needStatusLabel(n.status),
             })),
             memberNames: members.map((m) => m.displayName).filter(Boolean),
+            myRole:
+              members.find((m) => m.userId === chrome.actor?.userId)?.role ?? "",
+            financeManagerCount: members.filter(
+              (m) => !m.disabledAt && isFinanceManagerRole(m.role),
+            ).length,
             previewExpenseTitle: firstExpense?.title ?? "—",
             previewExpenseToman: firstExpense
               ? formatToman(Math.round(Number(firstExpense.total.amountMinor) / 10)).replace(
@@ -257,7 +210,7 @@ export function OverviewView() {
                   "",
                 )
               : "—",
-            rangeLabel: `${dashboard.from} تا ${dashboard.to}`,
+            rangeLabel: `${formatFaDate(dashboard.from)} تا ${formatFaDate(dashboard.to)}`,
           });
           setError(null);
         } catch (err: unknown) {
@@ -267,31 +220,54 @@ export function OverviewView() {
     });
   }
 
-  const [todayLabel, setTodayLabel] = useState("");
-  useEffect(() => {
-    setTodayLabel(
-      new Intl.DateTimeFormat("fa-IR", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      }).format(new Date()),
-    );
-  }, []);
-
   useEffect(() => {
     if (!chrome.ready || !chrome.workspaceId) return;
     load(chrome.workspaceId);
   }, [chrome.ready, chrome.workspaceId]);
 
+  useEffect(() => {
+    if (!slug) return;
+    if (folderQuery && !homeFolder) {
+      router.replace(homeDomainHref(slug));
+    }
+  }, [slug, folderQuery, homeFolder, router]);
+
+  // The home figures (net balance, spend, open settlements) are the first thing
+  // a member checks, so they follow the ledger rather than the last page load.
+  useLiveInvalidation(["expenses", "balances", "settlements", "invoices:"], () => {
+    if (!chrome.ready || !chrome.workspaceId) return;
+    load(chrome.workspaceId);
+  });
+
   const spaceKind = spaceKindForTemplate(activeWs?.template);
-  const missionSections = contextualMosaicSections(
-    activeWs?.template,
-    slug,
-    chrome.capabilities?.productFlags,
-    "home",
-  );
+  const domainSections = (() => {
+    const flags = spaceNavFlagsFromCapabilities(chrome.capabilities);
+    return contextualMosaicSections(activeWs?.template, slug, flags, "home");
+  })();
+  const [pins, setPins] = useState<PinnedDestination[]>([]);
+  useEffect(() => {
+    const hrefs = new Set(
+      domainSections.flatMap((section) => section.items.map((item) => item.href)),
+    );
+    const next = filterLivePinned(listPinnedDestinations(), hrefs);
+    setPins((prev) => {
+      if (
+        prev.length === next.length &&
+        prev.every((row, index) => row.href === next[index]?.href)
+      ) {
+        return prev;
+      }
+      return next;
+    });
+  }, [activeWs?.template, slug, chrome.capabilities, chrome.platformRole]);
+  const pinnedHrefSet = new Set(pins.map((pin) => pin.href));
   const missionFacts: Partial<Record<string, ContextualMosaicFact>> = data
     ? {
+        approvals: {
+          value: String(data.pendingApprovalCount),
+          label: "در صف تأیید",
+          tone: data.pendingApprovalCount > 0 ? "attention" : "neutral",
+        },
         expenses: {
           value: String(data.postedCount),
           label: "خرج ثبت‌شده در بازه",
@@ -318,255 +294,285 @@ export function OverviewView() {
       persistenceLabel={data ? data.persistence : "در حال بارگذاری…"}
       motionOff={!motionEnabled}
       notificationUnreadCount={data?.notificationCount ?? 0}
-      rail={
-        <MobileExpensePreview
-          amountLabel={data?.previewExpenseToman ?? "—"}
-          payerName={data?.userName ?? "—"}
-          title={data?.previewExpenseTitle ?? "—"}
-          members={data?.memberNames ?? []}
-          financeHref={financeHref}
-        />
-      }
     >
       <FlashMessages error={error} />
-
-      {slug ? (
-        <OperationsModuleHeader
-          ariaLabel="اتاق عملیات فضای کاری"
-          destinations={[
-            { key: "home", label: NAV_LABELS.home, href: wPath(slug), active: true },
-            { key: "expenses", label: NAV_LABELS.expenses, href: financeHref, active: false },
-            { key: "settlements", label: NAV_LABELS.settlements, href: settlementsHref, active: false },
-            { key: "space", label: NAV_LABELS.space, href: spaceHref, active: false },
-            { key: "more", label: NAV_LABELS.more, href: wPath(slug, "more"), active: false },
-          ]}
-          metrics={[
-            {
-              label: "مانده خالص شما",
-              value: data ? formatToman(data.balanceToman) : "—",
-              detail: data ? `بازه ${data.rangeLabel}` : "در حال همگام‌سازی",
-              tone: data && data.balanceToman < 0 ? "attention" : "neutral",
-            },
-            {
-              label: "خرج ثبت‌شده",
-              value: data ? formatToman(data.postedSpendToman) : "—",
-              detail: data ? `${data.postedCount} قلم posted` : undefined,
-            },
-            {
-              label: "تسویه باز",
-              value: data ? String(data.openSettlementCount) : "—",
-              tone: data && data.openSettlementCount > 0 ? "attention" : "positive",
-            },
-            {
-              label: "اعلان خوانده‌نشده",
-              value: data ? String(data.notificationCount) : "—",
-              detail: data?.persistence,
-              tone: data && data.notificationCount > 0 ? "attention" : "neutral",
-            },
-          ]}
-          roleLabel={null}
-          persistenceLabel={data?.persistence ?? chrome.persistenceLabel}
-          pending={pending || !chrome.ready}
-          onRefresh={() => {
-            if (chrome.workspaceId) load(chrome.workspaceId);
+      <FirstRunTour workspaceSlug={slug} />
+      {demoConfirm ? (
+        <DemoConfirmDialog
+          title={
+            demoConfirm === "seed"
+              ? "کاشت دادهٔ نمونهٔ فضا (دمو)"
+              : demoConfirm === "colleagues"
+                ? "کاشت سناریوی همکاران (دمو)"
+                : demoConfirm === "purge-aftab"
+                  ? "پاک‌سازی پروژهٔ آفتاب (دمو)"
+                  : "پاک‌سازی داده‌های دموی همکاران"
+          }
+          confirmExact={
+            demoConfirm === "seed"
+              ? "SEED_WORKSPACE_DEMO"
+              : demoConfirm === "colleagues"
+                ? "SEED_COLLEAGUES_DEMO"
+                : demoConfirm === "purge-aftab"
+                  ? "PURGE_AFTAB_DEMO"
+                  : "PURGE_COLLEAGUES_DEMO"
+          }
+          pending={pending}
+          onCancel={() => setDemoConfirm(null)}
+          onConfirm={() => {
+            const action = demoConfirm;
+            startTransition(() => {
+              void (async () => {
+                try {
+                  if (action === "seed") {
+                    await api.seedDemo();
+                    if (chrome.workspaceId) load(chrome.workspaceId);
+                  } else if (action === "colleagues") {
+                    await api.seedColleaguesDemo();
+                    chrome.refreshChrome();
+                    if (chrome.workspaceId) load(chrome.workspaceId);
+                  } else if (action === "purge-aftab") {
+                    await api.purgeAftabDemo();
+                    chrome.refreshChrome();
+                  } else {
+                    await api.purgeColleaguesDemo();
+                    chrome.refreshChrome();
+                    if (chrome.workspaceId) load(chrome.workspaceId);
+                  }
+                  setError(null);
+                  setDemoConfirm(null);
+                } catch (err: unknown) {
+                  setError(
+                    err instanceof Error
+                      ? err.message
+                      : action === "seed"
+                        ? "خطای seed"
+                        : action === "colleagues"
+                          ? "خطای seed همکاران (دمو)"
+                          : "خطای پاک‌سازی دمو",
+                  );
+                }
+              })();
+            });
           }}
         />
       ) : null}
 
-      <div className="heroGrid" style={{ marginBottom: 12 }}>
-        <p className="liveHint" style={{ margin: 0 }}>
-          صبح بخیر{data?.userName ? `، ${data.userName.split(" ")[0]}` : ""}
-          {" · "}
-          <time suppressHydrationWarning>{todayLabel || "—"}</time>
-          {" · "}
-          <button
-            type="button"
-            onClick={() => setMotionEnabled((c) => !c)}
-          >
-            {motionEnabled ? "توقف حرکت" : "فعال‌کردن حرکت"}
-          </button>
-          {allowDemoSeed ? (
-            <>
-              {" · "}
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => {
-                  startTransition(() => {
-                    void (async () => {
-                      try {
-                        await api.seedDemo();
-                        if (chrome.workspaceId) load(chrome.workspaceId);
-                      } catch (err: unknown) {
-                        setError(err instanceof Error ? err.message : "خطای seed");
-                      }
-                    })();
-                  });
-                }}
-              >
-                دادهٔ نمونه (دمو)
-              </button>
-            </>
-          ) : null}
-        </p>
-      </div>
-
-      <div className="heroGrid">
-        <HeroBalance
-          label="مانده خالص شما"
-          amount={balance}
-          subtitle={(data?.balanceToman ?? 0) >= 0 ? "تومان طلب دارید" : "تومان بدهکارید"}
-          actionLabel={NAV_LABELS.settlements}
-          onAction={() => router.push(settlementsHref)}
-          hint={data ? data.persistence : "در حال بارگذاری…"}
-        />
-        <QuickAction
-          title={spaceKind === "personal" ? "خرج خصوصی" : NAV_LABELS.addExpense}
-          description={
-            spaceKind === "personal"
-              ? "ثبت در دفتر مالی من"
-              : "خرج جدید را در کمتر از یک دقیقه ثبت کنید."
-          }
-          delayClass="delay1"
-          onClick={() =>
-            router.push(spaceKind === "personal" ? spaceHref : expensesHref)
-          }
-          icon={<ShellIconSvg name="receipt" />}
-        />
-      </div>
-
-      <ContextualMosaicHub
-        sections={missionSections}
-        title="ماموریت‌های این فضا"
-        description="مسیرهای اصلی بر اساس نوع فضای کاری و قابلیت‌های واقعی فعال شده‌اند."
-        facts={missionFacts}
-      />
-
-      <div className="lowerGrid">
-        <PanelList
-          title={spaceKind === "org" ? "منتظر اقدام شما" : "کارهای پیشنهادی"}
-          badge={
-            spaceKind === "org"
-              ? Math.max(data?.recentNeeds.length ?? 0, data?.needCount ?? 0)
-              : data?.postedCount ?? 0
-          }
-          delayClass="delay3"
-          footer={
+      <div className="mosaicWorkspace">
+        {!chrome.ready || (!data && pending) ? (
+          <ContentSkeleton rows={4} label="در حال بارگذاری خانه…" />
+        ) : error && !data ? (
+          <StatusLine>
+            {error}{" "}
             <button
-              className="textButton"
               type="button"
-              onClick={() =>
-                router.push(
-                  spaceKind === "org"
-                    ? procurementHref
-                    : spaceKind === "personal"
-                      ? spaceHref
-                      : ledgerHref,
-                )
-              }
+              className="textButton"
+              disabled={pending}
+              onClick={() => {
+                if (chrome.workspaceId) load(chrome.workspaceId);
+              }}
             >
-              {spaceKind === "org"
-                ? "مشاهده تدارکات ←"
-                : spaceKind === "personal"
-                  ? "دفتر من ←"
-                  : "دفتر روزانه ←"}
+              تلاش دوباره
             </button>
-          }
-        >
-          {spaceKind === "org" ? (
-            (data?.recentNeeds.length ?? 0) === 0 ? (
-              <article className="task">
-                <div>
-                  <b>نیازی در صف نیست</b>
-                  <p>از مسیر خرید یک نیاز ثبت کنید</p>
-                  <small>آماده ثبت</small>
-                </div>
-                <strong>
-                  —
-                  <i>تومان</i>
-                </strong>
-              </article>
-            ) : (
-              data!.recentNeeds.map((item) => (
-                <article className="task" key={item.id}>
-                  <div>
-                    <b>{item.title}</b>
-                    <p>{data?.workspaceName}</p>
-                    <small>{item.status}</small>
-                  </div>
-                  <strong>
-                    خرید
-                    <i>نیاز</i>
-                  </strong>
-                </article>
-              ))
-            )
-          ) : (
-            <article className="task">
-              <div>
-                <b>
-                  {spaceKind === "personal"
-                    ? "ثبت خرج یا بودجه شخصی"
-                    : "ثبت در دفتر روزانه یا تسویه"}
-                </b>
-                <p>{data?.workspaceName ?? "فضای فعال"}</p>
-                <small>
-                  {data
-                    ? `${data.postedCount} خرج ثبت‌شده · ${data.notificationCount} اعلان`
-                    : "—"}
-                </small>
-              </div>
-              <strong>
-                {spaceKind === "personal" ? "من" : "گروه"}
-                <i>اقدام</i>
-              </strong>
-            </article>
-          )}
-        </PanelList>
+          </StatusLine>
+        ) : !slug ? (
+          <EmptyHint>فضای کاری را انتخاب کنید یا از فهرست فضاها یکی بسازید.</EmptyHint>
+        ) : (
+          <>
+            <HomeRootLauncher
+              slug={slug}
+              template={activeWs?.template}
+              workspaceCount={chrome.workspaces.length}
+              sections={domainSections}
+              folderParam={homeFolder}
+              groupParam={homeGroup}
+              facts={missionFacts}
+              reduceMotion={!motionEnabled}
+              pinnedHrefs={pinnedHrefSet}
+              urgency={
+                data
+                  ? {
+                      pendingApprovals: data.pendingApprovalCount,
+                      openSettlements: data.openSettlementCount,
+                      openNeeds: data.needCount,
+                    }
+                  : undefined
+              }
+              onTogglePin={(item) => {
+                togglePinnedDestination(item);
+                const hrefs = new Set(
+                  domainSections.flatMap((s) => s.items.map((i) => i.href)),
+                );
+                setPins(filterLivePinned(listPinnedDestinations(), hrefs));
+              }}
+            />
 
-        <section className="panel card animated delay4">
-          <div className="panelHeader">
-            <b>فعالیت‌های اخیر</b>
-            <span>زنده</span>
-          </div>
-          <div className="timeline">
-            {(data?.recentExpenses.length ?? 0) === 0 && (data?.recentNeeds.length ?? 0) === 0 ? (
-              <div className="event">
-                <span>·</span>
-                <div>
-                  <b>هنوز رویدادی نیست</b>
-                  <small>دادهٔ نمونه را بسازید تا جریان زنده دیده شود</small>
-                </div>
+            {!homeFolder ? (
+              <div className="mosaicWorkspace__cue">
+                <HomeBalanceCue
+                  amountLabel={balance}
+                  balanceToman={data?.balanceToman ?? 0}
+                  openSettlements={data?.openSettlementCount ?? 0}
+                  postedCount={data?.postedCount}
+                  settleHref={settlementsHref}
+                  expenseHref={
+                    spaceKind === "personal" ? expensesHref : expensesHref
+                  }
+                  spaceHref={spaceHref}
+                  spaceKind={spaceKind}
+                  persistenceHint={data?.persistence}
+                />
+                {slug ? (
+                  <GroupOpsRail
+                    slug={slug}
+                    spaceKind={spaceKind}
+                    memberCount={data?.memberNames.length}
+                    openSettlements={data?.openSettlementCount ?? 0}
+                    canManageMembers={
+                      data?.myRole === "owner" ||
+                      data?.myRole === "admin" ||
+                      isFinanceManagerRole(data?.myRole)
+                    }
+                    showSubunits={spaceKind === "building" || spaceKind === "org"}
+                    subunitsHint={
+                      spaceKind === "building"
+                        ? "واحدها و ساکنان هر واحد"
+                        : "بخش‌ها و شرکت‌های زیرمجموعه"
+                    }
+                  />
+                ) : null}
               </div>
-            ) : (
-              <>
-                {data?.recentExpenses.map((item) => (
-                  <div className="event" key={item.id}>
-                    <span>✓</span>
-                    <div>
-                      <b>{item.title}</b>
-                      <small>
-                        {item.status} · {formatToman(item.toman)}
-                      </small>
-                    </div>
-                  </div>
-                ))}
-                {data?.recentNeeds.map((item) => (
-                  <div className="event" key={`need-${item.id}`}>
-                    <span>+</span>
-                    <div>
-                      <b>{item.title}</b>
-                      <small>نیاز خرید · {item.status}</small>
-                    </div>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-          <button className="textButton" type="button" onClick={() => router.push(settlementsHref)}>
-            مشاهده همه فعالیت‌ها ←
-          </button>
-        </section>
+            ) : null}
+
+            {!homeFolder ? (
+              <details className="mosaicWorkspace__more">
+                <summary>جزئیات فضا و فعالیت</summary>
+                <div className="mosaicWorkspace__moreBody">
+                  {slug &&
+                  (spaceKind === "group" ||
+                    spaceKind === "building" ||
+                    spaceKind === "org") ? (
+                    <>
+                      <GroupPublicIdCard slug={slug} name={data?.workspaceName} />
+                      {spaceKind === "group" || spaceKind === "building" ? (
+                        <GroupSetupChecklist
+                          slug={slug}
+                          memberCount={data?.memberNames.length ?? 0}
+                          financeManagerCount={data?.financeManagerCount ?? 0}
+                          postedCount={data?.postedCount ?? 0}
+                          canManageMembers={
+                            data?.myRole === "owner" ||
+                            data?.myRole === "admin" ||
+                            isFinanceManagerRole(data?.myRole)
+                          }
+                        />
+                      ) : null}
+                    </>
+                  ) : null}
+
+                  <section className="homeActivity" aria-labelledby="home-activity-title">
+                    <header className="homeActivity__head">
+                      <h2 id="home-activity-title">فعالیت اخیر</h2>
+                    </header>
+                    {activityLive && feedItems.length > 0 ? (
+                      <ul className="homeActivity__list">
+                        {feedItems.map((item) => (
+                          <li key={item.id}>
+                            <div className="homeActivity__link">
+                              <strong>{item.title}</strong>
+                              <small>
+                                {item.kind === "notification" ? "اعلان" : "ممیزی"}
+                                {item.body ? ` · ${item.body}` : ""}
+                                {" · "}
+                                {formatFaDate(item.createdAt)}
+                              </small>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {(data?.recentExpenses.length ?? 0) === 0 &&
+                    (data?.recentNeeds.length ?? 0) === 0 &&
+                    feedItems.length === 0 ? (
+                      <p className="homeActivity__empty">
+                        هنوز رویدادی نیست. با ثبت خرج اینجا پر می‌شود.
+                      </p>
+                    ) : (data?.recentExpenses.length ?? 0) > 0 ||
+                      (data?.recentNeeds.length ?? 0) > 0 ? (
+                      <ul className="homeActivity__list">
+                        {data?.recentExpenses.map((item) => (
+                          <li key={item.id}>
+                            <Link
+                              href={`${financeHref}?expense=${encodeURIComponent(item.id)}#expense-inspector`}
+                              className="homeActivity__link"
+                            >
+                              <strong>{item.title}</strong>
+                              <small>
+                                {expenseStatusLabel(item.status)} · {formatToman(item.toman)}
+                              </small>
+                            </Link>
+                          </li>
+                        ))}
+                        {data?.recentNeeds.map((item) => (
+                          <li key={`need-${item.id}`}>
+                            <Link
+                              href={
+                                spaceKind === "org" ? procurementHref : expensesHref
+                              }
+                              className="homeActivity__link"
+                            >
+                              <strong>{item.title}</strong>
+                              <small>نیاز خرید · {needStatusLabel(item.status)}</small>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </section>
+
+                  {allowDemoSeed ? (
+                    <details className="overviewTools">
+                      <summary>ابزار توسعه (دمو)</summary>
+                      <p className="overviewTools__row">
+                        <button type="button" onClick={() => setMotionEnabled((c) => !c)}>
+                          {motionEnabled ? "توقف حرکت" : "فعال‌کردن حرکت"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => setDemoConfirm("purge-aftab")}
+                        >
+                          پاک‌سازی آفتاب (دمو)
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => setDemoConfirm("purge")}
+                        >
+                          پاک‌سازی همکاران (دمو)
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => setDemoConfirm("seed")}
+                        >
+                          کاشت نمونه (دمو)
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => setDemoConfirm("colleagues")}
+                        >
+                          سناریوی همکاران (دمو)
+                        </button>
+                      </p>
+                    </details>
+                  ) : null}
+                </div>
+              </details>
+            ) : null}
+          </>
+        )}
       </div>
     </AppShell>
   );

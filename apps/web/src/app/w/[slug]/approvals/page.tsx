@@ -6,7 +6,6 @@ import type { ApprovalQueueItem, MembershipSummary } from "@dang/contracts";
 import { isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
-import { FinanceOperationsHeader } from "@/components/views/finance/finance-operations-header";
 import {
   DataList,
   DataRow,
@@ -15,6 +14,8 @@ import {
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
+import { ContentSkeleton } from "@/components/shell/content-skeleton";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import {
@@ -23,10 +24,23 @@ import {
   membershipRoleLabel,
 } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { t } from "@/lib/i18n";
+import { formatFaDate, formatFaDateTime } from "@/lib/fa-datetime";
 import { wPath, type WorkspacePage } from "@/lib/workspace-paths";
+import { ConfirmSettlementDialog } from "@/components/views/finance/confirm-settlement-dialog";
+import { WorkspacePageGate } from "@/components/shell/workspace-page-gate";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import styles from "./approvals.module.css";
 
 export default function WorkspaceApprovalsPage() {
+  return (
+    <WorkspacePageGate page="approvals">
+      <WorkspaceApprovalsPageInner />
+    </WorkspacePageGate>
+  );
+}
+
+function WorkspaceApprovalsPageInner() {
   const chrome = useAppChrome();
   const enabled = Boolean(chrome.capabilities?.productFlags?.approvalQueue);
   const [items, setItems] = useState<ApprovalQueueItem[]>([]);
@@ -35,6 +49,11 @@ export default function WorkspaceApprovalsPage() {
   const [selectedKey, setSelectedKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [loaded, setLoaded] = useState(false);
+  const [confirmSettlementId, setConfirmSettlementId] = useState<string | null>(null);
+  const evidenceRequired = Boolean(
+    chrome.capabilities?.productFlags?.settlementEvidence,
+  );
   const workspace = chrome.workspaces.find((row) => row.id === chrome.workspaceId);
   const readOnly = isReadOnlyRole(myRole);
   const selectedItem =
@@ -46,6 +65,7 @@ export default function WorkspaceApprovalsPage() {
     if (!chrome.workspaceId || !enabled) {
       setItems([]);
       setMyRole("");
+      setLoaded(true);
       return Promise.resolve();
     }
     return Promise.all([
@@ -59,13 +79,16 @@ export default function WorkspaceApprovalsPage() {
         members.find((m: MembershipSummary) => m.userId === me.actor.userId)?.role ??
           "",
       );
+      setLoaded(true);
     });
   }
 
   useEffect(() => {
-    void refresh().catch((reason: unknown) =>
-      setError(friendlyErrorMessage(reason, "بارگذاری مرکز تأیید ناموفق")),
-    );
+    setLoaded(false);
+    void refresh().catch((reason: unknown) => {
+      setError(friendlyErrorMessage(reason, "بارگذاری مرکز تأیید ناموفق"));
+      setLoaded(true);
+    });
   }, [chrome.workspaceId, enabled, chrome.actor?.userId]);
 
   function run(action: () => Promise<unknown>, fail: string) {
@@ -171,6 +194,23 @@ export default function WorkspaceApprovalsPage() {
         </>
       );
     }
+    if (item.kind === "settlement") {
+      return (
+        <>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={pending}
+            onClick={() => setConfirmSettlementId(item.id)}
+          >
+            تأیید تسویه
+          </Button>
+          {workspace ? (
+            <Link href={wPath(workspace.slug, "settlements")}>جزئیات</Link>
+          ) : null}
+        </>
+      );
+    }
     return null;
   }
 
@@ -181,38 +221,48 @@ export default function WorkspaceApprovalsPage() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      {error ? <p className="liveError">{error}</p> : null}
-      {enabled && chrome.workspaceId && workspace ? (
-        <FinanceOperationsHeader
-          ariaLabel="مرکز تأیید"
-          destinations={[
-            { key: "expenses", label: "خرج‌ها", href: wPath(workspace.slug, "expenses"), active: false },
-            { key: "settlements", label: "تسویه‌ها", href: wPath(workspace.slug, "settlements"), active: false },
-            { key: "invoices", label: "صورتحساب‌ها", href: wPath(workspace.slug, "invoices"), active: false },
-            { key: "approvals", label: "مرکز تأیید", href: wPath(workspace.slug, "approvals"), active: true },
-          ]}
-          metrics={[
-            { label: "کل صف", value: String(items.length), detail: "موارد واقعی API" },
-            { label: "خرج", value: String(items.filter((item) => item.kind === "expense").length), detail: "در انتظار اقدام" },
-            { label: "صورتحساب", value: String(items.filter((item) => item.kind === "member_invoice").length), detail: "تأیید یا اختلاف" },
-            { label: "اضافه شخصی", value: String(items.filter((item) => item.kind === "addon_charge").length), detail: "تأیید عضو هدف" },
-          ]}
-          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
-          persistenceLabel={chrome.persistenceLabel}
-          pending={pending}
-          onRefresh={() => {
-            startTransition(() => {
-              void refresh().catch((reason: unknown) =>
-                setError(friendlyErrorMessage(reason, "بارگذاری مرکز تأیید ناموفق")),
-              );
-            });
-          }}
-        />
+      <WorkspacePageFrame
+        title={NAV_LABELS.approvals}
+        description="صف اقدام‌های واقعی در انتظار تأیید — بدون badge جعلی."
+        primaryAction={
+          workspace ? (
+            <Link href={wPath(workspace.slug, "expenses")}>{NAV_LABELS.expenses}</Link>
+          ) : (
+            <Link href="/spaces">{NAV_LABELS.spacesList}</Link>
+          )
+        }
+        state={!enabled ? "empty" : !loaded && enabled ? "loading" : "ready"}
+        loadingLabel="در حال بارگذاری مرکز تأیید…"
+        empty={<EmptyHint>قابلیت مرکز تأیید در این محیط فعال نیست.</EmptyHint>}
+      >
+      {error ? <StatusLine>{error}</StatusLine> : null}
+      {enabled && chrome.capabilities ? (
+        <StatusLine>
+          {(() => {
+            const mode = chrome.capabilities.providers?.makerChecker;
+            const sla = chrome.capabilities.providers?.makerCheckerSla;
+            const maker =
+              !mode || mode === "off"
+                ? t("approvals.makerOff")
+                : mode === "four_eyes"
+                  ? t("approvals.makerFourEyes")
+                  : mode === "four_eyes_queue_v1"
+                    ? t("approvals.makerQueue")
+                    : mode;
+            const slaNote =
+              sla === "hours_v1"
+                ? ` · ${t("approvals.slaHours")}`
+                : "";
+            return `${maker}${slaNote}`;
+          })()}
+        </StatusLine>
       ) : null}
       {!enabled ? (
         <EmptyHint>قابلیت مرکز تأیید در این محیط فعال نیست.</EmptyHint>
       ) : !chrome.workspaceId ? (
         <EmptyHint>فضای کاری را انتخاب کنید.</EmptyHint>
+      ) : !loaded ? (
+        <ContentSkeleton rows={3} label="در حال بارگذاری مرکز تأیید…" />
       ) : (
         <SectionCard title="در انتظار اقدام" badge={items.length}>
           {readOnly ? (
@@ -244,6 +294,22 @@ export default function WorkspaceApprovalsPage() {
                           <StatusPill tone="warn">
                             {approvalQueueStatusLabel(item.status)}
                           </StatusPill>
+                          {typeof item.approvalsNeeded === "number" &&
+                          item.approvalsNeeded > 0 ? (
+                            <StatusPill tone="neutral">
+                              {t("approvals.tierProgress", {
+                                have: String(item.approvalsHave ?? 0),
+                                need: String(item.approvalsNeeded),
+                              })}
+                            </StatusPill>
+                          ) : null}
+                          {item.slaBreached ? (
+                            <StatusPill tone="danger">{t("approvals.slaBreached")}</StatusPill>
+                          ) : item.slaDueAt ? (
+                            <StatusPill tone="neutral">
+                              {t("approvals.slaDue")}: {formatFaDateTime(item.slaDueAt)}
+                            </StatusPill>
+                          ) : null}
                         </>
                       }
                       trailing={
@@ -271,7 +337,30 @@ export default function WorkspaceApprovalsPage() {
                   <dl>
                     <div><dt>نوع</dt><dd>{approvalQueueKindLabel(selectedItem.kind)}</dd></div>
                     <div><dt>وضعیت</dt><dd>{approvalQueueStatusLabel(selectedItem.status)}</dd></div>
-                    <div><dt>زمان ایجاد</dt><dd><time dateTime={selectedItem.createdAt}>{new Date(selectedItem.createdAt).toLocaleDateString("fa-IR")}</time></dd></div>
+                    <div><dt>زمان ایجاد</dt><dd><time dateTime={selectedItem.createdAt}>{formatFaDate(selectedItem.createdAt)}</time></dd></div>
+                    {typeof selectedItem.approvalsNeeded === "number" &&
+                    selectedItem.approvalsNeeded > 0 ? (
+                      <div>
+                        <dt>{t("approvals.tierLabel")}</dt>
+                        <dd>
+                          {t("approvals.tierProgress", {
+                            have: String(selectedItem.approvalsHave ?? 0),
+                            need: String(selectedItem.approvalsNeeded),
+                          })}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {selectedItem.slaDueAt ? (
+                      <div>
+                        <dt>{t("approvals.slaDue")}</dt>
+                        <dd>
+                          <time dateTime={selectedItem.slaDueAt}>
+                            {formatFaDateTime(selectedItem.slaDueAt)}
+                          </time>
+                          {selectedItem.slaBreached ? ` · ${t("approvals.slaBreached")}` : ""}
+                        </dd>
+                      </div>
+                    ) : null}
                     <div><dt>سطح دسترسی</dt><dd>{readOnly ? "فقط مشاهده" : "اقدام مجاز"}</dd></div>
                   </dl>
                   <div className={styles.inspectorActions}>{actionsFor(selectedItem)}</div>
@@ -281,6 +370,22 @@ export default function WorkspaceApprovalsPage() {
           )}
         </SectionCard>
       )}
+      </WorkspacePageFrame>
+      {confirmSettlementId && chrome.workspaceId ? (
+        <ConfirmSettlementDialog
+          pending={pending}
+          evidenceRequired={evidenceRequired}
+          onCancel={() => setConfirmSettlementId(null)}
+          onConfirm={(evidence) => {
+            const id = confirmSettlementId;
+            setConfirmSettlementId(null);
+            run(
+              () => api.confirmSettlement(chrome.workspaceId, id, evidence),
+              "تأیید تسویه ناموفق",
+            );
+          }}
+        />
+      ) : null}
     </AppShell>
   );
 }

@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { RouteLoadingHint } from "@/components/shell/route-loading-hint";
+import { WorkspacePageGate } from "@/components/shell/workspace-page-gate";
 
 const DailyLedgerView = dynamic(
   () =>
@@ -15,5 +16,9 @@ const DailyLedgerView = dynamic(
 );
 
 export default function WorkspaceLedgerPage() {
-  return <DailyLedgerView />;
+  return (
+    <WorkspacePageGate page="ledger">
+      <DailyLedgerView />
+    </WorkspacePageGate>
+  );
 }

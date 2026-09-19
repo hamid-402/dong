@@ -10,6 +10,9 @@ export const createAssetFromDeliveryRequestSchema = z
     ownerUserId: entityIdSchema.optional(),
     custodianUserId: entityIdSchema.optional(),
     location: z.string().trim().min(1).max(200).optional(),
+    usefulLifeMonths: z.number().int().positive().max(600).optional(),
+    salvageMinor: z.string().regex(/^\d+$/).optional(),
+    acquisitionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     idempotencyKey: idempotencyKeySchema,
   })
   .strict();
@@ -61,3 +64,13 @@ export const damageAssetRequestSchema = z
   .strict();
 
 export type DamageAssetRequestInput = z.infer<typeof damageAssetRequestSchema>;
+
+export const assetLifecycleRequestSchema = z
+  .object({
+    workspaceId: entityIdSchema,
+    assetId: entityIdSchema,
+    note: z.string().max(2000).optional(),
+  })
+  .strict();
+
+export type AssetLifecycleRequestInput = z.infer<typeof assetLifecycleRequestSchema>;

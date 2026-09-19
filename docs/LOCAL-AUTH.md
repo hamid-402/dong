@@ -25,7 +25,7 @@
 | `GET /auth/session` | خلاصه نشست فعلی |
 | `GET /auth/me` | Actor + فضاهای کاری |
 
-رمز با **Argon2id** هش می‌شود؛ هش‌های قدیمی scrypt در لاگین موفق ارتقا می‌یابند. توکن نشست و بازیابی فقط به‌صورت SHA-256 در DB ذخیره می‌شوند. Secret TOTP به‌صورت base32 در ستون `totp_secret` (مناسب local).
+رمز با **Argon2id** هش می‌شود؛ هش‌های قدیمی scrypt در لاگین موفق ارتقا می‌یابند. توکن نشست و بازیابی فقط به‌صورت SHA-256 در DB ذخیره می‌شوند. Secret TOTP با AEAD (`enc:v1:`) در ستون `totp_secret` ذخیره می‌شود؛ کلید از `TOTP_ENCRYPTION_KEY` یا `SESSION_SECRET`؛ چرخش با `TOTP_ENCRYPTION_KEY_PREVIOUS` (جزئیات: `docs/MFA-STORAGE.md` · `docs/ops/KEY-ROTATION.md`).
 
 ## صفحات وب
 

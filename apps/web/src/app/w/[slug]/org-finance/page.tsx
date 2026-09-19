@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { RouteLoadingHint } from "@/components/shell/route-loading-hint";
+import { WorkspacePageGate } from "@/components/shell/workspace-page-gate";
 
 const OrgFinanceView = dynamic(
   () =>
@@ -15,5 +16,9 @@ const OrgFinanceView = dynamic(
 );
 
 export default function WorkspaceOrgFinancePage() {
-  return <OrgFinanceView />;
+  return (
+    <WorkspacePageGate page="orgFinance">
+      <OrgFinanceView />
+    </WorkspacePageGate>
+  );
 }

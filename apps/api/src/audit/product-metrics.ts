@@ -7,6 +7,7 @@ import type { AuditRecord } from "./audit.types.js";
 
 const ACTIONS = {
   workspaceCreate: "workspace.create",
+  inviteCreate: "invite.create",
   inviteAccept: "invite.accept",
   expensePost: "expense.post",
   settlementConfirm: "settlement.claim.confirm",
@@ -36,6 +37,7 @@ export function aggregateWorkspaceProductMetrics(
 ): WorkspaceProductMetricsResponse {
   const counts: ProductMetricCounts = {
     workspaceCreates: successEvents(events, ACTIONS.workspaceCreate).length,
+    inviteCreates: successEvents(events, ACTIONS.inviteCreate).length,
     inviteAccepts: successEvents(events, ACTIONS.inviteAccept).length,
     expensePosts: successEvents(events, ACTIONS.expensePost).length,
     settlementConfirms: successEvents(events, ACTIONS.settlementConfirm).length,
@@ -48,6 +50,7 @@ export function aggregateWorkspaceProductMetrics(
     counts,
     milestones: {
       onboardingWorkspaceCreated: milestone(events, ACTIONS.workspaceCreate),
+      inviteCreated: milestone(events, ACTIONS.inviteCreate),
       inviteAccepted: milestone(events, ACTIONS.inviteAccept),
       firstExpensePosted: milestone(events, ACTIONS.expensePost),
       settlementCompleted: milestone(events, ACTIONS.settlementConfirm),

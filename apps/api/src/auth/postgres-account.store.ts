@@ -5,13 +5,16 @@ import {
   authPasswordReset,
   authSession,
   createDatabase,
+  desc,
   eq,
+  ilike,
   isNull,
+  or,
   sql,
   userAccount,
   type AppDatabase,
 } from "@dang/db";
-import type { UpdateProfileRequest } from "@dang/contracts";
+import type { PlatformRole, UpdateProfileRequest } from "@dang/contracts";
 import type {
   AccountRecord,
   AccountStore,
@@ -32,6 +35,20 @@ function mapUser(row: typeof userAccount.$inferSelect): AccountRecord {
     avatarUrl: row.avatarUrl ?? null,
     locale: row.locale ?? "fa-IR",
     timezone: row.timezone ?? "Asia/Tehran",
+    username: row.username ?? null,
+    phone: row.phone ?? null,
+    phoneHash: row.phoneHash ?? null,
+    phoneVerifiedAt: row.phoneVerifiedAt ?? null,
+    platformRole:
+      row.platformRole === "platform_owner" || row.platformRole === "platform_support"
+        ? row.platformRole
+        : "user",
+    displayUnit:
+      row.displayUnit === "rial" || row.displayUnit === "toman" ? row.displayUnit : null,
+    usernameChangedAt: row.usernameChangedAt ?? null,
+    disabledAt: row.disabledAt ?? null,
+    disabledByUserId: row.disabledByUserId ?? null,
+    disabledReason: row.disabledReason ?? null,
     totpSecret: row.totpSecret ?? null,
     totpEnabledAt: row.totpEnabledAt ?? null,
     createdAt: row.createdAt,
@@ -88,28 +105,80 @@ export class PostgresAccountStore implements AccountStore {
     return rows[0] ? mapUser(rows[0]) : null;
   }
 
+  async findByUsername(username: string): Promise<AccountRecord | null> {
+    const rows = await this.db
+      .select()
+      .from(userAccount)
+      .where(sql`lower(${userAccount.username}) = ${username.toLowerCase()}`)
+      .limit(1);
+    return rows[0] ? mapUser(rows[0]) : null;
+  }
+
+  async findByPhone(phoneE164: string): Promise<AccountRecord | null> {
+    const rows = await this.db
+      .select()
+      .from(userAccount)
+      .where(eq(userAccount.phone, phoneE164))
+      .limit(1);
+    return rows[0] ? mapUser(rows[0]) : null;
+  }
+
+  async findByPhoneHash(phoneHash: string): Promise<AccountRecord | null> {
+    const rows = await this.db
+      .select()
+      .from(userAccount)
+      .where(eq(userAccount.phoneHash, phoneHash))
+      .limit(1);
+    return rows[0] ? mapUser(rows[0]) : null;
+  }
+
   async createLocalUser(input: {
     email: string;
     displayName: string;
     passwordHash: string;
+    username: string;
+    phone?: string | null;
+    phoneHash?: string | null;
   }): Promise<AccountRecord> {
     const email = input.email.toLowerCase();
+    const username = input.username.toLowerCase();
     const existing = await this.findByEmail(email);
     if (existing) throw new Error("EMAIL_TAKEN");
-    const inserted = await this.db
-      .insert(userAccount)
-      .values({
-        externalSubject: `local:${email}`,
-        displayName: input.displayName.trim(),
-        email,
-        passwordHash: input.passwordHash,
-        locale: "fa-IR",
-        timezone: "Asia/Tehran",
-      })
-      .returning();
-    const row = inserted[0];
-    if (!row) throw new Error("USER_CREATE_FAILED");
-    return mapUser(row);
+    if (await this.findByUsername(username)) throw new Error("USERNAME_TAKEN");
+    if (input.phone && (await this.findByPhone(input.phone))) throw new Error("PHONE_TAKEN");
+    try {
+      const inserted = await this.db
+        .insert(userAccount)
+        .values({
+          externalSubject: `local:${email}`,
+          displayName: input.displayName.trim(),
+          email,
+          passwordHash: input.passwordHash,
+          username,
+          phone: input.phone ?? null,
+          phoneHash: input.phoneHash ?? null,
+          usernameChangedAt: new Date(),
+          platformRole: "user",
+          locale: "fa-IR",
+          timezone: "Asia/Tehran",
+        })
+        .returning();
+      const row = inserted[0];
+      if (!row) throw new Error("USER_CREATE_FAILED");
+      return mapUser(row);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (/username/i.test(msg) && /unique|duplicate/i.test(msg)) {
+        throw new Error("USERNAME_TAKEN");
+      }
+      if (/phone/i.test(msg) && /unique|duplicate/i.test(msg)) {
+        throw new Error("PHONE_TAKEN");
+      }
+      if (/email/i.test(msg) && /unique|duplicate/i.test(msg)) {
+        throw new Error("EMAIL_TAKEN");
+      }
+      throw error;
+    }
   }
 
   async findOrCreateOidcUser(input: {
@@ -158,6 +227,79 @@ export class PostgresAccountStore implements AccountStore {
     const updated = await this.db
       .update(userAccount)
       .set(updates)
+      .where(eq(userAccount.id, userId))
+      .returning();
+    const row = updated[0];
+    if (!row) throw new Error("USER_NOT_FOUND");
+    return mapUser(row);
+  }
+
+  async setIdentityFields(
+    userId: string,
+    patch: {
+      username?: string;
+      phone?: string | null;
+      phoneHash?: string | null;
+      displayUnit?: "rial" | "toman" | null;
+      usernameChangedAt?: Date | null;
+    },
+  ): Promise<AccountRecord> {
+    if (patch.username !== undefined) {
+      const taken = await this.findByUsername(patch.username);
+      if (taken && taken.userId !== userId) throw new Error("USERNAME_TAKEN");
+    }
+    if (patch.phone) {
+      const taken = await this.findByPhone(patch.phone);
+      if (taken && taken.userId !== userId) throw new Error("PHONE_TAKEN");
+    }
+    const updates: Partial<typeof userAccount.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+    if (patch.username !== undefined) {
+      updates.username = patch.username.toLowerCase();
+      updates.usernameChangedAt = patch.usernameChangedAt ?? new Date();
+    }
+    if (patch.phone !== undefined) {
+      updates.phone = patch.phone;
+      updates.phoneHash = patch.phoneHash ?? null;
+      updates.phoneVerifiedAt = null;
+    }
+    if (patch.displayUnit !== undefined) {
+      updates.displayUnit = patch.displayUnit;
+    }
+    try {
+      const updated = await this.db
+        .update(userAccount)
+        .set(updates)
+        .where(eq(userAccount.id, userId))
+        .returning();
+      const row = updated[0];
+      if (!row) throw new Error("USER_NOT_FOUND");
+      return mapUser(row);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (/username/i.test(msg) && /unique|duplicate/i.test(msg)) {
+        throw new Error("USERNAME_TAKEN");
+      }
+      if (/phone/i.test(msg) && /unique|duplicate/i.test(msg)) {
+        throw new Error("PHONE_TAKEN");
+      }
+      throw error;
+    }
+  }
+
+  async changeEmail(userId: string, newEmail: string): Promise<AccountRecord> {
+    const email = newEmail.toLowerCase();
+    const taken = await this.findByEmail(email);
+    if (taken && taken.userId !== userId) throw new Error("EMAIL_TAKEN");
+    const updated = await this.db
+      .update(userAccount)
+      .set({
+        email,
+        emailVerifiedAt: null,
+        externalSubject: `local:${email}`,
+        updatedAt: new Date(),
+      })
       .where(eq(userAccount.id, userId))
       .returning();
     const row = updated[0];
@@ -453,5 +595,122 @@ export class PostgresAccountStore implements AccountStore {
       .update(authMfaRecovery)
       .set({ usedAt: new Date() })
       .where(eq(authMfaRecovery.id, id));
+  }
+
+  async anonymizeAccount(userId: string): Promise<AccountRecord> {
+    await this.db.delete(authMfaRecovery).where(eq(authMfaRecovery.userId, userId));
+    await this.db
+      .update(authSession)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(authSession.userId, userId), isNull(authSession.revokedAt)));
+    const tombstoneEmail = `deleted+${userId}@invalid.local`;
+    const tombstoneSubject = `deleted:${userId}`;
+    const updated = await this.db
+      .update(userAccount)
+      .set({
+        email: tombstoneEmail,
+        emailVerifiedAt: null,
+        displayName: "حساب حذف‌شده",
+        avatarUrl: null,
+        passwordHash: null,
+        totpSecret: null,
+        totpEnabledAt: null,
+        username: null,
+        phone: null,
+        phoneHash: null,
+        phoneVerifiedAt: null,
+        displayUnit: null,
+        usernameChangedAt: null,
+        externalSubject: tombstoneSubject,
+        updatedAt: new Date(),
+      })
+      .where(eq(userAccount.id, userId))
+      .returning();
+    const row = updated[0];
+    if (!row) throw new Error("USER_NOT_FOUND");
+    return mapUser(row);
+  }
+
+  async searchUsers(input: {
+    q?: string;
+    cursor?: string;
+    limit?: number;
+  }): Promise<{ items: AccountRecord[]; nextCursor?: string }> {
+    const limit = Math.min(Math.max(input.limit ?? 20, 1), 100);
+    const offset = Math.max(Number.parseInt(input.cursor ?? "0", 10) || 0, 0);
+    const q = (input.q ?? "").trim();
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const where = q
+      ? or(
+          ilike(userAccount.email, `%${q}%`),
+          ilike(userAccount.username, `%${q}%`),
+          ilike(userAccount.displayName, `%${q}%`),
+          ...(uuidRe.test(q) ? [eq(userAccount.id, q)] : []),
+        )
+      : undefined;
+    const rows = await this.db
+      .select()
+      .from(userAccount)
+      .where(where)
+      .orderBy(desc(userAccount.createdAt), userAccount.id)
+      .limit(limit + 1)
+      .offset(offset);
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    return {
+      items: page.map(mapUser),
+      nextCursor: hasMore ? String(offset + page.length) : undefined,
+    };
+  }
+
+  async setPlatformRole(userId: string, platformRole: PlatformRole): Promise<AccountRecord> {
+    const updated = await this.db
+      .update(userAccount)
+      .set({ platformRole, updatedAt: new Date() })
+      .where(eq(userAccount.id, userId))
+      .returning();
+    const row = updated[0];
+    if (!row) throw new Error("USER_NOT_FOUND");
+    return mapUser(row);
+  }
+
+  async setDisabled(
+    userId: string,
+    patch: {
+      disabledAt: Date | null;
+      disabledByUserId: string | null;
+      disabledReason: string | null;
+    },
+  ): Promise<AccountRecord> {
+    if (patch.disabledAt) {
+      await this.db
+        .update(authSession)
+        .set({ revokedAt: new Date() })
+        .where(and(eq(authSession.userId, userId), isNull(authSession.revokedAt)));
+    }
+    const updated = await this.db
+      .update(userAccount)
+      .set({
+        disabledAt: patch.disabledAt,
+        disabledByUserId: patch.disabledByUserId,
+        disabledReason: patch.disabledReason,
+        updatedAt: new Date(),
+      })
+      .where(eq(userAccount.id, userId))
+      .returning();
+    const row = updated[0];
+    if (!row) throw new Error("USER_NOT_FOUND");
+    return mapUser(row);
+  }
+
+  async countActivePlatformOwners(): Promise<number> {
+    const rows = await this.db
+      .select({ id: userAccount.id })
+      .from(userAccount)
+      .where(
+        and(eq(userAccount.platformRole, "platform_owner"), isNull(userAccount.disabledAt)),
+      );
+    return rows.length;
   }
 }

@@ -1,7 +1,9 @@
 import type {
   CreateDailyLedgerEntryRequest,
   CreateWorkspaceRangeLockRequest,
+  DailyLedgerDayTemplateResponse,
   DailyLedgerResponse,
+  PostLedgerDayRequest,
   UpdateDailyLedgerEntryRequest,
   UpsertWorkspaceDayRequest,
   UpsertWorkspaceDayResponse,
@@ -9,6 +11,7 @@ import type {
   WorkspaceRangeLockSummary,
 } from "@dang/contracts";
 import { API_BASE, apiFetch } from "./client";
+import { postWithOfflineQueue } from "./offline-post";
 
 /** Workspace dashboard, daily-ledger and range-lock endpoints — domain slice (dong-50 #30). */
 export const dailyLedgerApi = {
@@ -45,9 +48,11 @@ export const dailyLedgerApi = {
       body: JSON.stringify(body),
     }),
   createDailyLedgerEntry: (workspaceId: string, body: CreateDailyLedgerEntryRequest) =>
-    apiFetch<DailyLedgerResponse>(`/workspaces/${workspaceId}/daily-ledger/entries`, {
-      method: "POST",
+    postWithOfflineQueue<DailyLedgerResponse>({
+      path: `/workspaces/${workspaceId}/daily-ledger/entries`,
       body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: body.itemName?.trim() || "ثبت ردیف دفترروزانه",
     }),
   updateDailyLedgerEntry: (
     workspaceId: string,
@@ -70,13 +75,12 @@ export const dailyLedgerApi = {
     workspaceId: string,
     body: { csv: string; idempotencyKey?: string },
   ) =>
-    apiFetch<{ imported: number; skipped: number; ledger: DailyLedgerResponse }>(
-      `/workspaces/${workspaceId}/daily-ledger/import`,
-      {
-        method: "POST",
-        body: JSON.stringify(body),
-      },
-    ),
+    postWithOfflineQueue<{ imported: number; skipped: number; ledger: DailyLedgerResponse }>({
+      path: `/workspaces/${workspaceId}/daily-ledger/import`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "واردات CSV دفترروزانه",
+    }),
   listDailyLedgerRangeLocks: (workspaceId: string, activeOnly = true) =>
     apiFetch<WorkspaceRangeLockSummary[]>(
       `/workspaces/${workspaceId}/daily-ledger/range-locks${activeOnly ? "?active=1" : ""}`,
@@ -85,14 +89,30 @@ export const dailyLedgerApi = {
     workspaceId: string,
     body: CreateWorkspaceRangeLockRequest,
   ) =>
-    apiFetch<WorkspaceRangeLockSummary>(
-      `/workspaces/${workspaceId}/daily-ledger/range-locks`,
-      { method: "POST", body: JSON.stringify(body) },
-    ),
+    postWithOfflineQueue<WorkspaceRangeLockSummary>({
+      path: `/workspaces/${workspaceId}/daily-ledger/range-locks`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "قفل بازه دفترروزانه",
+    }),
   unlockDailyLedgerRangeLock: (workspaceId: string, lockId: string) =>
-    apiFetch<WorkspaceRangeLockSummary>(
-      `/workspaces/${workspaceId}/daily-ledger/range-locks/${lockId}/unlock`,
-      { method: "POST", body: "{}" },
+    postWithOfflineQueue<WorkspaceRangeLockSummary>({
+      path: `/workspaces/${workspaceId}/daily-ledger/range-locks/${lockId}/unlock`,
+      body: "{}",
+      label: "باز کردن قفل بازه",
+    }),
+  /** S11-07: batch shared + personal day lines. */
+  postLedgerDay: (workspaceId: string, body: PostLedgerDayRequest) =>
+    postWithOfflineQueue<DailyLedgerResponse>({
+      path: `/workspaces/${workspaceId}/ledger/day`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "ثبت روز دفتر",
+    }),
+  /** S11-07: template from real frequent usage (empty if none). */
+  getLedgerDayTemplate: (workspaceId: string, date: string) =>
+    apiFetch<DailyLedgerDayTemplateResponse>(
+      `/workspaces/${workspaceId}/ledger/day/${date}/template`,
     ),
   downloadDailyLedgerCsvUrl: (
     workspaceId: string,

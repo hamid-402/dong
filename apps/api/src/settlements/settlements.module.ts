@@ -4,6 +4,7 @@ import { createLogger } from "@dang/observability";
 import { AuthModule } from "../auth/auth.module.js";
 import { createPersistenceStore } from "../common/postgres-store.factory.js";
 import { LedgerModule } from "../ledger/ledger.module.js";
+import { MakerCheckerModule } from "../maker-checker/maker-checker.module.js";
 import { MemorySettlementStore } from "./memory-settlement.store.js";
 import { PostgresSettlementStore } from "./postgres-settlement.store.js";
 import { SETTLEMENT_STORE, type SettlementStore } from "./settlement.types.js";
@@ -24,7 +25,7 @@ export function createSettlementStore(): SettlementStore {
 }
 
 @Module({
-  imports: [AuthModule, LedgerModule],
+  imports: [AuthModule, LedgerModule, MakerCheckerModule],
   controllers: [SettlementsController],
   providers: [
     SettlementsService,

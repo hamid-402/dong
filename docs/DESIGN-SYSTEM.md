@@ -1,59 +1,51 @@
 # UI/UX و Design System
 
-وضعیت: جهت بصری تأییدشده
+وضعیت: جهت بصری تأییدشده — ارتقای تم/اتمسفر متمایز (سپتامبر ۲۰۲۶)
 
 ## 1. شخصیت بصری
 
-«رسمی، شیک، لوکس کنترل‌شده و انسانی»
+«موزاییک جواهرینِ کنترل‌شده» — رسمی، شیک، انسانی
 
-- سطوح تیره عمیق با ته‌رنگ سبز، نه مشکی یا آبی سرد
-- متن عاجی برای گرمای بصری
-- سبزآبی برای اعتماد و اقدام اصلی
-- شامپاینی فقط برای توجه، خرید و جزئیات ممتاز
+- چهار تم استاندارد جهانی با پس‌زمینهٔ قابل تشخیص (نه چهار فیلتر سبز)
+- لهجهٔ برند: سبزآبی اعتماد + شامپاین محدود (تم dusk با لهجهٔ amber/gold)
 - مرز یک‌پیکسلی و سایه محدود
-- بدون Glassmorphism، Neon، Crypto visual یا نمودار تزئینی
+- بدون Glassmorphism، Neon، یا جشن انیمیشنی روی اعداد مالی
+- استیکر SVG داخلی برای empty/tour — نه ایموجی روی مانده/پرداخت
+- `prefers-reduced-motion` همهٔ حرکت‌ها را خنثی می‌کند
 
-حرکت‌ها آرام‌اند و اطلاعات مالی را پنهان نمی‌کنند. هیچ موفقیت مالی با انیمیشن
-جشن یا Bounce نمایش داده نمی‌شود.
+## 2. تم‌ها و پس‌زمینه‌ها
 
-## 2. پالت تثبیت‌شده
+منبع توکن: `packages/ui/src/tokens.css` · `data-theme` × `data-atmosphere`
 
-### Dark — جهت اصلی
+### تم (الگوی جهانی)
 
-| Token | مقدار | کاربرد |
-|---|---:|---|
-| Background | `#090E0D` | پس‌زمینه اصلی |
-| Surface | `#101816` | کارت و Sidebar |
-| Surface Raised | `#16211E` | سطح برجسته |
-| Text Primary | `#F3F1E9` | متن عاجی |
-| Text Secondary | `#9EAAA6` | متن توضیحی |
-| Border | `rgba(220,229,225,.11)` | مرز ساختاری |
-| Primary | `#57D7C5` | CTA و حالت فعال |
-| Primary Deep | `#0F766E` | سطح یا Hover |
-| Gold | `#C9AA70` | توجه محدود و ممتاز |
-| Success | `#55D68B` | موفقیت |
-| Warning | `#E7B85D` | انتظار/هشدار |
-| Error | `#ED7C78` | خطا |
+| id | الگو | Background | لهجه |
+|----|------|------------|------|
+| `dark` | Midnight OLED | `#070A0C` خنثی | teal `#57D7C5` |
+| `light` | Daylight | `#F5F7FA` خنک | teal `#0F766E` |
+| `dusk` | Twilight گرم | `#1A1418` قهوه‌ای‌بنفش | amber `#E8B86D` |
+| `mist` | Fog / Notion-like | `#E8EEF4` آبی‌خاکستری | cyan `#0E7490` |
 
-### Light
+### Atmosphere (بک‌گراند متمایز)
 
-| Token | مقدار |
-|---|---:|
-| Background | `#F7F9F8` |
-| Surface | `#FFFFFF` |
-| Surface Subtle | `#F0F4F2` |
-| Text Primary | `#14201D` |
-| Text Secondary | `#53615D` |
-| Border | `#D7DFDC` |
-| Primary | `#0F766E` |
-| Primary Hover | `#115E59` |
-| Gold/Accent | `#B45309` |
-| Success | `#15803D` |
-| Warning | `#A16207` |
-| Error | `#B91C1C` |
-| Focus | `#2563EB` |
+| id | الگو | تمایز |
+|----|------|--------|
+| `deep` | Flat void | vignette؛ orb کم |
+| `forest` | Aurora | نوار عمودی سبز + tint ۱۴٪ |
+| `sand` | Paper | grain افقی گرم + tint ۱۸٪ |
+| `ember` | Hearth | درخشش coral از پایین |
 
-کنتراست هر ترکیب قبل از استفاده با WCAG 2.2 AA کنترل می‌شود.
+قانون: بدون لیبل، چهار atmosphere باید در ۳ ثانیه از هم جدا شوند.
+
+### Semantic
+
+`--dang-success` / `--dang-warning` / `--dang-danger` / `--dang-info` (+ soft از primary-soft)
+
+## 2b. Gem و استیکر
+
+- Gem کاشی: `apps/web/src/lib/tile-gem-palettes.ts` (~۱۶ پالت) + نگاشت intent در `navigation-v2`
+- استیکر: `apps/web/src/components/visual/stickers.tsx` — EmptyState / auth hero
+- حرکت: ambient drift alternate، sticker-float، tile-breathe روی featured
 
 ## 3. تایپوگرافی
 
@@ -181,11 +173,15 @@ Read-only دارد و در Storybook ثبت می‌شود.
 
 - حداقل هدف لمسی **۴۸×۴۸px** برای کنترل‌های تعاملی سفارشی (علاوه بر `Field` مرکزی).
 - خطا روی فیلد: فقط از prop `error` در `TextField`/`SelectField` (`aria-invalid` + `aria-describedby`).
-- بارگذاری ≠ خالی: `EmptyHint loading` / `Skeleton` در مقابل `EmptyState` با CTA.
+- بارگذاری ≠ خالی: **`ContentSkeleton` برای loading** — هرگز از `EmptyState` / `EmptyStateBlock` برای حالت بارگذاری استفاده نشود. `EmptyHint` فقط برای خالی/توضیح کوتاه است (نه جایگزین اسکلتون صفحه).
 - مودال: فقط `Modal` مشترک (`focus-trap`، Escape، بازگشت فوکوس).
 - اعداد پول: `Amount` با `dir="ltr"` روی رقم.
 - آیکون جهت‌دار: کلاس `dirIconRtl dirIconRtl--flip`.
 - i18n: فعلاً تک‌زبانه فارسی — `docs/I18N.md`.
+
+### Loading
+
+Loading never uses the empty-state component (`EmptyStateBlock` / empty-state illustration). Prefer `ContentSkeleton` (or route frame `state="loading"`) so users do not confuse “still fetching” with “nothing here.”
 
 ## 12. بازبینی مسیرهای classic (IA)
 

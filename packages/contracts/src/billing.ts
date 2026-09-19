@@ -59,6 +59,9 @@ export type InvoiceStatus =
   | "paid"
   | "cancelled";
 
+/** How the period was opened: by hand, or rolled by the Jalali month cadence. */
+export type PeriodCadence = "manual" | "jalali_month";
+
 export type ExpensePeriodSummary = {
   id: string;
   workspaceId: string;
@@ -68,6 +71,8 @@ export type ExpensePeriodSummary = {
   startsOn: string;
   endsOn: string;
   note?: string;
+  cadence: PeriodCadence;
+  autoRollover: boolean;
   createdByUserId: string;
   createdAt: string;
 };
@@ -79,6 +84,8 @@ export type CreateExpensePeriodRequest = {
   startsOn: string;
   endsOn: string;
   note?: string;
+  cadence?: PeriodCadence;
+  autoRollover?: boolean;
   idempotencyKey: string;
 };
 
@@ -89,6 +96,13 @@ export type MemberInvoiceLineSummary = {
   title: string;
   amount: Money;
   lineNo: number;
+  /**
+   * The day the money was actually spent. A line dated before the period began
+   * is a prior-period item — it reached the books late, after its own month was
+   * closed — and the document has to disclose that rather than silently absorb
+   * it into the current total.
+   */
+  occurredOn?: string;
 };
 
 export type MemberInvoiceSummary = {
@@ -105,11 +119,28 @@ export type MemberInvoiceSummary = {
   paidAt?: string;
   lines: MemberInvoiceLineSummary[];
   createdAt: string;
+  /** Bumped on every live recalculation (1 = first build). */
+  version?: number;
+  /** Last time the live projection rewrote this draft. */
+  recalculatedAt?: string;
+  /** Committed amounts not yet posted; reported outside `total` on purpose. */
+  pendingTotal?: Money;
 };
 
 export type GeneratePeriodInvoicesRequest = {
   /** When true, send drafts for member approval instead of keeping them as draft. */
   sendForApproval?: boolean;
+};
+
+/**
+ * Answer to a member's objection. `accepted` sends the document back to draft so
+ * the live projection rebuilds it from the expenses; `rejected` returns it to
+ * issued, unchanged, and awaiting payment. Either way the argument is on record
+ * instead of the invoice sitting in a state nothing can leave.
+ */
+export type ResolveInvoiceDisputeRequest = {
+  outcome: "accepted" | "rejected";
+  note?: string;
 };
 
 export type CloseExpensePeriodRequest = {

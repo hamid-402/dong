@@ -14,34 +14,17 @@ import {
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { EXPENSE_STORE, type ExpenseStore } from "../expenses/expense.types.js";
 import { ALLOWANCE_STORE, type AllowanceStore } from "./allowances.types.js";
-
-function periodRange(
-  kind: "week" | "month",
-  now = new Date(),
-): { startsOn: string; endsOn: string } {
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const end = new Date(start);
-  if (kind === "month") {
-    start.setUTCDate(1);
-    end.setUTCMonth(end.getUTCMonth() + 1, 0);
-  } else {
-    const weekday = start.getUTCDay();
-    start.setUTCDate(start.getUTCDate() - ((weekday + 6) % 7));
-    end.setTime(start.getTime());
-    end.setUTCDate(end.getUTCDate() + 6);
-  }
-  return {
-    startsOn: start.toISOString().slice(0, 10),
-    endsOn: end.toISOString().slice(0, 10),
-  };
-}
+import {
+  allowancePeriodRange,
+  evaluateAllowanceOverLimit,
+} from "./allowance-over-limit.js";
 
 @Injectable()
 export class AllowancesService {
   constructor(
     @Inject(ALLOWANCE_STORE) private readonly allowances: AllowanceStore,
     @Inject(EXPENSE_STORE) private readonly expenses: ExpenseStore,
-    private readonly access: WorkspaceAccessService,
+    @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
   ) {}
 
   async list(actor: AuthActor, workspaceId: string): Promise<MemberAllowanceSummary[]> {
@@ -81,7 +64,7 @@ export class AllowancesService {
       }),
     ]);
     return allowances.map((allowance) => {
-      const { startsOn, endsOn } = periodRange(allowance.periodKind);
+      const { startsOn, endsOn } = allowancePeriodRange(allowance.periodKind);
       const spentMinor = expenses.reduce((sum, expense) => {
         if (
           expense.status !== "posted" ||
@@ -107,6 +90,30 @@ export class AllowancesService {
         alertReached: spentMinor * 100n >= limitMinor * BigInt(allowance.alertPct),
       };
     });
+  }
+
+  /** Used by expense create/submit when ENABLE_ALLOWANCE=1 (lazy-loaded from ExpensesService). */
+  async wouldExceedActiveAllowance(
+    workspaceId: string,
+    actorUserId: string,
+    memberUserId: string,
+    addedMinor: string,
+    occurredOn: string,
+  ): Promise<boolean> {
+    if (!readProductFeatureFlags(process.env).allowance) return false;
+    const [allowances, expenses] = await Promise.all([
+      this.allowances.list(workspaceId, actorUserId),
+      this.expenses.listForWorkspace(workspaceId, actorUserId, {
+        viewAllPrivate: true,
+      }),
+    ]);
+    return evaluateAllowanceOverLimit({
+      allowances,
+      expenses,
+      memberUserId,
+      addedMinor,
+      occurredOn,
+    }).overLimit;
   }
 
   private assertEnabled(): void {

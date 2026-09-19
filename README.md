@@ -6,6 +6,10 @@
 
 پیش‌نیاز: Node.js 24+، pnpm، PostgreSQL. با `infra/compose.local.yml` پورت میزبان `5435` است؛ نصب محلی ویندوز معمولاً `5432`.
 
+Observability اختیاری (OTLP collector):  
+`docker compose -f infra/compose.local.yml --profile observability up -d otel-collector`  
+سپس `OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318` — جزئیات در [`docs/ops/SLO-OBSERVABILITY.md`](docs/ops/SLO-OBSERVABILITY.md).
+
 ```powershell
 pnpm install
 # .env از روی .env.example ساخته شده و DATABASE_URL به دیتابیس dang اشاره می‌کند
@@ -38,11 +42,13 @@ pnpm test
 2. [موجودی پایان Wave F — Live در برابر Infra](docs/DONG-2.0-FINISH.md)
 3. [محصول و معماری ۲.۰](docs/DONG-2.0-PRODUCT.md)
 4. [نقشه راه و حاکمیت ۲.۰](docs/DONG-2.0-ROADMAP.md)
-5. [وضعیت اجرا](docs/STATUS.md)
-6. [PostgreSQL محلی](docs/LOCAL-DATABASE.md)
-7. [احراز هویت Dev](docs/LOCAL-AUTH.md)
-8. [Runbook](docs/RUNBOOK.md)
-9. [نقشه فازبندی](docs/ROADMAP.md)
+5. [مرحله ۱۰ — Hardening و امنیت](docs/ROADMAP-STAGE-10.md)
+6. [وضعیت اجرا](docs/STATUS.md)
+7. [Catch-up → Beyond](docs/ROADMAP-CATCHUP.md)
+8. [PostgreSQL محلی](docs/LOCAL-DATABASE.md)
+9. [احراز هویت Dev](docs/LOCAL-AUTH.md)
+10. [Runbook](docs/RUNBOOK.md)
+11. [نقشه فازبندی](docs/ROADMAP.md)
 
 ## اصول غیرقابل مذاکره
 

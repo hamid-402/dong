@@ -65,6 +65,42 @@ export const workerJobCatalog: WorkerJobDefinition[] = [
     phase: 4,
     requiresRedis: true,
   },
+  {
+    name: "analytics.etl",
+    descriptionFa: "ETL خرج‌های posted به انبار analytics",
+    phase: 5,
+    requiresRedis: true,
+  },
+  {
+    name: "analytics.threshold",
+    descriptionFa: "پایش آستانه خرج شخصی و اعلان",
+    phase: 5,
+    requiresRedis: true,
+  },
+  {
+    name: "retention.purge",
+    descriptionFa: "پاکسازی نگهداری: بدنهٔ صورتحساب منقضی + پیوست قرنطینهٔ قدیمی",
+    phase: 5,
+    requiresRedis: true,
+  },
+  {
+    name: "building.charge.generate",
+    descriptionFa: "صدور شارژ ماهانه واحدهای ساختمان (در API به‌صورت inline)",
+    phase: 4,
+    requiresRedis: true,
+  },
+  {
+    name: "assets.depreciate.monthly",
+    descriptionFa: "استهلاک خطی ماهانه دارایی‌ها (در API به‌صورت inline)",
+    phase: 4,
+    requiresRedis: true,
+  },
+  {
+    name: "settle.remind",
+    descriptionFa: "یادآوری بدهی تسویه برای بدهکاران (در API به‌صورت inline)",
+    phase: 2,
+    requiresRedis: true,
+  },
 ];
 
 export type WorkerStatus = {

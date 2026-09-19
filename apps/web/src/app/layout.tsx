@@ -14,8 +14,13 @@ const vazirmatn = Vazirmatn({
 });
 
 export const metadata: Metadata = {
-  title: "دنگ همکاری",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3005"),
+  title: {
+    default: "دنگ همکاری",
+    template: "%s · دنگ همکاری",
+  },
   description: "دفتر عملیات مشترک برای هزینه، خرید، تجهیزات و حساب شرکا",
+  applicationName: "دنگ همکاری",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
@@ -26,29 +31,36 @@ export const metadata: Metadata = {
     title: "دنگ همکاری",
     statusBarStyle: "default",
   },
+  openGraph: {
+    type: "website",
+    locale: "fa_IR",
+    siteName: "دنگ همکاری",
+    title: "دنگ همکاری",
+    description: "دفتر عملیات مشترک برای هزینه، خرید، تجهیزات و حساب شرکا",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f4f7f6" },
+    { media: "(prefers-color-scheme: light)", color: "#f7f9f8" },
     { media: "(prefers-color-scheme: dark)", color: "#090e0d" },
-    { color: "#f4f7f6" },
+    { color: "#090e0d" },
   ],
 };
 
-const themeBootScript = `(function(){try{var t=localStorage.getItem("dang-theme");if(t!=="dark"&&t!=="light")t="light";document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();`;
+const themeBootScript = `(function(){try{var t=localStorage.getItem("dang-theme");if(t!=="dark"&&t!=="light"&&t!=="dusk"&&t!=="mist"&&t!=="linear")t="dark";var a=localStorage.getItem("dang-atmosphere");if(a!=="deep"&&a!=="forest"&&a!=="sand"&&a!=="ember")a="deep";var d=localStorage.getItem("dang-density");if(d!=="comfortable"&&d!=="compact")d="comfortable";document.documentElement.setAttribute("data-theme",t);document.documentElement.setAttribute("data-atmosphere",a);document.documentElement.setAttribute("data-density",d);}catch(e){document.documentElement.setAttribute("data-theme","dark");document.documentElement.setAttribute("data-atmosphere","deep");document.documentElement.setAttribute("data-density","comfortable");}})();`;
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fa" dir="rtl" className={vazirmatn.variable} data-theme="light" suppressHydrationWarning>
+    <html lang="fa" dir="rtl" className={vazirmatn.variable} data-theme="dark" data-atmosphere="deep" data-density="comfortable" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
-      <body className={vazirmatn.className}>
+      <body className={vazirmatn.className} suppressHydrationWarning>
         <ThemeProvider>
           <a className="skip-link" href="#main">
             پرش به محتوا

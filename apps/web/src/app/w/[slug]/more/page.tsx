@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { RouteLoadingHint } from "@/components/shell/route-loading-hint";
 
@@ -15,5 +16,9 @@ const ShellToolsView = dynamic(
 );
 
 export default function WorkspaceMorePage() {
-  return <ShellToolsView />;
+  return (
+    <Suspense fallback={<RouteLoadingHint label="در حال بارگذاری ابزارها…" />}>
+      <ShellToolsView />
+    </Suspense>
+  );
 }

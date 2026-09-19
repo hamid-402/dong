@@ -44,7 +44,6 @@ describe("DailyLedgerGrid inspector access", () => {
       <DailyLedgerGrid
         ledger={ledger}
         viewMode="cards"
-        showGregorian={false}
         todayIso="2026-09-08"
         pending={false}
         readOnly

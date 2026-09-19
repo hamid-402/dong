@@ -13,6 +13,7 @@ import {
 } from "@/components/ui-blocks";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
+import { formatFaDateTime } from "@/lib/fa-datetime";
 import { newClientId } from "@/lib/id";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
 import styles from "./addon-charges-panel.module.css";
@@ -43,14 +44,7 @@ function statusTone(
 }
 
 function formatWhen(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat("fa-IR", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
+  return formatFaDateTime(iso);
 }
 
 /** Gated by ENABLE_ADDON_ACK / productFlags.addonAck — distinct from shared expense form. */
@@ -184,6 +178,7 @@ export function AddonChargesPanel({
       {readOnly ? (
         <p className="liveHint">نقش شما فقط مشاهده دارد — ثبت یا تأیید اضافه فعال نیست.</p>
       ) : (
+        <div id="addon-charge-form">
         <FormStack>
           <TextField
             label="شرح"
@@ -222,6 +217,7 @@ export function AddonChargesPanel({
             ثبت اضافه
           </Button>
         </FormStack>
+        </div>
       )}
 
       {charges.length === 0 ? (

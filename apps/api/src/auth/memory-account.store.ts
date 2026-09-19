@@ -1,7 +1,8 @@
-import type { UpdateProfileRequest } from "@dang/contracts";
+import type { DisplayUnitPreference, PlatformRole, UpdateProfileRequest } from "@dang/contracts";
 import type {
   AccountRecord,
   AccountStore,
+  CreateLocalUserInput,
   EmailVerifyRecord,
   MfaRecoveryRecord,
   PasswordResetRecord,
@@ -14,11 +15,40 @@ type MemorySession = SessionRecord & {
   userAgent?: string;
 };
 
+function blankIdentity(): Pick<
+  AccountRecord,
+  | "username"
+  | "phone"
+  | "phoneHash"
+  | "phoneVerifiedAt"
+  | "platformRole"
+  | "displayUnit"
+  | "usernameChangedAt"
+  | "disabledAt"
+  | "disabledByUserId"
+  | "disabledReason"
+> {
+  return {
+    username: null,
+    phone: null,
+    phoneHash: null,
+    phoneVerifiedAt: null,
+    platformRole: "user",
+    displayUnit: null,
+    usernameChangedAt: null,
+    disabledAt: null,
+    disabledByUserId: null,
+    disabledReason: null,
+  };
+}
+
 export class MemoryAccountStore implements AccountStore {
   readonly persistence = "memory" as const;
   private readonly users = new Map<string, MemoryUser>();
   private readonly byEmail = new Map<string, string>();
   private readonly bySubject = new Map<string, string>();
+  private readonly byUsername = new Map<string, string>();
+  private readonly byPhone = new Map<string, string>();
   private readonly sessions = new Map<string, MemorySession>();
   private readonly resets = new Map<string, PasswordResetRecord>();
   private readonly verifications = new Map<string, EmailVerifyRecord>();
@@ -38,13 +68,29 @@ export class MemoryAccountStore implements AccountStore {
     return Promise.resolve(id ? (this.users.get(id) ?? null) : null);
   }
 
-  createLocalUser(input: {
-    email: string;
-    displayName: string;
-    passwordHash: string;
-  }): Promise<AccountRecord> {
+  findByUsername(username: string): Promise<AccountRecord | null> {
+    const id = this.byUsername.get(username.toLowerCase());
+    return Promise.resolve(id ? (this.users.get(id) ?? null) : null);
+  }
+
+  findByPhone(phoneE164: string): Promise<AccountRecord | null> {
+    const id = this.byPhone.get(phoneE164);
+    return Promise.resolve(id ? (this.users.get(id) ?? null) : null);
+  }
+
+  findByPhoneHash(phoneHash: string): Promise<AccountRecord | null> {
+    for (const row of this.users.values()) {
+      if (row.phoneHash === phoneHash) return Promise.resolve(row);
+    }
+    return Promise.resolve(null);
+  }
+
+  createLocalUser(input: CreateLocalUserInput): Promise<AccountRecord> {
     const email = input.email.toLowerCase();
+    const username = input.username.toLowerCase();
     if (this.byEmail.has(email)) throw new Error("EMAIL_TAKEN");
+    if (this.byUsername.has(username)) throw new Error("USERNAME_TAKEN");
+    if (input.phone && this.byPhone.has(input.phone)) throw new Error("PHONE_TAKEN");
     const userId = crypto.randomUUID();
     const row: MemoryUser = {
       userId,
@@ -56,6 +102,11 @@ export class MemoryAccountStore implements AccountStore {
       avatarUrl: null,
       locale: "fa-IR",
       timezone: "Asia/Tehran",
+      ...blankIdentity(),
+      username,
+      phone: input.phone ?? null,
+      phoneHash: input.phoneHash ?? null,
+      usernameChangedAt: new Date(),
       totpSecret: null,
       totpEnabledAt: null,
       createdAt: new Date(),
@@ -63,6 +114,8 @@ export class MemoryAccountStore implements AccountStore {
     this.users.set(userId, row);
     this.byEmail.set(email, userId);
     this.bySubject.set(row.externalSubject, userId);
+    this.byUsername.set(username, userId);
+    if (row.phone) this.byPhone.set(row.phone, userId);
     return Promise.resolve(row);
   }
 
@@ -93,6 +146,7 @@ export class MemoryAccountStore implements AccountStore {
       avatarUrl: null,
       locale: "fa-IR",
       timezone: "Asia/Tehran",
+      ...blankIdentity(),
       totpSecret: null,
       totpEnabledAt: null,
       createdAt: new Date(),
@@ -110,6 +164,64 @@ export class MemoryAccountStore implements AccountStore {
     if (patch.locale !== undefined) row.locale = patch.locale;
     if (patch.timezone !== undefined) row.timezone = patch.timezone;
     if (patch.avatarUrl !== undefined) row.avatarUrl = patch.avatarUrl;
+    return Promise.resolve(row);
+  }
+
+  setIdentityFields(
+    userId: string,
+    patch: {
+      username?: string;
+      phone?: string | null;
+      phoneHash?: string | null;
+      displayUnit?: DisplayUnitPreference | null;
+      usernameChangedAt?: Date | null;
+    },
+  ): Promise<AccountRecord> {
+    const row = this.users.get(userId);
+    if (!row) throw new Error("USER_NOT_FOUND");
+    if (patch.username !== undefined) {
+      const next = patch.username.toLowerCase();
+      const owner = this.byUsername.get(next);
+      if (owner && owner !== userId) throw new Error("USERNAME_TAKEN");
+      if (row.username) this.byUsername.delete(row.username);
+      row.username = next;
+      this.byUsername.set(next, userId);
+      row.usernameChangedAt = patch.usernameChangedAt ?? new Date();
+    }
+    if (patch.phone !== undefined) {
+      if (patch.phone) {
+        const owner = this.byPhone.get(patch.phone);
+        if (owner && owner !== userId) throw new Error("PHONE_TAKEN");
+        if (row.phone) this.byPhone.delete(row.phone);
+        row.phone = patch.phone;
+        row.phoneHash = patch.phoneHash ?? null;
+        row.phoneVerifiedAt = null;
+        this.byPhone.set(patch.phone, userId);
+      } else {
+        if (row.phone) this.byPhone.delete(row.phone);
+        row.phone = null;
+        row.phoneHash = null;
+        row.phoneVerifiedAt = null;
+      }
+    }
+    if (patch.displayUnit !== undefined) {
+      row.displayUnit = patch.displayUnit;
+    }
+    return Promise.resolve(row);
+  }
+
+  changeEmail(userId: string, newEmail: string): Promise<AccountRecord> {
+    const row = this.users.get(userId);
+    if (!row) throw new Error("USER_NOT_FOUND");
+    const email = newEmail.toLowerCase();
+    const owner = this.byEmail.get(email);
+    if (owner && owner !== userId) throw new Error("EMAIL_TAKEN");
+    if (row.email) this.byEmail.delete(row.email.toLowerCase());
+    row.email = email;
+    row.emailVerifiedAt = null;
+    row.externalSubject = `local:${email}`;
+    this.byEmail.set(email, userId);
+    this.bySubject.set(row.externalSubject, userId);
     return Promise.resolve(row);
   }
 
@@ -310,5 +422,109 @@ export class MemoryAccountStore implements AccountStore {
     const row = this.mfaRecovery.get(id);
     if (row) row.usedAt = new Date();
     return Promise.resolve();
+  }
+
+  anonymizeAccount(userId: string): Promise<AccountRecord> {
+    const row = this.users.get(userId);
+    if (!row) throw new Error("USER_NOT_FOUND");
+    if (row.email) this.byEmail.delete(row.email.toLowerCase());
+    if (row.username) this.byUsername.delete(row.username);
+    if (row.phone) this.byPhone.delete(row.phone);
+    this.bySubject.delete(row.externalSubject);
+    const tombstoneEmail = `deleted+${userId}@invalid.local`;
+    const tombstoneSubject = `deleted:${userId}`;
+    row.email = tombstoneEmail;
+    row.emailVerifiedAt = null;
+    row.displayName = "حساب حذف‌شده";
+    row.avatarUrl = null;
+    row.passwordHash = null;
+    row.totpSecret = null;
+    row.totpEnabledAt = null;
+    row.username = null;
+    row.phone = null;
+    row.phoneHash = null;
+    row.phoneVerifiedAt = null;
+    row.displayUnit = null;
+    row.usernameChangedAt = null;
+    row.externalSubject = tombstoneSubject;
+    this.byEmail.set(tombstoneEmail, userId);
+    this.bySubject.set(tombstoneSubject, userId);
+    for (const [key, rec] of this.mfaRecovery) {
+      if (rec.userId === userId) this.mfaRecovery.delete(key);
+    }
+    for (const session of this.sessions.values()) {
+      if (session.userId === userId && !session.revokedAt) {
+        session.revokedAt = new Date();
+      }
+    }
+    return Promise.resolve(row);
+  }
+
+  searchUsers(input: {
+    q?: string;
+    cursor?: string;
+    limit?: number;
+  }): Promise<{ items: AccountRecord[]; nextCursor?: string }> {
+    const limit = Math.min(Math.max(input.limit ?? 20, 1), 100);
+    const offset = Math.max(Number.parseInt(input.cursor ?? "0", 10) || 0, 0);
+    const q = (input.q ?? "").trim().toLowerCase();
+    let rows = [...this.users.values()].sort((a, b) =>
+      a.createdAt.getTime() === b.createdAt.getTime()
+        ? a.userId.localeCompare(b.userId)
+        : b.createdAt.getTime() - a.createdAt.getTime(),
+    );
+    if (q) {
+      rows = rows.filter(
+        (u) =>
+          (u.email ?? "").toLowerCase().includes(q) ||
+          (u.username ?? "").toLowerCase().includes(q) ||
+          u.displayName.toLowerCase().includes(q) ||
+          u.userId.toLowerCase() === q,
+      );
+    }
+    const slice = rows.slice(offset, offset + limit);
+    const next = offset + slice.length;
+    return Promise.resolve({
+      items: slice,
+      nextCursor: next < rows.length ? String(next) : undefined,
+    });
+  }
+
+  setPlatformRole(userId: string, platformRole: PlatformRole): Promise<AccountRecord> {
+    const row = this.users.get(userId);
+    if (!row) throw new Error("USER_NOT_FOUND");
+    row.platformRole = platformRole;
+    return Promise.resolve(row);
+  }
+
+  setDisabled(
+    userId: string,
+    patch: {
+      disabledAt: Date | null;
+      disabledByUserId: string | null;
+      disabledReason: string | null;
+    },
+  ): Promise<AccountRecord> {
+    const row = this.users.get(userId);
+    if (!row) throw new Error("USER_NOT_FOUND");
+    row.disabledAt = patch.disabledAt;
+    row.disabledByUserId = patch.disabledByUserId;
+    row.disabledReason = patch.disabledReason;
+    if (patch.disabledAt) {
+      for (const session of this.sessions.values()) {
+        if (session.userId === userId && !session.revokedAt) {
+          session.revokedAt = new Date();
+        }
+      }
+    }
+    return Promise.resolve(row);
+  }
+
+  countActivePlatformOwners(): Promise<number> {
+    let n = 0;
+    for (const u of this.users.values()) {
+      if (u.platformRole === "platform_owner" && !u.disabledAt) n += 1;
+    }
+    return Promise.resolve(n);
   }
 }

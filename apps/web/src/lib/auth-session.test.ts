@@ -11,9 +11,9 @@ describe("auth helpers", () => {
   it("blocks open redirects after login", () => {
     expect(safeAppPath("/spaces")).toBe("/spaces");
     expect(safeAppPath("/w/demo/expenses")).toBe("/w/demo/expenses");
-    expect(safeAppPath("https://evil.example")).toBe("/spaces");
-    expect(safeAppPath("//evil.example")).toBe("/spaces");
-    expect(safeAppPath("/login?next=/spaces")).toBe("/spaces");
-    expect(safeAppPath(null)).toBe("/spaces");
+    expect(safeAppPath("https://evil.example")).toBe("/home");
+    expect(safeAppPath("//evil.example")).toBe("/home");
+    expect(safeAppPath("/login?next=/spaces")).toBe("/home");
+    expect(safeAppPath(null)).toBe("/home");
   });
 });

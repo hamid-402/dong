@@ -25,8 +25,14 @@ export {
   splitMethodSchema,
   createExpenseDraftSchema,
   previewExpenseSplitSchema,
+  expenseListQuerySchema,
+  reverseExpenseRequestSchema,
+  reviseExpenseRequestSchema,
   type CreateExpenseDraftInput,
   type PreviewExpenseSplitInput,
+  type ExpenseListQuery,
+  type ReverseExpenseRequestInput,
+  type ReviseExpenseRequestInput,
 } from "./expense.js";
 
 export {
@@ -35,7 +41,12 @@ export {
   forgotPasswordRequestSchema,
   resetPasswordRequestSchema,
   changePasswordRequestSchema,
+  reauthRequestSchema,
   updateProfileRequestSchema,
+  changeEmailRequestSchema,
+  claimUsernameRequestSchema,
+  deleteAccountRequestSchema,
+  accountDataExportSchema,
   verifyEmailRequestSchema,
   mfaConfirmRequestSchema,
   mfaVerifyRequestSchema,
@@ -45,7 +56,12 @@ export {
   type ForgotPasswordRequestInput,
   type ResetPasswordRequestInput,
   type ChangePasswordRequestInput,
+  type ReauthRequestInput,
+  type DeleteAccountRequestInput,
+  type AccountDataExportInput,
   type UpdateProfileRequestInput,
+  type ChangeEmailRequestInput,
+  type ClaimUsernameRequestInput,
   type VerifyEmailRequestInput,
   type MfaConfirmRequestInput,
   type MfaVerifyRequestInput,
@@ -53,9 +69,100 @@ export {
 } from "./account.js";
 
 export {
+  updateDirectoryPrivacyRequestSchema,
+  createFriendRequestSchema,
+  contactMatchRequestSchema,
+  type UpdateDirectoryPrivacyRequestInput,
+  type CreateFriendRequestInput,
+  type ContactMatchRequestInput,
+} from "./social.js";
+
+export {
+  catalogUnitKindSchema,
+  createCatalogUnitRequestSchema,
+  createCatalogCategoryRequestSchema,
+  updateCatalogCategoryRequestSchema,
+  createCatalogItemRequestSchema,
+  updateCatalogItemRequestSchema,
+  replaceCatalogPinsRequestSchema,
+  importPersonalCatalogRequestSchema,
+  listCatalogItemsQuerySchema,
+  type CreateCatalogUnitRequestInput,
+  type CreateCatalogCategoryRequestInput,
+  type UpdateCatalogCategoryRequestInput,
+  type CreateCatalogItemRequestInput,
+  type UpdateCatalogItemRequestInput,
+  type ReplaceCatalogPinsRequestInput,
+  type ImportPersonalCatalogRequestInput,
+  type ListCatalogItemsQueryInput,
+} from "./catalog.js";
+
+export {
+  statementGranularitySchema,
+  statementListQuerySchema,
+  statementDetailQuerySchema,
+  createStatementExportRequestSchema,
+  statementNotifyRequestSchema,
+  statementUserIdParamSchema,
+  upsertWorkspacePayoutInstructionsSchema,
+  type StatementListQueryInput,
+  type StatementDetailQueryInput,
+  type CreateStatementExportRequestInput,
+  type StatementNotifyRequestInput,
+  type UpsertWorkspacePayoutInstructionsInput,
+} from "./statements.js";
+
+export {
+  addWorkspaceMemberRequestSchema,
+  updateWorkspaceMemberRequestSchema,
+  disableWorkspaceMemberRequestSchema,
+  createJoinRequestSchema,
+  approveJoinRequestSchema,
+  proposeOwnershipTransferSchema,
+  type AddWorkspaceMemberRequestInput,
+  type UpdateWorkspaceMemberRequestInput,
+  type DisableWorkspaceMemberRequestInput,
+  type CreateJoinRequestInput,
+  type ApproveJoinRequestInput,
+  type ProposeOwnershipTransferInput,
+} from "./membership.js";
+
+export {
   createPaymentLinkRequestSchema,
+  localPspVerifyRequestSchema,
+  localPspIntentSummarySchema,
+  localPspVerifyResponseSchema,
   type CreatePaymentLinkRequestInput,
+  type LocalPspVerifyRequestInput,
+  type LocalPspIntentSummaryInput,
+  type LocalPspVerifyResponseInput,
 } from "./payments.js";
+
+export {
+  createPaymentReceiptRequestSchema,
+  rejectPaymentReceiptRequestSchema,
+  createPettyCashFundRequestSchema,
+  createPettyCashMovementRequestSchema,
+  topupPettyCashFromMembersRequestSchema,
+  spendPettyCashAsExpenseRequestSchema,
+  createCreditPurchaseRequestSchema,
+  createCreditPurchasePaymentRequestSchema,
+  createOnBehalfPaymentRequestSchema,
+  rejectOnBehalfPaymentRequestSchema,
+  onBehalfPaymentSummarySchema,
+  onBehalfPaymentListSchema,
+  type CreatePaymentReceiptRequestInput,
+  type RejectPaymentReceiptRequestInput,
+  type CreatePettyCashFundRequestInput,
+  type CreatePettyCashMovementRequestInput,
+  type TopupPettyCashFromMembersRequestInput,
+  type SpendPettyCashAsExpenseRequestInput,
+  type CreateCreditPurchaseRequestInput,
+  type CreateCreditPurchasePaymentRequestInput,
+  type CreateOnBehalfPaymentRequestInput,
+  type RejectOnBehalfPaymentRequestInput,
+  type OnBehalfPaymentSummaryInput,
+} from "./payment-ops.js";
 
 export {
   createCostCenterRequestSchema,
@@ -64,14 +171,23 @@ export {
   createOutingRequestSchema,
   createSettlementClaimRequestSchema,
   createSimplifySettlementClaimsRequestSchema,
+  confirmSimplifySettlementClaimsRequestSchema,
+  confirmSettlementRequestSchema,
+  previewSettlementEffectRequestSchema,
   updateMemberDefaultSharesRequestSchema,
+  remindDebtRequestSchema,
   type CreateCostCenterRequestInput,
   type CreateMemberAllowanceRequestInput,
   type UpdateWorkspaceExpensePolicyRequestInput,
   type CreateOutingRequestInput,
   type CreateSettlementClaimRequestInput,
   type CreateSimplifySettlementClaimsRequestInput,
+  type ConfirmSimplifySettlementClaimsRequestInput,
+  type ConfirmSettlementRequestInput,
+  type PreviewSettlementEffectRequestInput,
   type UpdateMemberDefaultSharesRequestInput,
+  type RemindDebtRequest,
+  type RemindDebtResponse,
 } from "./finance.js";
 
 export {
@@ -80,10 +196,12 @@ export {
   generatePeriodInvoicesRequestSchema,
   closeExpensePeriodRequestSchema,
   disputeInvoiceRequestSchema,
+  resolveInvoiceDisputeRequestSchema,
   type CreateExpensePeriodRequestInput,
   type GeneratePeriodInvoicesRequestInput,
   type CloseExpensePeriodRequestInput,
   type DisputeInvoiceRequestInput,
+  type ResolveInvoiceDisputeRequestInput,
 } from "./billing.js";
 
 export {
@@ -104,11 +222,14 @@ export {
   createDailyLedgerEntryRequestSchema,
   updateDailyLedgerEntryRequestSchema,
   importDailyLedgerCsvRequestSchema,
+  postLedgerDayRequestSchema,
+  ledgerDayLineSchema,
   type UpsertWorkspaceDayRequestInput,
   type CreateWorkspaceRangeLockRequestInput,
   type CreateDailyLedgerEntryRequestInput,
   type UpdateDailyLedgerEntryRequestInput,
   type ImportDailyLedgerCsvRequestInput,
+  type PostLedgerDayRequestInput,
 } from "./daily-ledger.js";
 
 export {
@@ -121,6 +242,14 @@ export {
   createPersonalCategoryRequestSchema,
   updatePersonalCategoryRequestSchema,
   createPersonalFinanceExportRequestSchema,
+  createIncomeSourceRequestSchema,
+  updateIncomeSourceRequestSchema,
+  createSavingsGoalRequestSchema,
+  updateSavingsGoalRequestSchema,
+  createSavingsGoalContributionRequestSchema,
+  putSpendingAlertsRequestSchema,
+  recomputeMonthlyCloseRequestSchema,
+  personalFinanceOverviewScopeSchema,
   type CreatePersonalMoneyAccountRequestInput,
   type UpdatePersonalMoneyAccountRequestInput,
   type CreatePersonalMoneyTxnRequestInput,
@@ -129,7 +258,25 @@ export {
   type CreatePersonalCategoryRequestInput,
   type UpdatePersonalCategoryRequestInput,
   type CreatePersonalFinanceExportRequestInput,
+  type CreateIncomeSourceRequestInput,
+  type UpdateIncomeSourceRequestInput,
+  type CreateSavingsGoalRequestInput,
+  type UpdateSavingsGoalRequestInput,
+  type CreateSavingsGoalContributionRequestInput,
+  type PutSpendingAlertsRequestInput,
+  type RecomputeMonthlyCloseRequestInput,
 } from "./personal-finance.js";
+
+export {
+  chartMonthsQuerySchema,
+  chartRangeQuerySchema,
+  chartBudgetBurnQuerySchema,
+  chartKindAggregateQuerySchema,
+  type ChartMonthsQueryInput,
+  type ChartRangeQueryInput,
+  type ChartBudgetBurnQueryInput,
+  type ChartKindAggregateQueryInput,
+} from "./charts.js";
 
 export {
   proposalKindSchema,
@@ -156,6 +303,15 @@ export {
 } from "./reports.js";
 
 export {
+  reportViewKindSchema,
+  reportViewMonthsSchema,
+  reportViewSortKeySchema,
+  createReportViewRequestSchema,
+  type CreateReportViewRequestInput,
+} from "./report-views.js";
+
+export {
+  createAgreedPriceRequestSchema,
   createAgreementRequestSchema,
   contributionKindSchema,
   recordContributionRequestSchema,
@@ -176,6 +332,7 @@ export {
   createBudgetRequestSchema,
   createVendorRequestSchema,
   createPurchaseOrderRequestSchema,
+  linkPurchaseOrderExpenseRequestSchema,
   recordDeliveryRequestSchema,
   type CreateNeedRequestInput,
   type CreatePurchaseRequestRequestInput,
@@ -192,11 +349,13 @@ export {
   transferAssetRequestSchema,
   returnAssetRequestSchema,
   damageAssetRequestSchema,
+  assetLifecycleRequestSchema,
   type CreateAssetFromDeliveryRequestInput,
   type AssignAssetRequestInput,
   type TransferAssetRequestInput,
   type ReturnAssetRequestInput,
   type DamageAssetRequestInput,
+  type AssetLifecycleRequestInput,
 } from "./assets.js";
 
 export {
@@ -206,14 +365,37 @@ export {
 } from "./jobs.js";
 
 export {
+  generateBuildingChargesSchema,
+  type GenerateBuildingChargesInput,
+} from "./building-charges.js";
+
+export {
   workspaceTemplateSchema,
   membershipRoleSchema,
+  workspaceSubunitKindSchema,
+  createWorkspaceSubunitSchema,
+  updateWorkspaceSubunitSchema,
   createWorkspaceRequestSchema,
   updateWorkspaceRequestSchema,
   createInviteRequestSchema,
   acceptInviteRequestSchema,
+  type CreateWorkspaceSubunitInput,
+  type UpdateWorkspaceSubunitInput,
   type CreateWorkspaceRequestInput,
   type UpdateWorkspaceRequestInput,
   type CreateInviteRequestInput,
   type AcceptInviteRequestInput,
 } from "./workspace.js";
+
+export {
+  healthReadyResponseSchema,
+  systemCapabilitiesSchema,
+  problemDetailsSchema,
+} from "./system.js";
+
+export {
+  platformSloResponseSchema,
+  sloSignalSnapshotSchema,
+  sloWindowSnapshotSchema,
+  type PlatformSloResponseInput,
+} from "./slo.js";

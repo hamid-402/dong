@@ -7,13 +7,16 @@ import type {
   DisputeInvoiceRequestInput,
   ExpensePeriodSummary,
   GeneratePeriodInvoicesRequest,
+  MemberInvoiceAdjustmentSummary,
   MemberInvoiceSummary,
+  ResolveInvoiceDisputeRequestInput,
 } from "@dang/contracts";
 import {
   closeExpensePeriodRequestSchema,
   createExpensePeriodRequestSchema,
   disputeInvoiceRequestSchema,
   generatePeriodInvoicesRequestSchema,
+  resolveInvoiceDisputeRequestSchema,
 } from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
@@ -73,6 +76,19 @@ export class BillingController {
     return this.billing.listInvoices(actor, workspaceId, periodId);
   }
 
+  @Get("periods/:periodId/invoices/adjustments")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Correction notices raised for already-issued invoices in a period",
+  })
+  listAdjustments(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("periodId") periodId: string,
+  ): Promise<MemberInvoiceAdjustmentSummary[]> {
+    return this.billing.listAdjustments(actor, workspaceId, periodId);
+  }
+
   @Post("invoices/:invoiceId/approve")
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: "Member approves their invoice draft" })
@@ -95,6 +111,21 @@ export class BillingController {
     body: DisputeInvoiceRequestInput,
   ): Promise<MemberInvoiceSummary> {
     return this.billing.disputeInvoice(actor, workspaceId, invoiceId, body?.note);
+  }
+
+  @Post("invoices/:invoiceId/dispute/resolve")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Finance answers a disputed invoice (accepted → draft, rejected → issued)",
+  })
+  resolveDispute(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("invoiceId") invoiceId: string,
+    @Body(new ZodValidationPipe(resolveInvoiceDisputeRequestSchema))
+    body: ResolveInvoiceDisputeRequestInput,
+  ): Promise<MemberInvoiceSummary> {
+    return this.billing.resolveInvoiceDispute(actor, workspaceId, invoiceId, body);
   }
 
   @Post("invoices/:invoiceId/issue")

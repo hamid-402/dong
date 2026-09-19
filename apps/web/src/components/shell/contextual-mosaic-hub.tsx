@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type { CSSProperties, MouseEvent } from "react";
 import { ShellIconSvg } from "@/components/shell/shell-icons";
 import type {
   ContextualMosaicIntent,
   ContextualMosaicSection,
 } from "@/lib/navigation-v2";
+import { rememberDestination } from "@/lib/recent-destinations";
+import { TILE_GEM_PALETTES } from "@/lib/tile-gem-palettes";
+import { t } from "@/lib/i18n";
 import styles from "./contextual-mosaic-hub.module.css";
 
 export type ContextualMosaicFact = {
@@ -14,12 +19,29 @@ export type ContextualMosaicFact = {
   tone?: "neutral" | "attention" | "positive";
 };
 
-const INTENT_LABEL: Record<ContextualMosaicIntent, string> = {
-  record: "ثبت و پیگیری",
-  decide: "نیازمند تصمیم",
-  monitor: "پایش",
-  manage: "مدیریت",
-};
+function intentLabel(intent: ContextualMosaicIntent): string {
+  switch (intent) {
+    case "record":
+      return t("shell.intentRecord");
+    case "decide":
+      return t("shell.intentDecide");
+    case "monitor":
+      return t("shell.intentMonitor");
+    case "manage":
+      return t("shell.intentManage");
+  }
+}
+
+function gemStyle(gemKey?: string): CSSProperties | undefined {
+  const gem = TILE_GEM_PALETTES[gemKey ?? ""] ?? TILE_GEM_PALETTES.teal;
+  if (!gem) return undefined;
+  return {
+    "--tile-gem-edge": gem.edge,
+    "--tile-gem-mid": gem.mid,
+    "--tile-gem-center": gem.center,
+    "--tile-gem-ink": gem.ink,
+  } as CSSProperties;
+}
 
 export function ContextualMosaicHub({
   sections,
@@ -28,6 +50,9 @@ export function ContextualMosaicHub({
   facts = {},
   compact = false,
   headingId = "contextual-mosaic-title",
+  reduceMotion = false,
+  pinnedHrefs,
+  onTogglePin,
 }: {
   sections: ContextualMosaicSection[];
   title: string;
@@ -35,41 +60,77 @@ export function ContextualMosaicHub({
   facts?: Partial<Record<string, ContextualMosaicFact>>;
   compact?: boolean;
   headingId?: string;
+  /** Honor prefers-reduced-motion / overview motion toggle. */
+  reduceMotion?: boolean;
+  pinnedHrefs?: ReadonlySet<string>;
+  onTogglePin?: (item: { key: string; label: string; href: string }) => void;
 }) {
+  const router = useRouter();
   if (sections.length === 0) return null;
 
   return (
     <section
-      className={`${styles.hub}${compact ? ` ${styles.compact}` : ""}`}
+      className={`${styles.hub}${compact ? ` ${styles.compact}` : ""}${reduceMotion ? ` ${styles.noMotion}` : ""}`}
       aria-labelledby={headingId}
     >
-      <header className={styles.header}>
-        <div>
-          <span>CONTEXTUAL MOSAIC</span>
-          <h2 id={headingId}>{title}</h2>
-          <p>{description}</p>
-        </div>
-        <small>بر اساس نوع فضا و قابلیت‌های فعال</small>
-      </header>
+      {compact ? (
+        <h2 id={headingId} className="visually-hidden">
+          {title}
+        </h2>
+      ) : (
+        <header className={styles.header}>
+          <div>
+            <span>{t("shell.workPaths")}</span>
+            <h2 id={headingId}>{title}</h2>
+            <p>{description}</p>
+          </div>
+          <small>{t("shell.basedOnCaps")}</small>
+        </header>
+      )}
 
       {sections.map((section) => (
         <div className={styles.section} key={section.key}>
-          {sections.length > 1 ? <h3>{section.label}</h3> : null}
+          {sections.length > 1 || section.description ? (
+            <header className={styles.sectionHead}>
+              <h3>{section.label}</h3>
+              {section.description && !compact ? <p>{section.description}</p> : null}
+            </header>
+          ) : null}
           <ul className={styles.grid}>
             {section.items.map((item, index) => {
               const fact = facts[item.key];
+              const pinned = pinnedHrefs?.has(item.href) ?? false;
               return (
                 <li
                   key={item.key}
-                  className={index === 0 && !compact ? styles.featured : undefined}
+                  className={
+                    index === 0 && !compact ? "mosaic-tile--breathe" : undefined
+                  }
+                  style={
+                    reduceMotion
+                      ? undefined
+                      : ({ "--tile-delay": `${Math.min(index, 7) * 40}ms` } as CSSProperties)
+                  }
                 >
-                  <Link href={item.href} className={styles.tile}>
-                    <span className={styles.accent} aria-hidden />
+                  <Link
+                    href={item.href}
+                    className={`${styles.tile} ${styles.gem} ${styles.enter}${onTogglePin ? ` ${styles.tilePinned}` : ""}`}
+                    style={gemStyle(item.gemKey)}
+                    onMouseEnter={() => router.prefetch(item.href)}
+                    onFocus={() => router.prefetch(item.href)}
+                    onClick={() =>
+                      rememberDestination({
+                        key: item.key,
+                        label: item.label,
+                        href: item.href,
+                      })
+                    }
+                  >
                     <span className={styles.topline}>
                       <span className={styles.icon} aria-hidden>
                         <ShellIconSvg name={item.icon} />
                       </span>
-                      <span className={styles.intent}>{INTENT_LABEL[item.intent]}</span>
+                      <span className={styles.intent}>{intentLabel(item.intent)}</span>
                     </span>
                     <strong>{item.label}</strong>
                     <p>{item.summary}</p>
@@ -82,13 +143,37 @@ export function ContextualMosaicHub({
                           <small>{fact.label}</small>
                         </span>
                       ) : (
-                        <span className={styles.available}>ابزار در دسترس</span>
+                        <span className={styles.available}>{t("shell.open")}</span>
                       )}
                       <span className={styles.open} aria-hidden>
                         ←
                       </span>
                     </span>
                   </Link>
+                  {onTogglePin ? (
+                    <button
+                      type="button"
+                      className={`${styles.pin}${pinned ? ` ${styles.pinActive}` : ""}`}
+                      aria-pressed={pinned}
+                      aria-label={
+                        pinned
+                          ? `${t("shell.pinRemove")} ${item.label}`
+                          : `${t("shell.pinAdd")} ${item.label}`
+                      }
+                      title={pinned ? t("shell.pinRemove") : t("shell.pinAdd")}
+                      onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onTogglePin({
+                          key: item.key,
+                          label: item.label,
+                          href: item.href,
+                        });
+                      }}
+                    >
+                      {pinned ? "★" : "☆"}
+                    </button>
+                  ) : null}
                 </li>
               );
             })}

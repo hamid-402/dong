@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { newClientId } from "@/lib/id";
 
 import { useEffect, useState, useTransition } from "react";
 import type { ExpenseSummary, MembershipSummary, WorkspaceSummary } from "@dang/contracts";
 import { spaceKindForTemplate } from "@dang/contracts";
 import { Amount, Button, TextField } from "@dang/ui";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
 import {
   SplitComposer,
@@ -22,17 +24,21 @@ import {
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
+import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { PersonalFinanceOverviewPanel } from "@/components/personal-finance-overview-panel";
-import { PersonalResourcesPanel } from "@/components/personal-resources-panel";
+import { PersonalDepthPanel } from "@/components/personal-depth-panel";
+import { PersonalChartsPanel } from "@/components/charts/personal-charts-panel";
+import { PersonalResourcesPanel } from "@/components/personal-resources/personal-resources-panel";
 import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
+import { todayIsoLocal } from "@/lib/fa-datetime";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { expenseStatusLabel, spaceKindForTemplateLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { usePersonalFinanceHashScroll } from "@/lib/use-personal-finance-hash-scroll";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { wPath } from "@/lib/workspace-paths";
 
@@ -41,6 +47,7 @@ const initialSplit: SplitComposerValue = emptySplitComposer("private");
 /** Personal space home — additive; does not remove group/org flows. */
 export function PersonalSpaceView() {
   const chrome = useAppChrome();
+  usePersonalFinanceHashScroll();
   const scope = useOptionalWorkspaceScope();
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
   const [loading, setLoading] = useState(true);
@@ -142,7 +149,7 @@ export function PersonalSpaceView() {
             splitMethod: "equal",
             participantUserIds: [me.actor.userId],
             splitLines: undefined,
-            occurredOn: new Date().toISOString().slice(0, 10),
+            occurredOn: todayIsoLocal(),
             visibility: "private",
             categoryId: categoryId || undefined,
             idempotencyKey: newClientId(),
@@ -162,8 +169,7 @@ export function PersonalSpaceView() {
 
   const pageError = error ?? chrome.error;
   const slug = workspace?.slug ?? scope?.slug ?? null;
-  const privateCount = expenses.filter((expense) => expense.visibility === "private").length;
-  const postedCount = expenses.filter((expense) => expense.status === "posted").length;
+  const goalsLive = chrome.capabilities?.providers?.savingsGoals === "goals_v1";
 
   return (
     <AppShell
@@ -172,56 +178,28 @@ export function PersonalSpaceView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      {slug ? (
-        <OperationsModuleHeader
-          ariaLabel="خانه فضای شخصی"
-          destinations={[
-            { key: "space", label: "دفتر من", href: wPath(slug, "space"), active: true },
-            { key: "expenses", label: NAV_LABELS.expenses, href: wPath(slug, "expenses"), active: false },
-            { key: "ledger", label: NAV_LABELS.ledger, href: wPath(slug, "ledger"), active: false },
-            { key: "settings", label: "تنظیمات", href: wPath(slug, "settings"), active: false },
-          ]}
-          metrics={[
-            {
-              label: "خرج ثبت‌شده",
-              value: new Intl.NumberFormat("fa-IR").format(expenses.length),
-              detail: "از API همین فضا",
-            },
-            {
-              label: "خصوصی",
-              value: new Intl.NumberFormat("fa-IR").format(privateCount),
-              detail: "visibility=private",
-            },
-            {
-              label: "posted",
-              value: new Intl.NumberFormat("fa-IR").format(postedCount),
-              detail: "اعمال‌شده در دفتر",
-              tone: postedCount > 0 ? "positive" : "neutral",
-            },
-            {
-              label: "اعضا",
-              value: new Intl.NumberFormat("fa-IR").format(members.length),
-              detail: spaceKindForTemplateLabel("personal"),
-            },
-          ]}
-          roleLabel={null}
-          persistenceLabel={chrome.persistenceLabel}
-          pending={pending || loading}
-          onRefresh={() => {
-            if (!workspace) return;
-            startTransition(() => {
-              void refresh(workspace.id)
-                .then(() => setError(null))
-                .catch((err: unknown) => setError(friendlyErrorMessage(err, "تازه‌سازی ناموفق")));
-            });
-          }}
-        />
-      ) : null}
+      <WorkspacePageFrame
+      title={"دفتر من"}
+      description={"مالی شخصی و خرج خصوصی از دادهٔ واقعی."}
+      primaryAction={slug ? <Link href={wPath(slug, "expenses")}>{NAV_LABELS.addExpense}</Link> : <Link href="/spaces">{NAV_LABELS.spacesList}</Link>}
+      secondaryActions={
+        <>
+          <Link href="/me/finance">{NAV_LABELS.personalFinance}</Link>
+          {" · "}
+          <Link href="#goals">اهداف</Link>
+          {" · "}
+          <Link href="#resources">حساب‌ها</Link>
+          {" · "}
+          <Link href="#charts">نمودار</Link>
+        </>
+      }
+      state="ready"
+    >
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
 
       {loading ? (
-        <EmptyHint>در حال بارگذاری دفتر شخصی…</EmptyHint>
+        <ContentSkeleton rows={4} label="در حال بارگذاری دفتر شخصی…" />
       ) : (
         <ProductGrid>
           <SectionCard title="فضای من" delayClass="delay1">
@@ -284,11 +262,21 @@ export function PersonalSpaceView() {
             </div>
           </SectionCard>
 
-          <PersonalFinanceOverviewPanel />
+          <div id="overview">
+            <PersonalFinanceOverviewPanel />
+          </div>
 
-          <details className="reportDetails">
+          <div id="goals">
+            <PersonalDepthPanel goalsLive={goalsLive} />
+          </div>
+
+          <div id="charts">
+            <PersonalChartsPanel />
+          </div>
+
+          <details className="reportDetails" id="resources">
             <summary>
-              <span>منابع و بودجه شخصی</span>
+              <span>منابع و بودجه شخصی (پاکت ماه شمسی)</span>
             </summary>
             <div className="reportDetails__body">
               <PersonalResourcesPanel />
@@ -332,6 +320,7 @@ export function PersonalSpaceView() {
           ) : null}
         </ProductGrid>
       )}
-    </AppShell>
+    
+      </WorkspacePageFrame></AppShell>
   );
 }

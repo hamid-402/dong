@@ -21,8 +21,50 @@ export function isZarinpalLive(
   return isZarinpalMerchantConfigured(merchantId) && flag("ZARINPAL_ENABLED", processEnv);
 }
 
+/** Capabilities payment mode — LocalPSP primary; zarinpal only when live; stub reserved. */
+export function resolvePaymentProviderMode(
+  merchantId?: string,
+  processEnv: EnvBag = process.env,
+): "stub" | "local_psp" | "zarinpal" {
+  return isZarinpalLive(merchantId, processEnv) ? "zarinpal" : "local_psp";
+}
+
 export function zarinpalSandbox(processEnv: EnvBag = process.env): boolean {
   return !flag("ZARINPAL_PRODUCTION", processEnv);
+}
+
+/** Public callback URL Zarinpal will hit after checkout. */
+export function resolveZarinpalCallbackUrl(
+  apiBaseUrl: string,
+  processEnv: EnvBag = process.env,
+): string {
+  const override = processEnv.ZARINPAL_CALLBACK_URL?.trim();
+  if (override) return override;
+  const origin = apiBaseUrl.replace(/\/api\/v1\/?$/, "");
+  return `${origin}/api/v1/payments/zarinpal/callback`;
+}
+
+/**
+ * Fail-fast hint for production: callback must not be localhost when live.
+ * Returns null when OK.
+ */
+export function zarinpalCallbackMisconfig(
+  callbackUrl: string,
+  processEnv: EnvBag = process.env,
+): string | null {
+  if (!flag("ZARINPAL_PRODUCTION", processEnv)) return null;
+  try {
+    const host = new URL(callbackUrl).hostname;
+    if (host === "localhost" || host === "127.0.0.1" || host.endsWith(".local")) {
+      return "ZARINPAL_CALLBACK_LOCALHOST";
+    }
+  } catch {
+    return "ZARINPAL_CALLBACK_INVALID";
+  }
+  if (!callbackUrl.startsWith("https://")) {
+    return "ZARINPAL_CALLBACK_NOT_HTTPS";
+  }
+  return null;
 }
 
 export function isClamavHostConfigured(processEnv: EnvBag = process.env): boolean {

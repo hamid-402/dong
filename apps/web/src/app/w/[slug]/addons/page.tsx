@@ -1,22 +1,31 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import type { MembershipRole, MembershipSummary, PersonalAddonChargeSummary } from "@dang/contracts";
 import { isReadOnlyRole } from "@dang/contracts";
-import { EmptyHint } from "@/components/ui-blocks";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
+import { EmptyHint, StatusLine } from "@/components/ui-blocks";
 import { AddonChargesPanel } from "@/components/views/friends-group/addon-charges-panel";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { useWorkspaceScope } from "@/components/shell/workspace-scope";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
-import { membershipRoleLabel } from "@/lib/status-labels";
 import { FlashMessages, useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { wPath } from "@/lib/workspace-paths";
+import { WorkspacePageGate } from "@/components/shell/workspace-page-gate";
 
 /** Additive /w/.../addons — only interactive when productFlags.addonAck. */
 export default function WorkspaceAddonsPage() {
+  return (
+    <WorkspacePageGate page="addons">
+      <WorkspaceAddonsPageInner />
+    </WorkspacePageGate>
+  );
+}
+
+function WorkspaceAddonsPageInner() {
   const chrome = useAppChrome();
   const scope = useWorkspaceScope();
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
@@ -54,90 +63,63 @@ export default function WorkspaceAddonsPage() {
     refresh();
   }, [scope.workspaceId, enabled, chrome.actor?.userId]);
 
-  const pendingAck = charges.filter((charge) => charge.status === "pending_ack").length;
-  const confirmed = charges.filter((charge) => charge.status === "confirmed").length;
-  const disputed = charges.filter((charge) => charge.status === "disputed").length;
-
   return (
-    <div>
-      <OperationsModuleHeader
-        ariaLabel="اضافه شخصی داخل گروه"
-        destinations={[
-          {
-            key: "addons",
-            label: NAV_LABELS.addons,
-            href: wPath(scope.slug, "addons"),
-            active: true,
-          },
-          {
-            key: "expenses",
-            label: NAV_LABELS.expenses,
-            href: wPath(scope.slug, "expenses"),
-            active: false,
-          },
-          {
-            key: "approvals",
-            label: NAV_LABELS.approvals,
-            href: wPath(scope.slug, "approvals"),
-            active: false,
-          },
-          {
-            key: "invoices",
-            label: NAV_LABELS.invoices,
-            href: wPath(scope.slug, "invoices"),
-            active: false,
-          },
-        ]}
-        metrics={[
-          {
-            label: "کل اضافه‌ها",
-            value: enabled ? new Intl.NumberFormat("fa-IR").format(charges.length) : "—",
-            detail: enabled ? "از API اضافه شخصی" : "قابلیت خاموش",
-          },
-          {
-            label: "در انتظار تأیید",
-            value: enabled ? new Intl.NumberFormat("fa-IR").format(pendingAck) : "—",
-            detail: "تا تأیید عضو هدف قطعی نیست",
-            tone: pendingAck > 0 ? "attention" : "neutral",
-          },
-          {
-            label: "تأییدشده",
-            value: enabled ? new Intl.NumberFormat("fa-IR").format(confirmed) : "—",
-            tone: confirmed > 0 ? "positive" : "neutral",
-          },
-          {
-            label: "اعتراض",
-            value: enabled ? new Intl.NumberFormat("fa-IR").format(disputed) : "—",
-            tone: disputed > 0 ? "attention" : "neutral",
-          },
-        ]}
-        roleLabel={myRole ? membershipRoleLabel(myRole) : null}
-        persistenceLabel={chrome.persistenceLabel}
-        pending={pending || !chrome.ready}
-        onRefresh={refresh}
-      />
+    <WorkspacePageFrame
+      title={NAV_LABELS.addons}
+      description="هزینهٔ شخصی داخل گروه — تا تأیید عضو هدف در صورتحساب قطعی نیست."
+      primaryAction={
+        enabled && !readOnly ? (
+          <a href="#addon-charge-form">ثبت اضافه</a>
+        ) : (
+          <Link href={wPath(scope.slug, "expenses")}>{NAV_LABELS.expenses}</Link>
+        )
+      }
+
+      state={
+        !enabled
+          ? "empty"
+          : !scope.workspaceId
+            ? "empty"
+            : error && charges.length === 0 && !pending
+              ? "error"
+              : pending && charges.length === 0
+                ? "loading"
+                : "ready"
+      }
+      loadingLabel="در حال بارگذاری اضافه‌های شخصی…"
+      skeletonRows={3}
+      error={
+        <StatusLine>
+          {error}{" "}
+          <button type="button" className="textButton" onClick={refresh} disabled={pending}>
+            تلاش دوباره
+          </button>
+        </StatusLine>
+      }
+      empty={
+        !enabled ? (
+          <EmptyHint>
+            این قابلیت پشت پرچم محصول خاموش است. برای فعال‌سازی runtime، ENABLE_ADDON_ACK=1 و
+            capabilities باید addonAck را تأیید کند — دکمهٔ جعلی نشان داده نمی‌شود.
+          </EmptyHint>
+        ) : (
+          <EmptyHint>فضای کاری را انتخاب کنید.</EmptyHint>
+        )
+      }
+    >
       <FlashMessages error={error} successMessage={successMessage} />
-      {!enabled ? (
-        <EmptyHint>
-          این قابلیت پشت پرچم محصول خاموش است. برای فعال‌سازی runtime، ENABLE_ADDON_ACK=1 و
-          capabilities باید addonAck را تأیید کند — دکمهٔ جعلی نشان داده نمی‌شود.
-        </EmptyHint>
-      ) : !scope.workspaceId ? (
-        <EmptyHint>فضای کاری را انتخاب کنید.</EmptyHint>
-      ) : (
-        <AddonChargesPanel
-          workspaceId={scope.workspaceId}
-          actorUserId={chrome.actor?.userId ?? null}
-          members={members}
-          readOnly={readOnly}
-          onError={setError}
-          onSuccess={(message) => {
-            flashSuccess(message);
-            refresh();
-          }}
-          onChargesChange={setCharges}
-        />
-      )}
-    </div>
+      <AddonChargesPanel
+        workspaceId={scope.workspaceId}
+        actorUserId={chrome.actor?.userId ?? null}
+        members={members}
+        readOnly={readOnly}
+        onError={setError}
+        onSuccess={(message) => {
+          flashSuccess(message);
+          refresh();
+        }}
+        onChargesChange={setCharges}
+      />
+    </WorkspacePageFrame>
   );
 }

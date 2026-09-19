@@ -1,7 +1,11 @@
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { loadEnvFile, isRedisConfigured, loadAppEnv } from "@dang/config";
-import { createLogger } from "@dang/observability";
+import {
+  createLogger,
+  resolveTracingMode,
+  startOtlpSpanExporter,
+} from "@dang/observability";
 import { getWorkerStatus } from "./jobs/catalog.js";
 import { runConsumerLoop } from "./jobs/consumer.js";
 import { WorkerModule } from "./worker.module.js";
@@ -9,6 +13,13 @@ import { WorkerModule } from "./worker.module.js";
 loadEnvFile();
 
 async function bootstrap() {
+  const otel = startOtlpSpanExporter({
+    env: {
+      ...process.env,
+      OTEL_SERVICE_NAME:
+        process.env.OTEL_SERVICE_NAME?.trim() || "dang-worker",
+    },
+  });
   const app = await NestFactory.createApplicationContext(WorkerModule, {
     logger: ["error", "warn", "log"],
   });
@@ -23,6 +34,8 @@ async function bootstrap() {
     jobCount: status.jobs.length,
     redisConfigured: redisOk ? 1 : 0,
     queueAdapter: redisOk ? "redis" : "none",
+    tracing: resolveTracingMode(),
+    otlpActive: otel.active ? 1 : 0,
   });
   for (const job of status.jobs) {
     logger.info("Registered job definition", {
@@ -49,6 +62,7 @@ async function bootstrap() {
     }
   }
 
+  await otel.stop();
   await app.close();
 }
 

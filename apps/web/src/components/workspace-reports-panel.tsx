@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { newClientId } from "@/lib/id";
 
@@ -114,6 +114,54 @@ export function WorkspaceReportsPanel({
           setError(null);
         } catch (err: unknown) {
           setError(friendlyErrorMessage(err, "خروجی CSV ناموفق"));
+        }
+      })();
+    });
+  }
+
+  function onExportXlsx() {
+    startTransition(() => {
+      void (async () => {
+        try {
+          const created = await api.createReportExport(workspaceId, {
+            from,
+            to,
+            groupBy,
+            format: "xlsx",
+            idempotencyKey: newClientId(),
+          });
+          if (!created.hasFile) {
+            setError("فایل Excel آماده نشد");
+            return;
+          }
+          window.open(api.downloadReportExportUrl(workspaceId, created.id), "_blank");
+          setError(null);
+        } catch (err: unknown) {
+          setError(friendlyErrorMessage(err, "خروجی Excel ناموفق"));
+        }
+      })();
+    });
+  }
+
+  function onExportAccountant(format: "mohk_csv" | "sepidar_csv") {
+    startTransition(() => {
+      void (async () => {
+        try {
+          const created = await api.createReportExport(workspaceId, {
+            from,
+            to,
+            groupBy,
+            format,
+            idempotencyKey: newClientId(),
+          });
+          if (!created.hasFile) {
+            setError("فایل حسابداری آماده نشد");
+            return;
+          }
+          window.open(api.downloadReportExportUrl(workspaceId, created.id), "_blank");
+          setError(null);
+        } catch (err: unknown) {
+          setError(friendlyErrorMessage(err, "خروجی حسابداری ناموفق"));
         }
       })();
     });
@@ -270,6 +318,32 @@ export function WorkspaceReportsPanel({
           <Button type="button" variant="ghost" onClick={onExportCsv} disabled={pending}>
             خروجی CSV
           </Button>
+          {chrome?.capabilities?.providers?.reportExport === "csv_xlsx_v1" ||
+          chrome?.capabilities?.providers?.reportExport === "csv_xlsx_ir_v1" ? (
+            <Button type="button" variant="ghost" onClick={onExportXlsx} disabled={pending}>
+              خروجی Excel
+            </Button>
+          ) : null}
+          {chrome?.capabilities?.providers?.accountantExport === "mohk_sepidar_v1" ? (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onExportAccountant("mohk_csv")}
+                disabled={pending}
+              >
+                CSV محک
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onExportAccountant("sepidar_csv")}
+                disabled={pending}
+              >
+                CSV سپیدار
+              </Button>
+            </>
+          ) : null}
         </div>
         {report ? (
           <DataList>

@@ -12,7 +12,6 @@ import {
 type DailyLedgerGridProps = {
   ledger: DailyLedgerResponse;
   viewMode: "table" | "cards";
-  showGregorian: boolean;
   todayIso: string;
   pending: boolean;
   selectedDate?: string | null;
@@ -54,7 +53,6 @@ function ItemActions({
 export function DailyLedgerGrid({
   ledger,
   viewMode,
-  showGregorian,
   todayIso,
   pending,
   selectedDate,
@@ -83,9 +81,6 @@ export function DailyLedgerGrid({
               <header>
                 <div>
                   <b>{formatJalaliIso(row.date)}</b>
-                  {showGregorian ? (
-                    <small className="dlGregorian">{row.date}</small>
-                  ) : null}
                 </div>
                 <span className={row.weekday === 6 ? "dlWeekdayStart" : undefined}>
                   {weekdayFaSatFirst(row.weekday)}
@@ -244,9 +239,6 @@ export function DailyLedgerGrid({
                   </td>
                   <td className="dlDate">
                     <span className="dlJalali">{formatJalaliIso(row.date)}</span>
-                    {showGregorian ? (
-                      <small className="dlGregorian">{row.date}</small>
-                    ) : null}
                     {row.isRangeLocked ? (
                       <small className="dlLockBadge">قفل</small>
                     ) : null}

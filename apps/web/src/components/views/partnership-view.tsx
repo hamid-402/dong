@@ -1,37 +1,40 @@
-﻿"use client";
+"use client";
 
 import { newClientId } from "@/lib/id";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type {
+  AgreedPriceSummary,
   AgreementSummary,
   MemberAccountReport,
   MembershipSummary,
   OwnershipShareSummary,
   PeriodLockSummary,
 } from "@dang/contracts";
-import { isReadOnlyRole } from "@dang/contracts";
+import { isReadOnlyRole, resolveDailyLedgerRange } from "@dang/contracts";
 import { Amount, Button, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
-import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import {
   DataList,
   DataRow,
   EmptyHint,
+  EmptyStateBlock,
   FormStack,
   ProductGrid,
   SectionCard,
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
-import { hubPathFor } from "@/lib/hub-links";
+import { todayIsoLocal } from "@/lib/fa-datetime";
+import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import { agreementStatusLabel, membershipRoleLabel } from "@/lib/status-labels";
-import { useFlashMessage } from "@/lib/use-flash-message";
+import { FlashMessages, useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
-import { wPath } from "@/lib/workspace-paths";
 import type { ComponentProps } from "react";
 
 function downloadCsv(filename: string, content: string) {
@@ -62,8 +65,14 @@ export function PartnershipView() {
   const [shares, setShares] = useState<OwnershipShareSummary[]>([]);
   const [locks, setLocks] = useState<PeriodLockSummary[]>([]);
   const [report, setReport] = useState<MemberAccountReport | null>(null);
-  const [agreementTitle, setAgreementTitle] = useState("قرارداد شراکت پروژه");
+  const [agreementTitle, setAgreementTitle] = useState("??????? ????? ?????");
   const [contribToman, setContribToman] = useState("100000000");
+  const [agreedPrices, setAgreedPrices] = useState<AgreedPriceSummary[]>([]);
+  const [priceTitle, setPriceTitle] = useState("???? ?????? ????");
+  const [priceToman, setPriceToman] = useState("45000000");
+
+  const partnerPricesLive =
+    chrome.capabilities?.providers?.partnerPrices === "partner_prices_v1";
 
   function GuardedForm(props: ComponentProps<typeof FormStack>) {
     if (isReadOnlyRole(members.find((m) => m.userId === chrome.actor?.userId)?.role)) {
@@ -84,7 +93,7 @@ export function PartnershipView() {
     void refresh(chrome.workspaceId)
       .then(() => setError(null))
       .catch((err: unknown) => {
-        setError(friendlyErrorMessage(err, "خطا"));
+        setError(friendlyErrorMessage(err, "???"));
       })
       .finally(() => setLoading(false));
   }, [chrome.workspaceId, chrome.ready]);
@@ -101,6 +110,19 @@ export function PartnershipView() {
     if (a[0]) {
       const s = await api.ownershipShares(id, a[0].id);
       setShares(s);
+      if (partnerPricesLive) {
+        try {
+          const prices = await api.listAgreedPrices(id, a[0].id);
+          setAgreedPrices(prices);
+        } catch {
+          setAgreedPrices([]);
+        }
+      } else {
+        setAgreedPrices([]);
+      }
+    } else {
+      setShares([]);
+      setAgreedPrices([]);
     }
   }
 
@@ -109,7 +131,6 @@ export function PartnershipView() {
   const pageError = error ?? chrome.error;
   const myRole = members.find((m) => m.userId === chrome.actor?.userId)?.role;
   const readOnly = isReadOnlyRole(myRole);
-  const workspace = chrome.workspaces.find((item) => item.id === workspaceId);
 
   return (
     <AppShell
@@ -118,52 +139,40 @@ export function PartnershipView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      {pageError ? <p className="liveError">{pageError}</p> : null}
-      {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
-      {workspaceId && workspace ? (
-        <OperationsModuleHeader
-          ariaLabel="عملیات شرکا"
-          destinations={[
-            { key: "partners", label: "شرکا", href: wPath(workspace.slug, "partners"), active: true },
-            { key: "expenses", label: "مالی", href: wPath(workspace.slug, "expenses"), active: false },
-            { key: "procurement", label: "تدارکات", href: wPath(workspace.slug, "procurement"), active: false },
-            { key: "members", label: "اعضا", href: wPath(workspace.slug, "members"), active: false },
-          ]}
-          metrics={[
-            { label: "قرارداد", value: String(agreements.length), detail: `${agreements.filter((item) => item.status === "active").length} فعال` },
-            { label: "سهم مالکیت", value: String(shares.length), detail: agreement ? agreement.title : "قرارداد انتخاب نشده" },
-            { label: "قفل دوره", value: String(locks.length), detail: "بازه‌های ثبت‌نشده" },
-            { label: "گزارش شخص", value: report ? "بارگذاری‌شده" : "آماده درخواست", detail: self?.displayName ?? "عضوی انتخاب نشده", tone: report ? "positive" : "neutral" },
-          ]}
-          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
-          persistenceLabel={chrome.persistenceLabel}
-          pending={loading}
-          onRefresh={() => {
-            setLoading(true);
-            void refresh(workspaceId)
-              .catch((reason: unknown) => setError(friendlyErrorMessage(reason, "تازه‌سازی شرکا ناموفق")))
-              .finally(() => setLoading(false));
-          }}
-        />
-      ) : null}
-      {readOnly && workspaceId ? (
-        <StatusLine>
-          نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ثبت قرارداد و آورده فعال نیست.
-        </StatusLine>
-      ) : null}
+      <WorkspacePageFrame
+        title={NAV_LABELS.partners}
+        description="???????? ????? ? ??? ???? ?? ????? ????? ???? ??? � ?? ???? ??????."
+        primaryAction={
+          workspaceId ? (
+            <a href="#partner-agreement-panel">??? ???????</a>
+          ) : (
+            <Link href="/spaces/new?kind=org">{NAV_LABELS.createSpace}</Link>
+          )
+        }
+        state={!chrome.ready || loading ? "loading" : !workspaceId ? "empty" : "ready"}
+        loadingLabel="?? ??? ???????? ???? ????�"
+        empty={
+          <EmptyStateBlock
+            title="????? ?????? ????"
+            description="????? ???? ??????? ?? ???????? ??????? ??? ??????? ? ????? ?? ??? ????."
+            action={<Link href="/home">{NAV_LABELS.home}</Link>}
+          />
+        }
+      >
+        <FlashMessages error={pageError} successMessage={successMessage} />
+        {readOnly && workspaceId ? (
+          <StatusLine>
+            ??? {membershipRoleLabel(myRole)} ??? ?????? ???? � ??? ??????? ? ????? ???? ????.
+          </StatusLine>
+        ) : null}
 
-      {loading ? (
-        <EmptyHint>در حال بارگذاری حساب شرکا…</EmptyHint>
-      ) : !workspaceId ? (
-        <EmptyHint>
-          ابتدا فضای کاری بسازید — <Link href={hubPathFor("/workspaces")}>بازگشت به مالی</Link>
-        </EmptyHint>
-      ) : (
+        {workspaceId ? (
         <ProductGrid>
-          <SectionCard title="قرارداد" badge={agreements.length} delayClass="delay1">
+          <SectionCard title="???????" badge={agreements.length} delayClass="delay1">
+            <div id="partner-agreement-panel" />
             <GuardedForm>
               <TextField
-                label="عنوان"
+                label="?????"
                 value={agreementTitle}
                 onChange={(e) => setAgreementTitle(e.target.value)}
               />
@@ -175,30 +184,30 @@ export function PartnershipView() {
                       await api.createAgreement(workspaceId, {
                         workspaceId,
                         title: agreementTitle,
-                        effectiveFrom: new Date().toISOString().slice(0, 10),
+                        effectiveFrom: todayIsoLocal(),
                         idempotencyKey: newClientId(),
                       });
                       await refresh(workspaceId);
                       setError(null);
-                      flashSuccess("قرارداد ثبت شد");
+                      flashSuccess("??????? ??? ??");
                     } catch (err: unknown) {
-                      setError(friendlyErrorMessage(err, "خطا"));
+                      setError(friendlyErrorMessage(err, "???"));
                     }
                   })();
                 }}
               >
-                ثبت قرارداد
+                ??? ???????
               </Button>
             </GuardedForm>
             {agreements.length === 0 ? (
-              <EmptyHint>قراردادی ثبت نشده.</EmptyHint>
+              <EmptyHint>???????? ??? ????.</EmptyHint>
             ) : (
               <DataList>
                 {agreements.map((a) => (
                   <DataRow
                     key={a.id}
                     title={a.title}
-                    meta={`نسخه ${a.version}`}
+                    meta={`???? ${a.version}`}
                     trailing={<StatusPill tone={statusTone(a.status)}>{agreementStatusLabel(a.status)}</StatusPill>}
                   />
                 ))}
@@ -207,10 +216,10 @@ export function PartnershipView() {
           </SectionCard>
 
           {agreement && self ? (
-            <SectionCard title="آورده نقدی" delayClass="delay1">
+            <SectionCard title="????? ????" delayClass="delay1">
               <GuardedForm>
                 <TextField
-                  label="مبلغ (تومان)"
+                  label="???? (?????)"
                   value={contribToman}
                   onChange={(e) => setContribToman(e.target.value)}
                 />
@@ -233,21 +242,88 @@ export function PartnershipView() {
                         });
                         await refresh(workspaceId);
                         setError(null);
-                        flashSuccess("آورده ثبت شد");
+                        flashSuccess("????? ??? ??");
                       } catch (err: unknown) {
-                        setError(friendlyErrorMessage(err, "خطا"));
+                        setError(friendlyErrorMessage(err, "???"));
                       }
                     })();
                   }}
                 >
-                  ثبت آورده
+                  ??? ?????
                 </Button>
               </GuardedForm>
             </SectionCard>
           ) : null}
 
+          {partnerPricesLive && agreement ? (
+            <SectionCard title="???????? ??????" badge={agreedPrices.length} delayClass="delay1">
+              <GuardedForm>
+                <TextField
+                  label="?????"
+                  value={priceTitle}
+                  onChange={(e) => setPriceTitle(e.target.value)}
+                />
+                <TextField
+                  label="???? (?????)"
+                  value={priceToman}
+                  onChange={(e) => setPriceToman(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        const amount = tomanInputToIrrMinor(priceToman);
+                        if (!amount) {
+                          setError("???? ??????? ??? (??? ????? / IRR)");
+                          return;
+                        }
+                        await api.createAgreedPrice(workspaceId, agreement.id, {
+                          workspaceId,
+                          agreementId: agreement.id,
+                          title: priceTitle,
+                          amount,
+                          effectiveFrom: todayIsoLocal(),
+                          idempotencyKey: newClientId(),
+                        });
+                        await refresh(workspaceId);
+                        setError(null);
+                        flashSuccess("???? ?????? ??? ??");
+                      } catch (err: unknown) {
+                        setError(friendlyErrorMessage(err, "???"));
+                      }
+                    })();
+                  }}
+                >
+                  ??? ???? ??????
+                </Button>
+              </GuardedForm>
+              {agreedPrices.length === 0 ? (
+                <EmptyHint>???? ?????? ??? ???? � ?? ???? ????? ???? ???? ?????? ???.</EmptyHint>
+              ) : (
+                <DataList>
+                  {agreedPrices.map((p) => (
+                    <DataRow
+                      key={p.id}
+                      title={p.title}
+                      meta={`???? ${p.version} � ?? ${p.effectiveFrom}`}
+                      trailing={<Amount irrMinor={p.amount.amountMinor} />}
+                    />
+                  ))}
+                </DataList>
+              )}
+            </SectionCard>
+          ) : agreement ? (
+            <SectionCard title="???????? ??????" delayClass="delay1">
+              <StatusLine>
+                ???? ?????? ???? providers.partnerPrices ????? partner_prices_v1 ???? ????
+                ?????? � ???? ????? ???? ???? ?????? ???? ???? ???????.
+              </StatusLine>
+            </SectionCard>
+          ) : null}
+
           {shares.length > 0 ? (
-            <SectionCard title="سهم مالکیت" badge={shares.length} delayClass="delay2">
+            <SectionCard title="??? ??????" badge={shares.length} delayClass="delay2">
               <DataList>
                 {shares.map((s) => (
                   <DataRow
@@ -261,7 +337,7 @@ export function PartnershipView() {
           ) : null}
 
           {self ? (
-            <SectionCard title="گزارش حساب شخص" delayClass="delay2">
+            <SectionCard title="????? ???? ???" delayClass="delay2">
               <GuardedForm>
                 <div className="productHeaderActions" style={{ justifyContent: "flex-start" }}>
                   <Button
@@ -270,11 +346,11 @@ export function PartnershipView() {
                       void api.memberReport(workspaceId, self.userId).then((next) => {
                         setReport(next);
                         setError(null);
-                        flashSuccess("گزارش بارگذاری شد");
+                        flashSuccess("????? ???????? ??");
                       });
                     }}
                   >
-                    بارگذاری گزارش
+                    ???????? ?????
                   </Button>
                   <Button
                     type="button"
@@ -285,14 +361,14 @@ export function PartnershipView() {
                           const payload = await api.exportMemberReport(workspaceId, self.userId);
                           downloadCsv(payload.filename, payload.content);
                           setError(null);
-                          flashSuccess("فایل CSV دانلود شد");
+                          flashSuccess("???? CSV ?????? ??");
                         } catch (err: unknown) {
-                          setError(friendlyErrorMessage(err, "خطا"));
+                          setError(friendlyErrorMessage(err, "???"));
                         }
                       })();
                     }}
                   >
-                    خروجی CSV / Excel
+                    ????? CSV / Excel
                   </Button>
                 </div>
               </GuardedForm>
@@ -300,7 +376,7 @@ export function PartnershipView() {
                 <DataList>
                   <DataRow
                     title={report.displayName}
-                    meta="خالص موقعیت"
+                    meta="???? ??????"
                     trailing={<Amount irrMinor={report.netPositionMinor} />}
                   />
                   {report.lines.map((line, i) => (
@@ -313,14 +389,14 @@ export function PartnershipView() {
                   ))}
                 </DataList>
               ) : (
-                <EmptyHint>برای دیدن جزئیات، گزارش را بارگذاری کنید.</EmptyHint>
+                <EmptyHint>???? ???? ??????? ????? ?? ???????? ????.</EmptyHint>
               )}
             </SectionCard>
           ) : null}
 
-          <SectionCard title="قفل دوره" badge={locks.length} delayClass="delay3">
+          <SectionCard title="??? ????" badge={locks.length} delayClass="delay3">
             <p className="emptyHint" style={{ border: "none", padding: 0 }}>
-              پس از قفل، ثبت آورده، قرض و برداشت در آن بازه مسدود می‌شود.
+              ?? ?? ???? ??? ?????? ??? ? ?????? ?? ?? ???? ????? ??????.
             </p>
             <GuardedForm>
               <Button
@@ -328,34 +404,34 @@ export function PartnershipView() {
                 onClick={() => {
                   void (async () => {
                     try {
-                      const today = new Date().toISOString().slice(0, 10);
+                      const { from, to } = resolveDailyLedgerRange("month");
                       await api.createPeriodLock(workspaceId, {
                         workspaceId,
-                        periodStart: `${today.slice(0, 7)}-01`,
-                        periodEnd: today,
-                        reason: "بستن ماه جاری",
+                        periodStart: from,
+                        periodEnd: to,
+                        reason: "???? ??? ???? ????",
                         idempotencyKey: newClientId(),
                       });
                       await refresh(workspaceId);
                       setError(null);
-                      flashSuccess("دوره قفل شد");
+                      flashSuccess("???? ??? ??");
                     } catch (err: unknown) {
-                      setError(friendlyErrorMessage(err, "خطا"));
+                      setError(friendlyErrorMessage(err, "???"));
                     }
                   })();
                 }}
               >
-                قفل ماه جاری تا امروز
+                ??? ??? ???? ?? ?????
               </Button>
             </GuardedForm>
             {locks.length === 0 ? (
-              <EmptyHint>قفل دوره‌ای ثبت نشده.</EmptyHint>
+              <EmptyHint>??? ??????? ??? ????.</EmptyHint>
             ) : (
               <DataList>
                 {locks.map((l) => (
                   <DataRow
                     key={l.id}
-                    title={`${l.periodStart} → ${l.periodEnd}`}
+                    title={`${l.periodStart} ? ${l.periodEnd}`}
                     meta={l.reason ?? undefined}
                   />
                 ))}
@@ -363,7 +439,8 @@ export function PartnershipView() {
             )}
           </SectionCard>
         </ProductGrid>
-      )}
+        ) : null}
+      </WorkspacePageFrame>
     </AppShell>
   );
 }

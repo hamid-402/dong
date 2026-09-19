@@ -4,13 +4,16 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import type {
   AuthActor,
   CreateExpensePeriodRequest,
   ExpensePeriodSummary,
   GeneratePeriodInvoicesRequest,
+  MemberInvoiceAdjustmentSummary,
   MemberInvoiceSummary,
+  ResolveInvoiceDisputeRequest,
 } from "@dang/contracts";
 import { isFinanceManagerRole } from "@dang/contracts";
 import { MfaService } from "../auth/mfa.service.js";
@@ -18,7 +21,9 @@ import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
 import { IdempotencyService } from "../common/idempotency.service.js";
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
+import { BillingMaintenanceService } from "./billing-maintenance.service.js";
 import { BILLING_STORE, type BillingStore } from "./billing.types.js";
+import { InvoiceEventsService } from "./invoice-events.service.js";
 
 @Injectable()
 export class BillingService {
@@ -29,6 +34,11 @@ export class BillingService {
     @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
     @Inject(MfaService) private readonly mfa: MfaService,
     @Inject(NotificationsService) private readonly notifications: NotificationsService,
+    @Inject(InvoiceEventsService)
+    private readonly invoiceEvents: InvoiceEventsService,
+    @Optional()
+    @Inject(BillingMaintenanceService)
+    private readonly maintenance?: BillingMaintenanceService,
   ) {}
 
   async createPeriod(
@@ -69,8 +79,29 @@ export class BillingService {
     actor: AuthActor,
     workspaceId: string,
   ): Promise<ExpensePeriodSummary[]> {
-    await this.access.requireMember(workspaceId, actor.userId);
-    return this.billing.listPeriods(workspaceId, actor.userId);
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    // A workspace whose periods someone is reading is a live workspace: let the
+    // maintenance sweep roll it over and reconcile it even if nobody has
+    // recorded an expense since this process started.
+    if (isFinanceManagerRole(role)) this.maintenance?.remember(workspaceId, actor.userId);
+    try {
+      return await this.billing.listPeriods(workspaceId, actor.userId);
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        error.message.startsWith("PERIOD_SCHEMA_OUTDATED")
+      ) {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/period-schema-outdated",
+          title: "اسکیمای دوره مالی قدیمی است",
+          detail:
+            "ستون‌های cadence/auto_rollover روی دیتابیس نیستند — migration 0073 را اعمال کنید.",
+          status: 400,
+          code: "PERIOD_SCHEMA_OUTDATED",
+        });
+      }
+      throw error;
+    }
   }
 
   async generateInvoices(
@@ -89,6 +120,7 @@ export class BillingService {
       });
     }
     await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
+    this.maintenance?.remember(workspaceId, actor.userId);
     try {
       const invoices = await this.billing.generateInvoices(
         workspaceId,
@@ -112,6 +144,25 @@ export class BillingService {
     } catch (error: unknown) {
       this.rethrow(error);
     }
+  }
+
+  /**
+   * Correction notices for a period. Members see their own; finance sees all,
+   * so an issued invoice never has to be rewritten to stay accurate.
+   */
+  async listAdjustments(
+    actor: AuthActor,
+    workspaceId: string,
+    periodId: string,
+  ): Promise<MemberInvoiceAdjustmentSummary[]> {
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    const rows = await this.billing.listAdjustments(
+      workspaceId,
+      periodId,
+      actor.userId,
+    );
+    if (isFinanceManagerRole(role)) return rows;
+    return rows.filter((row) => row.memberUserId === actor.userId);
   }
 
   async listInvoices(
@@ -161,6 +212,60 @@ export class BillingService {
     }
   }
 
+  /**
+   * Finance answers a member's objection. Only a manager may do this — the
+   * member who raised it cannot also close it — and the member is told the
+   * outcome, because a dispute settled in silence is not settled.
+   */
+  async resolveInvoiceDispute(
+    actor: AuthActor,
+    workspaceId: string,
+    invoiceId: string,
+    body: ResolveInvoiceDisputeRequest,
+  ): Promise<MemberInvoiceSummary> {
+    await this.access.requireFinanceManager(workspaceId, actor.userId);
+    try {
+      const invoice = await this.billing.resolveInvoiceDispute(
+        workspaceId,
+        invoiceId,
+        actor.userId,
+        body,
+      );
+      await this.audit.append({
+        workspaceId,
+        actorUserId: actor.userId,
+        action: "invoice.dispute.resolve",
+        targetType: "member_invoice",
+        targetId: invoiceId,
+        result: "success",
+        metadata: { outcome: body.outcome, status: invoice.status },
+      });
+      await this.notifications.notify(actor.userId, {
+        workspaceId,
+        userId: invoice.memberUserId,
+        channel: "in_app",
+        title:
+          body.outcome === "accepted"
+            ? "اعتراض شما پذیرفته شد"
+            : "اعتراض شما پذیرفته نشد",
+        body:
+          body.outcome === "accepted"
+            ? "صورتحساب به پیش‌نویس برگشت و از روی خرج‌ها بازنویسی می‌شود"
+            : `صورتحساب صادرشده تغییری نکرد${body.note?.trim() ? ` · ${body.note.trim()}` : ""}`,
+        metadata: { event: "invoice.dispute.resolved", route: "/invoices" },
+      });
+      await this.invoiceEvents.announce({
+        workspaceId,
+        periodId: invoice.periodId,
+        memberUserIds: [invoice.memberUserId],
+        reason: `invoice.dispute.${body.outcome}`,
+      });
+      return invoice;
+    } catch (error: unknown) {
+      this.rethrow(error);
+    }
+  }
+
   async issueInvoice(
     actor: AuthActor,
     workspaceId: string,
@@ -184,6 +289,12 @@ export class BillingService {
         title: "صورتحساب جدید",
         body: `صورتحساب دوره برای شما صادر شد · ${invoice.total.amountMinor} ریال`,
         metadata: { event: "invoice.issued", invoiceId },
+      });
+      await this.invoiceEvents.announce({
+        workspaceId,
+        periodId: invoice.periodId,
+        memberUserIds: [invoice.memberUserId],
+        reason: "invoice.issued",
       });
       return invoice;
     } catch (error: unknown) {
@@ -211,6 +322,12 @@ export class BillingService {
         targetId: invoiceId,
         result: "success",
       });
+      await this.invoiceEvents.announce({
+        workspaceId,
+        periodId: invoice.periodId,
+        memberUserIds: [invoice.memberUserId],
+        reason: "invoice.paid",
+      });
       return invoice;
     } catch (error: unknown) {
       this.rethrow(error);
@@ -224,6 +341,8 @@ export class BillingService {
     body: { requireAllPaid?: boolean } = {},
   ): Promise<ExpensePeriodSummary> {
     await this.access.requireFinanceManager(workspaceId, actor.userId);
+    await this.assertNoOpenDisputes(workspaceId, periodId, actor.userId);
+    await this.assertPeriodReconciled(workspaceId, periodId, actor.userId);
     try {
       const period = await this.billing.closePeriod(
         workspaceId,
@@ -269,6 +388,63 @@ export class BillingService {
     } catch (error: unknown) {
       this.rethrow(error);
     }
+  }
+
+  /**
+   * A member who disputed their invoice is waiting for an answer. Freezing the
+   * period would settle that argument by silence, so the dispute has to be
+   * resolved — accepted or rejected — before the books shut.
+   */
+  private async assertNoOpenDisputes(
+    workspaceId: string,
+    periodId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    let invoices: MemberInvoiceSummary[];
+    try {
+      invoices = await this.billing.listInvoices(workspaceId, periodId, actorUserId);
+    } catch {
+      // A check that cannot run must not become a lock on the books.
+      return;
+    }
+    const disputed = invoices.filter((invoice) => invoice.status === "disputed");
+    if (disputed.length === 0) return;
+    throw new BadRequestException({
+      type: "https://dang.local/problems/validation",
+      title: "اعتراض بازِ صورتحساب رسیدگی نشده است",
+      status: 400,
+      detail: `${disputed.length.toString()} صورتحساب این دوره در وضعیت اعتراض است؛ تا رسیدگی نشود دوره بسته نمی‌شود`,
+      code: "PERIOD_INVOICES_DISPUTED",
+    });
+  }
+
+  /**
+   * Closing a period freezes what every member owes, so the books have to agree
+   * first. The sweep's reconcile pass repairs invoice drift on the spot; a
+   * journal that disagrees with the committed expenses cannot be repaired from
+   * here and blocks the close until a human explains the difference.
+   */
+  private async assertPeriodReconciled(
+    workspaceId: string,
+    periodId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    if (!this.maintenance) return;
+    let result: Awaited<ReturnType<BillingMaintenanceService["reconcile"]>>;
+    try {
+      result = await this.maintenance.reconcile(workspaceId, actorUserId);
+    } catch {
+      // A check that cannot run must not become a lock on the books.
+      return;
+    }
+    const gaps = result.ledgerGaps.filter((gap) => gap.periodId === periodId);
+    if (gaps.length === 0) return;
+    throw new BadRequestException({
+      type: "https://dang.local/problems/validation",
+      title: "دفتر و خرج‌های ثبت‌شده این دوره یکی نیستند",
+      status: 400,
+      detail: `${gaps.length.toString()} عضو در دفتر مبلغی جز سهم ثبت‌شده دارند؛ تا بررسی نشود دوره بسته نمی‌شود`,
+    });
   }
 
   private assertPeriodInput(body: CreateExpensePeriodRequest): void {

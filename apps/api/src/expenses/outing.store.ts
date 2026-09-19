@@ -53,6 +53,9 @@ export class MemoryOutingStore implements OutingStore {
       title: input.title.trim(),
       note: input.note?.trim(),
       occurredOn: input.occurredOn,
+      budgetCapMinor: input.budgetCapMinor,
+      startsOn: input.startsOn,
+      endsOn: input.endsOn,
       createdByUserId: actorUserId,
       createdAt: new Date().toISOString(),
       expenseIds: [] as string[],
@@ -128,6 +131,11 @@ export class PostgresOutingStore implements OutingStore {
             title: input.title.trim(),
             note: input.note?.trim() || null,
             occurredOn: input.occurredOn,
+            budgetCapMinor: input.budgetCapMinor
+              ? BigInt(input.budgetCapMinor)
+              : null,
+            startsOn: input.startsOn ?? null,
+            endsOn: input.endsOn ?? null,
             idempotencyKey: input.idempotencyKey.trim(),
             createdByUserId: actorUserId,
           })
@@ -195,6 +203,9 @@ export class PostgresOutingStore implements OutingStore {
       title: row.title,
       note: row.note ?? undefined,
       occurredOn: formatOccurredOn(row.occurredOn),
+      budgetCapMinor: row.budgetCapMinor?.toString(),
+      startsOn: row.startsOn ? formatOccurredOn(row.startsOn) : undefined,
+      endsOn: row.endsOn ? formatOccurredOn(row.endsOn) : undefined,
       createdByUserId: row.createdByUserId,
       createdAt: row.createdAt.toISOString(),
       expenseIds: expenses.map((item) => item.id),

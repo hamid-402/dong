@@ -38,6 +38,7 @@ test("aggregateWorkspaceProductMetrics counts only success actions", () => {
   assert.equal(metrics.counts.expensePosts, 1);
   assert.equal(metrics.counts.settlementConfirms, 1);
   assert.equal(metrics.counts.inviteAccepts, 0);
+  assert.equal(metrics.counts.inviteCreates, 0);
   assert.equal(metrics.milestones.firstExpensePosted.reached, true);
   assert.equal(
     metrics.milestones.firstExpensePosted.firstAt,

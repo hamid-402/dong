@@ -13,7 +13,16 @@ export type ProblemDetails = {
   requestId?: string;
 };
 
-export type { Money } from "./money.js";
+export type { Money, DisplayUnit } from "./money.js";
+import type { DisplayUnit } from "./money.js";
+import type { MembershipAddedVia } from "./membership.js";
+import type { PlatformRole } from "./account.js";
+export {
+  resolveDisplayUnit,
+  displayUnitLabel,
+  irrMinorToDisplayInteger,
+  displayIntegerToIrrMinor,
+} from "./money.js";
 
 export type WorkspaceTemplate =
   | "personal"
@@ -21,12 +30,17 @@ export type WorkspaceTemplate =
   | "household"
   | "project_partners"
   | "small_team"
-  | "construction";
+  | "construction"
+  | "residential_building";
+
+/** Top-level life domain for IA — personal / friends group / building / org. */
+export type SpaceKind = "personal" | "group" | "building" | "org";
 
 export type MembershipRole =
   | "owner"
   | "admin"
   | "finance"
+  | "deputy_finance"
   | "approver"
   | "buyer"
   | "asset_custodian"
@@ -37,24 +51,34 @@ export type MembershipRole =
 /**
  * مادرخرج / مدیر مالی گروه یا سازمان — نه ادمین سراسری محصول.
  * می‌تواند خرج خصوصی اعضا را ببیند و صورتحساب بفرستد.
+ * `deputy_finance` فقط وقتی بازهٔ جانشینی فعال است در لایهٔ دسترسی هم‌تراز می‌شود.
  */
-export const FINANCE_MANAGER_ROLES = ["owner", "admin", "finance"] as const satisfies readonly MembershipRole[];
+export const FINANCE_MANAGER_ROLES = [
+  "owner",
+  "admin",
+  "finance",
+] as const satisfies readonly MembershipRole[];
 
 export type FinanceManagerRole = (typeof FINANCE_MANAGER_ROLES)[number];
 
 export function isFinanceManagerRole(
   role: string | null | undefined,
 ): role is FinanceManagerRole {
-  return (
-    role === "owner" || role === "admin" || role === "finance"
-  );
+  return role === "owner" || role === "admin" || role === "finance";
+}
+
+/** True when role is finance or an active deputy (caller must verify window). */
+export function isFinanceCapableRole(
+  role: string | null | undefined,
+): boolean {
+  return isFinanceManagerRole(role) || role === "deputy_finance";
 }
 
 /** Law 9: non-personal spaces need ≥2 finance managers after bootstrap (≤1 member). */
 export const MIN_FINANCE_MANAGERS_NON_PERSONAL = 2;
 
 export function spaceRequiresFinanceQuorum(
-  spaceKind: "personal" | "group" | "org",
+  spaceKind: SpaceKind,
 ): boolean {
   return spaceKind !== "personal";
 }
@@ -66,7 +90,7 @@ export function spaceRequiresFinanceQuorum(
  * finance managers are required.
  */
 export function financeManagerQuorumOk(input: {
-  spaceKind: "personal" | "group" | "org";
+  spaceKind: SpaceKind;
   memberCount: number;
   financeManagerCount: number;
 }): { ok: true } | { ok: false; code: "FINANCE_QUORUM_REQUIRED" } {
@@ -83,7 +107,7 @@ export function financeManagerQuorumOk(input: {
  * after the invitee joins (memberCount + 1).
  */
 export function inviteSatisfiesFinanceQuorum(input: {
-  spaceKind: "personal" | "group" | "org";
+  spaceKind: SpaceKind;
   currentMemberCount: number;
   currentFinanceManagerCount: number;
   inviteRole: MembershipRole;
@@ -107,13 +131,23 @@ export function isReadOnlyRole(
   return role === "auditor" || role === "guest";
 }
 
+/**
+ * Product metrics funnel — finance managers + auditor.
+ * Unknown/empty role is denied on API; UI may show nav until membership resolves.
+ */
+export function canViewProductMetrics(
+  role: string | null | undefined,
+): boolean {
+  return isFinanceManagerRole(role) || role === "auditor";
+}
+
 export type WorkspaceTemplateCatalogItem = {
   id: WorkspaceTemplate;
   titleFa: string;
   summaryFa: string;
   defaultModules: string[];
   /** Additive space classification for IA — does not replace template. */
-  spaceKind: "personal" | "group" | "org";
+  spaceKind: SpaceKind;
 };
 
 export const workspaceTemplateCatalog: WorkspaceTemplateCatalogItem[] = [
@@ -137,6 +171,19 @@ export const workspaceTemplateCatalog: WorkspaceTemplateCatalogItem[] = [
     summaryFa: "خانه و خانواده — سهم‌های وزنی، خرج مشترک و تسویه جدا از دوستان",
     defaultModules: ["expenses", "settlements", "invites", "proposals"],
     spaceKind: "group",
+  },
+  {
+    id: "residential_building",
+    titleFa: "ساختمان مسکونی",
+    summaryFa: "واحدها، ساکنان، شارژ ماهانه و قبوض آب و برق و گاز",
+    defaultModules: [
+      "expenses",
+      "settlements",
+      "invites",
+      "budgets",
+      "reports",
+    ],
+    spaceKind: "building",
   },
   {
     id: "project_partners",
@@ -171,7 +218,7 @@ export const workspaceTemplateCatalog: WorkspaceTemplateCatalogItem[] = [
   {
     id: "construction",
     titleFa: "ساختمان و پیمانکاری",
-    summaryFa: "مصالح، پیمانکار، تحویل جزئی، سهم شرکا و خرج پروژه",
+    summaryFa: "مصالح، پیمانکار، تحویل جزئی، سهم شرکا و خرج پروژه ساختمانی",
     defaultModules: [
       "expenses",
       "settlements",
@@ -181,21 +228,63 @@ export const workspaceTemplateCatalog: WorkspaceTemplateCatalogItem[] = [
       "assets",
       "partnerships",
     ],
-    spaceKind: "org",
+    spaceKind: "building",
   },
 ];
 
 export function spaceKindForTemplate(
   template: WorkspaceTemplate | undefined,
-): "personal" | "group" | "org" {
+): SpaceKind {
   const item = workspaceTemplateCatalog.find((entry) => entry.id === template);
   return item?.spaceKind ?? "group";
 }
+
+/** Sub-structure inside a building (unit) or org (department / subsidiary). */
+export type WorkspaceSubunitKind = "unit" | "department" | "subsidiary";
+
+export type WorkspaceSubunitSummary = {
+  id: string;
+  workspaceId: string;
+  kind: WorkspaceSubunitKind;
+  code: string;
+  name: string;
+  /** Optional free-form notes / rule hints for this subunit. */
+  note?: string;
+  sortOrder: number;
+  memberUserIds: string[];
+  /** Gross floor area in square metres (building units, G08). */
+  areaSqm?: number;
+  /** Headcount for occupancy-based formula splits (G08). */
+  occupancy?: number;
+  createdAt: string;
+};
+
+export type CreateWorkspaceSubunitBody = {
+  kind: WorkspaceSubunitKind;
+  code: string;
+  name: string;
+  note?: string;
+  sortOrder?: number;
+  areaSqm?: number;
+  occupancy?: number;
+};
+
+export type UpdateWorkspaceSubunitBody = {
+  name?: string;
+  note?: string | null;
+  sortOrder?: number;
+  /** Replace assigned members when provided. */
+  memberUserIds?: string[];
+  areaSqm?: number | null;
+  occupancy?: number | null;
+};
 
 export type CreateWorkspaceRequest = {
   name: string;
   slug: string;
   template: WorkspaceTemplate;
+  /** Owner's default split weight after create (family preset; G04 #2). */
+  ownerDefaultShares?: number;
 };
 
 /** Additive workspace profile update. Slug/template remain immutable here. */
@@ -214,6 +303,17 @@ export type WorkspaceSummary = {
   displayUnit: "toman" | "rial";
 };
 
+/**
+ * Public-enough preview for join-by-id — no membership required.
+ * Exposes only name + slug + kind so outsiders can confirm before requesting.
+ */
+export type WorkspaceJoinPreview = {
+  slug: string;
+  name: string;
+  template: WorkspaceTemplate;
+  spaceKind: SpaceKind;
+};
+
 export type MembershipSummary = {
   workspaceId: string;
   userId: string;
@@ -222,6 +322,12 @@ export type MembershipSummary = {
   /** Relative default share weight for family/household splits (default 1). */
   defaultShares: number;
   joinedAt: string;
+  /** Set when membership is soft-disabled (S11-03). */
+  disabledAt?: string;
+  disabledReason?: string;
+  /** How the member was added (S11-03). */
+  addedVia?: MembershipAddedVia;
+  addedByUserId?: string;
 };
 
 export type AuthActor = {
@@ -234,6 +340,13 @@ export type AuthActor = {
 export type AuthMeResponse = {
   actor: AuthActor;
   workspaces: WorkspaceSummary[];
+  /** User display-unit preference; null = follow workspace (S11-05). */
+  displayUnit?: DisplayUnit | null;
+  /**
+   * Platform console discovery (S11-13) — from account profile.
+   * Absent/undefined treated as `"user"` by clients.
+   */
+  platformRole?: PlatformRole;
 };
 
 export type OidcStatusResponse = {
@@ -283,24 +396,57 @@ export type AcceptInviteRequest = {
 };
 
 export * from "./account.js";
+export * from "./access-policy.js";
+export * from "./access-abac.js";
+export * from "./access-grants.js";
+export * from "./policy-dsl.js";
+export * from "./identity.js";
+export * from "./social.js";
+export * from "./membership.js";
+export * from "./catalog.js";
+export * from "./charts.js";
+export * from "./statements.js";
 export * from "./addon-charge.js";
 export * from "./assets.js";
+export * from "./audit-hash.js";
 export * from "./billing.js";
+export * from "./billing-automation.js";
 export * from "./collaboration.js";
+export * from "./notification-actions.js";
+export * from "./activity.js";
+export * from "./webhooks.js";
 export * from "./dashboard.js";
 export * from "./files.js";
 export * from "./finance.js";
+export * from "./building.js";
+export * from "./expense-posting.js";
 export * from "./jobs.js";
+export * from "./outbox.js";
 export * from "./partnership.js";
 export * from "./payments.js";
+export * from "./payment-ops.js";
 export * from "./procurement.js";
+export * from "./procurement-transitions.js";
+export * from "./asset-depreciation.js";
 export * from "./proposals.js";
 export * from "./personal-finance.js";
 export * from "./daily-ledger.js";
 export * from "./reports.js";
+export * from "./report-views.js";
 export * from "./product-metrics.js";
+export * from "./analytics-warehouse.js";
 export * from "./session-cookies.js";
 export * from "./system.js";
 export * from "./product-flags.js";
 export * from "./wave-f.js";
+export * from "./totp-secret-crypto.js";
+export * from "./secrets-provider.js";
+export * from "./key-vault.js";
+export * from "./internal-job-auth.js";
+export * from "./maker-checker.js";
+export * from "./security-events.js";
+export * from "./pen-test-status.js";
+export * from "./saas-billing.js";
+export * from "./platform.js";
+export * from "./slo.js";
 export * from "./schemas/index.js";

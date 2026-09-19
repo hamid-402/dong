@@ -17,7 +17,6 @@ type DailyLedgerToolbarProps = {
   daysCount: number;
   showCustomRange: boolean;
   viewMode: "table" | "cards";
-  showGregorian: boolean;
   pending: boolean;
   hasLedger: boolean;
   onShiftPeriod: (delta: -1 | 1) => void;
@@ -29,7 +28,6 @@ type DailyLedgerToolbarProps = {
   onCustomTo: (iso: string) => void;
   onApplyCustom: () => void;
   onSelectViewMode: (mode: "table" | "cards") => void;
-  onToggleGregorian: () => void;
   onExportCsv: () => void;
 };
 
@@ -49,7 +47,6 @@ export function DailyLedgerToolbar({
   daysCount,
   showCustomRange,
   viewMode,
-  showGregorian,
   pending,
   hasLedger,
   onShiftPeriod,
@@ -61,7 +58,6 @@ export function DailyLedgerToolbar({
   onCustomTo,
   onApplyCustom,
   onSelectViewMode,
-  onToggleGregorian,
   onExportCsv,
 }: DailyLedgerToolbarProps) {
   return (
@@ -167,13 +163,6 @@ export function DailyLedgerToolbar({
             onClick={() => onSelectViewMode("cards")}
           >
             کارت
-          </button>
-          <button
-            type="button"
-            className={showGregorian ? "pfFocusChip isActive" : "pfFocusChip"}
-            onClick={onToggleGregorian}
-          >
-            میلادی
           </button>
         </div>
         <Button type="button" onClick={onExportCsv} disabled={!workspaceId || !hasLedger}>
