@@ -77,6 +77,12 @@ import {
 } from "../subunits/subunit.types.js";
 import type { AllowancesService } from "../allowances/allowances.service.js";
 import { evaluatePerDiemRequiresApproval } from "./expense-org-policy.js";
+import {
+  applyOriginalMoneyToIrr,
+  resolveConversionLive,
+} from "../fx-rates/fx-convert-live.js";
+import { loadAppEnv } from "@dang/config";
+import type { FxRateSummary } from "@dang/contracts";
 
 const COMPANY_POST_ROLES = new Set<string>(COMPANY_EXPENSE_POST_ROLES);
 
@@ -117,6 +123,22 @@ export class ExpensesService {
     private readonly subunits?: WorkspaceSubunitStore,
     @Optional() private readonly moduleRef?: ModuleRef,
   ) {}
+
+  /** Lazy — FxRatesModule is optional for unit tests without FX wired. */
+  private async listFxRates(): Promise<FxRateSummary[] | null> {
+    if (!this.moduleRef) return null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- break module load order
+      const { FxRatesService: S } = require("../fx-rates/fx-rates.module.js") as {
+        FxRatesService: new (...args: never[]) => { list(): Promise<FxRateSummary[]> };
+      };
+      const fx = this.moduleRef.get(S, { strict: false });
+      if (!fx) return null;
+      return fx.list();
+    } catch {
+      return null;
+    }
+  }
 
   /** Lazy — AllowancesModule imports ExpensesModule. */
   private allowancesService(): AllowancesService | undefined {
@@ -217,15 +239,73 @@ export class ExpensesService {
         resolvedBody.total.amountMinor,
       );
     }
+
+    let fxBound = resolvedBody;
+    if (
+      resolvedBody.originalCurrency &&
+      resolvedBody.originalAmountMinor &&
+      resolvedBody.originalCurrency.toUpperCase() !== "IRR"
+    ) {
+      if (!resolveConversionLive(loadAppEnv())) {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/fx-conversion-off",
+          title: "FX_CONVERSION_OFF",
+          status: 400,
+          detail:
+            "تبدیل ارز زنده خاموش است — capabilities.conversionLive یا جدول نرخ در دسترس نیست",
+        });
+      }
+      const rows = await this.listFxRates();
+      if (!rows) {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/fx-conversion-off",
+          title: "FX_CONVERSION_OFF",
+          status: 400,
+          detail: "سرویس نرخ ارز در دسترس نیست",
+        });
+      }
+      try {
+        const applied = applyOriginalMoneyToIrr({
+          rows,
+          originalCurrency: resolvedBody.originalCurrency,
+          originalAmountMinor: resolvedBody.originalAmountMinor,
+          asOf: resolvedBody.occurredOn,
+        });
+        if (resolvedBody.total.amountMinor !== applied.irrMinor) {
+          throw new BadRequestException({
+            type: "https://dang.local/problems/fx-total-mismatch",
+            title: "FX_TOTAL_MISMATCH",
+            status: 400,
+            detail: `مبلغ IRR باید ${applied.irrMinor} باشد (نرخ ${applied.rate})`,
+            expectedIrrMinor: applied.irrMinor,
+            fxRateId: applied.fxRateId,
+          });
+        }
+        fxBound = { ...resolvedBody, fxRateId: applied.fxRateId };
+      } catch (err) {
+        if (err instanceof BadRequestException) throw err;
+        const msg = err instanceof Error ? err.message : "FX_CONVERT_FAILED";
+        throw new BadRequestException({
+          type: "https://dang.local/problems/fx-convert-failed",
+          title: msg,
+          status: 400,
+          detail:
+            msg === "FX_RATE_NOT_FOUND"
+              ? "نرخ ارز برای این جفت در جدول نیست"
+              : "تبدیل ارز ناموفق بود",
+        });
+      }
+    }
+
     const payload: CreateExpenseDraftRequest = {
-      ...resolvedBody,
+      ...fxBound,
       workspaceId,
       note: policyNoteSuffix
-        ? [resolvedBody.note?.trim(), policyNoteSuffix].filter(Boolean).join(" ")
-        : resolvedBody.note,
+        ? [fxBound.note?.trim(), policyNoteSuffix].filter(Boolean).join(" ")
+        : fxBound.note,
       periodId:
-        resolvedBody.periodId ??
-        (await this.resolvePeriodId(workspaceId, actor.userId, resolvedBody)),
+        fxBound.periodId ??
+        (await this.resolvePeriodId(workspaceId, actor.userId, fxBound)),
       requiresApproval:
         requiresApproval ?? (visibility === "company" ? true : undefined),
     };

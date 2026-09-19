@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { createDatabase, desc, fxRate, type AppDatabase } from "@dang/db";
+import { loadAppEnv } from "@dang/config";
 import {
   createFxRateSchema,
   fxConvertPreviewSchema,
@@ -40,10 +41,11 @@ export function resolveFxProviderMode(
   return (env.FX_PROVIDER_URL ?? "").trim() ? "http_v1" : "none";
 }
 
-/** Pure G13 preview builder — always live:false. Exported for depth tests. */
+/** Pure G13/G18 preview builder. Exported for depth tests. */
 export function buildFxConvertPreviewResult(
   rows: FxRateSummary[],
   input: FxConvertPreviewRequest,
+  opts?: { live?: boolean },
 ): FxConvertPreviewResponse {
   if (input.fromCurrency === input.toCurrency) {
     throw new ForbiddenException({
@@ -84,7 +86,7 @@ export function buildFxConvertPreviewResult(
     rateAsOf: hit.row.asOf,
     source: hit.row.source,
     inverted: hit.inverted,
-    live: false,
+    live: Boolean(opts?.live),
   };
 }
 
@@ -157,7 +159,7 @@ class FxRatesService {
   /**
    * Optional HTTP provider (G12 #59). Expects JSON:
    * { rates: [{ baseCurrency, quoteCurrency, rate, asOf }] }
-   * conversionLive stays false — this only fills the rate table.
+   * Fills the rate table used by conversionLive expense binding.
    */
   async syncFromProvider(): Promise<{ imported: number; source: string }> {
     const url = (process.env.FX_PROVIDER_URL ?? "").trim();
@@ -203,12 +205,12 @@ class FxRatesService {
   }
 
   /**
-   * G13: read-only convert preview from stored rates.
-   * Does not post to ledger; response.live is always false.
+   * Convert preview from stored rates. `live` mirrors capabilities.conversionLive.
    */
   async convertPreview(input: FxConvertPreviewRequest): Promise<FxConvertPreviewResponse> {
     const rows = await this.list();
-    return buildFxConvertPreviewResult(rows, input);
+    const live = Boolean(loadAppEnv().databaseUrl);
+    return buildFxConvertPreviewResult(rows, input, { live });
   }
 }
 
@@ -235,5 +237,6 @@ class FxRatesController {
   imports: [AuthModule],
   controllers: [FxRatesController],
   providers: [FxRatesService],
+  exports: [FxRatesService],
 })
 export class FxRatesModule {}

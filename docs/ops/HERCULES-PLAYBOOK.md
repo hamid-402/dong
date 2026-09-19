@@ -16,15 +16,16 @@
 | #54 SaaS | store + `SaasBillingService.usage` تست عمق (seats/expenses واقعی) · UI `WorkspacePlanPanel` gated · پرداخت فقط PSP live |
 | #57 SLO | `computePlatformSlo` از outbox/DLQ · UI `/admin/slo` · `slo.test.ts` |
 | #58 Webhooks | HMAC contracts · `WebhooksService` · **Postgres store + migration 0081 + RLS** · `createPersistenceStore` · RBAC owner/admin/finance برای create/deactivate · fan-out از outbox |
-| #59 FX provider | `FX_PROVIDER_URL` → `http_v1` · sync endpoint · `conversionLive` همیشه false |
+| #59 FX provider | `FX_PROVIDER_URL` → `http_v1` · sync · `conversionLive` با DATABASE_URL |
 
 ## G13 FX preview
 
 | مورد | شاهد |
 |------|------|
-| Preview | `buildFxConvertPreviewResult` · `live: false` اجباری · تست depth |
-| صداقت | `fxPreview=preview_v1` فقط وقتی `DATABASE_URL` (جدول نرخ) · وگرنه `none` |
-| UI | `FxRatesPanel` با `fxPreview` یا `ENABLE_FX_RATES` · نوشتن فقط با flag |
+| Preview | `buildFxConvertPreviewResult` · `live` از conversionLive · تست depth |
+| صداقت | `fxPreview=preview_v1` + `conversionLive=true` وقتی `DATABASE_URL` · وگرنه `none`/`false` |
+| خرج | `originalCurrency`+`originalAmountMinor` → اعتبارسنجی IRR + `fxRateId` (`fx-convert-live`) |
+| UI | `FxRatesPanel` StatusLine زنده از capabilities |
 
 ## G14 charts / مسیر فرعی
 
@@ -84,6 +85,6 @@ npx vitest run src/lib/use-personal-finance-hash-scroll.test.ts src/lib/chart-in
 
 ## محدودیت‌های صادق (عمدی / باقی‌ماندهٔ polish)
 
-- `conversionLive` عمداً false تا موتور حسابداری
-- پایهٔ pro/business در e2e نیاز به `ENABLE_WORKSPACE_PLANS` یا `ENABLE_PLAN_ADMIN` دارد (در dev unset=ON)
-- SLO capability همیشه `in_app_v1` وقتی ماژول لود است (سرویس واقعاً gauge می‌خواند)
+- Ledger همچنان فقط IRR ذخیره می‌کند (تبدیل زنده = بستن مبلغ IRR از ارز مبدأ، نه چندارزی در ژورنال)
+- PSP/OCR/SMTP/ClamAV زنده فقط با کلید env واقعی — بدون کلید همچنان stub در capabilities
+- visual **hard** CI لینوکس عمداً باز

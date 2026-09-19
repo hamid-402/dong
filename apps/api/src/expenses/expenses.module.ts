@@ -11,6 +11,7 @@ import { MakerCheckerModule } from "../maker-checker/maker-checker.module.js";
 import { ProcurementModule } from "../procurement/procurement.module.js";
 import { CatalogModule } from "../catalog/catalog.module.js";
 import { SubunitsModule } from "../subunits/subunits.module.js";
+import { FxRatesModule } from "../fx-rates/fx-rates.module.js";
 import { DailyLedgerController } from "./daily-ledger.controller.js";
 import { LedgerDayController } from "./ledger-day.controller.js";
 import { DailyLedgerService } from "./daily-ledger.service.js";
@@ -103,6 +104,7 @@ function createWorkspaceRangeLockStore(): WorkspaceRangeLockStore {
     MakerCheckerModule,
     CatalogModule,
     SubunitsModule,
+    FxRatesModule,
   ],
   controllers: [
     ExpensesController,

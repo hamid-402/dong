@@ -59,7 +59,7 @@ export const createFxRateSchema = z.object({
 }).strict();
 export type CreateFxRateRequest = z.infer<typeof createFxRateSchema>;
 
-/** Read-only FX math preview (G13). Never writes ledger; conversionLive stays false. */
+/** Read-only FX math preview (G13). When conversionLive, same math binds expense IRR totals. */
 export const fxConvertPreviewSchema = z
   .object({
     fromCurrency: isoCurrencySchema,
@@ -82,8 +82,11 @@ export type FxConvertPreviewResponse = {
   rateAsOf: string;
   source: string;
   inverted: boolean;
-  /** Always false — preview is not live posting into expenses/ledger. */
-  live: false;
+  /**
+   * true when capabilities.conversionLive — preview math matches the
+   * same path used to bind originalCurrency → IRR total on expense draft.
+   */
+  live: boolean;
 };
 
 /**

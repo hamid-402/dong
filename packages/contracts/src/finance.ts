@@ -257,6 +257,8 @@ export type CreateExpenseDraftRequest = {
   /** Preserved source money only; reporting/ledger total remains IRR. */
   originalCurrency?: string;
   originalAmountMinor?: string;
+  /** Set by API when conversionLive binds original → IRR via rate table. */
+  fxRateId?: string;
   /**
    * How the purchase was funded (S11-09).
    * `petty_cash` + `fundingRefId` (fund id) posts a linked spend on the fund when the expense posts.

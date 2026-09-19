@@ -53,14 +53,14 @@ test("systemCapabilitiesSchema accepts providers from Stage 10", () => {
   assert.equal(parsed.providers?.paymentOnBehalf, "on_behalf_v1");
 });
 
-test("systemCapabilitiesSchema rejects conversionLive true", () => {
-  assert.throws(() =>
-    systemCapabilitiesSchema.parse({
-      version: "0.1.0",
-      allowDevAuth: false,
-      conversionLive: true,
-    }),
-  );
+test("systemCapabilitiesSchema accepts conversionLive true when rate table can bind IRR", () => {
+  const parsed = systemCapabilitiesSchema.parse({
+    version: "0.1.0",
+    allowDevAuth: false,
+    conversionLive: true,
+    providers: { fxPreview: "preview_v1", fx: "table" },
+  });
+  assert.equal(parsed.conversionLive, true);
 });
 
 test("systemCapabilitiesSchema accepts fxPreview preview_v1 (G13)", () => {

@@ -132,6 +132,11 @@ jobs:
           pnpm --filter @dang/web test:a11y
 
       - name: e2e smoke (auth + finance journeys)
+        env:
+          ENABLE_WORKSPACE_PLANS: "1"
+          ENABLE_PLAN_ADMIN: "1"
+          ENABLE_FX_RATES: "1"
+          ALLOW_DEV_AUTH: "true"
         run: |
           unset PLAYWRIGHT_CHANNEL || true
           # webServer in playwright.config starts next after build (from pnpm check)

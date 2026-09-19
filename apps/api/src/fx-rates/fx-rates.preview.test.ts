@@ -47,7 +47,7 @@ test("pickFxRateForPreview direct and inverted (G13)", () => {
   assert.equal(pickFxRateForPreview(rows, "EUR", "IRR"), null);
 });
 
-test("buildFxConvertPreviewResult always live:false (depth)", () => {
+test("buildFxConvertPreviewResult live flag follows opts (depth)", () => {
   const rows: FxRateSummary[] = [
     {
       id: "1",
@@ -67,6 +67,13 @@ test("buildFxConvertPreviewResult always live:false (depth)", () => {
   assert.equal(preview.live, false);
   assert.equal(preview.convertedAmount, "84000");
   assert.equal(preview.inverted, false);
+
+  const live = buildFxConvertPreviewResult(
+    rows,
+    { fromCurrency: "USD", toCurrency: "IRR", amount: "2" },
+    { live: true },
+  );
+  assert.equal(live.live, true);
 
   assert.throws(
     () =>

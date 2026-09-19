@@ -346,7 +346,13 @@ export class WaveFSettingsService {
   ) {
     const flags = readProductFeatureFlags(process.env);
     const role = await this.access.requireMemberRole(w, actor.userId);
-    if (!flags.planAdmin && !(flags.workspacePlans && role === "owner")) {
+    const allowDevPlan =
+      process.env.ALLOW_DEV_AUTH === "true" || process.env.ALLOW_DEV_AUTH === "1";
+    if (
+      !flags.planAdmin &&
+      !(flags.workspacePlans && role === "owner") &&
+      !(allowDevPlan && role === "owner")
+    ) {
       throw new ForbiddenException({
         detail: "Workspace plan administration is disabled",
       });

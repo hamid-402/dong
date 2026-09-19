@@ -90,6 +90,7 @@ import { SecurityEventsService } from "../security-events/security-events.servic
 import { RealtimeHub } from "../notifications/realtime-hub.js";
 import { SocialService } from "../social/social.service.js";
 import { RetentionService } from "../retention/retention.service.js";
+import { SloService } from "../slo/slo.service.js";
 import { WebhooksService } from "../webhooks/webhooks.service.js";
 import {
   APPROVAL_DECISION_STORE,
@@ -154,6 +155,7 @@ export class SystemController {
     @Optional()
     @Inject(BuildingChargesService)
     private readonly buildingCharges?: BuildingChargesService,
+    @Optional() @Inject(SloService) private readonly slo?: SloService,
   ) {}
 
   @Get("capabilities")
@@ -220,7 +222,7 @@ export class SystemController {
         webhooks: this.webhooks.persistence,
         attachmentBlob: this.attachmentBlobs.mode(),
       },
-      conversionLive: false,
+      conversionLive: Boolean(env.databaseUrl),
       stubs: {
         // Derive from providers.payment — never hardcode. local_psp / zarinpal are live adapters.
         paymentProvider: paymentMode === "stub",
@@ -334,11 +336,11 @@ export class SystemController {
             ? "report_views_v1"
             : "none",
         platformAdmin: this.platform.persistence() ? "platform_v1" : "none",
-        slo: "in_app_v1",
+        slo: this.slo ? "in_app_v1" : "none",
         retention: this.retention ? "dry_run_purge_v1" : "none",
         outboundWebhooks: "hmac_v1",
         fxProvider: (process.env.FX_PROVIDER_URL ?? "").trim() ? "http_v1" : "none",
-        // Preview needs rate table (Postgres); never advertise when fx is stub.
+        // Preview needs rate table (Postgres); conversionLive mirrors this.
         fxPreview: env.databaseUrl ? "preview_v1" : "none",
         notificationEventPrefs: "in_app_v1",
         buildingCharges: this.buildingCharges ? "building_charges_v1" : "none",

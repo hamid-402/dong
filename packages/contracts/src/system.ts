@@ -284,7 +284,7 @@ export type SystemCapabilities = {
     fxProvider?: "none" | "http_v1";
     /**
      * Read-only FX convert preview from rate table (G13).
-     * preview_v1 = POST /fx-rates/preview; conversionLive remains false.
+     * preview_v1 = POST /fx-rates/preview; when conversionLive, same math binds expense IRR.
      */
     fxPreview?: "none" | "preview_v1";
     /**
@@ -315,8 +315,12 @@ export type SystemCapabilities = {
     /** Unified workspace activity cursor feed (G11 #60). */
     activityFeed?: "none" | "activity_v1";
   };
-  /** False until a production conversion/accounting engine is implemented. */
-  conversionLive?: false;
+  /**
+   * true when FX rate table is available (DATABASE_URL) and expense drafts
+   * can bind originalCurrency → IRR total via the live conversion path.
+   * Ledger storage remains IRR-only.
+   */
+  conversionLive?: boolean;
   integrationsReady?: {
     zarinpal: { merchantConfigured: boolean; enabled: boolean };
     clamav: { hostConfigured: boolean; enabled: boolean };

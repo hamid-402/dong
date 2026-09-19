@@ -18,8 +18,8 @@ import { formatFaDate, todayIsoLocal } from "@/lib/fa-datetime";
 import { useOptionalAppChrome } from "@/lib/use-app-chrome";
 
 /**
- * Authenticated FX rate table. conversionLive stays false —
- * preview is read-only math from the rate table (G13).
+ * Authenticated FX rate table. When conversionLive, preview math binds
+ * originalCurrency → IRR on expense drafts (ledger stays IRR-only).
  */
 export function FxRatesPanel({
   canWrite,
@@ -107,7 +107,7 @@ export function FxRatesPanel({
       <div id="fx-rates" />
       <StatusLine>
         {conversionLive
-          ? "تبدیل زنده فعال است."
+          ? "تبدیل زنده فعال است — همان مسیر برای بستن مبلغ IRR خرج از ارز مبدأ."
           : "تبدیل زنده در capabilities خاموش است — فقط جدول نرخ و پیش‌نمایش (بدون ثبت خودکار خرج)."}
       </StatusLine>
       {canWrite && !readOnly ? (
@@ -166,7 +166,11 @@ export function FxRatesPanel({
       )}
       {previewOn ? (
         <FormStack density="compact">
-          <StatusLine>پیش‌نمایش تبدیل (فقط محاسبه — live=false)</StatusLine>
+          <StatusLine>
+            {conversionLive
+              ? "پیش‌نمایش تبدیل (live — همان ریاضی بستن خرج IRR)"
+              : "پیش‌نمایش تبدیل (فقط محاسبه — live=false)"}
+          </StatusLine>
           <TextField
             label="از ارز"
             value={previewFrom}

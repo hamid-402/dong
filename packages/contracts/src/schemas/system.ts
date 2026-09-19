@@ -71,5 +71,5 @@ export const systemCapabilitiesSchema = z.object({
     .passthrough()
     .optional(),
   stubs: z.record(z.string(), z.boolean()).optional(),
-  conversionLive: z.literal(false).optional(),
+  conversionLive: z.boolean().optional(),
 }).passthrough();

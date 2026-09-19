@@ -191,6 +191,7 @@ export class PostgresExpenseStore implements ExpenseStore {
             totalMinor: BigInt(input.total.amountMinor),
             originalCurrency: input.originalCurrency ?? null,
             originalAmountMinor: input.originalAmountMinor ? BigInt(input.originalAmountMinor) : null,
+            fxRateId: input.fxRateId?.trim() || null,
             tipMinor: input.tip ? BigInt(input.tip.amountMinor) : null,
             taxMinor: input.tax ? BigInt(input.tax.amountMinor) : null,
             discountMinor: input.discount ? BigInt(input.discount.amountMinor) : null,

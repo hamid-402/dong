@@ -58,6 +58,7 @@ export class MemoryExpenseStore implements ExpenseStore {
       source: input.source === "daily_ledger" ? "daily_ledger" : undefined,
       originalCurrency: input.originalCurrency,
       originalAmountMinor: input.originalAmountMinor,
+      fxRateId: input.fxRateId?.trim() || undefined,
       catalogItemId: input.catalogItemId?.trim() || undefined,
       unitCode: input.unitCode?.trim() || undefined,
       quantity: input.quantity,
