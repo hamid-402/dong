@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   personaHomeActionLabelFa,
   personaHomeSpec,
+  personaSettingsSpec,
 } from "../src/persona-home.js";
 
 describe("persona-home — role × spaceKind chrome", () => {
@@ -74,5 +75,61 @@ describe("persona-home — role × spaceKind chrome", () => {
     assert.equal(personaHomeActionLabelFa("subunits", "building"), "واحدها");
     assert.equal(personaHomeActionLabelFa("subunits", "org"), "بخش‌ها");
     assert.equal(personaHomeActionLabelFa("expenses", "building"), "شارژ و قبوض");
+  });
+
+  it("matrix: six personas × three kinds always resolve", () => {
+    const roles = [
+      "owner",
+      "admin",
+      "finance",
+      "member",
+      "guest",
+      "auditor",
+      "approver",
+      "buyer",
+    ] as const;
+    const kinds = ["group", "org", "building"] as const;
+    for (const role of roles) {
+      for (const kind of kinds) {
+        const s = personaHomeSpec(role, kind, {
+          approvalQueue: true,
+          procurement: true,
+        });
+        assert.ok(s, `${role}@${kind}`);
+        assert.ok(s.primary);
+        assert.ok(s.secondary.length >= 1);
+      }
+    }
+  });
+});
+
+describe("persona-settings — severity ladder", () => {
+  it("finance hides payout; owner shows when live", () => {
+    const fin = personaSettingsSpec("finance", "group", { payoutLive: true });
+    assert.ok(fin);
+    assert.equal(fin.showPayoutSection, false);
+    assert.equal(fin.membersCardMode, "addMember");
+    assert.ok(!fin.jumpSections.includes("payout"));
+
+    const own = personaSettingsSpec("owner", "org", { payoutLive: true });
+    assert.ok(own);
+    assert.equal(own.showPayoutSection, true);
+    assert.equal(own.canEditProfile, true);
+    assert.ok(own.jumpSections.includes("payout"));
+  });
+
+  it("guest settings are leave-focused", () => {
+    const g = personaSettingsSpec("guest", "building");
+    assert.ok(g);
+    assert.equal(g.canEditProfile, false);
+    assert.equal(g.membersCardMode, "leave");
+    assert.equal(g.showAuditLink, false);
+  });
+
+  it("admin lead differs from owner but keeps edit", () => {
+    const a = personaSettingsSpec("admin", "group", { payoutLive: true });
+    assert.ok(a);
+    assert.equal(a.canEditProfile, true);
+    assert.match(a.leadFa, /ادمین/);
   });
 });

@@ -436,3 +436,136 @@ export function personaHomeActionLabelFa(
       return "صورتحساب دوره";
   }
 }
+
+/* ─── Settings severity (Phase C) ─── */
+
+export type PersonaSettingsJump =
+  | "settings-profile"
+  | "settings-members"
+  | "payout"
+  | "danger";
+
+export type PersonaSettingsSpec = {
+  persona: UiPersona;
+  leadFa: string;
+  /** Owner/admin may edit name/timezone/display unit. */
+  canEditProfile: boolean;
+  /** Owner/admin payout instructions (not finance — plan: finance cannot payout). */
+  showPayoutSection: boolean;
+  showMembersCard: boolean;
+  showPolicyLink: boolean;
+  showSubunitsLink: boolean;
+  showStatementsLink: boolean;
+  showAuditLink: boolean;
+  /** Emphasize invite vs add-member in members card. */
+  membersCardMode: "invite" | "addMember" | "view" | "leave";
+  jumpSections: PersonaSettingsJump[];
+};
+
+/**
+ * Settings page chrome — severity ladder for owner / finance / member / guest.
+ */
+export function personaSettingsSpec(
+  role: string | null | undefined,
+  spaceKind: SpaceKind,
+  flags: { expensePolicy?: boolean; payoutLive?: boolean } = {},
+): PersonaSettingsSpec | null {
+  const persona = resolveUiPersona(role);
+  if (!persona) return null;
+
+  const orgish = spaceKind === "org" || spaceKind === "building";
+  const showPolicy =
+    orgish || Boolean(flags.expensePolicy);
+  const payoutLive = Boolean(flags.payoutLive);
+
+  if (persona === "guest" || persona === "auditor") {
+    return {
+      persona,
+      leadFa:
+        persona === "auditor"
+          ? "ناظر: مشاهدهٔ مشخصات و ترک فضا — بدون ویرایش و بدون payout."
+          : "مهمان: مشخصات فقط‌خواندنی و ترک عضویت از منطقهٔ خطر.",
+      canEditProfile: false,
+      showPayoutSection: false,
+      showMembersCard: true,
+      showPolicyLink: false,
+      showSubunitsLink: false,
+      showStatementsLink: persona === "auditor",
+      showAuditLink: persona === "auditor",
+      membersCardMode: "leave",
+      jumpSections: ["settings-profile", "settings-members", "danger"],
+    };
+  }
+
+  if (persona === "approver" || persona === "buyer") {
+    return {
+      persona,
+      leadFa:
+        persona === "approver"
+          ? "تأییدکننده: مشاهدهٔ تنظیمات و ترک — مدیریت payout و پروفایل برای مالک است."
+          : "خریدار: مشاهدهٔ تنظیمات و ترک — تدارکات از خانهٔ فضا، نه از اینجا.",
+      canEditProfile: false,
+      showPayoutSection: false,
+      showMembersCard: true,
+      showPolicyLink: showPolicy,
+      showSubunitsLink: orgish,
+      showStatementsLink: false,
+      showAuditLink: false,
+      membersCardMode: "view",
+      jumpSections: ["settings-profile", "settings-members", "danger"],
+    };
+  }
+
+  if (persona === "member") {
+    return {
+      persona,
+      leadFa: "عضو: مشاهدهٔ مشخصات، اعضا و ترک فضا — ویرایش مدیریتی برای مالک است.",
+      canEditProfile: false,
+      showPayoutSection: false,
+      showMembersCard: true,
+      showPolicyLink: false,
+      showSubunitsLink: orgish,
+      showStatementsLink: true,
+      showAuditLink: false,
+      membersCardMode: "leave",
+      jumpSections: ["settings-profile", "settings-members", "danger"],
+    };
+  }
+
+  if (persona === "finance") {
+    return {
+      persona,
+      leadFa:
+        "مادرخرج: اعضا با شناسه، صورتحساب و قوانین مالی — لینک دعوت و payout فقط برای مالک/ادمین.",
+      canEditProfile: false,
+      showPayoutSection: false,
+      showMembersCard: true,
+      showPolicyLink: showPolicy,
+      showSubunitsLink: orgish,
+      showStatementsLink: true,
+      showAuditLink: true,
+      membersCardMode: "addMember",
+      jumpSections: ["settings-profile", "settings-members", "danger"],
+    };
+  }
+
+  // owner (+ admin via resolveUiPersona)
+  const isAdminLabel = role === "admin";
+  return {
+    persona,
+    leadFa: isAdminLabel
+      ? "ادمین: مشخصات و دعوت مانند مالک — بایگانی/حذف سخت در منطقهٔ خطر فقط برای مالک است."
+      : "مالک: کنترل کامل مشخصات، دعوت، payout و چرخهٔ عمر فضا.",
+    canEditProfile: true,
+    showPayoutSection: payoutLive,
+    showMembersCard: true,
+    showPolicyLink: showPolicy,
+    showSubunitsLink: orgish,
+    showStatementsLink: true,
+    showAuditLink: true,
+    membersCardMode: "invite",
+    jumpSections: payoutLive
+      ? ["settings-profile", "settings-members", "payout", "danger"]
+      : ["settings-profile", "settings-members", "danger"],
+  };
+}

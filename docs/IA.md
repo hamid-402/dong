@@ -106,6 +106,7 @@ Enum دیتابیس ۱۰ مقدار می‌ماند (additive). **سطح دعو�
 - مهمان/ناظر: `roleAllowsNavKey` + `roleBlocksWorkspacePage` در nav و Gate
 - `roleNavProfile` / `resolveUiPersona`: شل شش‌گانه (عضو/تأیید/خریدار محدود؛ مالک/مادرخرج کامل)
 - `personaHomeSpec(role, spaceKind)`: عنوان/CTA/پنل‌های خانه برای گروه · سازمان · ساختمان
+- `personaSettingsSpec`: شدت تنظیمات (payout فقط مالک/ادمین · مادرخرج=افزودن شناسه · مهمان=ترک)
 - نقش membership در **منوی شل · خانه · ابزارها · command palette** واقعاً پاس می‌شود (`useWorkspaceMembershipRole`)
 - بنر دائم مهمان/ناظر + نشانگر جانشین (`PersonaShellBanner` در `WorkspacePageFrame`)
 - منبع قرارداد: `@dang/contracts` → `role-surface` / `uiInviteRoleOptions` / `roleNavProfile`

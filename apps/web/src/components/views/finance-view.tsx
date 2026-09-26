@@ -672,6 +672,8 @@ export function FinanceView({
     membersHref,
     canManageFinance,
     readOnlyFinance,
+    membershipRole: myMembershipRole,
+    canApproveCompany,
   });
 
   const frameState =
