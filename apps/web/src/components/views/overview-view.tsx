@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import type { ActivityItem } from "@dang/contracts";
-import { spaceKindForTemplate, isFinanceManagerRole, type PettyCashFundSummary } from "@dang/contracts";
+import { spaceKindForTemplate, isFinanceManagerRole, isReadOnlyRole, type PettyCashFundSummary } from "@dang/contracts";
 import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
 import { formatMoney, formatMoneyFromIrrMinor, irrMinorToDisplayInteger, type DisplayUnit } from "@dang/ui";
 import { useDisplayUnit } from "@/lib/display-unit";
@@ -664,6 +664,7 @@ export function OverviewView() {
                             data?.myRole === "admin" ||
                             isFinanceManagerRole(data?.myRole)
                           }
+                          canAddExpense={!isReadOnlyRole(data?.myRole)}
                         />
                       ) : null}
                     </>
@@ -694,7 +695,9 @@ export function OverviewView() {
                     (data?.recentNeeds.length ?? 0) === 0 &&
                     feedItems.length === 0 ? (
                       <p className="homeActivity__empty">
-                        هنوز رویدادی نیست. با ثبت خرج اینجا پر می‌شود.
+                        {isReadOnlyRole(data?.myRole)
+                          ? "هنوز رویدادی نیست — وقتی خرجی ثبت شود اینجا دیده می‌شود."
+                          : "هنوز رویدادی نیست. با ثبت خرج اینجا پر می‌شود."}
                       </p>
                     ) : (data?.recentExpenses.length ?? 0) > 0 ||
                       (data?.recentNeeds.length ?? 0) > 0 ? (

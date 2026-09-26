@@ -20,6 +20,7 @@ import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { SimpleBarChart } from "@/components/charts/simple-bar-chart";
 import { api } from "@/lib/api";
+import { workspaceAllowsAnalytics } from "@/lib/api/charts";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
@@ -68,6 +69,7 @@ export function ProductMetricsView() {
   const [error, setError] = useState<string | null>(null);
   const [warehouseError, setWarehouseError] = useState<string | null>(null);
   const [chartError, setChartError] = useState<string | null>(null);
+  const [analyticsPlanOk, setAnalyticsPlanOk] = useState<boolean | null>(null);
   const [pending, startTransition] = useTransition();
   const [etlPending, startEtl] = useTransition();
 
@@ -75,18 +77,45 @@ export function ProductMetricsView() {
     if (!workspaceId || !warehouseEnabled) {
       setWarehouse(null);
       setWarehouseError(null);
+      setAnalyticsPlanOk(null);
       return;
     }
-    void api
-      .analyticsWarehouse(workspaceId)
-      .then((data) => {
+    void (async () => {
+      try {
+        const allowed = await workspaceAllowsAnalytics(workspaceId);
+        setAnalyticsPlanOk(allowed);
+        if (!allowed) {
+          setWarehouse(null);
+          setWarehouseError(null);
+          return;
+        }
+        const data = await api.analyticsWarehouse(workspaceId);
         setWarehouse(data);
         setWarehouseError(null);
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         setWarehouse(null);
         setWarehouseError(friendlyErrorMessage(err, "خواندن انبار تحلیلی ممکن نشد"));
-      });
+      }
+    })();
+  }
+
+  function runEtl() {
+    if (!workspaceId || !warehouseEnabled) return;
+    startEtl(() => {
+      void (async () => {
+        try {
+          const allowed = await workspaceAllowsAnalytics(workspaceId);
+          if (!allowed) {
+            setWarehouseError("خواندن انبار تحلیلی ممکن نشد.");
+            return;
+          }
+          await api.runAnalyticsEtl(workspaceId);
+          refreshWarehouse();
+        } catch (err: unknown) {
+          setWarehouseError(friendlyErrorMessage(err, "اجرای ETL ممکن نشد"));
+        }
+      })();
+    });
   }
 
   function refreshCharts() {
@@ -95,16 +124,16 @@ export function ProductMetricsView() {
       setChartError(null);
       return;
     }
-    void api
-      .workspaceChartExpenseTrend(workspaceId, 6)
-      .then((data) => {
+    void (async () => {
+      try {
+        const data = await api.workspaceChartExpenseTrend(workspaceId, 6);
         setExpenseTrend(data);
         setChartError(null);
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         setExpenseTrend(null);
         setChartError(friendlyErrorMessage(err, "خواندن روند خرج ممکن نشد"));
-      });
+      }
+    })();
   }
 
   function refresh() {
@@ -134,18 +163,6 @@ export function ProductMetricsView() {
         });
       refreshWarehouse();
       refreshCharts();
-    });
-  }
-
-  function runEtl() {
-    if (!workspaceId || !warehouseEnabled) return;
-    startEtl(() => {
-      void api
-        .runAnalyticsEtl(workspaceId)
-        .then(() => refreshWarehouse())
-        .catch((err: unknown) => {
-          setWarehouseError(friendlyErrorMessage(err, "اجرای ETL ممکن نشد"));
-        });
     });
   }
 
@@ -226,7 +243,7 @@ export function ProductMetricsView() {
               description="بعد از ساخت فضا، دعوت اعضا، ثبت خرج و تأیید تسویه، شمارش‌ها از همان رویدادها پر می‌شوند."
               sticker="calendar"
               action={
-                <a href={wPath(scope.slug, "members")}>رفتن به اعضا / دعوت</a>
+                <a href={wPath(scope.slug, "members")}>رفتن به اعضا</a>
               }
             />
           ) : (
@@ -348,6 +365,12 @@ export function ProductMetricsView() {
                 </ul>
               )}
             </>
+          ) : analyticsPlanOk === false ? (
+            <EmptyStateBlock
+              title="انبار در دسترس نیست"
+              description="وضعیت انبار از API خوانده نشد. دادهٔ جعلی نشان داده نمی‌شود."
+              sticker="folder"
+            />
           ) : !warehouseError ? (
             <EmptyHint loading>در حال خواندن انبار…</EmptyHint>
           ) : null}

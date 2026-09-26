@@ -349,7 +349,9 @@ export function OrgSpaceView() {
           >
             {subunits.length === 0 ? (
               <EmptyHint>
-                هنوز بخش یا شرکت زیرمجموعه‌ای نیست — ساختار سازمان را از همین مسیر بسازید.
+                {canManageMembers
+                  ? "هنوز بخش یا شرکت زیرمجموعه‌ای نیست — ساختار سازمان را از همین مسیر بسازید."
+                  : "هنوز بخش یا شرکت زیرمجموعه‌ای نیست — منتظر تعریف ساختار از مدیر فضا باشید."}
               </EmptyHint>
             ) : (
               <DataList>
@@ -365,7 +367,13 @@ export function OrgSpaceView() {
                             ثبت خرج بخش
                           </Button>
                         </Link>
-                      ) : null
+                      ) : (
+                        <Link href={expensesHref}>
+                          <Button type="button" variant="ghost">
+                            مشاهدهٔ خرج
+                          </Button>
+                        </Link>
+                      )
                     }
                   />
                 ))}
@@ -373,7 +381,7 @@ export function OrgSpaceView() {
             )}
             <Link href={subunitsHref}>
               <Button type="button" variant="ghost">
-                مدیریت ساختار سازمان
+                {canManageMembers ? "مدیریت ساختار سازمان" : "مشاهدهٔ ساختار سازمان"}
               </Button>
             </Link>
           </SectionCard>

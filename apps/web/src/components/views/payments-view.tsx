@@ -10,10 +10,14 @@ import type {
   PaymentReceiptSummary,
   PettyCashFundSummary,
   PettyCashHealthReport,
+  PettyCashLedgerResponse,
 } from "@dang/contracts";
-import { isFinanceManagerRole } from "@dang/contracts";
+import { isFinanceManagerRole, isReadOnlyRole, spaceKindForTemplate, treasuryLabelsForKind } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { membershipRoleLabel } from "@/lib/status-labels";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
+import { TreasuryBalanceCard } from "@/components/shell/treasury-balance-card";
+import { PettyCashLedgerTable } from "@/components/shell/petty-cash-ledger-table";
 import { AppShell } from "@/components/app-shell";
 import {
   DataList,
@@ -32,7 +36,9 @@ import { api } from "@/lib/api";
 import { friendlyErrorMessage, uploadErrorMessage } from "@/lib/api-errors";
 import { todayIsoLocal } from "@/lib/fa-datetime";
 import { readFileAsBase64, resolveUploadMimeType, sha256HexFromFile } from "@/lib/file-hash";
-import { tomanInputToIrrMinor, irrMinorToTomanInput } from "@/lib/irr-money";
+import { displayInputToIrrMinor, irrMinorToDisplayInput } from "@/lib/irr-money";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { moneyFieldLabel, moneyUnitSuffix } from "@/lib/money-labels";
 import { useLiveInvalidation } from "@/lib/live-invalidation";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
@@ -51,6 +57,8 @@ export function PaymentsView() {
   const chrome = useAppChrome();
   const scope = useWorkspaceScope();
   const searchParams = useSearchParams();
+  const displayUnit = useDisplayUnit();
+  const unitLabel = moneyUnitSuffix(displayUnit);
   const workspaceId = scope.workspaceId || chrome.workspaceId;
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
   const [pending, startTransition] = useTransition();
@@ -58,6 +66,8 @@ export function PaymentsView() {
   const [receipts, setReceipts] = useState<PaymentReceiptSummary[]>([]);
   const [funds, setFunds] = useState<PettyCashFundSummary[]>([]);
   const [fundHealth, setFundHealth] = useState<PettyCashHealthReport | null>(null);
+  const [ledger, setLedger] = useState<PettyCashLedgerResponse | null>(null);
+  const [ledgerFundId, setLedgerFundId] = useState("");
   const [credits, setCredits] = useState<CreditPurchaseSummary[]>([]);
   const [onBehalf, setOnBehalf] = useState<OnBehalfPaymentSummary[]>([]);
   const [members, setMembers] = useState<
@@ -84,9 +94,9 @@ export function PaymentsView() {
   useEffect(() => {
     const fromStatement = searchParams?.get("amountMinor")?.trim() ?? "";
     if (/^\d+$/.test(fromStatement) && BigInt(fromStatement) > 0n) {
-      setAmountMinor(irrMinorToTomanInput(fromStatement));
+      setAmountMinor(irrMinorToDisplayInput(fromStatement, displayUnit));
     }
-  }, [searchParams]);
+  }, [searchParams, displayUnit]);
 
   const [fundName, setFundName] = useState("تنخواه گروه");
   const [openingBalance, setOpeningBalance] = useState("0");
@@ -126,7 +136,15 @@ export function PaymentsView() {
     chrome.capabilities?.providers?.payment === "zarinpal" ||
     chrome.capabilities?.providers?.payment === "local_psp";
   const canReview = isFinanceManagerRole(role || null);
+  const readOnly = isReadOnlyRole(role || null);
+  const canSubmitReceipt = Boolean(role) && !readOnly;
   const actorId = chrome.actor?.userId ?? "";
+  const activeWs = chrome.workspaces.find((w) => w.id === workspaceId);
+  const spaceKind = spaceKindForTemplate(activeWs?.template);
+  const treasuryLabels = treasuryLabelsForKind(spaceKind);
+  const paymentsHref = scope.slug
+    ? `/w/${encodeURIComponent(scope.slug)}/payments`
+    : "#petty-cash";
 
   const reload = () => {
     if (!workspaceId || !receiptsLive) return;
@@ -163,6 +181,20 @@ export function PaymentsView() {
             (memberRows.find((m) => m.userId === chrome.actor?.userId)?.role ??
               ""),
           );
+          const activeFundId =
+            (ledgerFundId && f.some((x) => x.id === ledgerFundId)
+              ? ledgerFundId
+              : null) ||
+            f.find((x) => x.active)?.id ||
+            f[0]?.id ||
+            "";
+          setLedgerFundId(activeFundId);
+          if (pettyLive && activeFundId) {
+            const led = await api.getPettyCashLedger(workspaceId, activeFundId).catch(() => null);
+            setLedger(led);
+          } else {
+            setLedger(null);
+          }
           setLoaded(true);
         } catch (err) {
           setError(friendlyErrorMessage(err, "بارگذاری پرداخت‌ها ناموفق"));
@@ -208,15 +240,59 @@ export function PaymentsView() {
     >
       <WorkspacePageFrame
       title={NAV_LABELS.payments}
-      description={"فیش، تنخواه و خرید اعتباری — اثر مالی فقط پس از تأیید."}
-      primaryAction={<a href="#receipt-form">ثبت فیش</a>}
+      description={`فیش، ${treasuryLabels.pettyCash} و خرید اعتباری — اثر مالی فقط پس از تأیید. دفتر معین: تاریخ، واریز/برداشت و سهم اعضا.`}
+      primaryAction={<a href="#petty-cash-ledger">دفتر تنخواه</a>}
       state="ready"
     >
       <p className="pageLead">
-        فیش کارت‌به‌کارت، پرداخت از حساب دیگری، تنخواه و خرید اعتباری — اثر مالی
-        فقط پس از تأیید
+        فیش کارت‌به‌کارت، پرداخت از حساب دیگری، {treasuryLabels.pettyCash} و خرید
+        اعتباری — اثر مالی فقط پس از تأیید
       </p>
       <FlashMessages successMessage={successMessage} error={error} />
+
+      {pettyLive || spaceKind === "personal" ? (
+        <div style={{ marginBottom: "1.1rem" }}>
+          <TreasuryBalanceCard
+            spaceKind={spaceKind}
+            funds={funds}
+            paymentsHref={paymentsHref}
+            savingsHref="/me/finance#goals"
+            canManage={canReview}
+            pending={pending}
+            memberLabel={(userId) =>
+              members.find((m) => m.userId === userId)?.displayName?.trim() ||
+              userId.slice(0, 8)
+            }
+            onEnsureDefault={
+              canReview && spaceKind !== "personal"
+                ? () => {
+                    startTransition(() => {
+                      void (async () => {
+                        try {
+                          const result = await api.ensureDefaultPettyCashFund(
+                            workspaceId,
+                            { idempotencyKey: crypto.randomUUID() },
+                          );
+                          setFunds(result.funds);
+                          flashSuccess(
+                            result.created
+                              ? `${treasuryLabels.defaultFundName} ایجاد شد`
+                              : "تنخواه اصلی از قبل وجود داشت",
+                          );
+                          reload();
+                        } catch (err) {
+                          setError(
+                            friendlyErrorMessage(err, "ایجاد تنخواه ناموفق"),
+                          );
+                        }
+                      })();
+                    });
+                  }
+                : undefined
+            }
+          />
+        </div>
+      ) : null}
 
       <StatusLine>
         درگاه:{" "}
@@ -226,11 +302,17 @@ export function PaymentsView() {
             ? "فعال (LocalPSP — تست محلی)"
             : "stub — لینک آنلاین پنهان"}{" "}
         ·
-        تنخواه: {pettyLive ? "فعال" : "غیرفعال"} · {t("payments.onBehalf.statusLabel")}:{" "}
+        {treasuryLabels.pettyCash}: {pettyLive ? "فعال" : "غیرفعال"} ·{" "}
+        {t("payments.onBehalf.statusLabel")}:{" "}
         {onBehalfLive ? t("common.active") : t("common.inactive")}
       </StatusLine>
 
       <SectionCard title="ثبت فیش" id="receipt-form">
+        {readOnly ? (
+          <StatusLine>
+            نقش {membershipRoleLabel(role)} فقط مشاهده دارد — ثبت فیش فعال نیست.
+          </StatusLine>
+        ) : (
         <FormStack>
           <SelectField
             label="روش"
@@ -242,7 +324,7 @@ export function PaymentsView() {
             <option value="bank_transfer">حواله</option>
           </SelectField>
           <TextField
-            label="مبلغ (تومان)"
+            label={moneyFieldLabel("مبلغ", displayUnit)}
             value={amountMinor}
             onChange={(e) => setAmountMinor(e.target.value)}
             inputMode="numeric"
@@ -352,7 +434,7 @@ export function PaymentsView() {
                     await api.createReceipt(workspaceId, {
                       method,
                       amountMinor: (() => {
-                        const money = tomanInputToIrrMinor(amountMinor);
+                        const money = displayInputToIrrMinor(amountMinor, displayUnit);
                         if (!money) throw new Error("INVALID_AMOUNT");
                         return money.amountMinor;
                       })(),
@@ -388,6 +470,7 @@ export function PaymentsView() {
             ثبت فیش
           </Button>
         </FormStack>
+        )}
       </SectionCard>
 
       <SectionCard title="فیش‌ها">
@@ -396,9 +479,17 @@ export function PaymentsView() {
         ) : receipts.length === 0 ? (
           <EmptyStateBlock
             title="فیشی نیست"
-            description="اولین فیش را از فرم زیر ثبت کنید."
+            description={
+              canSubmitReceipt
+                ? "اولین فیش را از فرم بالا ثبت کنید."
+                : "وقتی فیشی ثبت شود اینجا دیده می‌شود."
+            }
             sticker="ledger"
-            action={<a href="#receipt-form">رفتن به ثبت فیش</a>}
+            action={
+              canSubmitReceipt ? (
+                <a href="#receipt-form">رفتن به ثبت فیش</a>
+              ) : undefined
+            }
           />
         ) : (
           <DataList>
@@ -425,13 +516,16 @@ export function PaymentsView() {
                     {r.attachmentId ? " · پیوست دارد" : null}
                     {r.status === "submitted" &&
                     r.payerUserId !== actorId &&
-                    !canReview
+                    !canReview &&
+                    !readOnly
                       ? " · منتظر تأیید شما"
                       : null}
                   </>
                 }
                 actions={
-                  r.status === "submitted" && r.payerUserId !== actorId ? (
+                  !readOnly &&
+                  r.status === "submitted" &&
+                  r.payerUserId !== actorId ? (
                     <div style={{ display: "flex", gap: 8 }}>
                       <Button
                         disabled={pending}
@@ -490,6 +584,11 @@ export function PaymentsView() {
       {onBehalfLive ? (
         <>
           <SectionCard title={t("payments.onBehalf.sectionTitle")}>
+            {readOnly ? (
+              <StatusLine>
+                نقش {membershipRoleLabel(role)} فقط مشاهده دارد — پرداخت به‌جای فعال نیست.
+              </StatusLine>
+            ) : (
             <FormStack>
               <SelectField
                 label={t("payments.onBehalf.debtor")}
@@ -525,7 +624,7 @@ export function PaymentsView() {
                 <option value="cash">نقد</option>
               </SelectField>
               <TextField
-                label={t("payments.onBehalf.amount") + " (تومان)"}
+                label={moneyFieldLabel(t("payments.onBehalf.amount"), displayUnit)}
                 value={obAmount}
                 onChange={(e) => setObAmount(e.target.value)}
                 inputMode="numeric"
@@ -553,7 +652,7 @@ export function PaymentsView() {
                   startTransition(() => {
                     void (async () => {
                       try {
-                        const money = tomanInputToIrrMinor(obAmount);
+                        const money = displayInputToIrrMinor(obAmount, displayUnit);
                         if (!money) {
                           setError("مبلغ معتبر نیست");
                           return;
@@ -584,6 +683,7 @@ export function PaymentsView() {
                 {t("payments.onBehalf.submit")}
               </Button>
             </FormStack>
+            )}
           </SectionCard>
 
           <SectionCard title={t("payments.onBehalf.pendingTitle")}>
@@ -684,7 +784,7 @@ export function PaymentsView() {
       ) : null}
 
       {pettyLive ? (
-        <SectionCard title="تنخواه">
+        <SectionCard title={treasuryLabels.pettyCash} id="petty-cash">
           {canReview ? (
             <FormStack>
               <TextField
@@ -693,7 +793,7 @@ export function PaymentsView() {
                 onChange={(e) => setFundName(e.target.value)}
               />
               <TextField
-                label="مانده اولیه (تومان)"
+                label={moneyFieldLabel("مانده اولیه", displayUnit)}
                 value={openingBalance}
                 onChange={(e) => setOpeningBalance(e.target.value)}
                 inputMode="numeric"
@@ -707,7 +807,7 @@ export function PaymentsView() {
                         const opening =
                           openingBalance.trim() === "" || openingBalance.trim() === "0"
                             ? "0"
-                            : tomanInputToIrrMinor(openingBalance)?.amountMinor;
+                            : displayInputToIrrMinor(openingBalance, displayUnit)?.amountMinor;
                         if (opening == null) {
                           setError("مانده اولیه معتبر نیست");
                           return;
@@ -741,12 +841,12 @@ export function PaymentsView() {
                   >
                     {funds.map((f) => (
                       <option key={f.id} value={f.id}>
-                        {f.name} ({irrMinorToTomanInput(f.balanceMinor) || "0"} تومان)
+                        {f.name} ({irrMinorToDisplayInput(f.balanceMinor, displayUnit) || "0"} {unitLabel})
                       </option>
                     ))}
                   </SelectField>
                   <TextField
-                    label="مبلغ برداشت (تومان)"
+                    label={moneyFieldLabel("مبلغ برداشت", displayUnit)}
                     value={spendAmount}
                     onChange={(e) => setSpendAmount(e.target.value)}
                     inputMode="numeric"
@@ -756,7 +856,7 @@ export function PaymentsView() {
                     onClick={() => {
                       const fid = spendFundId || funds[0]?.id;
                       if (!fid) return;
-                      const total = tomanInputToIrrMinor(spendAmount);
+                      const total = displayInputToIrrMinor(spendAmount, displayUnit);
                       if (!total) {
                         setError("مبلغ برداشت معتبر نیست");
                         return;
@@ -803,7 +903,7 @@ export function PaymentsView() {
                     ))}
                   </SelectField>
                   <TextField
-                    label="مبلغ شارژ (تومان)"
+                    label={moneyFieldLabel("مبلغ شارژ", displayUnit)}
                     value={topupToman}
                     onChange={(e) => {
                       setTopupToman(e.target.value);
@@ -827,7 +927,7 @@ export function PaymentsView() {
                     variant="ghost"
                     disabled={pending || !topupToman.trim() || members.length === 0}
                     onClick={() => {
-                      const total = tomanInputToIrrMinor(topupToman);
+                      const total = displayInputToIrrMinor(topupToman, displayUnit);
                       if (!total || !workspaceId) {
                         setError("مبلغ شارژ معتبر نیست");
                         return;
@@ -894,7 +994,7 @@ export function PaymentsView() {
                     disabled={pending || !topupToman.trim() || members.length === 0}
                     onClick={() => {
                       const fid = topupFundId || funds[0]?.id;
-                      const total = tomanInputToIrrMinor(topupToman);
+                      const total = displayInputToIrrMinor(topupToman, displayUnit);
                       if (!fid || !total || !workspaceId) {
                         setError("مبلغ یا صندوق معتبر نیست");
                         return;
@@ -983,6 +1083,10 @@ export function PaymentsView() {
             </DataList>
             </>
           )}
+          <PettyCashLedgerTable
+            ledger={ledger}
+            fundLabel={treasuryLabels.pettyCash}
+          />
         </SectionCard>
       ) : null}
 
@@ -995,7 +1099,7 @@ export function PaymentsView() {
               onChange={(e) => setSupplierRef(e.target.value)}
             />
             <TextField
-              label="مبلغ (تومان)"
+              label={moneyFieldLabel("مبلغ", displayUnit)}
               value={creditAmount}
               onChange={(e) => setCreditAmount(e.target.value)}
               inputMode="numeric"
@@ -1011,7 +1115,7 @@ export function PaymentsView() {
                 startTransition(() => {
                   void (async () => {
                     try {
-                      const money = tomanInputToIrrMinor(creditAmount);
+                      const money = displayInputToIrrMinor(creditAmount, displayUnit);
                       if (!money) {
                         setError("مبلغ معتبر نیست");
                         return;

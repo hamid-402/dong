@@ -9,11 +9,12 @@ type SetupStep = {
   hint: string;
   href: string;
   done: boolean;
+  ctaLabel: string;
 };
 
 /**
  * Honest bootstrap checklist for group spaces — only real counts from dashboard/members.
- * Hidden once every step is complete.
+ * Hidden once every step is complete. CTAs respect membership capability (no 403 tease).
  */
 export function GroupSetupChecklist({
   slug,
@@ -21,6 +22,7 @@ export function GroupSetupChecklist({
   financeManagerCount,
   postedCount,
   canManageMembers,
+  canAddExpense = true,
 }: {
   slug: string;
   memberCount: number;
@@ -28,17 +30,27 @@ export function GroupSetupChecklist({
   financeManagerCount: number;
   postedCount: number;
   canManageMembers: boolean;
+  /** Guest/auditor/approver cannot post — expense step is view-only. */
+  canAddExpense?: boolean;
 }) {
+  const membersListHref = wPath(slug, "members");
+  const expensesViewHref = wPath(slug, "expenses");
+
   const steps: SetupStep[] = [
     {
       key: "finance-quorum",
-      label: "دو مادرخرج",
+      label: "مادرخرج",
       hint:
-        financeManagerCount >= 2
+        financeManagerCount >= 1
           ? `${financeManagerCount.toLocaleString("fa-IR")} مدیر مالی فعال`
-          : "حداقل دو مالک/ادمین/مادرخرج لازم است تا عضو عادی اضافه شود",
-      href: `${wPath(slug, "members")}#member-add-panel`,
-      done: financeManagerCount >= 2,
+          : canManageMembers
+            ? "حداقل یک مالک/ادمین/مادرخرج لازم است تا عضو عادی اضافه شود"
+            : "منتظر تعیین مادرخرج توسط مدیر فضا",
+      href: canManageMembers
+        ? `${membersListHref}#member-add-panel`
+        : membersListHref,
+      done: financeManagerCount >= 1,
+      ctaLabel: canManageMembers ? "انجام ←" : "مشاهده",
     },
     {
       key: "members",
@@ -49,8 +61,11 @@ export function GroupSetupChecklist({
           : canManageMembers
             ? "نفر دوم را با نام‌کاربری اضافه کنید"
             : "منتظر دعوت از مدیر فضا",
-      href: wPath(slug, "members"),
+      href: canManageMembers
+        ? `${membersListHref}#member-add-panel`
+        : membersListHref,
       done: memberCount >= 2,
+      ctaLabel: canManageMembers ? "انجام ←" : "مشاهده",
     },
     {
       key: "expense",
@@ -58,9 +73,14 @@ export function GroupSetupChecklist({
       hint:
         postedCount > 0
           ? `${postedCount.toLocaleString("fa-IR")} خرج ثبت‌شده`
-          : "یک خرج مشترک ثبت کنید تا مانده زنده شود",
-      href: `${wPath(slug, "expenses")}#expense-panel`,
+          : canAddExpense
+            ? "یک خرج مشترک ثبت کنید تا مانده زنده شود"
+            : "وقتی خرجی ثبت شود مانده اینجا زنده می‌شود",
+      href: canAddExpense
+        ? `${expensesViewHref}#expense-panel`
+        : expensesViewHref,
       done: postedCount > 0,
+      ctaLabel: canAddExpense ? "انجام ←" : "مشاهده",
     },
   ];
 
@@ -97,7 +117,7 @@ export function GroupSetupChecklist({
             </div>
             {!step.done ? (
               <Link href={step.href} className="groupSetupChecklist__cta">
-                انجام ←
+                {step.ctaLabel}
               </Link>
             ) : (
               <span className="groupSetupChecklist__ok">انجام شد</span>

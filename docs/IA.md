@@ -107,6 +107,10 @@ Enum دیتابیس ۱۰ مقدار می‌ماند (additive). **سطح دعو�
 - `roleNavProfile` / `resolveUiPersona`: شل شش‌گانه (عضو/تأیید/خریدار محدود؛ مالک/مادرخرج کامل)
 - `personaHomeSpec(role, spaceKind)`: عنوان/CTA/پنل‌های خانه برای گروه · سازمان · ساختمان
 - `personaSettingsSpec`: شدت تنظیمات (payout فقط مالک/ادمین · مادرخرج=افزودن شناسه · مهمان=ترک)
+- checklist راه‌اندازی گروه/ساختمان: CTA «انجام» فقط وقتی نقش می‌تواند mutate کند؛ مهمان/ناظر «مشاهده» بدون `#member-add` / `#expense-panel`
+- تسویه با کمتر از ۲ عضو: مهمان منتظر مدیر می‌ماند — لینک «دعوت» فقط برای نقش‌های mutate
+- واحدها/بخش‌ها: empty و «ثبت شارژ» برای فقط‌خواندنی پنهان یا «مشاهدهٔ خرج»
+- پرداخت‌ها: ثبت فیش و تأیید/رد برای مهمان/ناظر پنهان؛ empty بدون CTA ثبت
 - نقش membership در **منوی شل · خانه · ابزارها · command palette** واقعاً پاس می‌شود (`useWorkspaceMembershipRole`)
 - بنر دائم مهمان/ناظر + نشانگر جانشین (`PersonaShellBanner` در `WorkspacePageFrame`)
 - منبع قرارداد: `@dang/contracts` → `role-surface` / `uiInviteRoleOptions` / `roleNavProfile`

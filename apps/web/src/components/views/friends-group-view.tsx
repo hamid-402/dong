@@ -359,6 +359,9 @@ export function FriendsGroupView() {
                     canManageMembers={
                       isMembershipManagerRole(myRole) && !readOnlySpace
                     }
+                    canAddExpense={
+                      homeSpec ? homeSpec.canAddExpense : !readOnlySpace
+                    }
                   />
                 ) : null}
                 {homeSpec?.panels.frequentActions !== false ? (

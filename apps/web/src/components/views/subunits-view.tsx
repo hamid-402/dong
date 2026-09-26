@@ -7,7 +7,7 @@ import type {
   WorkspaceSubunitKind,
   WorkspaceSubunitSummary,
 } from "@dang/contracts";
-import { isFinanceManagerRole, spaceKindForTemplate } from "@dang/contracts";
+import { isFinanceManagerRole, isReadOnlyRole, spaceKindForTemplate } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -19,6 +19,13 @@ import {
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
+import {
+  RowSelectCheckbox,
+  SelectionActionBar,
+  rowSelectActivateProps,
+} from "@/components/selection/selection-action-bar";
+import { useRowSelection } from "@/components/selection/use-row-selection";
+import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { api } from "@/lib/api";
@@ -63,7 +70,15 @@ export function SubunitsView() {
 
   const myRole = members.find((m) => m.userId === chrome.actor?.userId)?.role;
   const canManage = isFinanceManagerRole(myRole);
+  const readOnly = isReadOnlyRole(myRole);
+  const canCharge = Boolean(myRole) && !readOnly;
   const selected = rows.find((r) => r.id === selectedId) ?? null;
+  const rowIds = useMemo(() => rows.map((r) => r.id), [rows]);
+  const selection = useRowSelection(rowIds);
+  const barRow =
+    selection.selectedCount === 1
+      ? (rows.find((r) => r.id === selection.selectedIds[0]) ?? null)
+      : null;
 
   const allowedKinds = useMemo((): WorkspaceSubunitKind[] => {
     if (spaceKind === "building") return ["unit"];
@@ -147,6 +162,36 @@ export function SubunitsView() {
   const expensesHref = slug ? wPath(slug, "expenses") : null;
   const chargeLabel = spaceKind === "building" ? "ثبت شارژ" : "ثبت خرج بخش";
 
+  function openSelected() {
+    if (!barRow) return;
+    setSelectedId(barRow.id);
+    selection.clear();
+  }
+
+  function deleteSelected() {
+    if (!canManage || selection.selectedCount === 0 || !workspaceId) return;
+    const ids = selection.selectedIds;
+    const label =
+      ids.length === 1
+        ? `این ${noun} حذف شود؟`
+        : `${ids.length.toLocaleString("fa-IR")} مورد حذف شوند؟`;
+    if (!window.confirm(label)) return;
+    startTransition(() => {
+      void (async () => {
+        try {
+          for (const id of ids) {
+            await api.deleteSubunit(workspaceId, id);
+          }
+          if (ids.includes(selectedId)) setSelectedId("");
+          selection.clear();
+          refresh();
+        } catch (err: unknown) {
+          setError(friendlyErrorMessage(err, "حذف ناموفق"));
+        }
+      })();
+    });
+  }
+
   return (
     <AppShell
       workspaceId={chrome.workspaceId}
@@ -173,41 +218,82 @@ export function SubunitsView() {
           نقش شما: {membershipRoleLabel(myRole)} · {rows.length.toLocaleString("fa-IR")} {noun}
         </StatusLine>
 
-        <SectionCard title={`فهرست ${noun}`} badge={rows.length} delayClass="delay1">
+        <SectionCard
+          title={`فهرست ${noun}`}
+          badge={rows.length}
+          description="برای مدیریت یا حذف، روی ردیف کلیک کنید یا مربع کنارش را تیک بزنید (نوار انتخاب)."
+          delayClass="delay1"
+        >
           {rows.length === 0 ? (
-            <EmptyHint>هنوز موردی نیست — از فرم پایین یکی بسازید.</EmptyHint>
+            <EmptyHint>
+              {canManage
+                ? "هنوز موردی نیست — از فرم پایین یکی بسازید."
+                : "هنوز موردی نیست — منتظر تعریف ساختار از مدیر فضا باشید."}
+            </EmptyHint>
           ) : (
-            <DataList>
-              {rows.map((row) => (
-                <DataRow
-                  key={row.id}
-                  title={`${row.code} · ${row.name}`}
-                  meta={`${KIND_LABEL[row.kind]} · ${row.memberUserIds.length.toLocaleString("fa-IR")} نفر${
-                    row.areaSqm != null ? ` · ${row.areaSqm} م²` : ""
-                  }${row.occupancy != null ? ` · ${row.occupancy} نفر` : ""}${
-                    row.note ? ` · ${row.note}` : ""
-                  }`}
-                  actions={
-                    <div className="dataRowActions">
-                      {expensesHref ? (
-                        <Link href={expenseHrefForUnit(expensesHref, row.code, row.name)}>
-                          <Button type="button" variant="ghost">
-                            {chargeLabel}
-                          </Button>
-                        </Link>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant={selectedId === row.id ? "primary" : "ghost"}
-                        onClick={() => setSelectedId(row.id)}
-                      >
-                        انتخاب
-                      </Button>
-                    </div>
-                  }
-                />
-              ))}
-            </DataList>
+            <>
+              <SelectionActionBar
+                selectedCount={selection.selectedCount}
+                idleHint="روی ردیف کلیک کنید یا مربع کنارش را تیک بزنید"
+                onClear={selection.clear}
+              >
+                {canManage ? (
+                  <button
+                    type="button"
+                    disabled={!barRow || pending}
+                    onClick={openSelected}
+                  >
+                    مدیریت
+                  </button>
+                ) : null}
+                {expensesHref && barRow && canCharge ? (
+                  <Link href={expenseHrefForUnit(expensesHref, barRow.code, barRow.name)}>
+                    {chargeLabel}
+                  </Link>
+                ) : expensesHref && barRow ? (
+                  <Link href={expensesHref}>مشاهدهٔ خرج</Link>
+                ) : null}
+                {canManage ? (
+                  <button
+                    type="button"
+                    className={selStyles.danger}
+                    disabled={selection.selectedCount === 0 || pending}
+                    onClick={deleteSelected}
+                  >
+                    حذف
+                  </button>
+                ) : null}
+              </SelectionActionBar>
+              <DataList>
+                {rows.map((row) => (
+                  <div
+                    key={row.id}
+                    className={selStyles.selectableRow}
+                    {...rowSelectActivateProps({
+                      onActivate: () => selection.toggle(row.id),
+                    })}
+                  >
+                    <DataRow
+                      title={
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          <RowSelectCheckbox
+                            checked={selection.isSelected(row.id)}
+                            onChange={() => selection.toggle(row.id)}
+                            label={`انتخاب ${row.code}`}
+                          />
+                          {`${row.code} · ${row.name}`}
+                        </span>
+                      }
+                      meta={`${KIND_LABEL[row.kind]} · ${row.memberUserIds.length.toLocaleString("fa-IR")} نفر${
+                        row.areaSqm != null ? ` · ${row.areaSqm} م²` : ""
+                      }${row.occupancy != null ? ` · ${row.occupancy} نفر` : ""}${
+                        row.note ? ` · ${row.note}` : ""
+                      }`}
+                    />
+                  </div>
+                ))}
+              </DataList>
+            </>
           )}
         </SectionCard>
 
@@ -405,26 +491,6 @@ export function SubunitsView() {
                   }
                 >
                   ذخیره اعضا
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={pending}
-                  onClick={() =>
-                    startTransition(() => {
-                      void (async () => {
-                        try {
-                          await api.deleteSubunit(workspaceId, selected.id);
-                          setSelectedId("");
-                          refresh();
-                        } catch (err: unknown) {
-                          setError(friendlyErrorMessage(err, "حذف ناموفق"));
-                        }
-                      })();
-                    })
-                  }
-                >
-                  حذف {noun}
                 </Button>
               </div>
             </FormStack>

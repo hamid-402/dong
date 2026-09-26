@@ -539,26 +539,48 @@ export function BuildingSpaceView() {
               </SectionCard>
             ) : null}
 
-            {setupSteps.length > 0 ? (
+            {setupSteps.length > 0 &&
+            homeSpec?.panels.setupChecklist !== false ? (
               <SectionCard title="راه‌اندازی ساختمان" delayClass="delay1">
                 <EmptyHint>
                   {setupSteps.length.toLocaleString("fa-IR")} مرحله مانده — از لینک‌های واقعی زیر.
                 </EmptyHint>
                 <DataList>
-                  {setupSteps.map((step) => (
-                    <DataRow
-                      key={step.key}
-                      title={step.label}
-                      meta={step.hint}
-                      actions={
-                        <Link href={step.href}>
-                          <Button type="button" variant="ghost">
-                            انجام ←
-                          </Button>
-                        </Link>
-                      }
-                    />
-                  ))}
+                  {setupSteps.map((step) => {
+                    const mutateStep =
+                      step.key === "finance" || step.key === "residents"
+                        ? canManageMembers
+                        : step.key === "charge"
+                          ? Boolean(homeSpec?.canAddExpense ?? canManage)
+                          : canManage;
+                    const href =
+                      step.key === "finance" && !canManageMembers
+                        ? membersHref
+                        : step.key === "charge" &&
+                            !(homeSpec?.canAddExpense ?? canManage)
+                          ? expensesHref
+                          : step.href;
+                    return (
+                      <DataRow
+                        key={step.key}
+                        title={step.label}
+                        meta={
+                          mutateStep
+                            ? step.hint
+                            : step.key === "charge"
+                              ? "وقتی شارژ ثبت شود اینجا تکمیل می‌شود"
+                              : "منتظر اقدام مدیر فضا"
+                        }
+                        actions={
+                          <Link href={href}>
+                            <Button type="button" variant="ghost">
+                              {mutateStep ? "انجام ←" : "مشاهده"}
+                            </Button>
+                          </Link>
+                        }
+                      />
+                    );
+                  })}
                 </DataList>
               </SectionCard>
             ) : null}

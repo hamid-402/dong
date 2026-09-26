@@ -2,8 +2,24 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { ConfirmSettlementRequest, MembershipSummary, PaymentLinkSummary, PreviewSettlementEffectResponse, SettlementSummary, WorkspaceBalancesResponse } from "@dang/contracts";
-import { isFinanceManagerRole } from "@dang/contracts";
+import type {
+  ConfirmSettlementRequest,
+  MembershipSummary,
+  PaymentLinkSummary,
+  PettyCashFundSummary,
+  PreviewSettlementEffectResponse,
+  SettlePayIntent,
+  SettlePayPlan,
+  SettlementSummary,
+  SpaceKind,
+  WorkspaceBalancesResponse,
+} from "@dang/contracts";
+import {
+  isFinanceManagerRole,
+  pettyCashAllowedForKind,
+  settlePayIntentNeedsFund,
+  suggestedPairwiseSettleMinor,
+} from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import {
   DataList,
@@ -15,14 +31,25 @@ import {
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
+import { JalaliDateField } from "@/components/jalali-date-field";
 import { hubPathFor } from "@/lib/hub-links";
 import { api } from "@/lib/api";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { displayInputToIrrMinor, irrMinorToDisplayInput } from "@/lib/irr-money";
+import { moneyFieldLabel } from "@/lib/money-labels";
 import { formatFaDate } from "@/lib/fa-datetime";
 import { memberStatementHref } from "@/lib/statement-links";
 import { membershipRoleLabel, paymentLinkStatusLabel, settlementStatusLabel } from "@/lib/status-labels";
 import { useOptionalAppChrome } from "@/lib/use-app-chrome";
 import { ConfirmSettlementDialog } from "@/components/views/finance/confirm-settlement-dialog";
+import {
+  RowSelectCheckbox,
+  SelectionActionBar,
+  rowSelectActivateProps,
+} from "@/components/selection/selection-action-bar";
+import { useRowSelection } from "@/components/selection/use-row-selection";
 import styles from "./settlement-panel.module.css";
+import selStyles from "@/components/selection/selection-action-bar.module.css";
 
 type SettlementPanelProps = {
   workspaceId?: string;
@@ -35,6 +62,10 @@ type SettlementPanelProps = {
   paymentLinks: PaymentLinkSummary[];
   paymentsLive: boolean;
   balances?: WorkspaceBalancesResponse | null;
+  /** Active petty-cash funds for gift intents (runtime list). */
+  pettyCashFunds?: PettyCashFundSummary[];
+  /** When personal (or no shared treasury), gift intents are hidden. */
+  spaceKind?: SpaceKind | null;
   currentUserId?: string;
   myRole?: string;
   /** Auditor/guest — list only, no claim/confirm/payment. */
@@ -46,7 +77,11 @@ type SettlementPanelProps = {
   membersHref?: string;
   /** Workspace slug for member-statement deep links. */
   slug?: string | null;
-  onCreateSettlement: () => void;
+  onSettlePay: (input: {
+    intent: SettlePayIntent;
+    fundId?: string;
+    asOf?: string;
+  }) => void;
   onConfirmSettlement: (
     settlementId: string,
     evidence?: ConfirmSettlementRequest,
@@ -57,27 +92,32 @@ type SettlementPanelProps = {
   onCreatePaymentLink: (settlement: SettlementSummary) => void;
 };
 
-function tomanDigitsToIrrMinor(toman: string): string | null {
-  const digits = toman.replace(/[^\d]/g, "");
-  if (!digits) return null;
-  try {
-    const irr = BigInt(digits) * 10n;
-    if (irr <= 0n) return null;
-    return irr.toString();
-  } catch {
-    return null;
-  }
-}
-
 function absMinor(amountMinor: string | undefined): string {
   if (!amountMinor) return "0";
   const n = BigInt(amountMinor);
   return (n < 0n ? -n : n).toString();
 }
 
+const INTENT_OPTIONS: Array<{ value: SettlePayIntent; label: string; hint: string }> = [
+  {
+    value: "settle_only",
+    label: "فقط تسویه بین اعضا",
+    hint: "کل مبلغ ادعای تسویه می‌شود (مازاد = بستانکاری شما).",
+  },
+  {
+    value: "settle_and_fund_gift",
+    label: "تسویه + مازاد هدیه به صندوق",
+    hint: "تا سقف پیشنهاد تسویه؛ باقی‌مانده بدون بدهی برای بقیه به تنخواه می‌رود.",
+  },
+  {
+    value: "fund_gift_only",
+    label: "فقط هدیه به صندوق",
+    hint: "بدون تسویه و بدون بدهی برای سایر اعضا.",
+  },
+];
+
 /**
- * Member settlement claims/confirmations with optional post-settlement NPS prompt.
- * Extracted from finance-view.tsx (dong-50 #29) — presentational, driven by parent state/handlers.
+ * Member settlement claims/confirmations with settle-pay intents (S12).
  */
 export function SettlementPanel({
   workspaceId,
@@ -90,6 +130,8 @@ export function SettlementPanel({
   paymentLinks,
   paymentsLive,
   balances = null,
+  pettyCashFunds = [],
+  spaceKind = null,
   currentUserId,
   myRole,
   readOnly = false,
@@ -99,30 +141,60 @@ export function SettlementPanel({
   memberLabel,
   membersHref,
   slug,
-  onCreateSettlement,
+  onSettlePay,
   onConfirmSettlement,
   onDisputeSettlement,
   evidenceRequired = false,
   onCancelSettlement,
   onCreatePaymentLink,
 }: SettlementPanelProps) {
+  const displayUnit = useDisplayUnit();
   const chrome = useOptionalAppChrome();
   const messaging = chrome?.capabilities?.providers?.messaging;
   const messagingLive = messaging === "telegram" || messaging === "bale";
+  const fundGiftsAllowed =
+    spaceKind == null ? true : pettyCashAllowedForKind(spaceKind);
+  const availableIntents = INTENT_OPTIONS.filter(
+    (opt) => fundGiftsAllowed || !settlePayIntentNeedsFund(opt.value),
+  );
   const [selectedSettlementId, setSelectedSettlementId] = useState("");
+  const selection = useRowSelection(settlements.map((s) => s.id));
   const [confirmTargetId, setConfirmTargetId] = useState<string | null>(null);
   const [apiPreview, setApiPreview] = useState<PreviewSettlementEffectResponse | null>(null);
+  const [settlePlan, setSettlePlan] = useState<SettlePayPlan | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [remindBusy, setRemindBusy] = useState(false);
   const [remindHint, setRemindHint] = useState<string | null>(null);
+  const [intent, setIntent] = useState<SettlePayIntent>(() =>
+    fundGiftsAllowed ? "settle_and_fund_gift" : "settle_only",
+  );
+  const [asOf, setAsOf] = useState("");
+  const [fundId, setFundId] = useState("");
   const selectedSettlement =
     settlements.find((settlement) => settlement.id === selectedSettlementId) ??
     settlements[0] ??
     null;
+  const barSettlement =
+    selection.selectedCount === 1
+      ? (settlements.find((s) => s.id === selection.selectedIds[0]) ?? null)
+      : null;
   const finance = isFinanceManagerRole(myRole);
   const settleToNet = balances?.lines.find((l) => l.userId === settleToUserId)?.net
     .amountMinor;
   const settleToIsDebtor = settleToNet != null && BigInt(settleToNet) < 0n;
+  const activeFunds = pettyCashFunds.filter((f) => f.active);
+  const needsFund = settlePayIntentNeedsFund(intent);
+  const intentMeta = availableIntents.find((o) => o.value === intent);
+
+  useEffect(() => {
+    if (!fundGiftsAllowed && settlePayIntentNeedsFund(intent)) {
+      setIntent("settle_only");
+    }
+  }, [fundGiftsAllowed, intent]);
+
+  useEffect(() => {
+    if (!fundId && activeFunds[0]) setFundId(activeFunds[0].id);
+  }, [fundId, activeFunds]);
 
   useEffect(() => {
     if (
@@ -136,44 +208,68 @@ export function SettlementPanel({
   useEffect(() => {
     if (!workspaceId || !currentUserId || !settleToUserId || readOnly) {
       setApiPreview(null);
+      setSettlePlan(null);
       setPreviewError(null);
       return;
     }
     if (settleToUserId === currentUserId) {
       setApiPreview(null);
+      setSettlePlan(null);
       setPreviewError(null);
       return;
     }
-    const amountMinor = tomanDigitsToIrrMinor(settleAmountToman);
+    const amountMinor = displayInputToIrrMinor(settleAmountToman, displayUnit)?.amountMinor ?? null;
     if (!amountMinor) {
       setApiPreview(null);
+      setSettlePlan(null);
       setPreviewError(null);
+      return;
+    }
+    if (needsFund && !fundId) {
+      setSettlePlan(null);
+      setPreviewError("برای هدیه به صندوق، یک صندوق فعال انتخاب کنید");
       return;
     }
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      void api
-        .previewSettlementEffect(workspaceId, {
-          transfers: [
-            {
-              fromUserId: currentUserId,
-              toUserId: settleToUserId,
-              amount: { amountMinor, currency: "IRR" },
-            },
-          ],
-        })
-        .then((res) => {
-          if (!cancelled) {
-            setApiPreview(res);
-            setPreviewError(null);
+      void (async () => {
+        try {
+          const planRes = await api.settlePay(workspaceId, {
+            counterpartyUserId: settleToUserId,
+            amountMinor,
+            intent,
+            fundId: needsFund ? fundId : undefined,
+            asOf: asOf.trim() || undefined,
+            previewOnly: true,
+            idempotencyKey: `preview:${workspaceId}:${currentUserId}:${settleToUserId}:${amountMinor}:${intent}:${asOf}:${fundId}`,
+          });
+          if (cancelled) return;
+          setSettlePlan(planRes.plan);
+          const settleMinor = planRes.plan.settlementAmountMinor;
+          if (intent === "fund_gift_only" || BigInt(settleMinor) <= 0n) {
+            setApiPreview(null);
+          } else {
+            const effect = await api.previewSettlementEffect(workspaceId, {
+              transfers: [
+                {
+                  fromUserId: currentUserId,
+                  toUserId: settleToUserId,
+                  amount: { amountMinor: settleMinor, currency: "IRR" },
+                },
+              ],
+            });
+            if (cancelled) return;
+            setApiPreview(effect);
           }
-        })
-        .catch(() => {
+          setPreviewError(null);
+        } catch {
           if (!cancelled) {
             setApiPreview(null);
+            setSettlePlan(null);
             setPreviewError("پیش‌نمایش از API ناموفق بود");
           }
-        });
+        }
+      })();
     }, 280);
     return () => {
       cancelled = true;
@@ -184,7 +280,12 @@ export function SettlementPanel({
     currentUserId,
     settleToUserId,
     settleAmountToman,
+    displayUnit,
     readOnly,
+    intent,
+    asOf,
+    fundId,
+    needsFund,
   ]);
 
   function canConfirm(s: SettlementSummary): boolean {
@@ -209,6 +310,13 @@ export function SettlementPanel({
   const afterMe = apiPreview?.after.find((l) => l.userId === currentUserId);
   const afterOther = apiPreview?.after.find((l) => l.userId === settleToUserId);
 
+  const myLiveNet = balances?.lines.find((l) => l.userId === currentUserId)?.net.amountMinor;
+  const pairwiseSuggest = settlePlan
+    ? BigInt(settlePlan.suggestedSettleMinor)
+    : myLiveNet != null && settleToNet != null
+      ? suggestedPairwiseSettleMinor(myLiveNet, settleToNet)
+      : 0n;
+
   return (
     <SectionCard title="تسویه و تأیید اعضا" delayClass="delay3">
       <div id="settlement-panel" />
@@ -219,7 +327,8 @@ export function SettlementPanel({
       ) : (
         <FormStack>
           <StatusLine>
-            عضو بدهکار ادعا ثبت می‌کند یا طلبکار پیشنهاد می‌دهد؛ طرف مقابل تأیید می‌کند.
+            مانده زنده مبنا است؛ تاریخ as-of فقط پیشنهاد تسویه را محدود می‌کند. هدیه به صندوق
+            برای بقیه بدهی نمی‌سازد.
           </StatusLine>
           <SelectField
             label="طرف مقابل"
@@ -232,8 +341,74 @@ export function SettlementPanel({
               </option>
             ))}
           </SelectField>
+          <SelectField
+            label="قصد پرداخت"
+            value={intent}
+            onChange={(event) => setIntent(event.target.value as SettlePayIntent)}
+          >
+            {availableIntents.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </SelectField>
+          {intentMeta ? <StatusLine>{intentMeta.hint}</StatusLine> : null}
+          {!fundGiftsAllowed ? (
+            <StatusLine>
+              این فضا تنخواه مشترک ندارد — فقط تسویه بین اعضا فعال است.
+            </StatusLine>
+          ) : null}
+          {needsFund ? (
+            activeFunds.length > 0 ? (
+              <>
+                <SelectField
+                  label="صندوق تنخواه برای هدیه"
+                  value={fundId}
+                  onChange={(event) => setFundId(event.target.value)}
+                >
+                  {activeFunds.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </SelectField>
+                {activeFunds.find((f) => f.id === fundId) ? (
+                  <StatusLine>
+                    مانده صندوق:{" "}
+                    <Amount
+                      irrMinor={
+                        activeFunds.find((f) => f.id === fundId)?.balanceMinor ?? "0"
+                      }
+                    />
+                  </StatusLine>
+                ) : null}
+              </>
+            ) : (
+              <StatusLine>
+                صندوق فعال نیست — ابتدا از بخش تنخواه یک صندوق بسازید یا باز کنید.
+              </StatusLine>
+            )
+          ) : null}
+          <JalaliDateField
+            label="پیشنهاد تا تاریخ (اختیاری)"
+            value={asOf}
+            onChange={setAsOf}
+            hint="خالی = پیشنهاد از مانده زنده. مانده واقعی همیشه زنده است."
+          />
+          {asOf ? (
+            <div className="dataRowActions">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={pending}
+                onClick={() => setAsOf("")}
+              >
+                پاک کردن تاریخ پیشنهاد
+              </Button>
+            </div>
+          ) : null}
           <TextField
-            label="مبلغ تسویه (تومان)"
+            label={moneyFieldLabel("مبلغ پرداخت", displayUnit)}
             value={settleAmountToman}
             onChange={(event) => onSettleAmountTomanChange(event.target.value)}
           />
@@ -242,19 +417,24 @@ export function SettlementPanel({
               <Button
                 type="button"
                 variant="secondary"
-                disabled={readOnly || pending}
+                disabled={readOnly || pending || pairwiseSuggest <= 0n}
                 onClick={() => {
-                  const line = balances.lines.find((l) => l.userId === settleToUserId);
-                  if (!line) return;
-                  const toman = Math.abs(Math.round(Number(line.net.amountMinor) / 10));
-                  if (toman > 0) onSettleAmountTomanChange(String(toman));
+                  const display = irrMinorToDisplayInput(
+                    pairwiseSuggest.toString(),
+                    displayUnit,
+                  );
+                  if (display) onSettleAmountTomanChange(display);
                 }}
               >
-                پیشنهاد مبلغ از مانده زنده
+                پیشنهاد تسویه زوجی
+                {asOf.trim() ? " (تا تاریخ پیشنهاد)" : " (مانده زنده)"}
               </Button>
             </div>
           ) : null}
-          {workspaceId && settleToIsDebtor && settleToUserId !== currentUserId ? (
+          {workspaceId &&
+          finance &&
+          settleToIsDebtor &&
+          settleToUserId !== currentUserId ? (
             <div className="dataRowActions">
               <Button
                 type="button"
@@ -289,9 +469,21 @@ export function SettlementPanel({
             </StatusLine>
           ) : null}
           {remindHint ? <StatusLine>{remindHint}</StatusLine> : null}
-          {apiPreview && currentUserId ? (
+          {settlePlan ? (
             <StatusLine>
-              پیش‌نمایش زنده از ledger: شما{" "}
+              پیش‌نمایش قصد: تسویه{" "}
+              <Amount irrMinor={settlePlan.settlementAmountMinor} />
+              {" · هدیه صندوق "}
+              <Amount irrMinor={settlePlan.giftAmountMinor} />
+              {" · پیشنهاد "}
+              <Amount irrMinor={settlePlan.suggestedSettleMinor} />
+              {" · مانده شما پس از تسویه ≈ "}
+              <Amount irrMinor={absMinor(settlePlan.payerNetAfterSettlementMinor)} />
+            </StatusLine>
+          ) : null}
+          {apiPreview && currentUserId && intent !== "fund_gift_only" ? (
+            <StatusLine>
+              اثر تسویه روی ledger (بدون هدیه): شما{" "}
               <Amount irrMinor={absMinor(beforeMe?.net.amountMinor)} />
               {" → "}
               <Amount irrMinor={absMinor(afterMe?.net.amountMinor)} />
@@ -308,19 +500,44 @@ export function SettlementPanel({
             <StatusLine>{previewError}</StatusLine>
           ) : balances && !readOnly ? (
             <StatusLine>
-              مبلغ و طرف مقابل را وارد کنید تا پیش‌نمایش از API مانده‌ها بیاید.
+              مبلغ، قصد و طرف مقابل را وارد کنید تا پیش‌نمایش از API بیاید.
             </StatusLine>
           ) : null}
-          <Button type="button" onClick={onCreateSettlement} disabled={pending || members.length < 2}>
-            ثبت ادعای تسویه
+          <Button
+            type="button"
+            onClick={() =>
+              onSettlePay({
+                intent,
+                fundId: needsFund ? fundId || undefined : undefined,
+                asOf: asOf.trim() || undefined,
+              })
+            }
+            disabled={
+              pending ||
+              members.length < 2 ||
+              (needsFund && (!fundId || activeFunds.length === 0))
+            }
+          >
+            ثبت پرداخت / تسویه
           </Button>
         </FormStack>
       )}
       {members.length < 2 ? (
         <EmptyHint>
-          برای تسویه حداقل دو عضو لازم است — از{" "}
-          <Link href={membersHref ?? hubPathFor("/workspaces/invite")}>دعوت</Link>{" "}
-          استفاده کنید.
+          {readOnly ? (
+            <>
+              برای تسویه حداقل دو عضو لازم است — منتظر دعوت یا افزودن عضو توسط مدیر فضا
+              بمانید.
+            </>
+          ) : (
+            <>
+              برای تسویه حداقل دو عضو لازم است — از{" "}
+              <Link href={membersHref ?? hubPathFor("/workspaces/invite")}>
+                اعضا / دعوت
+              </Link>{" "}
+              استفاده کنید.
+            </>
+          )}
         </EmptyHint>
       ) : null}
       {!readOnly && settlementNps ? (
@@ -333,18 +550,32 @@ export function SettlementPanel({
                 ["متوسط", "ok"],
                 ["ضعیف", "bad"],
               ] as Array<[string, string]>
-            ).map(([label, rating]) => (
-              <a
-                key={rating}
-                className="npsPrompt__btn"
-                href={`mailto:support@dang.local?subject=${encodeURIComponent(
-                  `بازخورد تسویه دنگ · ${label} (${rating})`,
-                )}`}
-                onClick={onDismissNps}
-              >
-                {label}
-              </a>
-            ))}
+            ).map(([label, rating]) => {
+              const subject = `بازخورد تسویه دنگ · ${label} (${rating})`;
+              const inbox = chrome?.capabilities?.supportContactEmail?.trim();
+              if (inbox) {
+                return (
+                  <a
+                    key={rating}
+                    className="npsPrompt__btn"
+                    href={`mailto:${inbox}?subject=${encodeURIComponent(subject)}`}
+                    onClick={onDismissNps}
+                  >
+                    {label}
+                  </a>
+                );
+              }
+              return (
+                <Link
+                  key={rating}
+                  className="npsPrompt__btn"
+                  href={`/contact?topic=${encodeURIComponent(subject)}`}
+                  onClick={onDismissNps}
+                >
+                  {label}
+                </Link>
+              );
+            })}
             <button
               type="button"
               className="textButton"
@@ -356,6 +587,97 @@ export function SettlementPanel({
         </div>
       ) : null}
       <div className={styles.masterDetail}>
+      <div>
+      {settlements.length > 0 && !readOnly ? (
+        <SelectionActionBar
+          selectedCount={selection.selectedCount}
+          idleHint="روی ردیف کلیک کنید یا مربع کنارش را تیک بزنید"
+          onClear={selection.clear}
+        >
+          <button
+            type="button"
+            disabled={!barSettlement}
+            onClick={() => {
+              if (!barSettlement) return;
+              setSelectedSettlementId(barSettlement.id);
+            }}
+          >
+            جزئیات
+          </button>
+          {barSettlement &&
+          canConfirm(barSettlement) &&
+          barSettlement.status === "claimed" ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                if (evidenceRequired) {
+                  setConfirmTargetId(barSettlement.id);
+                } else {
+                  onConfirmSettlement(barSettlement.id);
+                }
+                selection.clear();
+              }}
+            >
+              تأیید
+            </button>
+          ) : null}
+          {barSettlement &&
+          canDispute(barSettlement) &&
+          (barSettlement.status === "claimed" ||
+            barSettlement.status === "confirmed") ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                onDisputeSettlement(barSettlement.id);
+                selection.clear();
+              }}
+            >
+              اعتراض
+            </button>
+          ) : null}
+          {(() => {
+            const cancelable = selection.selectedIds.filter((id) => {
+              const s = settlements.find((x) => x.id === id);
+              return s && canCancel(s) && s.status === "claimed";
+            });
+            if (cancelable.length === 0) return null;
+            return (
+              <button
+                type="button"
+                className={selStyles.danger}
+                disabled={pending}
+                onClick={() => {
+                  const label =
+                    cancelable.length === 1
+                      ? "این ادعای تسویه لغو شود؟"
+                      : `${cancelable.length.toLocaleString("fa-IR")} ادعا لغو شوند؟`;
+                  if (!window.confirm(label)) return;
+                  for (const id of cancelable) onCancelSettlement(id);
+                  selection.clear();
+                }}
+              >
+                لغو
+              </button>
+            );
+          })()}
+          {barSettlement &&
+          paymentsLive &&
+          barSettlement.status === "claimed" ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                onCreatePaymentLink(barSettlement);
+                selection.clear();
+              }}
+            >
+              لینک پرداخت
+            </button>
+          ) : null}
+        </SelectionActionBar>
+      ) : null}
       <DataList>
         {settlements.length === 0 && members.length >= 2 ? (
           <EmptyStateBlock
@@ -367,148 +689,99 @@ export function SettlementPanel({
             }
             sticker="scale"
             action={
-              readOnly ? undefined : (
+              !readOnly ? (
                 <Button
                   type="button"
                   onClick={() =>
-                    document
-                      .getElementById("settlement-panel")
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    onSettlePay({
+                      intent: "settle_only",
+                      asOf: asOf.trim() || undefined,
+                    })
                   }
+                  disabled={pending || members.length < 2}
                 >
                   ثبت ادعای تسویه
                 </Button>
-              )
+              ) : undefined
             }
           />
         ) : null}
         {settlements.map((settlement) => (
-          <DataRow
+          <div
             key={settlement.id}
-            title={`${memberLabel(settlement.fromUserId)} → ${memberLabel(settlement.toUserId)}`}
-            meta={
-              <StatusPill tone={settlement.status === "confirmed" ? "ok" : "gold"}>
-                {settlementStatusLabel(settlement.status)}
-              </StatusPill>
-            }
-            trailing={<Amount irrMinor={settlement.amount.amountMinor} />}
-            actions={
-              <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  aria-pressed={selectedSettlement?.id === settlement.id}
-                  onClick={() => setSelectedSettlementId(settlement.id)}
-                >
-                  جزئیات
-                </Button>
-                {slug ? (
-                  <>
-                    <Link
-                      className="textButton"
-                      href={memberStatementHref(slug, settlement.fromUserId)}
-                    >
-                      صورتحساب بدهکار
-                    </Link>
-                    <Link
-                      className="textButton"
-                      href={memberStatementHref(slug, settlement.toUserId)}
-                    >
-                      صورتحساب طلبکار
-                    </Link>
-                  </>
-                ) : null}
-                {readOnly
-                ? null
-                : settlement.status === "claimed"
-                  ? (
-                    <>
-                      {canConfirm(settlement) ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => setConfirmTargetId(settlement.id)}
-                          disabled={pending}
-                        >
-                          تأیید
-                        </Button>
-                      ) : null}
-                      {canDispute(settlement) ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => onDisputeSettlement(settlement.id)}
-                          disabled={pending}
-                        >
-                          اعتراض
-                        </Button>
-                      ) : null}
-                      {canCancel(settlement) ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => onCancelSettlement(settlement.id)}
-                          disabled={pending}
-                        >
-                          لغو
-                        </Button>
-                      ) : null}
-                      {paymentsLive && canConfirm(settlement) ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => onCreatePaymentLink(settlement)}
-                          disabled={pending}
-                        >
-                          لینک پرداخت
-                        </Button>
-                      ) : null}
-                    </>
-                  )
-                  : settlement.status === "disputed"
-                    ? (
-                      canCancel(settlement) ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => onCancelSettlement(settlement.id)}
-                        disabled={pending}
-                      >
-                        لغو
-                      </Button>
-                      ) : null
-                    )
-                    : null
-                }
-              </>
-            }
-          />
+            className={!readOnly ? selStyles.selectableRow : undefined}
+            {...(!readOnly
+              ? rowSelectActivateProps({
+                  onActivate: () => {
+                    if (selection.isSelected(settlement.id)) selection.clear();
+                    else {
+                      selection.selectOnly(settlement.id);
+                      setSelectedSettlementId(settlement.id);
+                    }
+                  },
+                })
+              : {})}
+          >
+            <DataRow
+              title={
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  {!readOnly ? (
+                    <RowSelectCheckbox
+                      checked={selection.isSelected(settlement.id)}
+                      onChange={() => {
+                        if (selection.isSelected(settlement.id)) selection.clear();
+                        else {
+                          selection.selectOnly(settlement.id);
+                          setSelectedSettlementId(settlement.id);
+                        }
+                      }}
+                      label={`انتخاب تسویه ${memberLabel(settlement.fromUserId)} به ${memberLabel(settlement.toUserId)}`}
+                    />
+                  ) : null}
+                  {`${memberLabel(settlement.fromUserId)} → ${memberLabel(settlement.toUserId)}`}
+                </span>
+              }
+              meta={
+                <>
+                  <Amount irrMinor={settlement.amount.amountMinor} /> ·{" "}
+                  {settlementStatusLabel(settlement.status)}
+                </>
+              }
+            />
+          </div>
         ))}
       </DataList>
+      </div>
       {selectedSettlement ? (
-        <aside className={styles.inspector} aria-label="جزئیات تسویه انتخاب‌شده">
-          <span>SETTLEMENT INSPECTOR</span>
-          <h3>{memberLabel(selectedSettlement.fromUserId)} ← {memberLabel(selectedSettlement.toUserId)}</h3>
-          <Amount irrMinor={selectedSettlement.amount.amountMinor} />
+        <aside className={styles.inspector} aria-label="جزئیات تسویه">
+          <span>جزئیات</span>
+          <h3>
+            {memberLabel(selectedSettlement.fromUserId)} →{" "}
+            {memberLabel(selectedSettlement.toUserId)}
+          </h3>
+          <StatusPill>{settlementStatusLabel(selectedSettlement.status)}</StatusPill>
           <dl>
-            <div><dt>وضعیت</dt><dd>{settlementStatusLabel(selectedSettlement.status)}</dd></div>
-            <div><dt>پرداخت‌کننده</dt><dd>{memberLabel(selectedSettlement.fromUserId)}</dd></div>
-            <div><dt>دریافت‌کننده</dt><dd>{memberLabel(selectedSettlement.toUserId)}</dd></div>
-            <div><dt>ثبت</dt><dd><time dateTime={selectedSettlement.createdAt}>{formatFaDate(selectedSettlement.createdAt)}</time></dd></div>
-            <div><dt>پرداخت آنلاین</dt><dd>{paymentsLive ? "متصل" : "غیرفعال"}</dd></div>
+            <div>
+              <dt>مبلغ</dt>
+              <dd>
+                <Amount irrMinor={selectedSettlement.amount.amountMinor} />
+              </dd>
+            </div>
+            <div>
+              <dt>ثبت</dt>
+              <dd>{formatFaDate(selectedSettlement.createdAt)}</dd>
+            </div>
+            {selectedSettlement.note ? (
+              <div>
+                <dt>یادداشت</dt>
+                <dd>{selectedSettlement.note}</dd>
+              </div>
+            ) : null}
           </dl>
-          {selectedSettlement.paymentLinkUrl && paymentsLive ? (
-            <a href={selectedSettlement.paymentLinkUrl} target="_blank" rel="noreferrer">بازکردن صفحه پرداخت</a>
-          ) : null}
           {slug ? (
-            <p className="liveHint" style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-              <Link href={memberStatementHref(slug, selectedSettlement.fromUserId)}>
-                صورتحساب {memberLabel(selectedSettlement.fromUserId)}
-              </Link>
-              <Link href={memberStatementHref(slug, selectedSettlement.toUserId)}>
-                صورتحساب {memberLabel(selectedSettlement.toUserId)}
-              </Link>
-            </p>
+            <Link href={memberStatementHref(slug, selectedSettlement.fromUserId)}>
+              صورت‌حساب پرداخت‌کننده
+            </Link>
           ) : null}
         </aside>
       ) : null}
@@ -518,17 +791,13 @@ export function SettlementPanel({
           {paymentLinks.map((link) => (
             <DataRow
               key={link.id}
-              title={`پرداخت ${paymentLinkStatusLabel(link.status)}`}
+              title={`لینک ${link.id.slice(0, 8)}`}
               meta={
-                paymentsLive ? (
-                  <a href={link.checkoutUrl} target="_blank" rel="noreferrer">
-                    صفحه پرداخت
-                  </a>
-                ) : (
-                  <span>لینک ذخیره‌شده — PSP واقعی هنوز وصل نیست</span>
-                )
+                <>
+                  <Amount irrMinor={link.amount.amountMinor} /> ·{" "}
+                  {paymentLinkStatusLabel(link.status)}
+                </>
               }
-              trailing={<Amount irrMinor={link.amount.amountMinor} />}
             />
           ))}
         </DataList>
