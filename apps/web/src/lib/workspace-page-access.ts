@@ -6,6 +6,8 @@ import type {
 import {
   canManageJobsDlq,
   canViewProductMetrics as canViewProductMetricsStrict,
+  isExpenseApproverRole,
+  roleBlocksWorkspacePage,
   spaceKindForTemplate,
 } from "@dang/contracts";
 import { modulesForTemplate } from "@/lib/workspace-modules";
@@ -83,7 +85,9 @@ export function spaceNavFlagsFromCapabilities(
     jobsAvailable:
       capabilities?.providers?.jobs === "redis_queue" ||
       capabilities?.providers?.jobs === "inline_stub",
-    jobsRedisQueue: capabilities?.providers?.jobs === "redis_queue",
+    jobsRedisQueue:
+      capabilities?.providers?.jobs === "redis_queue" ||
+      capabilities?.providers?.jobs === "redis_queue_degraded",
     catalogV1: capabilities?.providers?.catalog === "catalog_v1",
     statementsV1: capabilities?.providers?.statements === "csv_json_print_v1",
     chartsV1: capabilities?.providers?.charts === "charts_v1",
@@ -108,6 +112,10 @@ export function workspacePageAccess(input: {
   role?: string | null;
 }): PageAccessResult {
   const { page, template, flags, role } = input;
+  const personaBlock = roleBlocksWorkspacePage(role, page);
+  if (personaBlock) {
+    return { allowed: false, reason: personaBlock };
+  }
   const modules = modulesForTemplate(template);
   const kind = spaceKindForTemplate(template);
   const has = (mod: string) => modules.has(mod);
@@ -247,6 +255,13 @@ export function workspacePageAccess(input: {
           allowed: false,
           reason:
             "صف تأیید پشت پرچم محصول خاموش است (ENABLE_APPROVAL_STEPS / approvalQueue).",
+        };
+      }
+      if (role != null && role !== "" && !isExpenseApproverRole(role)) {
+        return {
+          allowed: false,
+          reason:
+            "اقدامات تأیید فقط برای مالک، ادمین، مادرخرج یا تأییدکننده فعال است.",
         };
       }
       return { allowed: true, reason: "" };

@@ -1,0 +1,18 @@
+.banner {
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border, #c9c2b8) 80%, transparent);
+  background: color-mix(in srgb, var(--surface-2, #f3efe8) 70%, transparent);
+}
+
+.hint {
+  color: var(--muted, #5c564e);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+:global([data-theme="dark"]) .banner,
+:global(html.dark) .banner {
+  background: color-mix(in srgb, var(--surface-2, #2a2622) 80%, transparent);
+}

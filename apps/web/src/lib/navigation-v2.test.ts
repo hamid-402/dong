@@ -23,20 +23,17 @@ import {
 } from "@/lib/workspace-paths";
 
 describe("navigation-v2", () => {
-  it("keeps two primary tabs: home and spaces hub", () => {
+  it("keeps a single primary home tab", () => {
     const group = bottomTabsV2("friends_family", "demo");
-    expect(group.map((t) => t.key)).toEqual(["home", "spaces"]);
-    expect(group.map((t) => t.label)).toEqual([
-      NAV_LABELS.home,
-      NAV_LABELS.spacesList,
-    ]);
-    expect(group.find((t) => t.key === "spaces")?.href).toBe("/spaces");
+    expect(group.map((t) => t.key)).toEqual(["home"]);
+    expect(group.map((t) => t.label)).toEqual([NAV_LABELS.home]);
+    expect(group.find((t) => t.key === "home")?.href).toBe("/home");
   });
 
   it("keeps app home at /home even when a workspace slug is known", () => {
     const tabs = bottomTabsV2("personal", "my-space");
     expect(tabs.find((t) => t.key === "home")?.href).toBe("/home");
-    expect(tabs.find((t) => t.key === "spaces")?.href).toBe("/spaces");
+    expect(tabs).toHaveLength(1);
     expect(expenseFabHref("personal", "my-space")).toBe("/w/my-space/record");
   });
 
@@ -82,6 +79,46 @@ describe("navigation-v2", () => {
     ]);
   });
 
+  it("filters guest nav to expenses/settlements/members/settings", () => {
+    const sections = spaceNav(
+      "friends_family",
+      "g1",
+      { approvalQueue: true, chartsV1: true },
+      "guest",
+    );
+    const keys = sections.flatMap((s) => s.items.map((i) => i.key));
+    expect(keys).toEqual(
+      expect.arrayContaining(["expenses", "settlements", "members", "settings"]),
+    );
+    expect(keys).not.toContain("approvals");
+    expect(keys).not.toContain("audit");
+    expect(keys).not.toContain("metrics");
+    expect(keys).not.toContain("charts");
+  });
+
+  it("hides approvals nav for member; shows for approver", () => {
+    const asMember = spaceNav(
+      "friends_family",
+      "g1",
+      { approvalQueue: true },
+      "member",
+    );
+    expect(
+      asMember.find((s) => s.key === "finance")?.items.some((i) => i.key === "approvals"),
+    ).toBe(false);
+    const asApprover = spaceNav(
+      "friends_family",
+      "g1",
+      { approvalQueue: true },
+      "approver",
+    );
+    expect(
+      asApprover
+        .find((s) => s.key === "finance")
+        ?.items.some((i) => i.key === "approvals"),
+    ).toBe(true);
+  });
+
   it("includes subunits under people for building spaces", () => {
     const people = spaceNav("residential_building", "b1", undefined, "owner").find(
       (s) => s.key === "people",
@@ -114,12 +151,12 @@ describe("navigation-v2", () => {
     ).toBe(true);
   });
 
-  it("hides metrics for guest role in oversight nav", () => {
-    const oversight = spaceNav("friends_family", "g1", undefined, "guest").find(
-      (s) => s.key === "oversight",
-    );
-    expect(oversight?.items.some((i) => i.key === "metrics")).toBe(false);
-    expect(oversight?.items.some((i) => i.key === "audit")).toBe(true);
+  it("omits oversight section for guest (compact persona)", () => {
+    const sections = spaceNav("friends_family", "g1", undefined, "guest");
+    expect(sections.some((s) => s.key === "oversight")).toBe(false);
+    const keys = sections.flatMap((s) => s.items.map((i) => i.key));
+    expect(keys).not.toContain("metrics");
+    expect(keys).not.toContain("audit");
   });
 
   it("shows jobs for owner when inline_stub or redis_queue is live", () => {
@@ -154,9 +191,8 @@ describe("navigation-v2", () => {
       { jobsAvailable: true },
       "member",
     );
-    expect(
-      member.find((s) => s.key === "oversight")?.items.some((i) => i.key === "jobs"),
-    ).toBe(false);
+    expect(member.some((s) => s.key === "oversight")).toBe(false);
+    expect(member.flatMap((s) => s.items.map((i) => i.key))).not.toContain("jobs");
   });
 
   it("omits daily ledger from personal template finance nav", () => {

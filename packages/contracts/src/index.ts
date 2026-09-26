@@ -74,8 +74,8 @@ export function isFinanceCapableRole(
   return isFinanceManagerRole(role) || role === "deputy_finance";
 }
 
-/** Law 9: non-personal spaces need ≥2 finance managers after bootstrap (≤1 member). */
-export const MIN_FINANCE_MANAGERS_NON_PERSONAL = 2;
+/** Law 9: non-personal spaces need ≥1 finance manager after bootstrap (≤1 member). */
+export const MIN_FINANCE_MANAGERS_NON_PERSONAL = 1;
 
 export function spaceRequiresFinanceQuorum(
   spaceKind: SpaceKind,
@@ -84,10 +84,10 @@ export function spaceRequiresFinanceQuorum(
 }
 
 /**
- * Backup Treasurer rule (roadmap Law 9).
+ * Treasurer rule (roadmap Law 9).
  * Bootstrap: a brand-new space with a single owner may have one finance manager.
  * Once there are 2+ members, at least {@link MIN_FINANCE_MANAGERS_NON_PERSONAL}
- * finance managers are required.
+ * finance manager is required (one is enough — backup is optional, not mandatory).
  */
 export function financeManagerQuorumOk(input: {
   spaceKind: SpaceKind;
@@ -301,6 +301,20 @@ export type WorkspaceSummary = {
   template: WorkspaceTemplate;
   timezone: string;
   displayUnit: "toman" | "rial";
+  /** Soft-archive (ISO). Owners still see archived spaces in lists. */
+  archivedAt?: string;
+  /** Soft-delete (ISO). Excluded from chrome lists. */
+  deletedAt?: string;
+};
+
+/** Body for self-leave (non-owner). */
+export type LeaveWorkspaceRequest = {
+  reason?: string;
+};
+
+/** Soft-delete requires typing the workspace slug. */
+export type SoftDeleteWorkspaceRequest = {
+  confirmSlug: string;
 };
 
 /**
@@ -397,6 +411,7 @@ export type AcceptInviteRequest = {
 
 export * from "./account.js";
 export * from "./access-policy.js";
+export * from "./role-surface.js";
 export * from "./access-abac.js";
 export * from "./access-grants.js";
 export * from "./policy-dsl.js";
@@ -406,6 +421,7 @@ export * from "./membership.js";
 export * from "./catalog.js";
 export * from "./charts.js";
 export * from "./statements.js";
+export * from "./statement-pack.js";
 export * from "./addon-charge.js";
 export * from "./assets.js";
 export * from "./audit-hash.js";
@@ -416,6 +432,7 @@ export * from "./notification-actions.js";
 export * from "./activity.js";
 export * from "./webhooks.js";
 export * from "./dashboard.js";
+export * from "./money-intent.js";
 export * from "./files.js";
 export * from "./finance.js";
 export * from "./building.js";
@@ -425,12 +442,16 @@ export * from "./outbox.js";
 export * from "./partnership.js";
 export * from "./payments.js";
 export * from "./payment-ops.js";
+export * from "./settle-pay.js";
+export * from "./treasury-labels.js";
 export * from "./procurement.js";
 export * from "./procurement-transitions.js";
 export * from "./asset-depreciation.js";
 export * from "./proposals.js";
 export * from "./personal-finance.js";
+export * from "./personal-lifestyle.js";
 export * from "./daily-ledger.js";
+export * from "./dong-to-import.js";
 export * from "./reports.js";
 export * from "./report-views.js";
 export * from "./product-metrics.js";

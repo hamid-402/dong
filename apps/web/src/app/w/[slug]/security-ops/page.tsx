@@ -27,7 +27,7 @@ function formatWhen(iso: string): string {
 
 export default function WorkspaceSecurityOpsPage() {
   return (
-    <WorkspacePageGate page="securityOps">
+    <WorkspacePageGate page="securityOps" needRole>
       <WorkspaceSecurityOpsInner />
     </WorkspacePageGate>
   );

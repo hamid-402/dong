@@ -158,4 +158,56 @@ describe("workspacePageAccess", () => {
       }).allowed,
     ).toBe(true);
   });
+
+  it("gates approvals to expense-approver roles when role is known", () => {
+    expect(
+      workspacePageAccess({
+        page: "approvals",
+        template: "small_team",
+        flags: { approvalQueue: true },
+        role: "member",
+      }).allowed,
+    ).toBe(false);
+    expect(
+      workspacePageAccess({
+        page: "approvals",
+        template: "small_team",
+        flags: { approvalQueue: true },
+        role: "approver",
+      }).allowed,
+    ).toBe(true);
+    expect(
+      workspacePageAccess({
+        page: "approvals",
+        template: "small_team",
+        flags: { approvalQueue: true },
+        role: "finance",
+      }).allowed,
+    ).toBe(true);
+  });
+
+  it("blocks guest deep-links to ops pages", () => {
+    expect(
+      workspacePageAccess({
+        page: "approvals",
+        template: "friends_family",
+        flags: { approvalQueue: true },
+        role: "guest",
+      }).allowed,
+    ).toBe(false);
+    expect(
+      workspacePageAccess({
+        page: "procurement",
+        template: "small_team",
+        role: "guest",
+      }).allowed,
+    ).toBe(false);
+    expect(
+      workspacePageAccess({
+        page: "expenses",
+        template: "friends_family",
+        role: "guest",
+      }).allowed,
+    ).toBe(true);
+  });
 });

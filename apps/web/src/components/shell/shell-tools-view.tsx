@@ -34,9 +34,11 @@ import {
   type PinnedDestination,
 } from "@/lib/pinned-destinations";
 import { spaceNavFlagsFromCapabilities } from "@/lib/workspace-page-access";
+import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
 import { slugFromPathname } from "@/lib/workspace-storage";
 import { wPath } from "@/lib/workspace-paths";
 import { t } from "@/lib/i18n";
+import { gemCssVars } from "@/lib/tile-gem-palettes";
 
 function sameHrefList(a: PinnedDestination[] | RecentDestination[], b: { href: string }[]) {
   if (a.length !== b.length) return false;
@@ -55,6 +57,7 @@ export function ShellToolsView() {
   const groupQuery = searchParams.get("group");
   const active = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const slug = slugFromPathname(pathname) ?? active?.slug ?? null;
+  const { role: membershipRole } = useWorkspaceMembershipRole(chrome.workspaceId);
   const legacyIntent = parseMosaicIntent(intentQuery);
   const domainParam =
     parseDomainGroup(folderQuery) ??
@@ -77,8 +80,9 @@ export function ShellToolsView() {
         slug,
         JSON.parse(flagsKey) as ReturnType<typeof spaceNavFlagsFromCapabilities>,
         "all",
+        membershipRole || null,
       ),
-    [active?.template, slug, flagsKey],
+    [active?.template, slug, flagsKey, membershipRole],
   );
   const accountItems = useMemo(
     () =>
@@ -180,7 +184,7 @@ export function ShellToolsView() {
             <Link href={wPath(slug)}>{NAV_LABELS.home}</Link>
           )
         ) : (
-          <Link href="/spaces">{NAV_LABELS.spacesList}</Link>
+          <Link href="/home">{NAV_LABELS.spacesList}</Link>
         )
       }
       state={!chrome.ready ? "loading" : toolCount === 0 && !slug ? "empty" : "ready"}
@@ -188,7 +192,7 @@ export function ShellToolsView() {
       empty={
         <EmptyHint>
           {t("shell.toolsNoWorkspaceBefore")}{" "}
-          <Link href="/spaces">{t("shell.toolsMySpaces")}</Link>{" "}
+          <Link href="/home">{t("shell.toolsMySpaces")}</Link>{" "}
           {t("shell.toolsNoWorkspaceAfter")}
         </EmptyHint>
       }
@@ -306,17 +310,33 @@ export function ShellToolsView() {
             پشتیبانی
           </h2>
           <ul className="shell-tools__grid">
-            <li className="shell-tools__cell">
-              <a
-                href="mailto:support@dang.local?subject=بازخورد%20دنگ"
-                className="shell-tools__tile"
-              >
-                <span className="shell-tools__tile-icon" aria-hidden>
-                  <ShellIconSvg name="receipt" />
-                </span>
-                <span className="shell-tools__tile-label">گزارش مشکل</span>
-              </a>
-            </li>
+            {chrome.capabilities?.supportContactEmail ? (
+              <li className="shell-tools__cell">
+                <a
+                  href={`mailto:${chrome.capabilities.supportContactEmail}?subject=${encodeURIComponent("بازخورد دنگ")}`}
+                  className="dang-gem shell-tools__tile"
+                  style={gemCssVars("slate")}
+                >
+                  <span className="dang-gem__icon shell-tools__tile-icon" aria-hidden>
+                    <ShellIconSvg name="receipt" />
+                  </span>
+                  <span className="shell-tools__tile-label">گزارش مشکل</span>
+                </a>
+              </li>
+            ) : (
+              <li className="shell-tools__cell">
+                <Link
+                  href="/contact"
+                  className="dang-gem shell-tools__tile"
+                  style={gemCssVars("slate")}
+                >
+                  <span className="dang-gem__icon shell-tools__tile-icon" aria-hidden>
+                    <ShellIconSvg name="receipt" />
+                  </span>
+                  <span className="shell-tools__tile-label">فرم تماس</span>
+                </Link>
+              </li>
+            )}
           </ul>
         </section>
       </div>

@@ -4,19 +4,24 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import type { ActivityItem } from "@dang/contracts";
-import { spaceKindForTemplate, isFinanceManagerRole } from "@dang/contracts";
-import { formatToman } from "@dang/ui";
+import { spaceKindForTemplate, isFinanceManagerRole, type PettyCashFundSummary } from "@dang/contracts";
+import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
+import { formatMoney, formatMoneyFromIrrMinor, irrMinorToDisplayInteger, type DisplayUnit } from "@dang/ui";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { moneyUnitSuffix } from "@/lib/money-labels";
 import { AppShell } from "@/components/app-shell";
 import type { ContextualMosaicFact } from "@/components/shell/contextual-mosaic-hub";
 import { HomeRootLauncher } from "@/components/shell/home-root-launcher";
-import { HomeBalanceCue } from "@/components/shell/home-balance-cue";
-import { HomeMoneyCommand } from "@/components/shell/home-money-command";
+import { HomeBriefingPanel } from "@/components/shell/home-briefing-panel";
+import { TreasuryBalanceCard } from "@/components/shell/treasury-balance-card";
+import { HomeMoneyCommand, rangeForPreset } from "@/components/shell/home-money-command";
 import type { WorkspaceMoneyPulse } from "@dang/contracts";
 import { GroupOpsRail } from "@/components/shell/group-ops-rail";
 import { GroupPublicIdCard } from "@/components/shell/group-public-id";
 import { GroupSetupChecklist } from "@/components/shell/group-setup-checklist";
 import { EmptyHint, StatusLine } from "@/components/ui-blocks";
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
+import { ProviderStubBadges } from "@/components/shell/provider-stub-badges";
 import { api, getDevIdentity, setDevIdentity } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
@@ -27,6 +32,10 @@ import {
   homeDomainHref,
   parseDomainGroup,
 } from "@/lib/navigation-v2";
+import {
+  filterMosaicByUsageTier,
+  navUsageTierFromCounts,
+} from "@/lib/nav-usage-tier";
 import {
   filterLivePinned,
   listPinnedDestinations,
@@ -39,12 +48,20 @@ import {
   needStatusLabel,
 } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { useOptionalTheme } from "@/lib/theme";
 import { formatFaDate } from "@/lib/fa-datetime";
 import { FlashMessages } from "@/lib/use-flash-message";
+import { MotionSceneStrip } from "@/components/visual/motion-scene";
 import { FirstRunTour } from "@/components/views/first-run-tour";
 import { DemoConfirmDialog } from "@/components/views/demo-confirm-dialog";
 
-function useAnimatedBalance(target: number, motionEnabled: boolean, ready: boolean) {
+function useAnimatedBalance(
+  targetIrrMinor: number,
+  motionEnabled: boolean,
+  ready: boolean,
+  unit: DisplayUnit,
+) {
+  const target = Number(irrMinorToDisplayInteger(Math.abs(targetIrrMinor), unit));
   const [mounted, setMounted] = useState(false);
   const [value, setValue] = useState(target);
 
@@ -76,7 +93,7 @@ function useAnimatedBalance(target: number, motionEnabled: boolean, ready: boole
   }, [mounted, motionEnabled, ready, target]);
 
   if (!ready) return "—";
-  return formatToman(value);
+  return formatMoney(value, unit);
 }
 
 type DashboardState = {
@@ -84,10 +101,13 @@ type DashboardState = {
   workspaceName: string;
   userName: string;
   balanceToman: number;
+  /** Signed IRR minor for the actor net (canonical). */
+  balanceIrrMinor: number;
   postedCount: number;
   postedSpendToman: number;
   openSettlementCount: number;
   pendingApprovalCount: number;
+  approvalSlaBreached: number;
   needCount: number;
   notificationCount: number;
   persistence: string;
@@ -101,7 +121,12 @@ type DashboardState = {
   previewExpenseTitle: string;
   previewExpenseToman: string;
   rangeLabel: string;
+  rangeFrom: string;
+  rangeTo: string;
   moneyPulse: WorkspaceMoneyPulse;
+  pettyCashFunds: PettyCashFundSummary[];
+  savingsBalanceMinor: string | null;
+  savingsGoalCount: number;
 };
 
 export function OverviewView() {
@@ -111,7 +136,10 @@ export function OverviewView() {
   const homeFolder = parseDomainGroup(folderQuery);
   const homeGroup = searchParams.get("group");
   const chrome = useAppChrome();
-  const [motionEnabled, setMotionEnabled] = useState(true);
+  const displayUnit = useDisplayUnit();
+  const unitLabel = moneyUnitSuffix(displayUnit);
+  const theme = useOptionalTheme();
+  const motionEnabled = theme ? theme.allowsAmbient || theme.allowsFeedback : true;
   const [data, setData] = useState<DashboardState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [allowDemoSeed, setAllowDemoSeed] = useState(false);
@@ -119,8 +147,14 @@ export function OverviewView() {
     "seed" | "colleagues" | "purge" | "purge-aftab" | null
   >(null);
   const [pending, startTransition] = useTransition();
+  const [dashRange, setDashRange] = useState(() => rangeForPreset("month"));
   const [feedItems, setFeedItems] = useState<ActivityItem[]>([]);
-  const balance = useAnimatedBalance(data?.balanceToman ?? 0, motionEnabled, Boolean(data));
+  const balance = useAnimatedBalance(
+    data?.balanceIrrMinor ?? 0,
+    motionEnabled,
+    Boolean(data),
+    displayUnit,
+  );
   const activityLive = chrome.capabilities?.providers?.activityFeed === "activity_v1";
   const activeWs = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const slug = activeWs?.slug ?? null;
@@ -132,7 +166,7 @@ export function OverviewView() {
     ? wPath(slug, "settlements")
     : `${hubPathFor("/workspaces")}#settlement-panel`;
 
-  function load(workspaceId: string) {
+  function load(workspaceId: string, from = dashRange.from, to = dashRange.to) {
     startTransition(() => {
       void (async () => {
         try {
@@ -147,8 +181,9 @@ export function OverviewView() {
             setData(null);
             return;
           }
-          const [dashboard, needs, members, approvalCount, activityPage] = await Promise.all([
-            api.workspaceDashboard(workspace.id),
+          const [dashboard, needs, members, approvalCount, activityPage, pettyFunds, savingsFund] =
+            await Promise.all([
+            api.workspaceDashboard(workspace.id, from, to),
             api.listNeeds(workspace.id).catch(() => []),
             api.listMembers(workspace.id).catch(() => []),
             chrome.capabilities?.productFlags?.approvalQueue
@@ -157,38 +192,44 @@ export function OverviewView() {
             chrome.capabilities?.providers?.activityFeed === "activity_v1"
               ? api.listActivity(workspace.id, { limit: 12 }).catch(() => ({ items: [] }))
               : Promise.resolve({ items: [] as ActivityItem[] }),
+            chrome.capabilities?.providers?.pettyCash === "fund_v1"
+              ? api.listPettyCash(workspace.id).catch(() => [] as PettyCashFundSummary[])
+              : Promise.resolve([] as PettyCashFundSummary[]),
+            spaceKindForTemplate(workspace.template) === "personal" &&
+            chrome.capabilities?.providers?.savingsGoals === "goals_v1"
+              ? api.getSavingsFund().catch(() => null)
+              : Promise.resolve(null),
           ]);
+          let approvalSlaBreached = 0;
+          if (
+            approvalCount.count > 0 &&
+            chrome.capabilities?.productFlags?.approvalQueue
+          ) {
+            const queue = await api
+              .listApprovalQueue(workspace.id)
+              .catch(() => []);
+            approvalSlaBreached = queue.filter((item) => item.slaBreached).length;
+          }
           setFeedItems(activityPage.items);
           setAllowDemoSeed(Boolean(chrome.demoSeedAllowed));
           const netMinor = Number(dashboard.actorNet.amountMinor);
           const firstExpense = dashboard.activity.recentExpenses[0];
-          const sourceBits = [
-            dashboard.source.expense,
-            dashboard.source.ledger,
-            dashboard.source.settlement,
-            dashboard.source.notification,
-          ];
-          const allPostgres = sourceBits.every((s) => s === "postgres");
-          const allMemory = sourceBits.every((s) => s === "memory");
-          const persistence = allPostgres
-            ? "ذخیره‌سازی پایدار"
-            : allMemory
-              ? "حافظه موقت"
-              : `مختلط (${sourceBits.filter((s) => s === "postgres").length}/4 پایدار)`;
           setData({
             workspaceId: dashboard.workspaceId,
             workspaceName: dashboard.workspaceName,
             userName: chrome.userName || identity.displayName,
             balanceToman: Math.round(netMinor / 10),
+            balanceIrrMinor: Number.isFinite(netMinor) ? Math.trunc(netMinor) : 0,
             postedCount: dashboard.spend.postedCount,
             postedSpendToman: Math.round(
               Number(dashboard.spend.postedTotal.amountMinor) / 10,
             ),
             openSettlementCount: dashboard.settlements.openCount,
             pendingApprovalCount: approvalCount.count,
+            approvalSlaBreached,
             needCount: needs.length,
             notificationCount: dashboard.activity.unreadNotifications,
-            persistence,
+            persistence: chrome.persistenceLabel,
             recentExpenses: dashboard.activity.recentExpenses.slice(0, 5).map((e) => ({
               id: e.id,
               title: e.title,
@@ -208,13 +249,15 @@ export function OverviewView() {
             ).length,
             previewExpenseTitle: firstExpense?.title ?? "—",
             previewExpenseToman: firstExpense
-              ? formatToman(Math.round(Number(firstExpense.total.amountMinor) / 10)).replace(
-                  " تومان",
-                  "",
-                )
+              ? formatMoneyFromIrrMinor(firstExpense.total.amountMinor, displayUnit)
               : "—",
             rangeLabel: `${formatFaDate(dashboard.from)} تا ${formatFaDate(dashboard.to)}`,
+            rangeFrom: dashboard.from,
+            rangeTo: dashboard.to,
             moneyPulse: dashboard.moneyPulse,
+            pettyCashFunds: pettyFunds.filter((f) => f.active),
+            savingsBalanceMinor: savingsFund?.balanceMinor ?? null,
+            savingsGoalCount: savingsFund?.goalCount ?? 0,
           });
           setError(null);
         } catch (err: unknown) {
@@ -244,9 +287,21 @@ export function OverviewView() {
   });
 
   const spaceKind = spaceKindForTemplate(activeWs?.template);
+  const { role: membershipRole } = useWorkspaceMembershipRole(chrome.workspaceId);
   const domainSections = (() => {
     const flags = spaceNavFlagsFromCapabilities(chrome.capabilities);
-    return contextualMosaicSections(activeWs?.template, slug, flags, "home");
+    const base = contextualMosaicSections(
+      activeWs?.template,
+      slug,
+      flags,
+      "home",
+      membershipRole || null,
+    );
+    const tier = navUsageTierFromCounts({
+      postedExpenseCount: data?.postedCount ?? 0,
+      memberCount: data?.memberNames.length,
+    });
+    return filterMosaicByUsageTier(base, tier);
   })();
   const [pins, setPins] = useState<PinnedDestination[]>([]);
   useEffect(() => {
@@ -295,11 +350,12 @@ export function OverviewView() {
       workspaceId={data?.workspaceId}
       workspaceName={data?.workspaceName}
       userName={data?.userName}
-      persistenceLabel={data ? data.persistence : "در حال بارگذاری…"}
-      motionOff={!motionEnabled}
+      persistenceLabel={chrome.persistenceLabel}
+      motionOff={theme ? theme.motionEffective === "off" : false}
       notificationUnreadCount={data?.notificationCount ?? 0}
     >
       <FlashMessages error={error} />
+      <ProviderStubBadges capabilities={chrome.capabilities} />
       <FirstRunTour workspaceSlug={slug} />
       {demoConfirm ? (
         <DemoConfirmDialog
@@ -383,84 +439,214 @@ export function OverviewView() {
           <EmptyHint>فضای کاری را انتخاب کنید یا از فهرست فضاها یکی بسازید.</EmptyHint>
         ) : (
           <>
-            <HomeRootLauncher
-              slug={slug}
-              template={activeWs?.template}
-              workspaceCount={chrome.workspaces.length}
-              sections={domainSections}
-              folderParam={homeFolder}
-              groupParam={homeGroup}
-              facts={missionFacts}
-              reduceMotion={!motionEnabled}
-              pinnedHrefs={pinnedHrefSet}
-              urgency={
-                data
-                  ? {
-                      pendingApprovals: data.pendingApprovalCount,
-                      openSettlements: data.openSettlementCount,
-                      openNeeds: data.needCount,
-                    }
-                  : undefined
-              }
-              onTogglePin={(item) => {
-                togglePinnedDestination(item);
-                const hrefs = new Set(
-                  domainSections.flatMap((s) => s.items.map((i) => i.href)),
-                );
-                setPins(filterLivePinned(listPinnedDestinations(), hrefs));
-              }}
-            />
-
-            {!homeFolder && data?.moneyPulse ? (
-              <HomeMoneyCommand
-                workspaceId={data.workspaceId}
-                slug={slug}
-                pulse={data.moneyPulse}
-                rangeLabel={data.rangeLabel}
-              />
+            {data &&
+            navUsageTierFromCounts({
+              postedExpenseCount: data.postedCount,
+              memberCount: data.memberNames.length,
+            }) === "starter" ? (
+              <StatusLine>
+                نمای ساده برای فضای تازه‌کار — مسیرهای پیشرفته با رشد استفاده (خرج‌های
+                ثبت‌شده) باز می‌شوند. ابزارها همچنان همهٔ مسیرهای مجاز را نشان می‌دهد.
+              </StatusLine>
+            ) : null}
+            {!homeFolder ? (
+              <MotionSceneStrip kind="home" prominence="compact" />
             ) : null}
 
             {!homeFolder ? (
-              <div className="mosaicWorkspace__cue">
-                <HomeBalanceCue
-                  amountLabel={balance}
-                  balanceToman={data?.balanceToman ?? 0}
-                  openSettlements={data?.openSettlementCount ?? 0}
-                  postedCount={data?.postedCount}
-                  settleHref={settlementsHref}
-                  expenseHref={
-                    spaceKind === "personal" ? expensesHref : expensesHref
-                  }
-                  spaceHref={spaceHref}
-                  spaceKind={spaceKind}
-                  persistenceHint={data?.persistence}
-                />
-                {slug ? (
-                  <GroupOpsRail
-                    slug={slug}
-                    spaceKind={spaceKind}
-                    memberCount={data?.memberNames.length}
+              <div className="mosaicWorkspace__primary">
+                <div className="mosaicWorkspace__cue">
+                  <HomeBriefingPanel
+                    amountLabel={balance}
+                    balanceToman={data?.balanceToman ?? 0}
                     openSettlements={data?.openSettlementCount ?? 0}
-                    canManageMembers={
-                      data?.myRole === "owner" ||
-                      data?.myRole === "admin" ||
-                      isFinanceManagerRole(data?.myRole)
+                    postedCount={data?.postedCount}
+                    pendingApprovals={data?.pendingApprovalCount ?? 0}
+                    approvalSlaBreached={data?.approvalSlaBreached ?? 0}
+                    openNeeds={data?.needCount ?? 0}
+                    unreadNotifications={data?.notificationCount ?? 0}
+                    settleHref={settlementsHref}
+                    expenseHref={expensesHref}
+                    spaceHref={spaceHref}
+                    approvalsHref={slug ? wPath(slug, "approvals") : settlementsHref}
+                    needsHref={
+                      spaceKind === "org" ? procurementHref : expensesHref
                     }
-                    showSubunits={spaceKind === "building" || spaceKind === "org"}
-                    subunitsHint={
-                      spaceKind === "building"
-                        ? "واحدها و ساکنان هر واحد"
-                        : "بخش‌ها و شرکت‌های زیرمجموعه"
+                    notificationsHref={
+                      slug ? `${wPath(slug, "home")}#home-briefing` : "#home-briefing"
                     }
+                    spaceKind={spaceKind}
+                    persistenceHint={data?.persistence}
+                    alerts={feedItems}
                   />
-                ) : null}
+                  {slug &&
+                  (spaceKind === "personal" ||
+                    chrome.capabilities?.providers?.pettyCash === "fund_v1") ? (
+                    <div className="mosaicWorkspace__treasury">
+                      <TreasuryBalanceCard
+                        spaceKind={spaceKind}
+                        funds={data?.pettyCashFunds ?? []}
+                        paymentsHref={wPath(slug, "payments")}
+                        savingsHref="/me/finance#goals"
+                        canManage={isFinanceManagerRole(data?.myRole)}
+                        pending={pending}
+                        density="compact"
+                        savingsBalanceMinor={
+                          spaceKind === "personal"
+                            ? data?.savingsBalanceMinor
+                            : null
+                        }
+                        savingsGoalCount={data?.savingsGoalCount}
+                        onEnsureDefault={
+                          data?.workspaceId &&
+                          isFinanceManagerRole(data.myRole) &&
+                          spaceKind !== "personal"
+                            ? () => {
+                                startTransition(() => {
+                                  void (async () => {
+                                    try {
+                                      const result =
+                                        await api.ensureDefaultPettyCashFund(
+                                          data.workspaceId,
+                                          {
+                                            idempotencyKey: crypto.randomUUID(),
+                                          },
+                                        );
+                                      setData((prev) =>
+                                        prev
+                                          ? {
+                                              ...prev,
+                                              pettyCashFunds: result.funds.filter(
+                                                (f) => f.active,
+                                              ),
+                                            }
+                                          : prev,
+                                      );
+                                    } catch (err) {
+                                      setError(
+                                        friendlyErrorMessage(
+                                          err,
+                                          "ایجاد تنخواه ناموفق",
+                                        ),
+                                      );
+                                    }
+                                  })();
+                                });
+                              }
+                            : undefined
+                        }
+                      />
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ) : null}
 
+            <div
+              className={
+                homeFolder
+                  ? "mosaicWorkspace__drill"
+                  : "mosaicWorkspace__secondary"
+              }
+            >
+              <HomeRootLauncher
+                slug={slug}
+                template={activeWs?.template}
+                workspaceCount={chrome.workspaces.length}
+                sections={domainSections}
+                folderParam={homeFolder}
+                groupParam={homeGroup}
+                facts={missionFacts}
+                reduceMotion={
+                  !motionEnabled || Boolean(theme && !theme.allowsFeedback)
+                }
+                pinnedHrefs={pinnedHrefSet}
+                urgency={
+                  data
+                    ? {
+                        pendingApprovals: data.pendingApprovalCount,
+                        openSettlements: data.openSettlementCount,
+                        openNeeds: data.needCount,
+                      }
+                    : undefined
+                }
+                onTogglePin={(item) => {
+                  togglePinnedDestination(item);
+                  const hrefs = new Set(
+                    domainSections.flatMap((s) => s.items.map((i) => i.href)),
+                  );
+                  setPins(filterLivePinned(listPinnedDestinations(), hrefs));
+                }}
+              />
+            </div>
+
             {!homeFolder ? (
               <details className="mosaicWorkspace__more">
-                <summary>جزئیات فضا و فعالیت</summary>
+                <summary>جزئیات پول، میان‌برها و فعالیت</summary>
                 <div className="mosaicWorkspace__moreBody">
+                  {data?.moneyPulse && slug ? (
+                    <HomeMoneyCommand
+                      workspaceId={data.workspaceId}
+                      slug={slug}
+                      pulse={data.moneyPulse}
+                      rangeLabel={data.rangeLabel}
+                      from={data.rangeFrom}
+                      to={data.rangeTo}
+                      spaceKind={spaceKind}
+                      pettyCashFunds={data.pettyCashFunds}
+                      savingsBalanceMinor={data.savingsBalanceMinor}
+                      savingsGoalCount={data.savingsGoalCount}
+                      onRangeChange={(nextFrom, nextTo) => {
+                        setDashRange({ from: nextFrom, to: nextTo });
+                        if (chrome.workspaceId) {
+                          load(chrome.workspaceId, nextFrom, nextTo);
+                        }
+                      }}
+                    />
+                  ) : null}
+                  {slug ? (
+                    <GroupOpsRail
+                      slug={slug}
+                      spaceKind={spaceKind}
+                      memberCount={data?.memberNames.length}
+                      openSettlements={data?.openSettlementCount ?? 0}
+                      canManageMembers={
+                        data?.myRole === "owner" ||
+                        data?.myRole === "admin" ||
+                        isFinanceManagerRole(data?.myRole)
+                      }
+                      showSubunits={spaceKind === "building" || spaceKind === "org"}
+                      subunitsHint={
+                        spaceKind === "building"
+                          ? "واحدها و ساکنان هر واحد"
+                          : "بخش‌ها و شرکت‌های زیرمجموعه"
+                      }
+                      treasuryBalanceMinor={
+                        spaceKind === "personal"
+                          ? data?.savingsBalanceMinor
+                          : data?.pettyCashFunds?.[0]
+                            ? data.pettyCashFunds
+                                .filter((f) => f.active)
+                                .reduce(
+                                  (acc, f) => acc + BigInt(f.balanceMinor || "0"),
+                                  0n,
+                                )
+                                .toString()
+                            : data?.pettyCashFunds
+                              ? "0"
+                              : null
+                      }
+                      treasuryLabel={
+                        spaceKind === "personal"
+                          ? "پس‌انداز"
+                          : spaceKind === "org"
+                            ? "تنخواه سازمانی"
+                            : spaceKind === "building"
+                              ? "تنخواه ساختمان"
+                              : "تنخواه گروه"
+                      }
+                    />
+                  ) : null}
                   {slug &&
                   (spaceKind === "group" ||
                     spaceKind === "building" ||
@@ -521,7 +707,9 @@ export function OverviewView() {
                             >
                               <strong>{item.title}</strong>
                               <small>
-                                {expenseStatusLabel(item.status)} · {formatToman(item.toman)}
+                                {expenseStatusLabel(item.status)} ·{" "}
+                                {formatMoneyFromIrrMinor(item.toman * 10, displayUnit)}{" "}
+                                {unitLabel}
                               </small>
                             </Link>
                           </li>
@@ -547,8 +735,17 @@ export function OverviewView() {
                     <details className="overviewTools">
                       <summary>ابزار توسعه (دمو)</summary>
                       <p className="overviewTools__row">
-                        <button type="button" onClick={() => setMotionEnabled((c) => !c)}>
-                          {motionEnabled ? "توقف حرکت" : "فعال‌کردن حرکت"}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            theme?.setMotion(
+                              theme.motionEffective === "off" ? "full" : "off",
+                            )
+                          }
+                        >
+                          {theme?.motionEffective === "off"
+                            ? "فعال‌کردن حرکت"
+                            : "توقف حرکت"}
                         </button>
                         <button
                           type="button"

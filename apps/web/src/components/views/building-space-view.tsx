@@ -12,7 +12,9 @@ import type {
 import {
   buildingArrearsFromBalances,
   isFinanceManagerRole,
+  isMembershipManagerRole,
   isReadOnlyRole,
+  roleNavProfile,
   spaceKindForTemplate,
 } from "@dang/contracts";
 import { Amount, Button, TextField } from "@dang/ui";
@@ -126,13 +128,19 @@ export function BuildingSpaceView() {
   const isConstruction = workspace?.template === "construction";
   const unitNoun = isConstruction ? "بخش / فاز" : "واحد";
   const unitNounPlural = isConstruction ? "بخش‌ها و فازها" : "واحدها";
+  const canManage = isFinanceManagerRole(myRole);
+  const canManageMembers = isMembershipManagerRole(myRole) && !isReadOnlyRole(myRole);
+  const readOnly = isReadOnlyRole(myRole);
+  const persona = roleNavProfile(myRole);
   const pageTitle = isConstruction ? "خانه پروژه ساختمانی" : "خانه ساختمان";
-  const pageDesc = isConstruction
-    ? "مصالح، پیمان، تحویل و سهم شرکا — با ساختار بخش/فاز و مسیرهای واقعی runtime."
-    : "واحدها، ساکنان، شارژ و قبوض مشترک — نه گروه دوستانه.";
+  const pageDesc =
+    persona?.homeHintFa ??
+    (isConstruction
+      ? "مصالح، پیمان، تحویل و سهم شرکا — با ساختار بخش/فاز و مسیرهای واقعی runtime."
+      : "واحدها، ساکنان، شارژ و قبوض مشترک — نه گروه دوستانه.");
 
   const slug = workspace?.slug ?? scope?.slug ?? null;
-  const unitsHref = slug ? wPath(slug, "subunits") : "/spaces?kind=building";
+  const unitsHref = slug ? wPath(slug, "subunits") : "/home?kind=building";
   const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
   const expensesHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
   const settlementsHref = slug
@@ -144,8 +152,6 @@ export function BuildingSpaceView() {
     : hubPathFor("/workspaces/procurement");
   const partnersHref = slug ? wPath(slug, "partners") : hubPathFor("/workspaces");
 
-  const canManage = isFinanceManagerRole(myRole);
-  const readOnly = isReadOnlyRole(myRole);
   const posted = expenses.filter((e) => e.status === "posted");
   const financeManagers = members.filter((m) => isFinanceManagerRole(m.role));
 
@@ -236,13 +242,13 @@ export function BuildingSpaceView() {
       },
       {
         key: "finance",
-        label: "دو مدیر مالی",
-        done: financeManagers.length >= 2,
+        label: "مادرخرج / مدیر مالی",
+        done: financeManagers.length >= 1,
         href: `${membersHref}#member-add-panel`,
         hint:
-          financeManagers.length >= 2
+          financeManagers.length >= 1
             ? `${financeManagers.length.toLocaleString("fa-IR")} مدیر`
-            : "برای افزودن عضو عادی حداقل دو مالک/ادمین/مادرخرج لازم است",
+            : "برای افزودن عضو عادی حداقل یک مالک/ادمین/مادرخرج لازم است",
       },
       {
         key: "charge",
@@ -300,7 +306,7 @@ export function BuildingSpaceView() {
             spaceKind="building"
             memberCount={members.length}
             openSettlements={openSettlements}
-            canManageMembers={canManage}
+            canManageMembers={canManageMembers}
             showSubunits
             subunitsHint={unitNounPlural}
           />
@@ -560,14 +566,14 @@ export function BuildingSpaceView() {
             </SectionCard>
 
             <SectionCard
-              title={isConstruction ? "هزینه‌های اخیر" : "شارژ و قبوض اخیر"}
+              title={isConstruction ? "پیش‌نمایش خرج‌ها" : "پیش‌نمایش شارژ و قبوض"}
               badge={posted.length}
+              description={`فقط چند مورد اخیر — مدیریت کامل در «${NAV_LABELS.expenses}».`}
               delayClass="delay2"
             >
               {posted.length === 0 ? (
                 <EmptyHint>
-                  هنوز موردی از API ثبت نشده — از «{isConstruction ? "هزینه‌ها" : "شارژ و قبوض"}»
-                  شروع کنید.
+                  هنوز موردی از API ثبت نشده — از «{NAV_LABELS.expenses}» شروع کنید.
                 </EmptyHint>
               ) : (
                 <DataList>
@@ -581,11 +587,16 @@ export function BuildingSpaceView() {
                         </StatusPill>
                       }
                       trailing={<Amount irrMinor={e.total.amountMinor} />}
+                      actions={
+                        <Link href={`${expensesHref}?expense=${e.id}`}>جزئیات</Link>
+                      }
                     />
                   ))}
                 </DataList>
               )}
-              <Link href={expensesHref}>مشاهده همه</Link>
+              <Link href={expensesHref}>
+                مدیریت همه در {NAV_LABELS.expenses}
+              </Link>
             </SectionCard>
 
             <SectionCard title="اعضای فضا" badge={members.length} delayClass="delay3">

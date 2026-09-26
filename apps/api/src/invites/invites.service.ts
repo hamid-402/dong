@@ -36,6 +36,8 @@ import {
 
   evaluateInviteAnomaly,
 
+  INVITE_ASSIGNABLE_ROLES,
+
 } from "@dang/contracts";
 
 import { loadAppEnv } from "@dang/config";
@@ -70,25 +72,7 @@ import { MemoryAuditStore } from "../audit/memory-audit.store.js";
 
 
 
-const ASSIGNABLE_ROLES: MembershipRole[] = [
-
-  "admin",
-
-  "finance",
-
-  "approver",
-
-  "buyer",
-
-  "asset_custodian",
-
-  "member",
-
-  "auditor",
-
-  "guest",
-
-];
+const ASSIGNABLE_ROLES: MembershipRole[] = [...INVITE_ASSIGNABLE_ROLES];
 
 
 
@@ -462,7 +446,7 @@ export class InvitesService {
 
           detail:
 
-            "این فضا حداقل به دو مدیر مالی فعال نیاز دارد. نقش دعوت را finance یا admin بگذارید تا پشتیبان مادرخرج تأمین شود.",
+            "این فضا حداقل به یک مدیر مالی فعال نیاز دارد. نقش دعوت را finance یا admin بگذارید.",
 
           status: 400,
 

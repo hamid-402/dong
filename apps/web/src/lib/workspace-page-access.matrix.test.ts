@@ -38,14 +38,21 @@ describe("S10-18 page access matrix", () => {
     }
   });
 
-  it("org template allows procurement for any role once module present", () => {
+  it("org template allows procurement for operational roles; guest is blocked", () => {
+    expect(
+      workspacePageAccess({
+        page: "procurement",
+        template: "small_team",
+        role: "member",
+      }).allowed,
+    ).toBe(true);
     expect(
       workspacePageAccess({
         page: "procurement",
         template: "small_team",
         role: "guest",
       }).allowed,
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("metrics denied for guest/member; allowed for owner/admin/finance/auditor", () => {

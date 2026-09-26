@@ -14,8 +14,11 @@ import { ShellV2Provider, useShellV2Api } from "@/components/shell/shell-v2-cont
 import { AppTabbar } from "@/components/shell/app-tabbar";
 import { SpaceKindHeaderTabs } from "@/components/shell/space-kind-header-tabs";
 import { ShellPageTrail } from "@/components/shell/shell-page-trail";
+import { ShellHeaderWayfinding } from "@/components/shell/shell-header-wayfinding";
+import { ShellHeaderSearchField } from "@/components/shell/shell-header-search";
 import { CommandPalette } from "@/components/shell/command-palette";
-import { ShellSecondaryRail } from "@/components/shell/shell-secondary-rail";
+import { ShellWorkspaceNavMenu } from "@/components/shell/shell-secondary-rail";
+import { DirIcon } from "@/components/dir-icon";
 import { bottomTabsV2, expenseFabHref } from "@/lib/navigation-v2";
 import {
   breadcrumbForPathname,
@@ -26,38 +29,72 @@ import { slugFromPathname } from "@/lib/workspace-storage";
 import { useViewportMode } from "@/lib/use-viewport";
 import { t } from "@/lib/i18n";
 import { NAV_LABELS } from "@/lib/nav-labels";
+import { workspaceDisplayName } from "@/lib/workspace-display-name";
+import { spaceKindForTemplate, isReadOnlyRole } from "@dang/contracts";
+import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
+import { spaceNavFlagsFromCapabilities } from "@/lib/workspace-page-access";
 
 function ShellUtilityCluster({
   workspaceId,
   dense = false,
+  hideSearch = false,
 }: {
   workspaceId?: string;
   /** Hide secondary tools on narrow shell. */
   dense?: boolean;
+  /** Search lives in the sub-header center — avoid duplicate control. */
+  hideSearch?: boolean;
 }) {
   const shell = useShellV2Api();
   const paletteOpen = shell?.commandPaletteOpen ?? false;
   return (
     <div className={`shell-v2__user${dense ? " shell-v2__user--dense" : ""}`}>
-      <button
-        type="button"
-        className="shell-v2__search shell-v2__search--icon"
-        onClick={() => shell?.openCommandPalette()}
-        title={t("shell.searchTitle")}
-        aria-label={t("shell.searchOpen")}
-        aria-haspopup="dialog"
-        aria-expanded={paletteOpen}
-        aria-keyshortcuts="Control+K Meta+K"
-      >
-        <span className="shell-v2__search-icon" aria-hidden>
-          <ShellIconSvg name="search" />
-        </span>
-      </button>
+      {hideSearch ? null : (
+        <button
+          type="button"
+          className="shell-v2__search shell-v2__search--icon"
+          onClick={() => shell?.openCommandPalette()}
+          title={t("shell.searchTitle")}
+          aria-label={t("shell.searchOpen")}
+          aria-haspopup="dialog"
+          aria-expanded={paletteOpen}
+          aria-keyshortcuts="Control+K Meta+K"
+        >
+          <span className="shell-v2__search-icon" aria-hidden>
+            <ShellIconSvg name="search" />
+          </span>
+        </button>
+      )}
       {dense ? null : <ThemeToggleButton />}
       <ApprovalQueueBadge workspaceId={workspaceId} />
       <NotificationBell workspaceId={workspaceId} />
       <HeaderProfileButton />
     </div>
+  );
+}
+
+function LeaveSpaceControl({
+  href,
+  compact = false,
+}: {
+  href: string;
+  /** Icon-only on narrow sub-header. */
+  compact?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`shell-v2__leaveSpace${compact ? " shell-v2__leaveSpace--compact" : ""}`}
+      aria-label={t("shell.leaveSpaceAria")}
+      title={t("shell.leaveSpace")}
+    >
+      <span className="shell-v2__leaveSpaceIcon" aria-hidden>
+        <DirIcon>→</DirIcon>
+      </span>
+      {compact ? null : (
+        <span className="shell-v2__leaveSpaceLabel">{t("shell.leaveSpace")}</span>
+      )}
+    </Link>
   );
 }
 
@@ -70,18 +107,18 @@ function BrandWordmark({
 }) {
   return (
     <div className="shell-v2__brand-text">
-      <Link href="/home" className="shell-v2__wordmark">
+      <Link
+        href="/home"
+        className="shell-v2__wordmark"
+        aria-label={t("shell.homeMarkAria")}
+      >
         دنگ
       </Link>
       {workspaceName && workspaceHref ? (
         <Link href={workspaceHref} className="shell-v2__contextLink" title={workspaceName}>
           {workspaceName}
         </Link>
-      ) : (
-        <Link href="/spaces" className="shell-v2__contextLink shell-v2__contextLink--muted">
-          {NAV_LABELS.spacesList}
-        </Link>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -96,32 +133,46 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
   const active = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const template = active?.template;
   const slug = slugFromPathname(pathname) ?? active?.slug ?? null;
+  const inWorkspace = Boolean(slug) && /^\/w\//.test(pathname);
+  const { role: membershipRole } = useWorkspaceMembershipRole(
+    inWorkspace ? chrome.workspaceId : "",
+  );
   const tabs = bottomTabsV2(template, slug);
-  const fabHref = expenseFabHref(template, slug);
+  const fabHref = isReadOnlyRole(membershipRole)
+    ? null
+    : expenseFabHref(template, slug);
   const desktop = viewport === "desktop";
   const tablet = viewport === "tablet";
   const search = searchParams?.toString() ? `?${searchParams.toString()}` : "";
   const primary = isShellPrimaryPath(pathname, search);
+  const displayWsName = workspaceDisplayName(active?.name, template);
   const crumbs = useMemo(
-    () => breadcrumbForPathname(pathname, active?.name, search),
-    [pathname, active?.name, search],
+    () => breadcrumbForPathname(pathname, displayWsName, search),
+    [pathname, displayWsName, search],
   );
-  const inWorkspace = Boolean(slug) && /^\/w\//.test(pathname);
-  const contextName = inWorkspace ? active?.name?.trim() || null : null;
+  const subCrumbs =
+    crumbs.length > 0
+      ? crumbs
+      : [
+          {
+            label: displayWsName || slug || t("nav.back"),
+            href: slug ? wPath(slug) : "/home",
+          },
+          { label: t("nav.pageTrail") },
+        ];
+  const contextName = inWorkspace ? displayWsName : null;
   const contextHref = inWorkspace && slug ? wPath(slug) : null;
-  const railFlags = chrome.capabilities?.productFlags
-    ? {
-        addonAck: chrome.capabilities.productFlags.addonAck,
-        approvalQueue: chrome.capabilities.productFlags.approvalQueue,
-        catalogV1: chrome.capabilities.providers?.catalog === "catalog_v1",
-        costCenter: chrome.capabilities.productFlags.costCenter,
-        allowance: chrome.capabilities.productFlags.allowance,
-        statementsV1:
-          chrome.capabilities.providers?.statements === "csv_json_print_v1",
-        chartsV1: chrome.capabilities.providers?.charts === "charts_v1",
-      }
-    : undefined;
-
+  const spacesListHref =
+    inWorkspace && template
+      ? `/home?kind=${spaceKindForTemplate(template)}`
+      : "/home";
+  /** Membership leave / archive lives in settings danger zone — not home nav. */
+  const leaveMembershipHref =
+    inWorkspace && slug && template && template !== "personal"
+      ? `${wPath(slug, "settings")}#danger`
+      : spacesListHref;
+  const archived = Boolean(active?.archivedAt);
+  const railFlags = spaceNavFlagsFromCapabilities(chrome.capabilities);
   const tabHrefs = tabs.map((tab) => tab.href).join("|");
   useEffect(() => {
     for (const tab of tabs) router.prefetch(tab.href);
@@ -151,9 +202,21 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
         {primary ? (
           <header className="shell-v2__header shell-v2__header--spaceFirst">
             <div className="shell-v2__brand">
-              <Link href="/home" className="shell-v2__mark" aria-label="خانه">
-                <ShellIconSvg name="wallet" />
-              </Link>
+              {inWorkspace && slug ? (
+                <ShellWorkspaceNavMenu
+                  template={template}
+                  slug={slug}
+                  flags={railFlags}
+                  role={membershipRole || null}
+                />
+              ) : null}
+              {inWorkspace ? (
+                <LeaveSpaceControl href={leaveMembershipHref} />
+              ) : (
+                <Link href="/home" className="shell-v2__mark" aria-label={t("shell.homeMarkAria")}>
+                  <ShellIconSvg name="wallet" />
+                </Link>
+              )}
               <BrandWordmark
                 workspaceName={contextName}
                 workspaceHref={contextHref}
@@ -178,50 +241,98 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
               </div>
             )}
 
-            <ShellUtilityCluster
-              workspaceId={chrome.workspaceId ?? undefined}
-              dense={!desktop}
-            />
-          </header>
-        ) : (
-          <header className="shell-v2__header shell-v2__header--sub">
-            <div className="shell-v2__sub-trail">
-              <ShellPageTrail
-                items={
-                  crumbs.length > 0
-                    ? crumbs
-                    : [
-                        {
-                          label: active?.name?.trim() || slug || t("nav.back"),
-                          href: slug ? wPath(slug) : "/home",
-                        },
-                        { label: t("nav.pageTrail") },
-                      ]
-                }
-                fallbackHref={slug ? wPath(slug) : "/home"}
-              />
-            </div>
-            <div className="shell-v2__sub-end">
-              <Link href="/spaces" className="shell-v2__spacesTextLink">
-                {NAV_LABELS.spacesList}
-              </Link>
+            <div className="shell-v2__header-end">
+              {inWorkspace && desktop ? (
+                <Link
+                  href={spacesListHref}
+                  className="shell-v2__spacesTextLink"
+                  aria-label={t("shell.spacesListLinkAria")}
+                >
+                  {NAV_LABELS.home}
+                </Link>
+              ) : null}
               <ShellUtilityCluster
                 workspaceId={chrome.workspaceId ?? undefined}
                 dense={!desktop}
               />
             </div>
           </header>
+        ) : (
+          <header className="shell-v2__header shell-v2__header--sub">
+            <div className="shell-v2__sub-start">
+              {inWorkspace && slug ? (
+                <ShellWorkspaceNavMenu
+                  template={template}
+                  slug={slug}
+                  flags={railFlags}
+                  role={membershipRole || null}
+                />
+              ) : null}
+              {inWorkspace ? (
+                <LeaveSpaceControl href={leaveMembershipHref} compact />
+              ) : null}
+              <ShellPageTrail
+                backOnly
+                items={subCrumbs}
+                fallbackHref={slug ? wPath(slug) : "/home"}
+              />
+            </div>
+            <div className="shell-v2__sub-center">
+              <ShellHeaderWayfinding
+                crumbs={subCrumbs}
+                compact={viewport === "mobile"}
+              />
+              <ShellHeaderSearchField
+                variant={viewport === "mobile" ? "icon" : "field"}
+              />
+            </div>
+            <div className="shell-v2__sub-end">
+              {inWorkspace ? (
+                <Link
+                  href={spacesListHref}
+                  className="shell-v2__spacesTextLink"
+                  aria-label={t("shell.spacesListLinkAria")}
+                >
+                  {NAV_LABELS.home}
+                </Link>
+              ) : null}
+              <ShellUtilityCluster
+                workspaceId={chrome.workspaceId ?? undefined}
+                dense={!desktop}
+                hideSearch
+              />
+            </div>
+          </header>
         )}
 
         <div className="shell-v2__body">
-          {desktop && inWorkspace && slug ? (
-            <ShellSecondaryRail
-              template={template}
-              slug={slug}
-              flags={railFlags}
-            />
+          {inWorkspace && archived && slug ? (
+            <div className="shell-archived-banner" role="status">
+              <span>{t("shell.archivedBanner")}</span>
+              <Link href={`${wPath(slug, "settings")}#danger`}>
+                {t("shell.archivedBannerAction")}
+              </Link>
+            </div>
           ) : null}
           <main id="main" className="shell-v2__main" tabIndex={-1}>
+            {chrome.error ||
+            chrome.capabilitiesUnavailable ||
+            chrome.notificationsError ? (
+              <div className="shell-chrome-banner" role="status">
+                <span>
+                  {chrome.error ??
+                    chrome.notificationsError ??
+                    "capabilities در دسترس نیست — برخی برچسب‌های اعتماد ممکن است ناقص باشند."}
+                </span>
+                <button
+                  type="button"
+                  className="textButton"
+                  onClick={() => chrome.refreshChrome()}
+                >
+                  تلاش دوباره
+                </button>
+              </div>
+            ) : null}
             {chrome.capabilities?.providers?.offlineSync === "mutation_queue_v1" &&
             chrome.offlineQueueCount > 0 ? (
               <div className="shell-offline-banner" role="status">

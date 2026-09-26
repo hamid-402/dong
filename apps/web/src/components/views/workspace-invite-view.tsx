@@ -12,8 +12,11 @@ import {
   INVITE_ADMIN_ROLES,
   inviteSatisfiesFinanceQuorum,
   isFinanceManagerRole,
+  isMembershipManagerRole,
   isReadOnlyRole,
   spaceKindForTemplate,
+  uiInviteRoleOptions,
+  uiRoleOptionsIncludingCurrent,
 } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
@@ -41,20 +44,12 @@ import { wPath } from "@/lib/workspace-paths";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { GroupPublicIdCard } from "@/components/shell/group-public-id";
+import { GuestPlaceholdersPanel } from "@/components/guest-placeholders-panel";
+import { AllowancesPanel } from "@/components/allowances-panel";
+import { modulesForTemplate } from "@/lib/workspace-modules";
 import styles from "./workspace-invite-view.module.css";
 
 const INVITE_ROLES = new Set<string>(INVITE_ADMIN_ROLES);
-const MANAGER_ROLES = new Set(["owner", "admin", "finance"]);
-
-const ASSIGNABLE_ROLE_OPTIONS = [
-  { value: "finance", label: "مادرخرج / مدیر مالی" },
-  { value: "admin", label: "ادمین" },
-  { value: "member", label: "عضو" },
-  { value: "approver", label: "تأییدکننده" },
-  { value: "buyer", label: "خریدار" },
-  { value: "auditor", label: "حسابرس" },
-  { value: "guest", label: "مهمان" },
-] as const;
 
 function isActiveMembership(m: MembershipSummary): boolean {
   return !m.disabledAt;
@@ -85,6 +80,7 @@ export function WorkspaceInviteView() {
   const [disableReason, setDisableReason] = useState("");
   const [pendingTransfer, setPendingTransfer] = useState<OwnershipTransferSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successHint, setSuccessHint] = useState<string | null>(null);
   const [copyHint, setCopyHint] = useState<string | null>(null);
   const [emailProvider, setEmailProvider] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -139,7 +135,7 @@ export function WorkspaceInviteView() {
     } catch {
       setPendingTransfer(null);
     }
-    if (MANAGER_ROLES.has(roleNow)) {
+    if (isMembershipManagerRole(roleNow)) {
       try {
         setJoinRequests(await api.listJoinRequests(id));
       } catch {
@@ -185,7 +181,7 @@ export function WorkspaceInviteView() {
   const slug = selected?.slug ?? scope?.slug ?? null;
   const kind = spaceKindForTemplate(selected?.template);
   const canInvite = INVITE_ROLES.has(myRole);
-  const canManage = MANAGER_ROLES.has(myRole);
+  const canManage = isMembershipManagerRole(myRole);
   const isOwner = myRole === "owner";
   const readOnlyInvite = isReadOnlyRole(myRole) || (!!myRole && !canInvite);
   const activeMembers = members.filter(isActiveMembership);
@@ -198,10 +194,25 @@ export function WorkspaceInviteView() {
     currentFinanceManagerCount: financeManagerCount,
     inviteRole: "member",
   }).ok;
+  const flags = chrome.capabilities?.productFlags;
+  const modules = modulesForTemplate(selected?.template);
+  const roleOptionFlags = {
+    showApprover: Boolean(flags?.approvalQueue || flags?.expensePolicy),
+    showBuyer:
+      modules.has("procurement") ||
+      modules.has("assets") ||
+      modules.has("assets_light"),
+    showAuditor: kind !== "personal",
+  };
+  const assignableRoleOptions = uiInviteRoleOptions(roleOptionFlags);
   const selectedMember =
     members.find((member) => member.userId === selectedMemberId) ??
     members[0] ??
     null;
+  const editRoleOptions = uiRoleOptionsIncludingCurrent(
+    roleOptionFlags,
+    selectedMember?.role,
+  );
   const pendingJoins = joinRequests.filter((r) => r.status === "pending");
 
   useEffect(() => {
@@ -236,9 +247,11 @@ export function WorkspaceInviteView() {
       <WorkspacePageFrame
         title={NAV_LABELS.members}
         description={
-          canManage
-            ? "فهرست اعضا، تغییر نقش، افزودن با نام‌کاربری و دعوت — اینجا مرکز مدیریت گروه است."
-            : "فهرست اعضا و نقش‌ها در این فضا."
+          canInvite
+            ? "فهرست اعضا، تغییر نقش، افزودن با نام‌کاربری و ساخت لینک دعوت — مرکز مدیریت گروه."
+            : canManage
+              ? "مادرخرج: افزودن عضو با نام‌کاربری/شناسه اینجا؛ ساخت لینک دعوت فقط برای مالک و ادمین است."
+              : "فهرست اعضا و نقش‌ها در این فضا."
         }
         primaryAction={
           canManage ? (
@@ -261,30 +274,38 @@ export function WorkspaceInviteView() {
         loadingLabel="در حال بارگذاری اعضا…"
         empty={<EmptyHint>فضای کاری را انتخاب کنید.</EmptyHint>}
       >
-      <FlashMessages error={pageError} />
+      <FlashMessages error={pageError} successMessage={successHint} />
       {slug && needsSecondFinance ? (
         <StatusLine>
-          <StatusPill tone="warn">قانون دو مادرخرج</StatusPill>{" "}
+          <StatusPill tone="warn">نیاز به مدیر مالی</StatusPill>{" "}
           الان {financeManagerCount.toLocaleString("fa-IR")} مدیر مالی دارید. برای افزودن عضو
-          عادی، اول یک نفر دیگر را با نقش «مادرخرج / مدیر مالی» یا «ادمین» اضافه کنید.
+          عادی، حداقل یک نفر با نقش «مادرخرج / مدیر مالی»، «ادمین» یا «مالک» لازم است.
         </StatusLine>
       ) : null}
-      {slug ? <GroupPublicIdCard slug={slug} name={selected?.name} /> : null}
       {slug ? (
-        <StatusLine>
-          مسیرهای مرتبط:{" "}
-          <Link href={wPath(slug, "expenses")}>خرج‌ها</Link>
-          {" · "}
-          <Link href={wPath(slug, "settlements")}>تسویه</Link>
-          {" · "}
-          <Link href={wPath(slug, "space")}>خانهٔ گروه</Link>
-          {canManage ? (
-            <>
+        <GroupPublicIdCard slug={slug} name={selected?.name} compact />
+      ) : null}
+      {slug || selected ? (
+        <div className={styles.toolbar}>
+          {selected ? (
+            <span>
+              <strong>{selected.name}</strong>
               {" · "}
-              <a href="#member-add-panel">افزودن عضو ↓</a>
-            </>
+              {spaceKindForTemplateLabel(kind)}
+              {" · "}
+              نقش شما: {membershipRoleLabel(myRole)}
+            </span>
           ) : null}
-        </StatusLine>
+          {slug ? (
+            <nav className={styles.toolbarNav} aria-label="مسیرهای مرتبط">
+              <Link href={wPath(slug, "expenses")}>{NAV_LABELS.expenses}</Link>
+              <Link href={wPath(slug, "settlements")}>{NAV_LABELS.settlements}</Link>
+              <Link href={wPath(slug, "space")}>خلاصهٔ گروه</Link>
+              {canManage ? <a href="#member-add-panel">افزودن عضو</a> : null}
+              {canInvite ? <a href="#invite-create-panel">ساخت دعوت</a> : null}
+            </nav>
+          ) : null}
+        </div>
       ) : null}
       <ProductGrid>
         <SectionCard title="اعضای فعلی" badge={members.length} delayClass="delay1">
@@ -320,69 +341,123 @@ export function WorkspaceInviteView() {
             />
           ) : (
             <div className={styles.masterDetail}>
-              {!presenceLive ? (
-                <StatusLine>{t("shell.presenceUnavailable")}</StatusLine>
-              ) : (
-                <StatusLine>{t("shell.presenceLiveHint")}</StatusLine>
-              )}
-              <DataList>
-                {members.map((m) => {
-                  const online = presenceLive && presenceIds.has(m.userId);
-                  const rolePart = m.disabledAt
-                    ? `${membershipRoleLabel(m.role)} · غیرفعال`
-                    : presenceLive
-                      ? `${membershipRoleLabel(m.role)} · ${
-                          online ? t("shell.presenceOnline") : t("shell.presenceOffline")
-                        }`
-                      : membershipRoleLabel(m.role);
-                  return (
-                  <DataRow
-                    key={m.userId}
-                    title={m.displayName}
-                    meta={rolePart}
-                    actions={
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        aria-pressed={selectedMember?.userId === m.userId}
-                        onClick={() => setSelectedMemberId(m.userId)}
-                      >
-                        جزئیات
-                      </Button>
-                    }
-                  />
-                  );
-                })}
-              </DataList>
+              <div className={styles.roster}>
+                <p className={styles.presenceHint}>
+                  {!presenceLive
+                    ? t("shell.presenceUnavailable")
+                    : t("shell.presenceLiveHint")}
+                  {" · "}
+                  روی هر ردیف بزنید تا جزئیات و مدیریت نقش باز شود.
+                </p>
+                <ul className={styles.memberList} role="listbox" aria-label="فهرست اعضا">
+                  {members.map((m) => {
+                    const online = presenceLive && presenceIds.has(m.userId);
+                    const selectedRow =
+                      (selectedMember?.userId ?? "") === m.userId;
+                    const initial =
+                      (m.displayName.trim().charAt(0) || "?").toLocaleUpperCase(
+                        "fa",
+                      );
+                    return (
+                      <li key={m.userId} role="option" aria-selected={selectedRow}>
+                        <button
+                          type="button"
+                          className={styles.memberRow}
+                          aria-pressed={selectedRow}
+                          onClick={() => setSelectedMemberId(m.userId)}
+                        >
+                          <span className={styles.avatar} aria-hidden>
+                            {initial}
+                          </span>
+                          <span className={styles.memberMain}>
+                            <strong>{m.displayName}</strong>
+                            <small>
+                              {m.disabledAt
+                                ? `${membershipRoleLabel(m.role)} · غیرفعال`
+                                : membershipRoleLabel(m.role)}
+                            </small>
+                          </span>
+                          <span className={styles.memberMeta}>
+                            {presenceLive && !m.disabledAt ? (
+                              <span
+                                className={`${styles.presenceDot}${
+                                  online ? ` ${styles.presenceDotOnline}` : ""
+                                }`}
+                                title={
+                                  online
+                                    ? t("shell.presenceOnline")
+                                    : t("shell.presenceOffline")
+                                }
+                                aria-label={
+                                  online
+                                    ? t("shell.presenceOnline")
+                                    : t("shell.presenceOffline")
+                                }
+                              />
+                            ) : null}
+                            <StatusPill
+                              tone={
+                                m.disabledAt
+                                  ? "warn"
+                                  : isReadOnlyRole(m.role)
+                                    ? "warn"
+                                    : m.role === "owner" || isFinanceManagerRole(m.role)
+                                      ? "ok"
+                                      : "neutral"
+                              }
+                            >
+                              {m.disabledAt
+                                ? "غیرفعال"
+                                : membershipRoleLabel(m.role)}
+                            </StatusPill>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
               {selectedMember ? (
                 <aside className={styles.inspector} aria-label="جزئیات عضو انتخاب‌شده">
-                  <span>MEMBER INSPECTOR</span>
-                  <h3>{selectedMember.displayName}</h3>
-                  <StatusPill
-                    tone={
-                      selectedMember.disabledAt
-                        ? "warn"
-                        : isReadOnlyRole(selectedMember.role)
+                  <p className={styles.inspectorEyebrow}>جزئیات عضو</p>
+                  <div className={styles.inspectorHead}>
+                    <h3>{selectedMember.displayName}</h3>
+                  </div>
+                  <div className={styles.inspectorPills}>
+                    <StatusPill
+                      tone={
+                        selectedMember.disabledAt
                           ? "warn"
-                          : "ok"
-                    }
-                  >
-                    {selectedMember.disabledAt
-                      ? "غیرفعال"
-                      : membershipRoleLabel(selectedMember.role)}
-                  </StatusPill>
-                  {!selectedMember.disabledAt && presenceLive ? (
-                    <StatusPill tone={presenceIds.has(selectedMember.userId) ? "ok" : "warn"}>
-                      {presenceIds.has(selectedMember.userId)
-                        ? t("shell.presenceOnline")
-                        : t("shell.presenceOffline")}
+                          : isReadOnlyRole(selectedMember.role)
+                            ? "warn"
+                            : "ok"
+                      }
+                    >
+                      {selectedMember.disabledAt
+                        ? "غیرفعال"
+                        : membershipRoleLabel(selectedMember.role)}
                     </StatusPill>
-                  ) : null}
+                    {!selectedMember.disabledAt && presenceLive ? (
+                      <StatusPill
+                        tone={
+                          presenceIds.has(selectedMember.userId) ? "ok" : "warn"
+                        }
+                      >
+                        {presenceIds.has(selectedMember.userId)
+                          ? t("shell.presenceOnline")
+                          : t("shell.presenceOffline")}
+                      </StatusPill>
+                    ) : null}
+                  </div>
                   <dl>
                     <div>
                       <dt>شناسه</dt>
                       <dd>
-                        <code>{selectedMember.userId}</code>
+                        <code title={selectedMember.userId}>
+                          {selectedMember.userId.length > 16
+                            ? `${selectedMember.userId.slice(0, 8)}…${selectedMember.userId.slice(-4)}`
+                            : selectedMember.userId}
+                        </code>
                       </dd>
                     </div>
                     <div>
@@ -391,9 +466,7 @@ export function WorkspaceInviteView() {
                     </div>
                     <div>
                       <dt>عضویت از</dt>
-                      <dd>
-                        {formatFaDate(selectedMember.joinedAt)}
-                      </dd>
+                      <dd>{formatFaDate(selectedMember.joinedAt)}</dd>
                     </div>
                     {selectedMember.addedVia ? (
                       <div>
@@ -409,7 +482,7 @@ export function WorkspaceInviteView() {
                     ) : null}
                   </dl>
                   {canManage && selectedMember.userId !== myUserId ? (
-                    <FormStack>
+                    <FormStack density="compact" className={styles.inspectorActions}>
                       {selectedMember.role !== "owner" && !selectedMember.disabledAt ? (
                         <>
                           <SelectField
@@ -417,9 +490,10 @@ export function WorkspaceInviteView() {
                             value={editRole}
                             onChange={(event) => setEditRole(event.target.value)}
                           >
-                            {ASSIGNABLE_ROLE_OPTIONS.map((opt) => (
+                            {editRoleOptions.map((opt) => (
                               <option key={opt.value} value={opt.value}>
-                                {opt.label}
+                                {opt.labelFa}
+                                {opt.tier === "advanced" ? " · پیشرفته" : ""}
                               </option>
                             ))}
                           </SelectField>
@@ -454,7 +528,9 @@ export function WorkspaceInviteView() {
                           disabled={pending}
                           onClick={() =>
                             run("فعال‌سازی عضو ناموفق", () =>
-                              api.enableMember(workspaceId, selectedMember.userId).then(() => undefined),
+                              api
+                                .enableMember(workspaceId, selectedMember.userId)
+                                .then(() => undefined),
                             )
                           }
                         >
@@ -465,7 +541,9 @@ export function WorkspaceInviteView() {
                           <TextField
                             label="دلیل غیرفعال‌سازی"
                             value={disableReason}
-                            onChange={(event) => setDisableReason(event.target.value)}
+                            onChange={(event) =>
+                              setDisableReason(event.target.value)
+                            }
                           />
                           <Button
                             type="button"
@@ -473,9 +551,11 @@ export function WorkspaceInviteView() {
                             disabled={pending || disableReason.trim().length === 0}
                             onClick={() =>
                               run("غیرفعال‌سازی عضو ناموفق", async () => {
-                                await api.disableMember(workspaceId, selectedMember.userId, {
-                                  reason: disableReason.trim(),
-                                });
+                                await api.disableMember(
+                                  workspaceId,
+                                  selectedMember.userId,
+                                  { reason: disableReason.trim() },
+                                );
                                 setDisableReason("");
                               })
                             }
@@ -492,9 +572,10 @@ export function WorkspaceInviteView() {
                           disabled={pending}
                           onClick={() =>
                             run("پیشنهاد انتقال مالکیت ناموفق", async () => {
-                              const row = await api.proposeOwnershipTransfer(workspaceId, {
-                                toUserId: selectedMember.userId,
-                              });
+                              const row = await api.proposeOwnershipTransfer(
+                                workspaceId,
+                                { toUserId: selectedMember.userId },
+                              );
                               setPendingTransfer(row);
                             })
                           }
@@ -508,163 +589,173 @@ export function WorkspaceInviteView() {
               ) : null}
             </div>
           )}
-          {selected ? (
-            <StatusLine>
-              {selected.name} · {spaceKindForTemplateLabel(kind)} · نقش شما:{" "}
-              {membershipRoleLabel(myRole)}
-            </StatusLine>
-          ) : null}
         </SectionCard>
 
         {canManage ? (
-          <SectionCard
-            id="member-add-panel"
-            title="افزودن عضو با نام‌کاربری"
-            delayClass="delay1"
-          >
-            <FormStack>
-              <p className="liveHint" style={{ marginBottom: 8 }}>
-                جست‌وجوی دقیق در دایرکتوری — فقط کاربران موجود؛ حساب جدید ساخته نمی‌شود.
-                {lookupPreview && !addUsername.trim()
-                  ? " · از صفحهٔ دوستان پیش‌پر شده؛ نقش را انتخاب و افزودن را بزنید."
-                  : null}
-              </p>
-              <TextField
-                label="نام‌کاربری"
-                value={addUsername}
-                onChange={(event) => {
-                  setAddUsername(event.target.value);
-                  setLookupPreview(null);
-                }}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={pending || addUsername.trim().length < 3}
-                onClick={() =>
-                  run("جست‌وجوی نام‌کاربری ناموفق", async () => {
-                    const hit = await api.lookupDirectory({ username: addUsername.trim() });
-                    setLookupPreview(hit);
-                    if (!hit) {
-                      throw new Error("کاربری با این نام‌کاربری یافت نشد");
-                    }
-                  })
-                }
-              >
-                جست‌وجو
-              </Button>
-              {lookupPreview ? (
-                <StatusLine>
-                  {lookupPreview.displayName}
-                  {lookupPreview.username ? ` · @${lookupPreview.username}` : ""} ·{" "}
-                  <code>{lookupPreview.userId.slice(0, 8)}</code>
-                </StatusLine>
-              ) : null}
-              <SelectField
-                label="نقش"
-                value={addRole}
-                onChange={(event) => setAddRole(event.target.value)}
-              >
-                {ASSIGNABLE_ROLE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                    {needsSecondFinance && !isFinanceManagerRole(opt.value)
-                      ? " (فعلاً مجاز نیست)"
-                      : ""}
-                  </option>
-                ))}
-              </SelectField>
-              {needsSecondFinance ? (
-                <StatusLine>
-                  نقش پیش‌فرض روی مادرخرج گذاشته شد — تا وقتی دو مدیر مالی نداشته باشید، نقش‌های
-                  غیرمالی با خطای ۴۰۹ رد می‌شوند.
-                </StatusLine>
-              ) : (
+          <div className={styles.opsGrid}>
+            <SectionCard
+              id="member-add-panel"
+              title="افزودن عضو با نام‌کاربری"
+              delayClass="delay1"
+            >
+              <FormStack density="compact">
                 <p className="liveHint">
-                  طرف مقابل باید قبلاً در دنگ ثبت‌نام کرده باشد؛ با نام‌کاربری جست‌وجو و اضافه
-                  کنید.
+                  جست‌وجوی دقیق در دایرکتوری — فقط کاربران موجود؛ حساب جدید ساخته نمی‌شود.
+                  {lookupPreview && !addUsername.trim()
+                    ? " · از صفحهٔ دوستان پیش‌پر شده؛ نقش را انتخاب و افزودن را بزنید."
+                    : null}
                 </p>
-              )}
-              <Button
-                type="button"
-                disabled={
-                  pending ||
-                  !workspaceId ||
-                  !lookupPreview ||
-                  (needsSecondFinance && !isFinanceManagerRole(addRole))
-                }
-                onClick={() =>
-                  run("افزودن عضو ناموفق", async () => {
-                    if (!lookupPreview) return;
-                    if (needsSecondFinance && !isFinanceManagerRole(addRole)) {
-                      throw new Error(
-                        "قبل از افزودن عضو عادی، نقش را مادرخرج یا ادمین بگذارید.",
-                      );
-                    }
-                    await api.addMember(workspaceId, {
-                      userId: lookupPreview.userId,
-                      role: addRole,
-                    });
-                    setAddUsername("");
+                <TextField
+                  label="نام‌کاربری"
+                  value={addUsername}
+                  onChange={(event) => {
+                    setAddUsername(event.target.value);
                     setLookupPreview(null);
-                  })
-                }
-              >
-                {needsSecondFinance ? "افزودن به‌عنوان مادرخرج" : "افزودن عضو"}
-              </Button>
-            </FormStack>
-          </SectionCard>
-        ) : null}
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={pending || addUsername.trim().length < 3}
+                  onClick={() =>
+                    run("جست‌وجوی نام‌کاربری ناموفق", async () => {
+                      const hit = await api.lookupDirectory({
+                        username: addUsername.trim(),
+                      });
+                      setLookupPreview(hit);
+                      if (!hit) {
+                        throw new Error("کاربری با این نام‌کاربری یافت نشد");
+                      }
+                    })
+                  }
+                >
+                  جست‌وجو
+                </Button>
+                {lookupPreview ? (
+                  <StatusLine>
+                    {lookupPreview.displayName}
+                    {lookupPreview.username ? ` · @${lookupPreview.username}` : ""}{" "}
+                    · <code>{lookupPreview.userId.slice(0, 8)}</code>
+                  </StatusLine>
+                ) : null}
+                <SelectField
+                  label="نقش"
+                  value={addRole}
+                  onChange={(event) => setAddRole(event.target.value)}
+                >
+                  {assignableRoleOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.labelFa}
+                      {needsSecondFinance && !isFinanceManagerRole(opt.value)
+                        ? " (فعلاً مجاز نیست)"
+                        : ""}
+                    </option>
+                  ))}
+                </SelectField>
+                {needsSecondFinance ? (
+                  <StatusLine>
+                    نقش پیش‌فرض روی مادرخرج گذاشته شد — تا وقتی حداقل یک مدیر مالی فعال نباشد،
+                    نقش‌های غیرمالی با خطای ۴۰۹ رد می‌شوند.
+                  </StatusLine>
+                ) : (
+                  <p className="liveHint">
+                    طرف مقابل باید قبلاً در دنگ ثبت‌نام کرده باشد؛ با نام‌کاربری جست‌وجو و
+                    اضافه کنید.
+                  </p>
+                )}
+                <Button
+                  type="button"
+                  disabled={
+                    pending ||
+                    !workspaceId ||
+                    !lookupPreview ||
+                    (needsSecondFinance && !isFinanceManagerRole(addRole))
+                  }
+                  onClick={() =>
+                    run("افزودن عضو ناموفق", async () => {
+                      if (!lookupPreview) return;
+                      if (needsSecondFinance && !isFinanceManagerRole(addRole)) {
+                        throw new Error(
+                          "قبل از افزودن عضو عادی، نقش را مادرخرج یا ادمین بگذارید.",
+                        );
+                      }
+                      await api.addMember(workspaceId, {
+                        userId: lookupPreview.userId,
+                        role: addRole,
+                      });
+                      setAddUsername("");
+                      setLookupPreview(null);
+                    })
+                  }
+                >
+                  {needsSecondFinance ? "افزودن به‌عنوان مادرخرج" : "افزودن عضو"}
+                </Button>
+              </FormStack>
+            </SectionCard>
 
-        {canManage ? (
-          <SectionCard title="درخواست‌های عضویت" badge={pendingJoins.length} delayClass="delay2">
-            {pendingJoins.length === 0 ? (
-              <EmptyHint>درخواست بازی نیست.</EmptyHint>
-            ) : (
-              <DataList>
-                {pendingJoins.map((req) => (
-                  <DataRow
-                    key={req.id}
-                    title={req.displayName}
-                    meta={req.message ?? req.userId.slice(0, 8)}
-                    actions={
-                      <>
-                        <Button
-                          type="button"
-                          disabled={pending}
-                          onClick={() =>
-                            run("تأیید درخواست ناموفق", () =>
-                              api
-                                .approveJoinRequest(workspaceId, req.id, { role: "member" })
-                                .then(() => undefined),
-                            )
-                          }
-                        >
-                          تأیید
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          disabled={pending}
-                          onClick={() =>
-                            run("رد درخواست ناموفق", () =>
-                              api.rejectJoinRequest(workspaceId, req.id).then(() => undefined),
-                            )
-                          }
-                        >
-                          رد
-                        </Button>
-                      </>
-                    }
-                  />
-                ))}
-              </DataList>
-            )}
-          </SectionCard>
+            <SectionCard
+              title="درخواست‌های عضویت"
+              badge={pendingJoins.length}
+              delayClass="delay2"
+            >
+              {pendingJoins.length === 0 ? (
+                <EmptyHint>درخواست بازی نیست.</EmptyHint>
+              ) : (
+                <DataList>
+                  {pendingJoins.map((req) => (
+                    <DataRow
+                      key={req.id}
+                      title={req.displayName}
+                      meta={req.message ?? req.userId.slice(0, 8)}
+                      actions={
+                        <>
+                          <Button
+                            type="button"
+                            disabled={pending}
+                            onClick={() =>
+                              run("تأیید درخواست ناموفق", () =>
+                                api
+                                  .approveJoinRequest(workspaceId, req.id, {
+                                    role: needsSecondFinance ? "finance" : "member",
+                                  })
+                                  .then(() => undefined),
+                              )
+                            }
+                          >
+                            {needsSecondFinance
+                              ? "تأیید به‌عنوان مادرخرج"
+                              : "تأیید"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={pending}
+                            onClick={() =>
+                              run("رد درخواست ناموفق", () =>
+                                api
+                                  .rejectJoinRequest(workspaceId, req.id)
+                                  .then(() => undefined),
+                              )
+                            }
+                          >
+                            رد
+                          </Button>
+                        </>
+                      }
+                    />
+                  ))}
+                </DataList>
+              )}
+            </SectionCard>
+          </div>
         ) : null}
 
         {pendingTransfer && pendingTransfer.status === "pending" ? (
-          <SectionCard title="انتقال مالکیت در انتظار" delayClass="delay2">
+          <SectionCard
+            id="ownership-transfer"
+            title="انتقال مالکیت در انتظار"
+            delayClass="delay2"
+          >
             <StatusLine>
               به{" "}
               {members.find((m) => m.userId === pendingTransfer.toUserId)?.displayName ??
@@ -725,32 +816,22 @@ export function WorkspaceInviteView() {
                 value={role}
                 onChange={(event) => setRole(event.target.value)}
               >
-                <option value="finance">مالی (مادرخرج / پشتیبان)</option>
-                <option value="admin">ادمین</option>
-                <option value="member">
-                  عضو{needsSecondFinance ? " (فعلاً مجاز نیست)" : ""}
-                </option>
-                <option value="approver">
-                  تأییدکننده{needsSecondFinance ? " (فعلاً مجاز نیست)" : ""}
-                </option>
-                <option value="buyer">
-                  خریدار{needsSecondFinance ? " (فعلاً مجاز نیست)" : ""}
-                </option>
-                <option value="auditor">
-                  حسابرس{needsSecondFinance ? " (فعلاً مجاز نیست)" : ""}
-                </option>
-                <option value="guest">
-                  مهمان موقت{needsSecondFinance ? " (فعلاً مجاز نیست)" : ""}
-                </option>
+                {assignableRoleOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.labelFa}
+                    {needsSecondFinance && !isFinanceManagerRole(opt.value)
+                      ? " (فعلاً مجاز نیست)"
+                      : ""}
+                  </option>
+                ))}
               </SelectField>
               {needsSecondFinance ? (
                 <StatusLine>
-                  برای دعوت هم نقش را مادرخرج یا ادمین بگذارید تا قانون دو مدیر مالی رعایت شود.
+                  برای دعوت، نقش را مادرخرج یا ادمین بگذارید تا حداقل یک مدیر مالی فعال داشته باشید.
                 </StatusLine>
               ) : (
                 <p className="emptyHint" style={{ border: "none", padding: 0, marginTop: -4 }}>
-                  قانون پشتیبان مادرخرج: تا وقتی دو مدیر مالی فعال نباشد، دعوت با نقش غیرمالی رد
-                  می‌شود.
+                  یک مادرخرج/مدیر مالی فعال کافی است؛ نفر دوم اختیاری است.
                 </p>
               )}
               {role === "finance" ? (
@@ -847,6 +928,34 @@ export function WorkspaceInviteView() {
               {copyHint ? <StatusLine>{copyHint}</StatusLine> : null}
             </FormStack>
           </SectionCard>
+        ) : null}
+
+        {workspaceId && kind === "group" ? (
+          <GuestPlaceholdersPanel
+            workspaceId={workspaceId}
+            readOnly={readOnlyInvite}
+            onError={(message) => setError(message)}
+            onSuccess={(message) => {
+              setError(null);
+              setSuccessHint(message);
+            }}
+          />
+        ) : null}
+
+        {workspaceId &&
+        canManage &&
+        chrome.capabilities?.productFlags?.allowance ? (
+          <div id="member-allowances">
+            <AllowancesPanel
+              workspaceId={workspaceId}
+              members={members.filter(isActiveMembership)}
+              onError={(message) => setError(message)}
+              onSuccess={(message) => {
+                setError(null);
+                setSuccessHint(message);
+              }}
+            />
+          </div>
         ) : null}
       </ProductGrid>
       </WorkspacePageFrame>

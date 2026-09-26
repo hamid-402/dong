@@ -1,56 +1,68 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
-import type { CostCenterSummary, ExpensePeriodSummary, ExpenseSummary, JournalEntrySummary, MemberInvoiceAdjustmentSummary, MemberInvoiceSummary, MembershipSummary, PaymentLinkSummary, PeriodKind, PettyCashFundSummary, SettlementSummary, SplitMethod, WorkspaceBalancesResponse } from "@dang/contracts";
+import type {
+  CostCenterSummary,
+  ExpensePeriodSummary,
+  ExpenseSummary,
+  JournalEntrySummary,
+  MemberInvoiceAdjustmentSummary,
+  MemberInvoiceSummary,
+  MembershipSummary,
+  PaymentLinkSummary,
+  PeriodKind,
+  PettyCashFundSummary,
+  SettlementSummary,
+  SplitMethod,
+  WorkspaceBalancesResponse,
+} from "@dang/contracts";
 import {
+  isExpenseApproverRole,
   isFinanceManagerRole,
   isReadOnlyRole,
   spaceKindForTemplate,
 } from "@dang/contracts";
-import { Button, TextField, formatToman } from "@dang/ui";
+import { Button } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
   emptySplitComposer,
   splitComposerFromExpense,
   type SplitComposerValue,
 } from "@/components/split-composer";
-import {
-  EmptyHint,
-  FormStack,
-  HeroBalance,
-  ProductGrid,
-  SectionCard,
-  StatusLine,
-} from "@/components/ui-blocks";
+import { EmptyHint, StatusLine } from "@/components/ui-blocks";
 import { GroupOpsRail } from "@/components/shell/group-ops-rail";
+import { TreasuryBalanceCard } from "@/components/shell/treasury-balance-card";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
-import { api, DEV_IDENTITY_DEFAULTS, getDevIdentity, setDevIdentity, type AuditEventDto } from "@/lib/api";
-import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
+import {
+  api,
+  DEV_IDENTITY_DEFAULTS,
+  getDevIdentity,
+  setDevIdentity,
+  type AuditEventDto,
+} from "@/lib/api";
 import { hubPathFor } from "@/lib/hub-links";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import {
   readUnitPrefillFromUrl,
   titleForUnitPrefill,
 } from "@/lib/expense-unit-href";
-import { irrMinorToTomanInput } from "@/lib/irr-money";
-import { NAV_LABELS } from "@/lib/nav-labels";
+import {
+  displayInputToIrrMinor,
+  irrMinorToDisplayInput,
+} from "@/lib/irr-money";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { moneyUnitSuffix } from "@/lib/money-labels";
 import { wPath } from "@/lib/workspace-paths";
-import { membershipRoleLabel, zeroSumHint } from "@/lib/status-labels";
 import { templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { FlashMessages } from "@/lib/use-flash-message";
+import { ProviderStubBadges } from "@/components/shell/provider-stub-badges";
+import { MotionSceneStrip } from "@/components/visual/motion-scene";
 import {
   listOfflineExpenseDrafts,
   type OfflineExpenseDraft,
 } from "@/lib/offline-drafts";
-import { FinanceSummaryCard } from "@/components/views/finance/finance-summary-card";
-import { ExpenseListPanel } from "@/components/views/finance/expense-list-panel";
-import { LedgerAuditPanels } from "@/components/views/finance/ledger-audit-panels";
-import { PeriodInvoicePanels } from "@/components/views/finance/period-invoice-panels";
-import { ExpenseFormPanel } from "@/components/views/finance/expense-form-panel";
-import { SettlementPanel } from "@/components/views/finance/settlement-panel";
-import { DebtSimplifyPanel } from "@/components/views/friends-group/debt-simplify-panel";
 import {
   loadWorkspaceData,
   type FinanceSection,
@@ -63,24 +75,26 @@ import {
   syncExpenseQueryUrl,
   type ExpenseFilter,
 } from "@/components/views/finance/expense-list-query";
+import {
+  readExpenseIdFromUrl,
+  readOutingIdFromUrl,
+  readPaymentResultFromUrl,
+  readSettleAmountFromUrl,
+  readSettleToFromUrl,
+  stripPaymentResultFromUrl,
+} from "@/components/views/finance/finance-url";
+import { FxRatesPanel } from "@/components/fx-rates-panel";
+import { WaveFFinancePanel } from "@/components/wave-f-finance-panel";
+import { buildFinanceSectionChrome } from "@/components/views/finance/finance-section-chrome";
+import { FinanceExpensesSection } from "@/components/views/finance/finance-expenses-section";
+import { FinanceSettlementsSection } from "@/components/views/finance/finance-settlements-section";
+import { FinanceInvoicesSection } from "@/components/views/finance/finance-invoices-section";
+import { FinanceRecurringSection } from "@/components/views/finance/finance-recurring-section";
+import { FinanceDevTools } from "@/components/views/finance/finance-devtools";
+import { FundSettlementRebuildPanel } from "@/components/views/finance/fund-settlement-rebuild-panel";
+import { saveSplitPresetAndReload } from "@/components/views/finance/finance-split-preset";
+import { loadFinanceSideData } from "@/components/views/finance/finance-side-data";
 import { usePathname, useRouter } from "next/navigation";
-import { newClientId } from "@/lib/id";
-
-function readSettleToFromUrl(): string {
-  if (typeof window === "undefined") return "";
-  return new URLSearchParams(window.location.search).get("settleTo")?.trim() ?? "";
-}
-
-function readSettleAmountFromUrl(): string {
-  if (typeof window === "undefined") return "";
-  const raw = new URLSearchParams(window.location.search).get("settleAmount")?.trim() ?? "";
-  return /^\d+$/.test(raw) ? raw : "";
-}
-
-function readExpenseIdFromUrl(): string {
-  if (typeof window === "undefined") return "";
-  return new URLSearchParams(window.location.search).get("expense")?.trim() ?? "";
-}
 
 export type { FinanceSection };
 
@@ -96,6 +110,8 @@ export function FinanceView({
   const router = useRouter();
   const pathname = usePathname();
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
+  const unitLabel = moneyUnitSuffix(displayUnit);
   const scope = useOptionalWorkspaceScope();
   const selectedId = scope?.workspaceId || chrome.workspaceId;
   const workspaces = chrome.workspaces;
@@ -166,14 +182,22 @@ export function FinanceView({
   const [revisingExpenseId, setRevisingExpenseId] = useState<string | null>(null);
   const [reviseReason, setReviseReason] = useState("");
   const [fundingSourceKind, setFundingSourceKind] = useState<
-    "" | "personal" | "petty_cash"
+    "" | "personal" | "petty_cash" | "member" | "credit"
   >("");
   const [fundingRefId, setFundingRefId] = useState("");
   const [pettyCashFunds, setPettyCashFunds] = useState<PettyCashFundSummary[]>([]);
+  const [savingsBalanceMinor, setSavingsBalanceMinor] = useState<string | null>(
+    null,
+  );
+  const [savingsGoalCount, setSavingsGoalCount] = useState(0);
   const [settleToUserId, setSettleToUserId] = useState(() => readSettleToFromUrl());
   const [settleAmountToman, setSettleAmountToman] = useState(() => readSettleAmountFromUrl());
   const [initialExpenseId] = useState(() => readExpenseIdFromUrl());
+  const [outingId, setOutingId] = useState(() => readOutingIdFromUrl());
+  const [originalCurrency, setOriginalCurrency] = useState("");
+  const [originalAmountMajor, setOriginalAmountMajor] = useState("");
   const settlePrefillDone = useRef(Boolean(readSettleAmountFromUrl()));
+  const paymentReturnHandled = useRef(false);
   const [periodTitle, setPeriodTitle] = useState("هفته جاری");
   const [periodKind, setPeriodKind] = useState<PeriodKind>("week");
   const [periodStartsOn, setPeriodStartsOn] = useState(() => new Date().toISOString().slice(0, 10));
@@ -194,6 +218,7 @@ export function FinanceView({
     setSuccessMessage(message);
     window.setTimeout(() => setSuccessMessage(null), 4000);
   }
+
   function applyWorkspaceData(data: FinanceWorkspaceData) {
     setExpenses(data.expenses);
     setSettlements(data.settlements);
@@ -274,6 +299,31 @@ export function FinanceView({
       })();
     });
   }
+
+  // Zarinpal / PSP return: ?payment=ok|failed (R3) — show once then strip query.
+  useEffect(() => {
+    if (paymentReturnHandled.current) return;
+    const result = readPaymentResultFromUrl();
+    if (!result) return;
+    paymentReturnHandled.current = true;
+    if (result.payment === "ok") {
+      showSuccess(
+        result.refId
+          ? `پرداخت موفق · رسید ${result.refId}`
+          : "پرداخت موفق ثبت شد",
+      );
+      refresh();
+    } else {
+      setError(
+        result.status
+          ? `پرداخت ناموفق (${result.status})`
+          : "پرداخت ناموفق بود",
+      );
+    }
+    router.replace(stripPaymentResultFromUrl(), { scroll: false });
+    // one-shot payment-result consume on mount
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     if (!chrome.ready || !selectedId) {
@@ -304,78 +354,36 @@ export function FinanceView({
           ),
         );
         if (!cancelled) setOfflineDrafts(listOfflineExpenseDrafts(selectedId));
-        if (
-          !cancelled &&
-          chrome.capabilities?.productFlags?.costCenter
-        ) {
-          const centers = await api.listCostCenters(selectedId).catch(() => []);
-          if (!cancelled) {
-            setCostCenters(centers.filter((c) => c.active));
-            setCostCenterId("");
-          }
-        } else if (!cancelled) {
-          setCostCenters([]);
+        const side = await loadFinanceSideData(selectedId, chrome.capabilities);
+        if (!cancelled) {
+          setCostCenters(side.costCenters);
           setCostCenterId("");
-        }
-        if (!cancelled && chrome.capabilities?.productFlags?.expensePolicy) {
-          const pol = await api.getExpensePolicy(selectedId).catch(() => null);
-          if (!cancelled) setRequireCostCenter(Boolean(pol?.requireCostCenter));
-        } else if (!cancelled) {
-          setRequireCostCenter(false);
-        }
-        setMissionKind("");
-        if (
-          !cancelled &&
-          chrome.capabilities?.providers?.pettyCash === "fund_v1"
-        ) {
-          const funds = await api.listPettyCash(selectedId).catch(() => []);
-          if (!cancelled) {
-            setPettyCashFunds(funds.filter((f) => f.active));
+          setRequireCostCenter(side.requireCostCenter);
+          setMissionKind("");
+          setPettyCashFunds(side.pettyCashFunds);
+          if (side.pettyCashFunds.length === 0) {
+            setFundingSourceKind("");
+            setFundingRefId("");
           }
-        } else if (!cancelled) {
-          setPettyCashFunds([]);
-          setFundingSourceKind("");
-          setFundingRefId("");
-        }
-        if (
-          !cancelled &&
-          chrome.capabilities?.providers?.catalog === "catalog_v1"
-        ) {
-          const page = await api
-            .listCatalogItems(selectedId, { activeOnly: true, limit: 100 })
-            .catch(() => null);
-          if (!cancelled) {
-            setCatalogFilterOptions(
-              (page?.items ?? []).map((item) => ({ id: item.id, name: item.name })),
-            );
-          }
-        } else if (!cancelled) {
-          setCatalogFilterOptions([]);
-          setExpenseCatalogItemId("");
-        }
-        if (!cancelled) {
-          const cats = await api.listCategories(selectedId).catch(() => []);
-          if (!cancelled) {
-            setCategoryFilterOptions(cats.map((c) => ({ id: c.id, name: c.name })));
-          }
-        }
-        if (!cancelled) {
-          const tags = await api.listExpenseTags(selectedId).catch(() => []);
-          if (!cancelled) {
-            setTagFilterOptions(tags.map((t) => ({ id: t.id, name: t.name })));
-          }
-        }
-        if (!cancelled) {
-          const presets = await api.listSplitPresets(selectedId).catch(() => []);
-          if (!cancelled) {
-            setSplitPresets(
-              presets.map((p) => ({
-                id: p.id,
-                name: p.name,
-                splitMethod: p.splitMethod,
-                lines: p.lines,
-              })),
-            );
+          setCatalogFilterOptions(side.catalogOptions);
+          if (side.catalogOptions.length === 0) setExpenseCatalogItemId("");
+          setCategoryFilterOptions(side.categoryOptions);
+          setTagFilterOptions(side.tagOptions);
+          setSplitPresets(side.splitPresets);
+          const ws = workspaces.find((w) => w.id === selectedId);
+          const kind = spaceKindForTemplate(ws?.template);
+          if (
+            kind === "personal" &&
+            chrome.capabilities?.providers?.savingsGoals === "goals_v1"
+          ) {
+            const fund = await api.getSavingsFund().catch(() => null);
+            if (!cancelled) {
+              setSavingsBalanceMinor(fund?.balanceMinor ?? "0");
+              setSavingsGoalCount(fund?.goalCount ?? 0);
+            }
+          } else if (!cancelled) {
+            setSavingsBalanceMinor(null);
+            setSavingsGoalCount(0);
           }
         }
         setError(null);
@@ -447,11 +455,16 @@ export function FinanceView({
     if (settlePrefillDone.current || !balances || !settleToUserId || settleAmountToman) return;
     const line = balances.lines.find((l) => l.userId === settleToUserId);
     if (!line) return;
-    const toman = Math.abs(Math.round(Number(line.net.amountMinor) / 10));
-    if (toman <= 0) return;
-    setSettleAmountToman(String(toman));
+    const absMinor = (
+      BigInt(line.net.amountMinor) < 0n
+        ? -BigInt(line.net.amountMinor)
+        : BigInt(line.net.amountMinor)
+    ).toString();
+    const display = irrMinorToDisplayInput(absMinor, displayUnit);
+    if (!display) return;
+    setSettleAmountToman(display);
     settlePrefillDone.current = true;
-  }, [balances, settleToUserId, settleAmountToman]);
+  }, [balances, settleToUserId, settleAmountToman, displayUnit]);
 
   useEffect(() => {
     if (initialLoading || !selectedId) return;
@@ -508,7 +521,7 @@ export function FinanceView({
     onCreateExpense,
     onSaveOfflineDraft,
     onSyncOfflineDraft,
-    onCreateSettlement,
+    onSettlePay,
     onCreatePaymentLink,
     onBalanceSettleLink,
     onConfirmSettlement,
@@ -564,8 +577,15 @@ export function FinanceView({
     setReviseReason,
     fundingSourceKind,
     fundingRefId,
+    outingId,
+    setOutingId,
     balances,
     paymentsLive,
+    conversionLive: Boolean(capabilities?.conversionLive),
+    originalCurrency,
+    setOriginalCurrency,
+    originalAmountMajor,
+    setOriginalAmountMajor,
   });
 
   function onBeginReviseExpense(expenseId: string, reason: string) {
@@ -574,16 +594,24 @@ export function FinanceView({
       setError("خرج قابل اصلاح نیست");
       return;
     }
-    const nextSplit = splitComposerFromExpense(expense, irrMinorToTomanInput);
+    const toDisplay = (minor: string) =>
+      irrMinorToDisplayInput(minor, displayUnit);
+    const nextSplit = splitComposerFromExpense(expense, toDisplay);
     setSplit(nextSplit);
     setTitle(expense.title);
-    setAmountToman(irrMinorToTomanInput(expense.total.amountMinor));
+    setAmountToman(toDisplay(expense.total.amountMinor));
     setExpenseDate(expense.occurredOn);
     setExpensePeriodId(expense.periodId ?? "");
     setCostCenterId(expense.costCenterId ?? "");
     if (expense.fundingSourceKind === "petty_cash" && expense.fundingRefId) {
       setFundingSourceKind("petty_cash");
       setFundingRefId(expense.fundingRefId);
+    } else if (expense.fundingSourceKind === "member" && expense.fundingRefId) {
+      setFundingSourceKind("member");
+      setFundingRefId(expense.fundingRefId);
+    } else if (expense.fundingSourceKind === "credit") {
+      setFundingSourceKind("credit");
+      setFundingRefId("");
     } else if (expense.fundingSourceKind === "personal") {
       setFundingSourceKind("personal");
       setFundingRefId("");
@@ -610,16 +638,13 @@ export function FinanceView({
   const myNetMinor = session?.actor
     ? (balances?.lines.find((line) => line.userId === session.actor?.userId)?.net.amountMinor ?? "0")
     : "0";
-  const myNetToman = Math.round(Number(myNetMinor) / 10);
   const supportsCompany = templateSupportsCompanyExpenses(
     workspaces.find((w) => w.id === selectedId)?.template,
   );
   const myMembershipRole = members.find((m) => m.userId === session?.actor?.userId)?.role;
   const canManageFinance = isFinanceManagerRole(myMembershipRole);
   const readOnlyFinance = isReadOnlyRole(myMembershipRole);
-  const canApproveCompany =
-    !!myMembershipRole &&
-    ["owner", "admin", "approver", "finance"].includes(myMembershipRole);
+  const canApproveCompany = isExpenseApproverRole(myMembershipRole);
   const filteredExpenses =
     expenseFilter === "all"
       ? expenses
@@ -635,73 +660,19 @@ export function FinanceView({
   const openSettlementCount = settlements.filter(
     (s) => s.status === "claimed" || s.status === "disputed",
   ).length;
-  const showOpsRail = Boolean(slug) && spaceKind !== "personal";
+  // R4: bottom tabs + section chrome already cover ops destinations — avoid duplicate rail.
+  const showOpsRail = false;
 
-  const sectionMeta =
-    section === "settlements"
-      ? {
-          title: NAV_LABELS.settlements,
-          description: "ثبت و تأیید تسویه از ماندهٔ واقعی اعضا.",
-          primary: (
-            <Link href={expensesHref}>{NAV_LABELS.expenses}</Link>
-          ),
-          secondary: slug ? (
-            <>
-              <Link href={`${membersHref}#member-add-panel`}>{NAV_LABELS.members}</Link>
-              <Link href={wPath(slug, "space")}>{NAV_LABELS.spaceGroup}</Link>
-            </>
-          ) : undefined,
-        }
-      : section === "invoices"
-        ? {
-            title: NAV_LABELS.invoices,
-            description: "دوره‌ها و صورتحساب دوره‌ای اعضا از دادهٔ ثبت‌شدهٔ همین فضا (جدا از صورتحساب سهم‌محور).",
-            primary: canManageFinance ? (
-              <a href="#period-invoice-panel">ساخت دوره</a>
-            ) : (
-              <Link href={expensesHref}>{NAV_LABELS.expenses}</Link>
-            ),
-            secondary: slug ? (
-              <>
-                <Link href={settlementsHref}>{NAV_LABELS.settlements}</Link>
-                <Link href={`${membersHref}#member-add-panel`}>{NAV_LABELS.members}</Link>
-              </>
-            ) : undefined,
-          }
-        : section === "recurring"
-          ? {
-              title: NAV_LABELS.recurring,
-              description: "گزارش‌های دوره‌ای، دسته‌ها و قواعد تکرارشونده از API.",
-              primary: (
-                <a href="#reports-panel">محاسبه گزارش</a>
-              ),
-              secondary: slug ? (
-                <>
-                  <Link href={expensesHref}>{NAV_LABELS.expenses}</Link>
-                  <Link href={settlementsHref}>{NAV_LABELS.settlements}</Link>
-                </>
-              ) : undefined,
-            }
-          : {
-              title: NAV_LABELS.expenses,
-              description:
-                spaceKind === "building"
-                  ? "شارژ و قبوض واحدها از دادهٔ واقعی — از واحد می‌توانید با عنوان پیش‌پر ثبت کنید."
-                  : spaceKind === "org"
-                    ? "خرج شرکتی و بخش‌ها از دادهٔ واقعی فضای سازمان."
-                    : "فهرست خرج و ثبت سریع از دادهٔ واقعی فضای فعال.",
-              primary: readOnlyFinance ? (
-                <Link href={settlementsHref}>{NAV_LABELS.settlements}</Link>
-              ) : (
-                <a href="#expense-panel">{NAV_LABELS.addExpense}</a>
-              ),
-              secondary: slug ? (
-                <>
-                  <Link href={settlementsHref}>{NAV_LABELS.settlements}</Link>
-                  <Link href={`${membersHref}#member-add-panel`}>{NAV_LABELS.members}</Link>
-                </>
-              ) : undefined,
-            };
+  const sectionMeta = buildFinanceSectionChrome({
+    section,
+    spaceKind,
+    slug,
+    expensesHref,
+    settlementsHref,
+    membersHref,
+    canManageFinance,
+    readOnlyFinance,
+  });
 
   const frameState =
     initialLoading
@@ -742,6 +713,11 @@ export function FinanceView({
         }
       >
       <FlashMessages error={error} successMessage={successMessage} />
+      <ProviderStubBadges capabilities={capabilities} />
+      <MotionSceneStrip
+        kind="finance"
+        prominence={section === "expenses" ? "compact" : "banner"}
+      />
       {showOpsRail && slug ? (
         <GroupOpsRail
           slug={slug}
@@ -768,247 +744,554 @@ export function FinanceView({
         </StatusLine>
       ) : null}
 
+      {(() => {
+        const showTreasury =
+          Boolean(selectedId && slug) &&
+          (spaceKind === "personal" ||
+            capabilities?.providers?.pettyCash === "fund_v1");
+        if (!showTreasury || !slug) return null;
+        const treasury = (
+          <TreasuryBalanceCard
+            spaceKind={spaceKind}
+            funds={pettyCashFunds}
+            paymentsHref={wPath(slug, "payments")}
+            savingsHref="/me/finance#goals"
+            canManage={canManageFinance || spaceKind === "personal"}
+            pending={pending}
+            memberLabel={memberLabel}
+            savingsBalanceMinor={
+              spaceKind === "personal" ? savingsBalanceMinor : null
+            }
+            savingsGoalCount={savingsGoalCount}
+            onEnsureSavings={
+              spaceKind === "personal" &&
+              capabilities?.providers?.savingsGoals === "goals_v1"
+                ? () => {
+                    startTransition(() => {
+                      void (async () => {
+                        try {
+                          const result = await api.ensureDefaultSavingsFund({
+                            idempotencyKey: crypto.randomUUID(),
+                          });
+                          setSavingsBalanceMinor(result.fund.balanceMinor);
+                          setSavingsGoalCount(result.fund.goalCount);
+                          showSuccess(
+                            result.created
+                              ? "صندوق پس‌انداز ایجاد شد"
+                              : "صندوق پس‌انداز از قبل وجود داشت",
+                          );
+                        } catch (err) {
+                          setError(
+                            friendlyErrorMessage(
+                              err,
+                              "ایجاد صندوق پس‌انداز ناموفق",
+                            ),
+                          );
+                        }
+                      })();
+                    });
+                  }
+                : undefined
+            }
+            onDepositSavings={
+              spaceKind === "personal" &&
+              capabilities?.providers?.savingsGoals === "goals_v1"
+                ? () => {
+                    const raw = window.prompt(
+                      `مبلغ واریز ماهانه (${unitLabel})`,
+                    );
+                    if (raw == null) return;
+                    const money = displayInputToIrrMinor(raw, displayUnit);
+                    if (!money) {
+                      setError("مبلغ معتبر نیست");
+                      return;
+                    }
+                    startTransition(() => {
+                      void (async () => {
+                        try {
+                          const result = await api.depositSavingsFund({
+                            amountMinor: money.amountMinor,
+                            note: "واریز ماهانه",
+                            idempotencyKey: crypto.randomUUID(),
+                          });
+                          setSavingsBalanceMinor(result.fund.balanceMinor);
+                          setSavingsGoalCount(result.fund.goalCount);
+                          showSuccess("واریز در صندوق پس‌انداز ثبت شد");
+                        } catch (err) {
+                          setError(
+                            friendlyErrorMessage(err, "واریز پس‌انداز ناموفق"),
+                          );
+                        }
+                      })();
+                    });
+                  }
+                : undefined
+            }
+            onEnsureDefault={
+              canManageFinance && spaceKind !== "personal"
+                ? () => {
+                    startTransition(() => {
+                      void (async () => {
+                        try {
+                          const result = await api.ensureDefaultPettyCashFund(
+                            selectedId,
+                            { idempotencyKey: crypto.randomUUID() },
+                          );
+                          setPettyCashFunds(
+                            result.funds.filter((f) => f.active),
+                          );
+                          showSuccess(
+                            result.created
+                              ? "تنخواه اصلی ایجاد شد"
+                              : "تنخواه اصلی از قبل وجود داشت",
+                          );
+                        } catch (err) {
+                          setError(
+                            friendlyErrorMessage(err, "ایجاد تنخواه ناموفق"),
+                          );
+                        }
+                      })();
+                    });
+                  }
+                : undefined
+            }
+          />
+        );
+        // On expenses: fold into layer 3 via contextPanels below. Elsewhere keep visible.
+        if (section === "expenses") return null;
+        return <div style={{ marginBottom: "1rem" }}>{treasury}</div>;
+      })()}
+
       {selectedId && section === "expenses" ? (
-        <>
-          <div className="heroGrid">
-            <HeroBalance
-              label="مانده خالص شما"
-              amount={formatToman(myNetToman)}
-              subtitle={myNetToman >= 0 ? "تومان طلب دارید" : "تومان بدهکارید"}
-              actionLabel={NAV_LABELS.settlements}
-              onAction={() => router.push(settlementsHref)}
-              hint={balances ? zeroSumHint(balances.zeroSum) : "…"}
-            />
-          </div>
-
-          <ProductGrid cols={2}>
-            <FinanceSummaryCard
-              balances={balances}
-              memberLabel={memberLabel}
-              slug={slug}
-              currentUserId={session?.actor?.userId}
-              canManage={canManageFinance}
-              paymentsLive={paymentsLive}
-              onCreateSettleLink={onBalanceSettleLink}
-              pending={pending}
-              readOnly={readOnlyFinance}
-            />
-            <ExpenseListPanel
-              filteredExpenses={filteredExpenses}
-              expenseFilter={expenseFilter}
-              onFilterChange={setExpenseFilter}
-              expenseFrom={expenseFrom}
-              expenseTo={expenseTo}
-              onExpenseFromChange={setExpenseFrom}
-              onExpenseToChange={setExpenseTo}
-              catalogItemId={expenseCatalogItemId}
-              catalogOptions={catalogFilterOptions}
-              onCatalogItemIdChange={
-                chrome.capabilities?.providers?.catalog === "catalog_v1"
-                  ? setExpenseCatalogItemId
-                  : undefined
-              }
-              searchQuery={expenseSearchQ}
-              onSearchQueryChange={setExpenseSearchQ}
-              paidByUserId={expensePaidByUserId}
-              onPaidByUserIdChange={setExpensePaidByUserId}
-              payerOptions={members.map((m) => ({
-                id: m.userId,
-                name: m.displayName,
-              }))}
-              categoryId={expenseCategoryId}
-              onCategoryIdChange={setExpenseCategoryId}
-              categoryOptions={categoryFilterOptions}
-              tagId={expenseTagId}
-              onTagIdChange={setExpenseTagId}
-              tagOptions={tagFilterOptions}
-              ocrMode={
-                capabilities?.providers?.ocr === "configured" ? "configured" : "stub"
-              }
-              onApplyOcr={(hints) => {
-                if (hints.title) setTitle(hints.title);
-                if (hints.amountToman) setAmountToman(hints.amountToman);
-                showSuccess("پیشنهاد OCR روی فرم اعمال شد");
-              }}
-              supportsCompany={supportsCompany}
-              canApproveCompany={canApproveCompany}
-              selectedId={selectedId}
-              pending={pending}
-              canManageFinance={canManageFinance}
-              readOnly={readOnlyFinance}
-              memberLabel={memberLabel}
-              initialExpenseId={initialExpenseId}
-              onSubmitExpense={onSubmitExpense}
-              onPostExpense={onPostExpense}
-              onPromoteCompany={onPromoteCompany}
-              onReverseExpense={onReverseExpense}
-              onBeginReviseExpense={onBeginReviseExpense}
-            />
-          </ProductGrid>
-
-          {readOnlyFinance ? (
-            <SectionCard title={NAV_LABELS.addExpense} tone="quiet">
-              <StatusLine>
-                نقش {membershipRoleLabel(myMembershipRole)} فقط مشاهده دارد — ثبت خرج برای
-                شما فعال نیست.
-              </StatusLine>
-            </SectionCard>
-          ) : (
-            <ProductGrid>
-              <ExpenseFormPanel
-                title={title}
-                onTitleChange={setTitle}
-                amountToman={amountToman}
-                onAmountTomanChange={setAmountToman}
-                expenseDate={expenseDate}
-                onExpenseDateChange={setExpenseDate}
-                split={split}
-                onSplitChange={setSplit}
-                expensePeriodId={expensePeriodId}
-                onExpensePeriodIdChange={setExpensePeriodId}
-                periods={periods}
-                members={members}
-                supportsCompany={supportsCompany}
-                session={session}
-                offlineDrafts={offlineDrafts}
-                lastDraftSavedAt={lastDraftSavedAt}
-                pending={pending}
-                canAssignPrivateToOthers={canManageFinance}
-                costCenters={costCenters}
-                costCenterId={costCenterId}
-                onCostCenterIdChange={setCostCenterId}
-                requireCostCenter={requireCostCenter}
-                missionKind={missionKind}
-                onMissionKindChange={setMissionKind}
-                workspaceId={selectedId}
-                catalogEnabled={chrome.capabilities?.providers?.catalog === "catalog_v1"}
-                allowFormula={spaceKind === "building"}
-                splitPresets={splitPresets}
-                onSaveSplitPreset={(name) => {
-                  if (!selectedId) return;
-                  startTransition(() => {
-                    void (async () => {
-                      try {
-                        const lines = split.participantUserIds.map((userId) => {
-                          if (split.splitMethod === "shares") {
-                            return {
-                              userId,
-                              shares: Number(split.lineInputs[userId] || "1") || 1,
-                            };
-                          }
-                          if (split.splitMethod === "percent") {
-                            const pct = Number(split.lineInputs[userId] || "0");
-                            return {
-                              userId,
-                              percentBp: Math.round(pct * 100),
-                            };
-                          }
-                          if (split.splitMethod === "amount") {
-                            const toman = Number(split.lineInputs[userId] || "0");
-                            return {
-                              userId,
-                              amountMinor: String(Math.round(toman * 10)),
-                            };
-                          }
-                          return { userId, shares: 1 };
-                        });
-                        await api.createSplitPreset(selectedId, {
-                          name,
-                          splitMethod:
-                            split.splitMethod === "itemized" ||
-                            split.splitMethod === "formula"
-                              ? "equal"
-                              : split.splitMethod,
-                          lines,
-                          idempotencyKey: newClientId(),
-                        });
-                        const presets = await api.listSplitPresets(selectedId);
-                        setSplitPresets(
-                          presets.map((p) => ({
-                            id: p.id,
-                            name: p.name,
-                            splitMethod: p.splitMethod,
-                            lines: p.lines,
-                          })),
-                        );
-                        showSuccess("قالب سهم ذخیره شد");
-                      } catch (err: unknown) {
-                        setError(friendlyErrorMessage(err, "ذخیره قالب سهم ناموفق"));
-                      }
-                    })();
-                  });
-                }}
-                savePresetPending={pending}
-                revisingExpenseId={revisingExpenseId}
-                onCancelRevise={onCancelRevise}
-                pettyCashFunds={pettyCashFunds}
-                fundingSourceKind={fundingSourceKind}
-                fundingRefId={fundingRefId}
-                onFundingSourceKindChange={setFundingSourceKind}
-                onFundingRefIdChange={setFundingRefId}
-                onCreateExpense={onCreateExpense}
-                onSaveOfflineDraft={onSaveOfflineDraft}
-                onSyncOfflineDraft={onSyncOfflineDraft}
-                onRemoveOfflineDraft={onRemoveOfflineDraft}
-              />
-            </ProductGrid>
+        <FinanceExpensesSection
+          myNetMinor={myNetMinor}
+          balances={balances}
+          onGoSettlements={() => router.push(settlementsHref)}
+          memberLabel={memberLabel}
+          slug={slug}
+          currentUserId={session?.actor?.userId}
+          canManageFinance={canManageFinance}
+          paymentsLive={paymentsLive}
+          onCreateSettleLink={onBalanceSettleLink}
+          pending={pending}
+          readOnlyFinance={readOnlyFinance}
+          filteredExpenses={filteredExpenses}
+          expenseFilter={expenseFilter}
+          onFilterChange={setExpenseFilter}
+          expenseFrom={expenseFrom}
+          expenseTo={expenseTo}
+          onExpenseFromChange={setExpenseFrom}
+          onExpenseToChange={setExpenseTo}
+          catalogItemId={expenseCatalogItemId}
+          catalogOptions={catalogFilterOptions}
+          onCatalogItemIdChange={
+            chrome.capabilities?.providers?.catalog === "catalog_v1"
+              ? setExpenseCatalogItemId
+              : undefined
+          }
+          searchQuery={expenseSearchQ}
+          onSearchQueryChange={setExpenseSearchQ}
+          paidByUserId={expensePaidByUserId}
+          onPaidByUserIdChange={setExpensePaidByUserId}
+          payerOptions={members.map((m) => ({
+            id: m.userId,
+            name: m.displayName,
+          }))}
+          categoryId={expenseCategoryId}
+          onCategoryIdChange={setExpenseCategoryId}
+          categoryOptions={categoryFilterOptions}
+          tagId={expenseTagId}
+          onTagIdChange={setExpenseTagId}
+          tagOptions={tagFilterOptions}
+          ocrMode={
+            capabilities?.providers?.ocr === "configured" ? "configured" : "stub"
+          }
+          onApplyOcr={(hints) => {
+            if (hints.title) setTitle(hints.title);
+            if (hints.amountToman) setAmountToman(hints.amountToman);
+            showSuccess("پیشنهاد OCR روی فرم اعمال شد");
+          }}
+          supportsCompany={supportsCompany}
+          canApproveCompany={canApproveCompany}
+          selectedId={selectedId}
+          initialExpenseId={initialExpenseId}
+          onSubmitExpense={onSubmitExpense}
+          onPostExpense={onPostExpense}
+          onPromoteCompany={onPromoteCompany}
+          onReverseExpense={onReverseExpense}
+          onBeginReviseExpense={onBeginReviseExpense}
+          myMembershipRole={myMembershipRole}
+          title={title}
+          onTitleChange={setTitle}
+          amountToman={amountToman}
+          onAmountTomanChange={setAmountToman}
+          expenseDate={expenseDate}
+          onExpenseDateChange={setExpenseDate}
+          split={split}
+          onSplitChange={setSplit}
+          expensePeriodId={expensePeriodId}
+          onExpensePeriodIdChange={setExpensePeriodId}
+          periods={periods}
+          members={members}
+          session={session}
+          offlineDrafts={offlineDrafts}
+          lastDraftSavedAt={lastDraftSavedAt}
+          costCenters={costCenters}
+          costCenterId={costCenterId}
+          onCostCenterIdChange={setCostCenterId}
+          requireCostCenter={requireCostCenter}
+          missionKind={missionKind}
+          onMissionKindChange={setMissionKind}
+          catalogEnabled={chrome.capabilities?.providers?.catalog === "catalog_v1"}
+          allowFormula={spaceKind === "building"}
+          spaceKind={spaceKind}
+          splitPresets={splitPresets}
+          onSaveSplitPreset={(name) => {
+            if (!selectedId) return;
+            startTransition(() => {
+              void (async () => {
+                try {
+                  const next = await saveSplitPresetAndReload(selectedId, name, split);
+                  setSplitPresets(next);
+                  showSuccess("قالب سهم ذخیره شد");
+                } catch (err: unknown) {
+                  setError(friendlyErrorMessage(err, "ذخیره قالب سهم ناموفق"));
+                }
+              })();
+            });
+          }}
+          revisingExpenseId={revisingExpenseId}
+          onCancelRevise={onCancelRevise}
+          pettyCashFunds={pettyCashFunds}
+          fundingSourceKind={fundingSourceKind}
+          fundingRefId={fundingRefId}
+          onFundingSourceKindChange={setFundingSourceKind}
+          onFundingRefIdChange={setFundingRefId}
+          conversionLive={Boolean(capabilities?.conversionLive)}
+          originalCurrency={originalCurrency}
+          onOriginalCurrencyChange={setOriginalCurrency}
+          originalAmountMajor={originalAmountMajor}
+          onOriginalAmountMajorChange={setOriginalAmountMajor}
+          onCreateExpense={onCreateExpense}
+          onSaveOfflineDraft={onSaveOfflineDraft}
+          onSyncOfflineDraft={onSyncOfflineDraft}
+          onRemoveOfflineDraft={onRemoveOfflineDraft}
+          fundAsSettlementParty={Boolean(
+            capabilities?.productFlags?.fundAsSettlementParty,
           )}
-        </>
+          contextPanels={
+            selectedId &&
+            slug &&
+            (spaceKind === "personal" ||
+              capabilities?.providers?.pettyCash === "fund_v1") ? (
+              <details className="scrollDisclosure financeContextFold">
+                <summary className="panelHeader">
+                  تنخواه و صندوق
+                  <span className="financeContextFold__hint">
+                    جزئیات و شارژ در پرداخت‌ها
+                  </span>
+                </summary>
+                <div className="scrollDisclosure__body">
+                  <TreasuryBalanceCard
+                    spaceKind={spaceKind}
+                    funds={pettyCashFunds}
+                    paymentsHref={wPath(slug, "payments")}
+                    savingsHref="/me/finance#goals"
+                    canManage={canManageFinance || spaceKind === "personal"}
+                    pending={pending}
+                    memberLabel={memberLabel}
+                    savingsBalanceMinor={
+                      spaceKind === "personal" ? savingsBalanceMinor : null
+                    }
+                    savingsGoalCount={savingsGoalCount}
+                    onEnsureSavings={
+                      spaceKind === "personal" &&
+                      capabilities?.providers?.savingsGoals === "goals_v1"
+                        ? () => {
+                            startTransition(() => {
+                              void (async () => {
+                                try {
+                                  const result = await api.ensureDefaultSavingsFund({
+                                    idempotencyKey: crypto.randomUUID(),
+                                  });
+                                  setSavingsBalanceMinor(result.fund.balanceMinor);
+                                  setSavingsGoalCount(result.fund.goalCount);
+                                  showSuccess(
+                                    result.created
+                                      ? "صندوق پس‌انداز ایجاد شد"
+                                      : "صندوق پس‌انداز از قبل وجود داشت",
+                                  );
+                                } catch (err) {
+                                  setError(
+                                    friendlyErrorMessage(
+                                      err,
+                                      "ایجاد صندوق پس‌انداز ناموفق",
+                                    ),
+                                  );
+                                }
+                              })();
+                            });
+                          }
+                        : undefined
+                    }
+                    onDepositSavings={
+                      spaceKind === "personal" &&
+                      capabilities?.providers?.savingsGoals === "goals_v1"
+                        ? () => {
+                            const raw = window.prompt(
+                              `مبلغ واریز ماهانه (${unitLabel})`,
+                            );
+                            if (raw == null) return;
+                            const money = displayInputToIrrMinor(raw, displayUnit);
+                            if (!money) {
+                              setError("مبلغ معتبر نیست");
+                              return;
+                            }
+                            startTransition(() => {
+                              void (async () => {
+                                try {
+                                  const result = await api.depositSavingsFund({
+                                    amountMinor: money.amountMinor,
+                                    note: "واریز ماهانه",
+                                    idempotencyKey: crypto.randomUUID(),
+                                  });
+                                  setSavingsBalanceMinor(result.fund.balanceMinor);
+                                  setSavingsGoalCount(result.fund.goalCount);
+                                  showSuccess("واریز در صندوق پس‌انداز ثبت شد");
+                                } catch (err) {
+                                  setError(
+                                    friendlyErrorMessage(
+                                      err,
+                                      "واریز پس‌انداز ناموفق",
+                                    ),
+                                  );
+                                }
+                              })();
+                            });
+                          }
+                        : undefined
+                    }
+                    onEnsureDefault={
+                      canManageFinance && spaceKind !== "personal"
+                        ? () => {
+                            startTransition(() => {
+                              void (async () => {
+                                try {
+                                  const result = await api.ensureDefaultPettyCashFund(
+                                    selectedId,
+                                    { idempotencyKey: crypto.randomUUID() },
+                                  );
+                                  setPettyCashFunds(
+                                    result.funds.filter((f) => f.active),
+                                  );
+                                  showSuccess(
+                                    result.created
+                                      ? "تنخواه اصلی ایجاد شد"
+                                      : "تنخواه اصلی از قبل وجود داشت",
+                                  );
+                                } catch (err) {
+                                  setError(
+                                    friendlyErrorMessage(
+                                      err,
+                                      "ایجاد تنخواه ناموفق",
+                                    ),
+                                  );
+                                }
+                              })();
+                            });
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
+              </details>
+            ) : undefined
+          }
+        />
       ) : null}
 
       {selectedId && section === "settlements" ? (
-        <>
-          <div className="heroGrid">
-            <HeroBalance
-              label="مانده خالص شما"
-              amount={formatToman(myNetToman)}
-              subtitle={myNetToman >= 0 ? "تومان طلب دارید" : "تومان بدهکارید"}
-              actionLabel={NAV_LABELS.expenses}
-              onAction={() => router.push(expensesHref)}
-              hint={balances ? zeroSumHint(balances.zeroSum) : "…"}
-            />
-          </div>
-          <ProductGrid>
-            <SettlementPanel
-              workspaceId={selectedId}
-              members={members}
-              settleToUserId={settleToUserId}
-              onSettleToUserIdChange={setSettleToUserId}
-              settleAmountToman={settleAmountToman}
-              onSettleAmountTomanChange={setSettleAmountToman}
-              settlements={settlements}
-              paymentLinks={paymentLinks}
-              paymentsLive={paymentsLive}
-              balances={balances}
-              currentUserId={session?.actor?.userId}
-              myRole={myMembershipRole}
-              readOnly={readOnlyFinance}
-              pending={pending}
-              settlementNps={settlementNps}
-              onDismissNps={() => setSettlementNps(false)}
-              memberLabel={memberLabel}
-              membersHref={membersHref}
-              slug={slug}
-              onCreateSettlement={onCreateSettlement}
-              onConfirmSettlement={onConfirmSettlement}
-              onDisputeSettlement={onDisputeSettlement}
-              evidenceRequired={Boolean(
-                capabilities?.productFlags?.settlementEvidence,
-              )}
-              onCancelSettlement={onCancelSettlement}
-              onCreatePaymentLink={onCreatePaymentLink}
-            />
-            {capabilities?.productFlags?.debtSimplifyApi ? (
-              <DebtSimplifyPanel
+        <FinanceSettlementsSection
+          myNetMinor={myNetMinor}
+          balances={balances}
+          onGoExpenses={() => router.push(expensesHref)}
+          workspaceId={selectedId}
+          members={members}
+          settleToUserId={settleToUserId}
+          onSettleToUserIdChange={setSettleToUserId}
+          settleAmountToman={settleAmountToman}
+          onSettleAmountTomanChange={setSettleAmountToman}
+          settlements={settlements}
+          paymentLinks={paymentLinks}
+          paymentsLive={paymentsLive}
+          pettyCashFunds={pettyCashFunds}
+          spaceKind={spaceKind}
+          currentUserId={session?.actor?.userId}
+          myRole={myMembershipRole ?? undefined}
+          readOnlyFinance={readOnlyFinance}
+          pending={pending}
+          settlementNps={settlementNps}
+          onDismissNps={() => setSettlementNps(false)}
+          memberLabel={memberLabel}
+          membersHref={membersHref}
+          slug={slug}
+          onSettlePay={onSettlePay}
+          onConfirmSettlement={onConfirmSettlement}
+          onDisputeSettlement={onDisputeSettlement}
+          evidenceRequired={Boolean(capabilities?.productFlags?.settlementEvidence)}
+          onCancelSettlement={onCancelSettlement}
+          onCreatePaymentLink={onCreatePaymentLink}
+          debtSimplifyEnabled={Boolean(capabilities?.productFlags?.debtSimplifyApi)}
+          canManageFinance={canManageFinance}
+          onError={setError}
+          onSuccess={showSuccess}
+          onDebtApplied={() => {
+            void loadWorkspaceData(
+              selectedId,
+              selectedPeriodId,
+              undefined,
+              section,
+            ).then(applyWorkspaceData);
+          }}
+        />
+      ) : null}
+
+      {selectedId && section === "invoices" ? (
+        <FinanceInvoicesSection
+          periodsError={periodsError}
+          pending={pending}
+          onRefresh={refresh}
+          periods={periods}
+          periodTitle={periodTitle}
+          onPeriodTitleChange={setPeriodTitle}
+          periodKind={periodKind}
+          onPeriodKindChange={setPeriodKind}
+          periodStartsOn={periodStartsOn}
+          onPeriodStartsOnChange={setPeriodStartsOn}
+          periodEndsOn={periodEndsOn}
+          onPeriodEndsOnChange={setPeriodEndsOn}
+          selectedPeriodId={selectedPeriodId}
+          onSelectPeriodId={onSelectPeriodId}
+          invoices={invoices}
+          invoiceAdjustments={invoiceAdjustments}
+          paymentLinks={paymentLinks}
+          paymentsLive={paymentsLive}
+          session={session}
+          memberLabel={memberLabel}
+          slug={slug}
+          canManageInvoices={canManageFinance}
+          automation={
+            chrome.capabilities?.providers?.billingAutomation
+              ? {
+                  mode: chrome.capabilities.providers.billingAutomation,
+                  reconcile: chrome.capabilities.providers.invoiceReconcile,
+                }
+              : null
+          }
+          onCreatePeriod={onCreatePeriod}
+          onGenerateInvoices={onGenerateInvoices}
+          onClosePeriod={onClosePeriod}
+          onCancelPeriod={onCancelPeriod}
+          onApproveInvoice={onApproveInvoice}
+          onDisputeInvoice={onDisputeInvoice}
+          onResolveInvoiceDispute={onResolveInvoiceDispute}
+          onIssueInvoice={onIssueInvoice}
+          onMarkInvoicePaid={onMarkInvoicePaid}
+          expenseFundingById={Object.fromEntries(
+            expenses.map((e) => [e.id, e.fundingSourceKind]),
+          )}
+        />
+      ) : null}
+
+      {selectedId && section === "recurring" ? (
+        <FinanceRecurringSection
+          workspaceId={selectedId}
+          supportsCompany={supportsCompany}
+          readOnlyFinance={readOnlyFinance}
+          onReportsChanged={() => {
+            void loadWorkspaceData(
+              selectedId,
+              selectedPeriodId,
+              undefined,
+              section,
+            ).then(applyWorkspaceData);
+          }}
+          ledgerEntries={ledgerEntries}
+          auditEvents={auditEvents}
+          memberLabel={memberLabel}
+        />
+      ) : null}
+
+      {process.env.NODE_ENV === "development" ? (
+        <FinanceDevTools
+          session={session}
+          devSubject={devSubject}
+          onDevSubjectChange={setDevSubject}
+          devDisplayName={devDisplayName}
+          onDevDisplayNameChange={setDevDisplayName}
+          pending={pending}
+          onApply={refresh}
+        />
+      ) : null}
+      {selectedId &&
+      (Boolean(capabilities?.productFlags?.fxRates) ||
+        capabilities?.providers?.fxPreview === "preview_v1" ||
+        Boolean(capabilities?.productFlags?.fundAsSettlementParty) ||
+        (capabilities?.productFlags &&
+          (capabilities.productFlags.reimbursement ||
+            capabilities.productFlags.categoryBudget ||
+            capabilities.productFlags.expenseImport ||
+            capabilities.productFlags.expensePolicy))) ? (
+        <details
+          className="scrollDisclosure financeContextFold"
+          open={section !== "expenses"}
+        >
+          <summary className="panelHeader">
+            نرخ ارز و ابزارهای مالی پیشرفته
+            <span className="financeContextFold__hint">
+              {section === "expenses" ? "در صورت نیاز باز کنید" : "فعال"}
+            </span>
+          </summary>
+          <div className="scrollDisclosure__body">
+            {capabilities?.productFlags?.fundAsSettlementParty &&
+            canManageFinance &&
+            !readOnlyFinance ? (
+              <FundSettlementRebuildPanel
                 workspaceId={selectedId}
-                memberLabel={memberLabel}
-                enabled
-                currentUserId={session?.actor?.userId}
-                readOnly={readOnlyFinance}
-                canApplyClaims={canManageFinance}
-                onError={setError}
+                pending={pending}
+                onPendingChange={(run) => startTransition(run)}
                 onSuccess={showSuccess}
-                onApplied={() => {
+                onError={setError}
+                onCompleted={() =>
+                  loadWorkspaceData(
+                    selectedId,
+                    selectedPeriodId,
+                    undefined,
+                    section,
+                  ).then(applyWorkspaceData)
+                }
+              />
+            ) : null}
+            {Boolean(capabilities?.productFlags?.fxRates) ||
+            capabilities?.providers?.fxPreview === "preview_v1" ? (
+              <FxRatesPanel
+                canWrite={Boolean(capabilities?.productFlags?.fxRates)}
+                conversionLive={Boolean(capabilities?.conversionLive)}
+                readOnly={readOnlyFinance}
+                onError={setError}
+              />
+            ) : null}
+            {capabilities?.productFlags &&
+            (capabilities.productFlags.reimbursement ||
+              capabilities.productFlags.categoryBudget ||
+              capabilities.productFlags.expenseImport ||
+              capabilities.productFlags.expensePolicy) ? (
+              <WaveFFinancePanel
+                workspaceId={selectedId}
+                flags={capabilities.productFlags}
+                readOnly={readOnlyFinance}
+                onError={setError}
+                onChanged={() => {
                   void loadWorkspaceData(
                     selectedId,
                     selectedPeriodId,
@@ -1018,111 +1301,17 @@ export function FinanceView({
                 }}
               />
             ) : null}
-          </ProductGrid>
-        </>
+          </div>
+        </details>
       ) : null}
-
-      {selectedId && section === "invoices" ? (
-        <ProductGrid cols={2}>
-          {periodsError ? (
-            <StatusLine>
-              دوره‌های مالی بارگذاری نشد: {periodsError} — بقیهٔ صفحه از دادهٔ واقعی است؛ بعد از
-              رفع اسکیما/سرور دوباره تلاش کنید.{" "}
-              <Button type="button" variant="secondary" onClick={refresh} disabled={pending}>
-                تلاش دوباره
-              </Button>
-            </StatusLine>
-          ) : null}
-          <PeriodInvoicePanels
-            periods={periods}
-            periodTitle={periodTitle}
-            onPeriodTitleChange={setPeriodTitle}
-            periodKind={periodKind}
-            onPeriodKindChange={setPeriodKind}
-            periodStartsOn={periodStartsOn}
-            onPeriodStartsOnChange={setPeriodStartsOn}
-            periodEndsOn={periodEndsOn}
-            onPeriodEndsOnChange={setPeriodEndsOn}
-            selectedPeriodId={selectedPeriodId}
-            onSelectPeriodId={onSelectPeriodId}
-            invoices={invoices}
-            invoiceAdjustments={invoiceAdjustments}
-            paymentLinks={paymentLinks}
-            paymentsLive={paymentsLive}
-            pending={pending}
-            session={session}
-            memberLabel={memberLabel}
-            slug={slug}
-            canManageInvoices={canManageFinance}
-            automation={
-              chrome.capabilities?.providers?.billingAutomation
-                ? {
-                    mode: chrome.capabilities.providers.billingAutomation,
-                    reconcile: chrome.capabilities.providers.invoiceReconcile,
-                  }
-                : null
-            }
-            onCreatePeriod={onCreatePeriod}
-            onGenerateInvoices={onGenerateInvoices}
-            onClosePeriod={onClosePeriod}
-            onCancelPeriod={onCancelPeriod}
-            onApproveInvoice={onApproveInvoice}
-            onDisputeInvoice={onDisputeInvoice}
-            onResolveInvoiceDispute={onResolveInvoiceDispute}
-            onIssueInvoice={onIssueInvoice}
-            onMarkInvoicePaid={onMarkInvoicePaid}
-          />
-        </ProductGrid>
+      {outingId ? (
+        <StatusLine>
+          خرج به گردش متصل می‌شود ·{" "}
+          <button type="button" className="textButton" onClick={() => setOutingId("")}>
+            برداشتن اتصال
+          </button>
+        </StatusLine>
       ) : null}
-
-      {selectedId && section === "recurring" ? (
-        <ProductGrid>
-          <div id="reports-panel">
-            <WorkspaceReportsPanel
-              workspaceId={selectedId}
-              defaultVisibility={supportsCompany ? "company" : "shared"}
-              readOnly={readOnlyFinance}
-              onChanged={() => {
-                void loadWorkspaceData(selectedId, selectedPeriodId, undefined, section).then(applyWorkspaceData);
-              }}
-            />          </div>
-          <ProductGrid cols={2}>
-            <LedgerAuditPanels
-              ledgerEntries={ledgerEntries}
-              auditEvents={auditEvents}
-              memberLabel={memberLabel}
-            />
-          </ProductGrid>
-        </ProductGrid>
-      ) : null}
-
-      <details className="devtoolsDetails">
-        <summary>تنظیمات توسعه‌دهنده</summary>
-        <FormStack>
-          <p className="emptyHint" style={{ border: "none", padding: 0 }}>
-            تا OIDC، هویت از localStorage می‌آید.
-            {session?.actor ? (
-              <>
-                {" "}
-                الان: {session.actor.displayName} ({session.mode})
-              </>
-            ) : null}
-          </p>
-          <TextField
-            label="Subject"
-            value={devSubject}
-            onChange={(event) => setDevSubject(event.target.value)}
-          />
-          <TextField
-            label="نام نمایشی"
-            value={devDisplayName}
-            onChange={(event) => setDevDisplayName(event.target.value)}
-          />
-          <Button type="button" onClick={refresh} disabled={pending}>
-            اعمال هویت و تازه‌سازی
-          </Button>
-        </FormStack>
-      </details>
       </WorkspacePageFrame>
     </AppShell>
   );

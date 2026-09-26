@@ -9,7 +9,7 @@ import type {
   WorkspaceSubunitSummary,
   WorkspaceSummary,
 } from "@dang/contracts";
-import { isReadOnlyRole, spaceKindForTemplate } from "@dang/contracts";
+import { isMembershipManagerRole, isExpenseApproverRole, isReadOnlyRole, roleNavProfile, spaceKindForTemplate } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
@@ -23,6 +23,13 @@ import {
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
+import {
+  RowSelectCheckbox,
+  SelectionActionBar,
+  rowSelectActivateProps,
+} from "@/components/selection/selection-action-bar";
+import { useRowSelection } from "@/components/selection/use-row-selection";
+import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { GroupOpsRail } from "@/components/shell/group-ops-rail";
 import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
@@ -42,8 +49,6 @@ import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
 import { wPath } from "@/lib/workspace-paths";
-
-const APPROVER_ROLES = new Set(["owner", "admin", "approver", "finance"]);
 
 function budgetStatusLabel(status: string): string {
   if (status === "open" || status === "active") return "باز";
@@ -163,16 +168,30 @@ export function OrgSpaceView() {
     });
   }
 
-  const canApprove = APPROVER_ROLES.has(myRole);
+  const canApprove = isExpenseApproverRole(myRole);
+  const canManageMembers = isMembershipManagerRole(myRole) && !isReadOnlyRole(myRole);
   const readOnly = isReadOnlyRole(myRole);
+  const persona = roleNavProfile(myRole);
+  const canMutateCompany = canApprove && !readOnly;
   const privateClaims = expenses.filter((e) => e.visibility === "private");
   const companyExpenses = expenses.filter((e) => e.visibility === "company");
+  const visibleCompany = companyExpenses.slice(0, 20);
+  const claimSelection = useRowSelection(privateClaims.map((e) => e.id));
+  const companySelection = useRowSelection(visibleCompany.map((e) => e.id));
+  const barClaim =
+    claimSelection.selectedCount === 1
+      ? (privateClaims.find((e) => e.id === claimSelection.selectedIds[0]) ?? null)
+      : null;
+  const barCompany =
+    companySelection.selectedCount === 1
+      ? (visibleCompany.find((e) => e.id === companySelection.selectedIds[0]) ?? null)
+      : null;
   const pageError = error ?? chrome.error;
   const slug = workspace?.slug ?? scope?.slug ?? null;
   const orgFinanceHref = slug ? wPath(slug, "orgFinance") : hubPathFor("/orgs");
   const approvalsHref = slug ? wPath(slug, "approvals") : hubPathFor("/workspaces");
   const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
-  const subunitsHref = slug ? wPath(slug, "subunits") : "/spaces?kind=org";
+  const subunitsHref = slug ? wPath(slug, "subunits") : "/home?kind=org";
   const procurementHref = slug
     ? wPath(slug, "procurement")
     : hubPathFor("/workspaces/procurement");
@@ -187,7 +206,10 @@ export function OrgSpaceView() {
     >
       <WorkspacePageFrame
       title={"خانه سازمان"}
-      description={"بخش‌ها، شرکت‌های زیرمجموعه، تأیید و تدارکات — از دادهٔ زندهٔ همین فضا."}
+      description={
+        persona?.homeHintFa ??
+        "بخش‌ها، شرکت‌های زیرمجموعه، تأیید و تدارکات — از دادهٔ زندهٔ همین فضا."
+      }
       primaryAction={slug ? <Link href={subunitsHref}>{NAV_LABELS.subunits}</Link> : <Link href="/spaces/new?kind=org">{NAV_LABELS.createSpace}</Link>}
       secondaryActions={
         slug ? (
@@ -207,7 +229,7 @@ export function OrgSpaceView() {
           slug={slug}
           spaceKind="org"
           memberCount={members.filter((m) => !m.disabledAt).length}
-          canManageMembers={canApprove && !readOnly}
+          canManageMembers={canManageMembers}
           showSubunits
           subunitsHint="بخش‌ها و زیرمجموعه‌ها"
         />
@@ -352,35 +374,75 @@ export function OrgSpaceView() {
             {privateClaims.length === 0 ? (
               <EmptyHint>مطالبه خصوصی‌ای نیست.</EmptyHint>
             ) : (
-              <DataList>
-                {privateClaims.map((expense) => (
-                  <DataRow
-                    key={expense.id}
-                    title={expense.title}
-                    meta={
-                      <>
-                        <StatusPill tone="warn">{expenseStatusLabel(expense.status)}</StatusPill>
-                        <StatusPill tone="warn">
-                          {expenseVisibilityLabel(expense.visibility)}
-                        </StatusPill>
-                      </>
-                    }
-                    trailing={<Amount irrMinor={expense.total.amountMinor} />}
-                    actions={
-                      !readOnly && canApprove ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          disabled={pending}
-                          onClick={() => onPromote(expense.id)}
-                        >
-                          تأیید شرکتی
-                        </Button>
-                      ) : null
-                    }
-                  />
-                ))}
-              </DataList>
+              <>
+                {!readOnly && canApprove ? (
+                  <SelectionActionBar
+                    selectedCount={claimSelection.selectedCount}
+                    idleHint="روی ردیف کلیک کنید یا مربع کنار مطالبه را تیک بزنید"
+                    onClear={claimSelection.clear}
+                  >
+                    <button
+                      type="button"
+                      disabled={!barClaim || pending}
+                      onClick={() => {
+                        if (!barClaim) return;
+                        onPromote(barClaim.id);
+                        claimSelection.clear();
+                      }}
+                    >
+                      تأیید شرکتی
+                    </button>
+                  </SelectionActionBar>
+                ) : null}
+                <DataList>
+                  {privateClaims.map((expense) => {
+                    const canSelect = !readOnly && canApprove;
+                    return (
+                    <div
+                      key={expense.id}
+                      className={canSelect ? selStyles.selectableRow : undefined}
+                      {...(canSelect
+                        ? rowSelectActivateProps({
+                            onActivate: () => {
+                              if (claimSelection.isSelected(expense.id))
+                                claimSelection.clear();
+                              else claimSelection.selectOnly(expense.id);
+                            },
+                          })
+                        : {})}
+                    >
+                    <DataRow
+                      title={
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          {canSelect ? (
+                            <RowSelectCheckbox
+                              checked={claimSelection.isSelected(expense.id)}
+                              onChange={() => {
+                                if (claimSelection.isSelected(expense.id))
+                                  claimSelection.clear();
+                                else claimSelection.selectOnly(expense.id);
+                              }}
+                              label={`انتخاب ${expense.title}`}
+                            />
+                          ) : null}
+                          {expense.title}
+                        </span>
+                      }
+                      meta={
+                        <>
+                          <StatusPill tone="warn">{expenseStatusLabel(expense.status)}</StatusPill>
+                          <StatusPill tone="warn">
+                            {expenseVisibilityLabel(expense.visibility)}
+                          </StatusPill>
+                        </>
+                      }
+                      trailing={<Amount irrMinor={expense.total.amountMinor} />}
+                    />
+                    </div>
+                    );
+                  })}
+                </DataList>
+              </>
             )}
           </SectionCard>
 
@@ -388,33 +450,78 @@ export function OrgSpaceView() {
             {companyExpenses.length === 0 ? (
               <EmptyHint>خرج شرکتی ثبت نشده.</EmptyHint>
             ) : (
-              <DataList>
-                {companyExpenses.slice(0, 20).map((expense) => (
-                  <DataRow
-                    key={expense.id}
-                    title={expense.title}
-                    meta={
-                      <StatusPill tone={expense.status === "posted" ? "ok" : "warn"}>
-                        {expenseStatusLabel(expense.status)}
-                      </StatusPill>
-                    }
-                    trailing={<Amount irrMinor={expense.total.amountMinor} />}
-                    actions={
-                      !readOnly &&
-                      (expense.status === "draft" || expense.status === "submitted") ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          disabled={pending}
-                          onClick={() => onPost(expense.id)}
-                        >
-                          ثبت نهایی
-                        </Button>
-                      ) : null
-                    }
-                  />
-                ))}
-              </DataList>
+              <>
+                {canMutateCompany ? (
+                  <SelectionActionBar
+                    selectedCount={companySelection.selectedCount}
+                    idleHint="روی ردیف کلیک کنید یا مربع کنار خرج را تیک بزنید"
+                    onClear={companySelection.clear}
+                  >
+                    {barCompany &&
+                    (barCompany.status === "draft" ||
+                      barCompany.status === "submitted") ? (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => {
+                          onPost(barCompany.id);
+                          companySelection.clear();
+                        }}
+                      >
+                        ثبت نهایی
+                      </button>
+                    ) : null}
+                  </SelectionActionBar>
+                ) : null}
+                <DataList>
+                  {visibleCompany.map((expense) => {
+                    const canSelect =
+                      canMutateCompany &&
+                      (expense.status === "draft" ||
+                        expense.status === "submitted");
+                    return (
+                    <div
+                      key={expense.id}
+                      className={canSelect ? selStyles.selectableRow : undefined}
+                      {...(canSelect
+                        ? rowSelectActivateProps({
+                            onActivate: () => {
+                              if (companySelection.isSelected(expense.id))
+                                companySelection.clear();
+                              else companySelection.selectOnly(expense.id);
+                            },
+                          })
+                        : {})}
+                    >
+                    <DataRow
+                      title={
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          {canSelect ? (
+                            <RowSelectCheckbox
+                              checked={companySelection.isSelected(expense.id)}
+                              onChange={() => {
+                                if (companySelection.isSelected(expense.id))
+                                  companySelection.clear();
+                                else companySelection.selectOnly(expense.id);
+                              }}
+                              label={`انتخاب ${expense.title}`}
+                            />
+                          ) : null}
+                          {expense.title}
+                        </span>
+                      }
+                      meta={
+                        <StatusPill tone={expense.status === "posted" ? "ok" : "warn"}>
+                          {expenseStatusLabel(expense.status)}
+                        </StatusPill>
+                      }
+                      trailing={<Amount irrMinor={expense.total.amountMinor} />}
+                    />
+                    </div>
+                    );
+                  })}
+                </DataList>
+              </>
             )}
           </SectionCard>
 

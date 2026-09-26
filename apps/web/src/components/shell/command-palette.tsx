@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
 import {
   accountNav,
   bottomTabsV2,
@@ -12,6 +13,7 @@ import {
   mosaicItemSummary,
   spaceNav,
 } from "@/lib/navigation-v2";
+import { isReadOnlyRole, roleAllowsNavKey } from "@dang/contracts";
 import { listRecentDestinations, rememberDestination } from "@/lib/recent-destinations";
 import { spaceNavFlagsFromCapabilities } from "@/lib/workspace-page-access";
 import { wPath } from "@/lib/workspace-paths";
@@ -86,6 +88,7 @@ export function CommandPalette() {
   const titleId = useId();
   const router = useRouter();
   const chrome = useAppChrome();
+  const { role: membershipRole } = useWorkspaceMembershipRole(chrome.workspaceId);
   const activeWs = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const slug = activeWs?.slug ?? null;
   const template = activeWs?.template;
@@ -108,7 +111,8 @@ export function CommandPalette() {
       });
     }
 
-    const fab = expenseFabHref(template, slug);
+    const fab =
+      isReadOnlyRole(membershipRole) ? null : expenseFabHref(template, slug);
     if (fab) {
       push({
         id: "fab-expense",
@@ -203,8 +207,10 @@ export function CommandPalette() {
       template,
       slug,
       spaceNavFlagsFromCapabilities(chrome.capabilities),
+      membershipRole || null,
     )) {
       for (const item of section.items) {
+        if (!roleAllowsNavKey(membershipRole, item.key)) continue;
         push({
           id: `nav-${item.key}`,
           label: item.label,
@@ -243,6 +249,7 @@ export function CommandPalette() {
     slug,
     template,
     open,
+    membershipRole,
   ]);
 
   const filtered = useMemo(() => {

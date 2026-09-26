@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { StatusLine } from "@/components/ui-blocks";
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
+import { PersonaShellBanner } from "@/components/shell/persona-shell-banner";
 import { t } from "@/lib/i18n";
 
 /**
@@ -41,23 +42,32 @@ export function WorkspacePageFrame({
   error?: ReactNode;
   children?: ReactNode;
 }) {
+  const hasLead = Boolean(kicker) || Boolean(title.trim()) || Boolean(description);
+  const hasActions = primaryAction != null || secondaryActions != null;
+
   return (
     <div className="workspacePageFrame">
-      <header className="moduleChrome">
-        <div className="moduleChrome__lead">
-          {kicker ? <p className="moduleChrome__kicker">{kicker}</p> : null}
-          <h1 className="moduleChrome__title">{title}</h1>
-          {description ? <p className="moduleChrome__desc">{description}</p> : null}
-        </div>
-        {primaryAction != null || secondaryActions != null ? (
-          <div className="moduleChrome__actions productHeaderActions">
-            {primaryAction}
-            {secondaryActions ? (
-              <div className="uxSecondaryActions">{secondaryActions}</div>
-            ) : null}
-          </div>
-        ) : null}
-      </header>
+      {hasLead || hasActions ? (
+        <header className="moduleChrome">
+          {hasLead ? (
+            <div className="moduleChrome__lead">
+              {kicker ? <p className="moduleChrome__kicker">{kicker}</p> : null}
+              {title.trim() ? <h1 className="moduleChrome__title">{title}</h1> : null}
+              {description ? <p className="moduleChrome__desc">{description}</p> : null}
+            </div>
+          ) : (
+            <div className="moduleChrome__lead" />
+          )}
+          {hasActions ? (
+            <div className="moduleChrome__actions productHeaderActions">
+              {primaryAction}
+              {secondaryActions ? (
+                <div className="uxSecondaryActions">{secondaryActions}</div>
+              ) : null}
+            </div>
+          ) : null}
+        </header>
+      ) : null}
 
       {state === "loading" ? (
         <ContentSkeleton rows={skeletonRows} label={loadingLabel ?? t("shell.loading")} />
@@ -66,7 +76,12 @@ export function WorkspacePageFrame({
         ? (error ?? <StatusLine>بارگذاری ناموفق بود. صفحه را تازه‌سازی کنید.</StatusLine>)
         : null}
       {state === "empty" ? empty : null}
-      {state === "ready" ? <div className="workspacePageFrame__body">{children}</div> : null}
+      {state === "ready" ? (
+        <div className="workspacePageFrame__body">
+          <PersonaShellBanner />
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }

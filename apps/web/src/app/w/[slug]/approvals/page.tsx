@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import type { ApprovalQueueItem, MembershipSummary } from "@dang/contracts";
-import { isReadOnlyRole } from "@dang/contracts";
+import { isExpenseApproverRole, isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -34,7 +34,7 @@ import styles from "./approvals.module.css";
 
 export default function WorkspaceApprovalsPage() {
   return (
-    <WorkspacePageGate page="approvals">
+    <WorkspacePageGate page="approvals" needRole>
       <WorkspaceApprovalsPageInner />
     </WorkspacePageGate>
   );
@@ -56,6 +56,7 @@ function WorkspaceApprovalsPageInner() {
   );
   const workspace = chrome.workspaces.find((row) => row.id === chrome.workspaceId);
   const readOnly = isReadOnlyRole(myRole);
+  const canApproveActions = isExpenseApproverRole(myRole) && !readOnly;
   const selectedItem =
     items.find((item) => `${item.kind}:${item.id}` === selectedKey) ??
     items[0] ??
@@ -92,7 +93,7 @@ function WorkspaceApprovalsPageInner() {
   }, [chrome.workspaceId, enabled, chrome.actor?.userId]);
 
   function run(action: () => Promise<unknown>, fail: string) {
-    if (!chrome.workspaceId || readOnly) return;
+    if (!chrome.workspaceId || !canApproveActions) return;
     startTransition(() => {
       void action()
         .then(() => refresh())
@@ -101,7 +102,7 @@ function WorkspaceApprovalsPageInner() {
   }
 
   function actionsFor(item: ApprovalQueueItem) {
-    if (readOnly || !chrome.workspaceId) {
+    if (!canApproveActions || !chrome.workspaceId) {
       return workspace ? (
         <Link href={wPath(workspace.slug, item.hrefHint as WorkspacePage)}>مشاهده</Link>
       ) : null;
@@ -228,7 +229,7 @@ function WorkspaceApprovalsPageInner() {
           workspace ? (
             <Link href={wPath(workspace.slug, "expenses")}>{NAV_LABELS.expenses}</Link>
           ) : (
-            <Link href="/spaces">{NAV_LABELS.spacesList}</Link>
+            <Link href="/home">{NAV_LABELS.spacesList}</Link>
           )
         }
         state={!enabled ? "empty" : !loaded && enabled ? "loading" : "ready"}
@@ -265,15 +266,23 @@ function WorkspaceApprovalsPageInner() {
         <ContentSkeleton rows={3} label="در حال بارگذاری مرکز تأیید…" />
       ) : (
         <SectionCard title="در انتظار اقدام" badge={items.length}>
-          {readOnly ? (
+          {readOnly || !canApproveActions ? (
             <StatusLine>
-              نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — تأیید از این صفحه فعال نیست.
+              {readOnly
+                ? `نقش ${membershipRoleLabel(myRole)} فقط مشاهده دارد — تأیید از این صفحه فعال نیست.`
+                : myRole
+                  ? `نقش ${membershipRoleLabel(myRole)} اجازهٔ اقدام تأیید ندارد — فقط مالک، ادمین، مادرخرج یا تأییدکننده.`
+                  : "در حال تشخیص نقش…"}
             </StatusLine>
           ) : actorUserId ? (
             <StatusLine>اقدام‌ها روی موارد واقعی صف — بدون badge جعلی.</StatusLine>
           ) : null}
           {items.length === 0 ? (
-            <EmptyHint>موردی برای تأیید وجود ندارد.</EmptyHint>
+            <EmptyHint>
+              {canApproveActions
+                ? "موردی برای تأیید وجود ندارد."
+                : "صف خالی است یا برای نقش شما اقدامی تعریف نشده."}
+            </EmptyHint>
           ) : (
             <div className={styles.masterDetail}>
               <DataList>
@@ -361,7 +370,7 @@ function WorkspaceApprovalsPageInner() {
                         </dd>
                       </div>
                     ) : null}
-                    <div><dt>سطح دسترسی</dt><dd>{readOnly ? "فقط مشاهده" : "اقدام مجاز"}</dd></div>
+                    <div><dt>سطح دسترسی</dt><dd>{canApproveActions ? "اقدام مجاز" : "فقط مشاهده"}</dd></div>
                   </dl>
                   <div className={styles.inspectorActions}>{actionsFor(selectedItem)}</div>
                 </aside>

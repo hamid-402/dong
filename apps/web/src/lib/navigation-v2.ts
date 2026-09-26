@@ -1,5 +1,9 @@
 import type { ProductFeatureFlags, WorkspaceTemplate } from "@dang/contracts";
-import { spaceKindForTemplate } from "@dang/contracts";
+import {
+  isExpenseApproverRole,
+  roleAllowsNavKey,
+  spaceKindForTemplate,
+} from "@dang/contracts";
 import { hubPathFor } from "@/lib/hub-links";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { t } from "@/lib/i18n";
@@ -429,7 +433,8 @@ export function spaceNav(
         icon: "receipt" as const,
         module: "expenses",
       },
-      ...(flags?.approvalQueue
+      ...(flags?.approvalQueue &&
+      (role == null || role === "" || isExpenseApproverRole(role))
         ? [
             {
               key: "approvals",
@@ -485,7 +490,7 @@ export function spaceNav(
             {
               key: "charts",
               label: NAV_LABELS.charts,
-              href: scoped(slug, "charts", "/spaces"),
+              href: scoped(slug, "charts", "/home"),
               icon: "receipt" as const,
             },
           ]
@@ -564,7 +569,7 @@ export function spaceNav(
             {
               key: "subunits",
               label: NAV_LABELS.subunits,
-              href: scoped(slug, "subunits", "/spaces"),
+              href: scoped(slug, "subunits", "/home"),
               icon: "box" as const,
             },
           ]
@@ -574,7 +579,7 @@ export function spaceNav(
             {
               key: "permissions",
               label: NAV_LABELS.permissions,
-              href: scoped(slug, "permissions", "/spaces"),
+              href: scoped(slug, "permissions", "/home"),
               icon: "settings" as const,
             },
           ]
@@ -594,7 +599,7 @@ export function spaceNav(
       {
         key: "audit",
         label: NAV_LABELS.audit,
-        href: scoped(slug, "audit", "/spaces"),
+        href: scoped(slug, "audit", "/home"),
         icon: "receipt" as const,
       },
       ...(flags?.securityOpsV1
@@ -602,7 +607,7 @@ export function spaceNav(
             {
               key: "security-ops",
               label: NAV_LABELS.securityOps,
-              href: scoped(slug, "securityOps", "/spaces"),
+              href: scoped(slug, "securityOps", "/home"),
               icon: "settings" as const,
             },
           ]
@@ -612,7 +617,7 @@ export function spaceNav(
             {
               key: "metrics",
               label: NAV_LABELS.metrics,
-              href: scoped(slug, "metrics", "/spaces"),
+              href: scoped(slug, "metrics", "/home"),
               icon: "receipt" as const,
             },
           ]
@@ -622,7 +627,7 @@ export function spaceNav(
             {
               key: "jobs",
               label: NAV_LABELS.jobs,
-              href: scoped(slug, "jobs", "/spaces"),
+              href: scoped(slug, "jobs", "/home"),
               icon: "receipt" as const,
             },
           ]
@@ -634,7 +639,7 @@ export function spaceNav(
     {
       key: "settings",
       label: NAV_LABELS.settings,
-      href: scoped(slug, "settings", "/spaces"),
+      href: scoped(slug, "settings", "/home"),
       icon: "settings" as const,
     },
   ];
@@ -663,7 +668,12 @@ export function spaceNav(
       items: settingsItems,
     });
   }
-  return sections;
+  return sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => roleAllowsNavKey(role, item.key)),
+    }))
+    .filter((section) => section.items.length > 0);
 }
 
 /**
@@ -1189,7 +1199,7 @@ export function contextualAccountNav(
   ];
 }
 
-/** Mobile/desktop primary tabs — Home + Spaces; expense via FAB; space/tools via Home cards. */
+/** Mobile/desktop primary tabs — unified home hub; expense via FAB. */
 export function bottomTabsV2(
   template: WorkspaceTemplate | undefined,
   slug: string | null = null,
@@ -1202,12 +1212,6 @@ export function bottomTabsV2(
       label: NAV_LABELS.home,
       href: "/home",
       icon: "home",
-    },
-    {
-      key: "spaces",
-      label: NAV_LABELS.spacesList,
-      href: "/spaces",
-      icon: "box",
     },
   ] satisfies BottomTabV2[];
 }
@@ -1230,7 +1234,8 @@ export function isNavHrefActive(pathname: string, href: string): boolean {
     return pathname === base || pathname === `${base}/`;
   }
   if (base === "/spaces") {
-    return pathname === "/spaces" || pathname.startsWith("/spaces/");
+    // Legacy list URL redirects to /home; keep /spaces/new|reports active separately.
+    return pathname === "/spaces" || pathname === "/home";
   }
   if (base === "/account") {
     return pathname === "/account" || pathname.startsWith("/account/");
