@@ -412,6 +412,7 @@ export type AcceptInviteRequest = {
 export * from "./account.js";
 export * from "./access-policy.js";
 export * from "./role-surface.js";
+export * from "./persona-home.js";
 export * from "./access-abac.js";
 export * from "./access-grants.js";
 export * from "./policy-dsl.js";

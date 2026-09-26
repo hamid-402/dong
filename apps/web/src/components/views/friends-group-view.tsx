@@ -14,7 +14,7 @@ import {
   isFinanceManagerRole,
   isMembershipManagerRole,
   isReadOnlyRole,
-  roleNavProfile,
+  personaHomeSpec,
 } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
@@ -32,7 +32,6 @@ import { friendlyErrorMessage } from "@/lib/api-errors";
 import { todayIsoLocal } from "@/lib/fa-datetime";
 import { hubPathFor } from "@/lib/hub-links";
 import { useLiveInvalidation } from "@/lib/live-invalidation";
-import { statementsListHref } from "@/lib/statement-links";
 import { wPath } from "@/lib/workspace-paths";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { membershipRoleLabel, workspaceTemplateLabel } from "@/lib/status-labels";
@@ -42,6 +41,11 @@ import { GroupBalanceHero } from "@/components/shell/group-balance-hero";
 import { GroupPublicIdCard } from "@/components/shell/group-public-id";
 import { GroupSetupChecklist } from "@/components/shell/group-setup-checklist";
 import { SpaceFrequentActions } from "@/components/shell/space-frequent-actions";
+import {
+  buildPersonaHomeHrefs,
+  PersonaHomeFrameActions,
+  PersonaHomeRelatedLinks,
+} from "@/components/shell/persona-home-actions";
 
 /**
  * Kind space home for friends/household groups (`/w/…/space`).
@@ -86,12 +90,23 @@ export function FriendsGroupView() {
     : `${hubPathFor("/workspaces")}#settlement-panel`;
   const statementsLive =
     chrome.capabilities?.providers?.statements === "csv_json_print_v1";
-  const statementsHref = slug ? statementsListHref(slug) : hubPathFor("/workspaces");
   const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
   const overviewHref = slug ? wPath(slug) : "/home";
   const myRole = members.find((m) => m.userId === actorUserId)?.role;
   const readOnlySpace = isReadOnlyRole(myRole);
-  const persona = roleNavProfile(myRole);
+  const homeSpec = personaHomeSpec(myRole, "group", {
+    approvalQueue: Boolean(chrome.capabilities?.productFlags?.approvalQueue),
+    statementsLive,
+  });
+  const hrefs = slug ? buildPersonaHomeHrefs(slug) : null;
+  const frameActions =
+    homeSpec && hrefs
+      ? PersonaHomeFrameActions({
+          spec: homeSpec,
+          hrefs,
+          spaceKind: "group",
+        })
+      : null;
   const addonsLive = Boolean(chrome.capabilities?.productFlags?.addonAck);
   const allowanceLive = Boolean(chrome.capabilities?.productFlags?.allowance);
   async function refresh(workspaceId: string) {
@@ -247,31 +262,36 @@ export function FriendsGroupView() {
       persistenceLabel={chrome.persistenceLabel}
     >
       <WorkspacePageFrame
-        title="خلاصهٔ گروه"
+        title={homeSpec?.titleFa ?? "خلاصهٔ گروه"}
         kicker={
           workspace
-            ? `${workspaceTemplateLabel(workspace.template)} · ${members.length.toLocaleString("fa-IR")} عضو`
+            ? `${workspaceTemplateLabel(workspace.template)} · ${members.length.toLocaleString("fa-IR")} عضو${
+                myRole ? ` · ${membershipRoleLabel(myRole)}` : ""
+              }`
             : undefined
         }
         description={
-          persona?.homeHintFa ??
+          homeSpec?.blurbFa ??
           "وضعیت پول و اقدام‌های پرتکرار این گروه — ماژول‌های کامل از نوار کناری یا مرکز فضای کاری."
-        }        primaryAction={
-          slug && !readOnlySpace ? (
+        }
+        primaryAction={
+          frameActions?.primaryAction ??
+          (slug && !readOnlySpace ? (
             <Link href={`${expensesHref}#quick-expense`}>{NAV_LABELS.addExpense}</Link>
           ) : slug ? (
             <Link href={overviewHref}>مرکز فضای کاری</Link>
           ) : (
             <Link href="/home">{NAV_LABELS.home}</Link>
-          )
+          ))
         }
         secondaryActions={
-          slug ? (
+          frameActions?.secondaryActions ??
+          (slug ? (
             <>
               <Link href={expensesHref}>{NAV_LABELS.expenses}</Link>
               <Link href={overviewHref}>مرکز فضای کاری</Link>
             </>
-          ) : undefined
+          ) : undefined)
         }
         state="ready"
       >
@@ -285,11 +305,16 @@ export function FriendsGroupView() {
               <StatusLine>
                 <Link href={overviewHref}>مرکز فضای کاری</Link>
                 {" · "}
-                خلاصهٔ همین گروه — فهرست کامل ابزارها در نوار کناری
+                {homeSpec
+                  ? homeSpec.blurbFa
+                  : "خلاصهٔ همین گروه — فهرست کامل ابزارها در نوار کناری"}
               </StatusLine>
             ) : null}
 
-            {workspace && balances && actorUserId ? (
+            {homeSpec?.panels.balanceHero !== false &&
+            workspace &&
+            balances &&
+            actorUserId ? (
               <GroupBalanceHero
                 workspaceName={workspace.name}
                 myNetMinor={
@@ -316,30 +341,45 @@ export function FriendsGroupView() {
                   toman: Math.round(Number(e.total.amountMinor) / 10),
                   status: e.status,
                 }))}
+                canMutate={homeSpec ? homeSpec.canAddExpense : !readOnlySpace}
               />
             ) : null}
 
             {slug ? (
               <>
                 <GroupPublicIdCard slug={slug} name={workspace?.name} />
-                <GroupSetupChecklist
-                  slug={slug}
-                  memberCount={members.length}
-                  financeManagerCount={members.filter(
-                    (m) => !m.disabledAt && isFinanceManagerRole(m.role),
-                  ).length}
-                  postedCount={postedCount}
-                  canManageMembers={
-                    isMembershipManagerRole(myRole) && !readOnlySpace
-                  }
-                />
-                <SpaceFrequentActions
-                  slug={slug}
-                  openSettlements={openSettlementCount}
-                  memberCount={members.length}
-                  canAddExpense={!readOnlySpace}
-                  inviteHref={`${membersHref}#invite-create-panel`}
-                />
+                {homeSpec?.panels.setupChecklist !== false ? (
+                  <GroupSetupChecklist
+                    slug={slug}
+                    memberCount={members.length}
+                    financeManagerCount={members.filter(
+                      (m) => !m.disabledAt && isFinanceManagerRole(m.role),
+                    ).length}
+                    postedCount={postedCount}
+                    canManageMembers={
+                      isMembershipManagerRole(myRole) && !readOnlySpace
+                    }
+                  />
+                ) : null}
+                {homeSpec?.panels.frequentActions !== false ? (
+                  <SpaceFrequentActions
+                    slug={slug}
+                    openSettlements={openSettlementCount}
+                    memberCount={members.length}
+                    canAddExpense={
+                      homeSpec ? homeSpec.canAddExpense : !readOnlySpace
+                    }
+                    inviteHref={`${membersHref}#invite-create-panel`}
+                    addMemberHref={`${membersHref}#member-add-panel`}
+                    showInvite={homeSpec ? homeSpec.showInviteLink : true}
+                    showAddMember={homeSpec?.showAddMember ?? false}
+                    showApprovals={Boolean(
+                      homeSpec?.panels.approvalsCard &&
+                        chrome.capabilities?.productFlags?.approvalQueue,
+                    )}
+                    approvalsHref={hrefs?.approvals}
+                  />
+                ) : null}
               </>
             ) : null}
 
@@ -376,50 +416,37 @@ export function FriendsGroupView() {
               </SectionCard>
             ) : null}
 
-            {slug ? (
+            {slug && homeSpec && hrefs && homeSpec.panels.relatedLinks ? (
               <SectionCard title="مسیرهای مرتبط" tone="quiet" delayClass="delay1">
-                <StatusLine>
-                  <Link href={wPath(slug, "expenses")}>{NAV_LABELS.expenses}</Link>
-                  {" · "}
-                  <Link href={wPath(slug, "settlements")}>{NAV_LABELS.settlements}</Link>
-                  {" · "}
-                  <Link href={wPath(slug, "ledger")}>{NAV_LABELS.ledger}</Link>
-                  {" · "}
-                  <Link href={membersHref}>{NAV_LABELS.members}</Link>
-                  {statementsLive ? (
-                    <>
-                      {" · "}
-                      <Link href={statementsHref}>{NAV_LABELS.statements}</Link>
-                    </>
-                  ) : null}
-                  {" · "}
-                  <Link href={wPath(slug, "invoices")}>{NAV_LABELS.invoices}</Link>
-                  {addonsLive ? (
-                    <>
-                      {" · "}
+                <PersonaHomeRelatedLinks
+                  spec={homeSpec}
+                  hrefs={hrefs}
+                  spaceKind="group"
+                />
+                {addonsLive || allowanceLive ? (
+                  <StatusLine>
+                    {addonsLive ? (
                       <Link href={wPath(slug, "addons")}>{NAV_LABELS.addons}</Link>
-                    </>
-                  ) : null}
-                  {allowanceLive ? (
-                    <>
-                      {" · "}
+                    ) : null}
+                    {addonsLive && allowanceLive ? " · " : null}
+                    {allowanceLive ? (
                       <Link href={`${membersHref}#member-allowances`}>سقف هزینه</Link>
-                    </>
-                  ) : null}
-                  {" · "}
-                  <Link href="/spaces/new?kind=group">ساخت گروه دیگر</Link>
-                </StatusLine>
+                    ) : null}
+                  </StatusLine>
+                ) : null}
               </SectionCard>
             ) : null}
 
-            {slug && chrome.workspaceId ? (
+            {slug &&
+            chrome.workspaceId &&
+            homeSpec?.panels.outingComposer !== false ? (
               <details className="reportDetails">
                 <summary>
                   <span>گردش چندخرجی (اختیاری)</span>
                   <span>{outings.length}</span>
                 </summary>
                 <div className="reportDetails__body">
-                  {readOnlySpace ? (
+                  {readOnlySpace || homeSpec?.canAddExpense === false ? (
                     <EmptyHint>
                       نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ساخت گردش فعال نیست.
                     </EmptyHint>

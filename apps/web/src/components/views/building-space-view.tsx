@@ -14,7 +14,7 @@ import {
   isFinanceManagerRole,
   isMembershipManagerRole,
   isReadOnlyRole,
-  roleNavProfile,
+  personaHomeSpec,
   spaceKindForTemplate,
 } from "@dang/contracts";
 import { Amount, Button, TextField } from "@dang/ui";
@@ -35,6 +35,13 @@ import { GroupOpsRail } from "@/components/shell/group-ops-rail";
 import { GroupPublicIdCard } from "@/components/shell/group-public-id";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
+import {
+  buildPersonaHomeHrefs,
+  PersonaHomeFrameActions,
+  PersonaHomeRelatedLinks,
+} from "@/components/shell/persona-home-actions";
+import { SpaceFrequentActions } from "@/components/shell/space-frequent-actions";
+import { modulesForTemplate } from "@/lib/workspace-modules";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { expenseHrefForUnit } from "@/lib/expense-unit-href";
@@ -131,15 +138,31 @@ export function BuildingSpaceView() {
   const canManage = isFinanceManagerRole(myRole);
   const canManageMembers = isMembershipManagerRole(myRole) && !isReadOnlyRole(myRole);
   const readOnly = isReadOnlyRole(myRole);
-  const persona = roleNavProfile(myRole);
-  const pageTitle = isConstruction ? "خانه پروژه ساختمانی" : "خانه ساختمان";
+  const modules = modulesForTemplate(workspace?.template);
+  const homeSpec = personaHomeSpec(myRole, "building", {
+    approvalQueue: Boolean(chrome.capabilities?.productFlags?.approvalQueue),
+    statementsLive:
+      chrome.capabilities?.providers?.statements === "csv_json_print_v1",
+    procurement: modules.has("procurement") || isConstruction,
+    partners: modules.has("partnerships") || isConstruction,
+  });
+  const pageTitle = homeSpec?.titleFa ?? (isConstruction ? "خانه پروژه ساختمانی" : "خانه ساختمان");
   const pageDesc =
-    persona?.homeHintFa ??
+    homeSpec?.blurbFa ??
     (isConstruction
       ? "مصالح، پیمان، تحویل و سهم شرکا — با ساختار بخش/فاز و مسیرهای واقعی runtime."
       : "واحدها، ساکنان، شارژ و قبوض مشترک — نه گروه دوستانه.");
 
   const slug = workspace?.slug ?? scope?.slug ?? null;
+  const hrefs = slug ? buildPersonaHomeHrefs(slug) : null;
+  const frameActions =
+    homeSpec && hrefs
+      ? PersonaHomeFrameActions({
+          spec: homeSpec,
+          hrefs,
+          spaceKind: "building",
+        })
+      : null;
   const unitsHref = slug ? wPath(slug, "subunits") : "/home?kind=building";
   const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
   const expensesHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
@@ -289,26 +312,46 @@ export function BuildingSpaceView() {
         title={pageTitle}
         description={pageDesc}
         primaryAction={
-          slug ? (
+          frameActions?.primaryAction ??
+          (slug ? (
             <Link href={unitsHref}>{unitNounPlural}</Link>
           ) : (
             <Link href="/spaces/new?kind=building">{NAV_LABELS.createSpace}</Link>
-          )
+          ))
         }
+        secondaryActions={frameActions?.secondaryActions}
         state={!chrome.ready || loading ? "loading" : "ready"}
         loadingLabel="در حال بارگذاری خانه ساختمان…"
       >
         <FlashMessages error={pageError} successMessage={successMessage} />
 
-        {workspace && slug ? (
+        {workspace && slug && homeSpec?.panels.opsRail !== false ? (
           <GroupOpsRail
             slug={slug}
             spaceKind="building"
             memberCount={members.length}
             openSettlements={openSettlements}
             canManageMembers={canManageMembers}
-            showSubunits
+            showSubunits={homeSpec?.panels.subunits !== false}
             subunitsHint={unitNounPlural}
+          />
+        ) : null}
+
+        {workspace && slug && homeSpec?.panels.frequentActions !== false ? (
+          <SpaceFrequentActions
+            slug={slug}
+            openSettlements={openSettlements}
+            memberCount={members.length}
+            canAddExpense={homeSpec ? homeSpec.canAddExpense : !readOnly}
+            inviteHref={`${membersHref}#invite-create-panel`}
+            addMemberHref={`${membersHref}#member-add-panel`}
+            showInvite={homeSpec?.showInviteLink ?? canManageMembers}
+            showAddMember={homeSpec?.showAddMember ?? false}
+            showApprovals={Boolean(
+              homeSpec?.panels.approvalsCard &&
+                chrome.capabilities?.productFlags?.approvalQueue,
+            )}
+            approvalsHref={hrefs?.approvals}
           />
         ) : null}
 
@@ -360,9 +403,11 @@ export function BuildingSpaceView() {
                 </StatusLine>
               ) : null}
               <div className="dataRowActions">
-                <Link href={unitsHref}>
-                  <Button type="button">{unitNounPlural}</Button>
-                </Link>
+                {homeSpec?.panels.subunits !== false ? (
+                  <Link href={unitsHref}>
+                    <Button type="button">{unitNounPlural}</Button>
+                  </Link>
+                ) : null}
                 <Link href={expensesHref}>
                   <Button type="button" variant="ghost">
                     {isConstruction ? NAV_LABELS.expenses : "شارژ و قبوض"}
@@ -373,23 +418,29 @@ export function BuildingSpaceView() {
                     {NAV_LABELS.settlements}
                   </Button>
                 </Link>
-                <Link href={invoicesHref}>
-                  <Button type="button" variant="ghost">
-                    {NAV_LABELS.invoices}
-                  </Button>
-                </Link>
-                {isConstruction ? (
+                {(!homeSpec || homeSpec.relatedLinkKinds.includes("invoices")) && (
+                  <Link href={invoicesHref}>
+                    <Button type="button" variant="ghost">
+                      {NAV_LABELS.invoices}
+                    </Button>
+                  </Link>
+                )}
+                {isConstruction &&
+                (!homeSpec || homeSpec.relatedLinkKinds.includes("procurement")) ? (
                   <>
                     <Link href={procurementHref}>
                       <Button type="button" variant="ghost">
                         {NAV_LABELS.procurement}
                       </Button>
                     </Link>
-                    <Link href={partnersHref}>
-                      <Button type="button" variant="ghost">
-                        {NAV_LABELS.partners}
-                      </Button>
-                    </Link>
+                    {(!homeSpec ||
+                      homeSpec.relatedLinkKinds.includes("partners")) && (
+                      <Link href={partnersHref}>
+                        <Button type="button" variant="ghost">
+                          {NAV_LABELS.partners}
+                        </Button>
+                      </Link>
+                    )}
                   </>
                 ) : null}
                 <Link href={membersHref}>
@@ -398,6 +449,13 @@ export function BuildingSpaceView() {
                   </Button>
                 </Link>
               </div>
+              {homeSpec && hrefs ? (
+                <PersonaHomeRelatedLinks
+                  spec={homeSpec}
+                  hrefs={hrefs}
+                  spaceKind="building"
+                />
+              ) : null}
             </SectionCard>
 
             {slug ? (

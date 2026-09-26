@@ -9,7 +9,7 @@ import type {
   WorkspaceSubunitSummary,
   WorkspaceSummary,
 } from "@dang/contracts";
-import { isMembershipManagerRole, isExpenseApproverRole, isReadOnlyRole, roleNavProfile, spaceKindForTemplate } from "@dang/contracts";
+import { isMembershipManagerRole, isExpenseApproverRole, isReadOnlyRole, personaHomeSpec, spaceKindForTemplate } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
@@ -33,6 +33,12 @@ import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { GroupOpsRail } from "@/components/shell/group-ops-rail";
 import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
+import {
+  buildPersonaHomeHrefs,
+  PersonaHomeFrameActions,
+  PersonaHomeRelatedLinks,
+} from "@/components/shell/persona-home-actions";
+import { SpaceFrequentActions } from "@/components/shell/space-frequent-actions";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { expenseHrefForUnit } from "@/lib/expense-unit-href";
@@ -47,7 +53,7 @@ import {
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
-import { templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
+import { modulesForTemplate, templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
 import { wPath } from "@/lib/workspace-paths";
 
 function budgetStatusLabel(status: string): string {
@@ -171,7 +177,6 @@ export function OrgSpaceView() {
   const canApprove = isExpenseApproverRole(myRole);
   const canManageMembers = isMembershipManagerRole(myRole) && !isReadOnlyRole(myRole);
   const readOnly = isReadOnlyRole(myRole);
-  const persona = roleNavProfile(myRole);
   const canMutateCompany = canApprove && !readOnly;
   const privateClaims = expenses.filter((e) => e.visibility === "private");
   const companyExpenses = expenses.filter((e) => e.visibility === "company");
@@ -196,6 +201,24 @@ export function OrgSpaceView() {
     ? wPath(slug, "procurement")
     : hubPathFor("/workspaces/procurement");
   const expensesHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
+  const modules = modulesForTemplate(workspace?.template);
+  const homeSpec = personaHomeSpec(myRole, "org", {
+    approvalQueue: Boolean(flags?.approvalQueue),
+    orgFinanceLive,
+    statementsLive:
+      chrome.capabilities?.providers?.statements === "csv_json_print_v1",
+    procurement: modules.has("procurement"),
+    partners: modules.has("partnerships"),
+  });
+  const hrefs = slug ? buildPersonaHomeHrefs(slug) : null;
+  const frameActions =
+    homeSpec && hrefs
+      ? PersonaHomeFrameActions({
+          spec: homeSpec,
+          hrefs,
+          spaceKind: "org",
+        })
+      : null;
 
   return (
     <AppShell
@@ -205,33 +228,56 @@ export function OrgSpaceView() {
       persistenceLabel={chrome.persistenceLabel}
     >
       <WorkspacePageFrame
-      title={"خانه سازمان"}
+      title={homeSpec?.titleFa ?? "خانه سازمان"}
       description={
-        persona?.homeHintFa ??
+        homeSpec?.blurbFa ??
         "بخش‌ها، شرکت‌های زیرمجموعه، تأیید و تدارکات — از دادهٔ زندهٔ همین فضا."
       }
-      primaryAction={slug ? <Link href={subunitsHref}>{NAV_LABELS.subunits}</Link> : <Link href="/spaces/new?kind=org">{NAV_LABELS.createSpace}</Link>}
+      primaryAction={
+        frameActions?.primaryAction ??
+        (slug ? (
+          <Link href={subunitsHref}>{NAV_LABELS.subunits}</Link>
+        ) : (
+          <Link href="/spaces/new?kind=org">{NAV_LABELS.createSpace}</Link>
+        ))
+      }
       secondaryActions={
-        slug ? (
+        frameActions?.secondaryActions ??
+        (slug ? (
           <>
             <Link href={expensesHref}>{NAV_LABELS.expenses}</Link>
             <Link href={membersHref}>{NAV_LABELS.members}</Link>
           </>
-        ) : undefined
+        ) : undefined)
       }
       state="ready"
     >
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
 
-      {workspace && slug ? (
+      {workspace && slug && homeSpec?.panels.opsRail !== false ? (
         <GroupOpsRail
           slug={slug}
           spaceKind="org"
           memberCount={members.filter((m) => !m.disabledAt).length}
           canManageMembers={canManageMembers}
-          showSubunits
+          showSubunits={homeSpec?.panels.subunits !== false}
           subunitsHint="بخش‌ها و زیرمجموعه‌ها"
+        />
+      ) : null}
+
+      {workspace && slug && homeSpec?.panels.frequentActions !== false ? (
+        <SpaceFrequentActions
+          slug={slug}
+          memberCount={members.filter((m) => !m.disabledAt).length}
+          canAddExpense={homeSpec ? homeSpec.canAddExpense : !readOnly}
+          inviteHref={`${membersHref}#invite-create-panel`}
+          addMemberHref={`${membersHref}#member-add-panel`}
+          showInvite={homeSpec?.showInviteLink ?? canManageMembers}
+          showAddMember={homeSpec?.showAddMember ?? false}
+          showApprovals={Boolean(homeSpec?.panels.approvalsCard && flags?.approvalQueue)}
+          approvalsHref={approvalsHref}
+          approvalCount={approvalCount}
         />
       ) : null}
 
@@ -262,27 +308,40 @@ export function OrgSpaceView() {
               <EmptyHint>این قالب خرج شرکتی ندارد.</EmptyHint>
             ) : null}
             <div className="dataRowActions">
-              <Link href={subunitsHref}>
-                <Button type="button">{NAV_LABELS.subunits}</Button>
-              </Link>
-              {orgFinanceLive ? (
+              {homeSpec?.panels.subunits !== false ? (
+                <Link href={subunitsHref}>
+                  <Button type="button">{NAV_LABELS.subunits}</Button>
+                </Link>
+              ) : null}
+              {orgFinanceLive &&
+              (!homeSpec || homeSpec.relatedLinkKinds.includes("orgFinance")) ? (
                 <Link href={orgFinanceHref}>
                   <Button type="button" variant="ghost">{NAV_LABELS.orgFinance}</Button>
                 </Link>
               ) : null}
-              <Link href={procurementHref}>
-                <Button type="button" variant="ghost">
-                  {NAV_LABELS.procurement}
-                </Button>
-              </Link>
+              {!homeSpec || homeSpec.relatedLinkKinds.includes("procurement") ? (
+                <Link href={procurementHref}>
+                  <Button type="button" variant="ghost">
+                    {NAV_LABELS.procurement}
+                  </Button>
+                </Link>
+              ) : null}
               <Link href={membersHref}>
                 <Button type="button" variant="ghost">
                   {NAV_LABELS.members}
                 </Button>
               </Link>
             </div>
+            {homeSpec && hrefs ? (
+              <PersonaHomeRelatedLinks
+                spec={homeSpec}
+                hrefs={hrefs}
+                spaceKind="org"
+              />
+            ) : null}
           </SectionCard>
 
+          {homeSpec?.panels.subunits !== false ? (
           <SectionCard
             title="بخش‌ها و شرکت‌های زیرمجموعه"
             badge={subunits.length}
@@ -300,11 +359,13 @@ export function OrgSpaceView() {
                     title={`${s.code} · ${s.name}`}
                     meta={`${s.kind === "subsidiary" ? "شرکت زیرمجموعه" : "بخش"} · ${s.memberUserIds.length.toLocaleString("fa-IR")} نفر`}
                     actions={
-                      <Link href={expenseHrefForUnit(expensesHref, s.code, s.name)}>
-                        <Button type="button" variant="ghost">
-                          ثبت خرج بخش
-                        </Button>
-                      </Link>
+                      homeSpec?.canAddExpense !== false ? (
+                        <Link href={expenseHrefForUnit(expensesHref, s.code, s.name)}>
+                          <Button type="button" variant="ghost">
+                            ثبت خرج بخش
+                          </Button>
+                        </Link>
+                      ) : null
                     }
                   />
                 ))}
@@ -316,8 +377,9 @@ export function OrgSpaceView() {
               </Button>
             </Link>
           </SectionCard>
+          ) : null}
 
-          {flags?.approvalQueue ? (
+          {flags?.approvalQueue && homeSpec?.panels.approvalsCard !== false ? (
             <SectionCard
               title={NAV_LABELS.approvals}
               badge={approvalCount}
@@ -336,6 +398,7 @@ export function OrgSpaceView() {
             </SectionCard>
           ) : null}
 
+          {homeSpec?.panels.budgetsCard !== false ? (
           <SectionCard title="بودجه‌ها" badge={budgets.length} delayClass="delay1">
             {budgets.length === 0 ? (
               <EmptyHint>
@@ -365,7 +428,9 @@ export function OrgSpaceView() {
             )}
             <Link href={procurementHref}>رفتن به تدارکات</Link>
           </SectionCard>
+          ) : null}
 
+          {homeSpec?.panels.claimsCard !== false ? (
           <SectionCard
             title="مطالبات خصوصی (در انتظار تأیید شرکتی)"
             badge={privateClaims.length}
@@ -445,7 +510,9 @@ export function OrgSpaceView() {
               </>
             )}
           </SectionCard>
+          ) : null}
 
+          {homeSpec?.panels.companyExpenses !== false ? (
           <SectionCard title="خرج‌های شرکتی" badge={companyExpenses.length} delayClass="delay2">
             {companyExpenses.length === 0 ? (
               <EmptyHint>خرج شرکتی ثبت نشده.</EmptyHint>
@@ -524,6 +591,7 @@ export function OrgSpaceView() {
               </>
             )}
           </SectionCard>
+          ) : null}
 
           <SectionCard title="اعضا" badge={members.length} delayClass="delay3">
             <DataList>

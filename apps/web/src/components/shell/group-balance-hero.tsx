@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { formatToman } from "@dang/ui";
+import { Amount, displayUnitLabel, formatMoneyFromIrrMinor, irrMinorToDisplayInteger } from "@dang/ui";
+import { useDisplayUnit } from "@/lib/display-unit";
 import { netFromIrrMinor, sortPeersByAbsNet } from "@/lib/space-net-balance";
 
 type PeerLine = {
@@ -13,7 +14,9 @@ type PeerLine = {
 type RecentExpense = {
   id: string;
   title: string;
+  /** IRR minor (preferred) or legacy toman integer when irrMinor omitted. */
   toman: number;
+  irrMinor?: string | number;
   status: string;
 };
 
@@ -31,6 +34,7 @@ export function GroupBalanceHero({
   simplifyAvailable,
   openSettlements,
   recentExpenses = [],
+  canMutate = true,
 }: {
   workspaceName?: string;
   myNetMinor: string | null;
@@ -41,11 +45,16 @@ export function GroupBalanceHero({
   simplifyAvailable?: boolean;
   openSettlements?: number;
   recentExpenses?: RecentExpense[];
+  /** Guest/auditor: hide write CTAs; keep view links. */
+  canMutate?: boolean;
 }) {
+  const unit = useDisplayUnit();
+  const unitLabel = displayUnitLabel(unit);
   if (myNetMinor == null) return null;
-  const mine = netFromIrrMinor(myNetMinor);
-  const topPeers = sortPeersByAbsNet(peers).slice(0, 5);
+  const mine = netFromIrrMinor(myNetMinor, unit);
+  const topPeers = sortPeersByAbsNet(peers, unit).slice(0, 5);
   const open = openSettlements ?? 0;
+  const absDisplay = formatMoneyFromIrrMinor(Math.abs(mine.irrMinor), unit);
 
   return (
     <section className="groupBalanceHero" aria-labelledby="group-balance-hero-title">
@@ -57,8 +66,8 @@ export function GroupBalanceHero({
           {mine.tone === "settled"
             ? "حساب‌ها تسویه است"
             : mine.tone === "credit"
-              ? `+${formatToman(mine.toman)} تومان`
-              : `−${formatToman(Math.abs(mine.toman))} تومان`}
+              ? `+${absDisplay} ${unitLabel}`
+              : `−${absDisplay} ${unitLabel}`}
         </h2>
         <p className="groupBalanceHero__hint">
           {mine.tone === "credit"
@@ -75,13 +84,26 @@ export function GroupBalanceHero({
         <div className="groupBalanceHero__actions">
           {mine.tone !== "settled" || open > 0 ? (
             <Link href={settleHref} className="shell-v2__cta">
-              {mine.tone === "debt" ? "شروع تسویه" : "مدیریت تسویه"}
+              {canMutate
+                ? mine.tone === "debt"
+                  ? "شروع تسویه"
+                  : "مدیریت تسویه"
+                : "مشاهدهٔ تسویه"}
             </Link>
           ) : null}
-          <Link href={expenseHref} className="authLayout__headerBtn">
-            ثبت خرج
-          </Link>
-          {simplifyAvailable && simplifyHref && mine.tone !== "settled" ? (
+          {canMutate ? (
+            <Link href={expenseHref} className="authLayout__headerBtn">
+              ثبت خرج
+            </Link>
+          ) : (
+            <Link href={expenseHref} className="authLayout__headerBtn">
+              مشاهدهٔ خرج‌ها
+            </Link>
+          )}
+          {canMutate &&
+          simplifyAvailable &&
+          simplifyHref &&
+          mine.tone !== "settled" ? (
             <Link href={simplifyHref} className="siteHero__textLink">
               تسویهٔ کمینه
             </Link>
@@ -93,8 +115,11 @@ export function GroupBalanceHero({
         {topPeers.length > 0 ? (
           <ul className="groupBalanceHero__peers" aria-label="مانده اعضا">
             {topPeers.map((p) => {
-              const toman = Math.abs(p.net.toman);
-              const href = `${settleHref}${settleHref.includes("?") ? "&" : "?"}settleTo=${encodeURIComponent(p.userId)}&settleAmount=${toman}#settlement-panel`;
+              const settleDisplay = irrMinorToDisplayInteger(
+                Math.abs(p.net.irrMinor),
+                unit,
+              ).toString();
+              const href = `${settleHref}${settleHref.includes("?") ? "&" : "?"}settleTo=${encodeURIComponent(p.userId)}&settleAmount=${settleDisplay}#settlement-panel`;
               return (
                 <li key={p.userId}>
                   <Link href={href} className="groupBalanceHero__peerLink">
@@ -114,17 +139,25 @@ export function GroupBalanceHero({
           <div className="groupBalanceHero__activity">
             <p className="groupBalanceHero__activityTitle">آخرین خرج‌ها</p>
             <ul>
-              {recentExpenses.slice(0, 3).map((e) => (
-                <li key={e.id}>
-                  <Link
-                    href={`${expenseHref}${expenseHref.includes("?") ? "&" : "?"}expense=${encodeURIComponent(e.id)}#expense-inspector`}
-                    className="groupBalanceHero__expenseLink"
-                  >
-                    <span>{e.title}</span>
-                    <strong>{formatToman(e.toman)}</strong>
-                  </Link>
-                </li>
-              ))}
+              {recentExpenses.slice(0, 3).map((e) => {
+                const minor =
+                  e.irrMinor != null
+                    ? e.irrMinor
+                    : String(Math.round(e.toman) * 10);
+                return (
+                  <li key={e.id}>
+                    <Link
+                      href={`${expenseHref}${expenseHref.includes("?") ? "&" : "?"}expense=${encodeURIComponent(e.id)}#expense-inspector`}
+                      className="groupBalanceHero__expenseLink"
+                    >
+                      <span>{e.title}</span>
+                      <strong>
+                        <Amount irrMinor={minor} />
+                      </strong>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
             <Link href={expenseHref} className="textButton">
               همهٔ خرج‌ها
