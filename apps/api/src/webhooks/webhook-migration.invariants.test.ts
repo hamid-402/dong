@@ -16,3 +16,18 @@ test("migration 0081 workspace_webhook has RLS + grants", () => {
   assert.match(sql, /GRANT SELECT, INSERT, UPDATE ON ops\.workspace_webhook/);
   assert.match(sql, /idempotency_key/);
 });
+
+test("migration 0086 workspace_webhook_delivery has RLS + grants", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const sql = readFileSync(
+    join(
+      here,
+      "../../../../packages/db/migrations/0086_workspace_webhook_delivery.sql",
+    ),
+    "utf8",
+  );
+  assert.match(sql, /ops\.workspace_webhook_delivery/);
+  assert.match(sql, /ENABLE ROW LEVEL SECURITY/);
+  assert.match(sql, /FORCE ROW LEVEL SECURITY/);
+  assert.match(sql, /GRANT SELECT, INSERT ON ops\.workspace_webhook_delivery/);
+});

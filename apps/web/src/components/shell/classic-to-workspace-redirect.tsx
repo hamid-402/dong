@@ -57,7 +57,7 @@ function RedirectInner({
         return;
       }
       if (mapped === "spaces") {
-        router.replace(`/spaces${suffix}`);
+        router.replace(`/home${suffix}`);
         return;
       }
       // App home — never dump the user into the last/first workspace group.

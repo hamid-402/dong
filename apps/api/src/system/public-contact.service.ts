@@ -1,4 +1,5 @@
-import { HttpException, Injectable } from "@nestjs/common";
+import { HttpException, Inject, Injectable } from "@nestjs/common";
+import { resolveSupportContactEmail } from "@dang/config";
 import { MailerService } from "../auth/mailer.service.js";
 import { createAdaptiveRateLimit } from "../auth/rate-limit.factory.js";
 import type { RateLimiter } from "../auth/rate-limit.js";
@@ -7,19 +8,11 @@ import type {
   PublicContactResponse,
 } from "./public-contact.types.js";
 
-function supportInbox(): string {
-  return (
-    process.env.CONTACT_INBOX?.trim() ||
-    process.env.SUPPORT_EMAIL?.trim() ||
-    "support@dang.local"
-  );
-}
-
 @Injectable()
 export class PublicContactService {
   private readonly limiter: RateLimiter = createAdaptiveRateLimit(8, 15 * 60_000);
 
-  constructor(private readonly mailer: MailerService) {}
+  constructor(@Inject(MailerService) private readonly mailer: MailerService) {}
 
   async submit(
     body: PublicContactRequest,
@@ -39,7 +32,16 @@ export class PublicContactService {
       );
     }
 
-    const to = supportInbox();
+    const to = resolveSupportContactEmail();
+    if (!to) {
+      return {
+        accepted: true,
+        delivered: false,
+        mailerMode: this.mailer.mode(),
+        suggestMailto: false,
+      };
+    }
+
     const subject = `[دنگ تماس] ${body.topic} — ${body.name || "بدون نام"}`;
     const text = [
       `موضوع: ${body.topic}`,

@@ -34,7 +34,7 @@ import { wPath } from "@/lib/workspace-paths";
 const ONBOARDING_STEPS = [
   "نام و قالب فضا را انتخاب کنید (شخصی / گروه / ساختمان / سازمان)",
   "فضا ساخته می‌شود و خانهٔ آن با کارت‌های مالی، خرید و فضاها باز می‌شود",
-  "از خانه اعضا را دعوت کنید یا با ＋ اولین خرج را ثبت کنید — فهرست همهٔ فضاها در /spaces",
+  "از خانه اعضا را دعوت کنید یا با ＋ اولین خرج را ثبت کنید — فهرست همهٔ فضاها در /home",
 ] as const;
 
 export function OnboardingView() {
@@ -129,7 +129,7 @@ export function OnboardingView() {
   function goToWorkspaceFinance(workspace: WorkspaceSummary) {
     chrome.selectWorkspace(workspace.id);
     chrome.refreshChrome();
-    router.push(`${wPath(workspace.slug, "expenses")}#quick-expense`);
+    router.push(wPath(workspace.slug, "record"));
   }
 
   function goToWorkspaceMembers(workspace: WorkspaceSummary) {
@@ -199,7 +199,7 @@ export function OnboardingView() {
     );
   }, [templates, kindFilter]);
   const createdFinanceHref = created
-    ? `${wPath(created.slug, "expenses")}#quick-expense`
+    ? wPath(created.slug, "record")
     : hubPathFor("/workspaces");
 
   useEffect(() => {
@@ -238,12 +238,12 @@ export function OnboardingView() {
         }
         actions={
           <>
-            <Link href="/spaces">{NAV_LABELS.spacesList}</Link>
+            <Link href="/home">{NAV_LABELS.spacesList}</Link>
             {created ? (
               <>
                 <Link href={wPath(created.slug, "space")}>خانهٔ فضا</Link>
                 <Link href={wPath(created.slug, "members")}>اعضا</Link>
-                <Link href={createdFinanceHref}>ثبت خرج</Link>
+                <Link href={createdFinanceHref}>{NAV_LABELS.addExpense}</Link>
               </>
             ) : null}
           </>
@@ -362,7 +362,7 @@ export function OnboardingView() {
                   >
                     ثبت اولین خرج
                   </Button>
-                  <Link href="/spaces">همه فضاها</Link>
+                  <Link href="/home">همه فضاها</Link>
                 </div>
               </div>
             ) : null}

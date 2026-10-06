@@ -18,12 +18,12 @@ export { ShellIconSvg };
 
 /** Fallback when AppChrome is absent — same tree roots as mosaic RAW_MENU_ITEMS. */
 const FALLBACK_NAV: HubTab[] = [
-  { key: "home", path: "/hub", label: NAV_LABELS.home, icon: "home" },
-  { key: "spaces", path: "/hub/spaces", label: NAV_LABELS.spacesList, icon: "home" },
-  { key: "finance", path: "/hub/finance", label: NAV_LABELS.expenses, icon: "wallet" },
-  { key: "buy", path: "/hub/buy", label: NAV_LABELS.sectionBuy, icon: "cart" },
+  { key: "home", path: "/home", label: NAV_LABELS.home, icon: "home" },
+  { key: "spaces", path: "/home", label: NAV_LABELS.spacesList, icon: "home" },
+  { key: "finance", path: "/me/finance", label: NAV_LABELS.expenses, icon: "wallet" },
+  { key: "buy", path: "/home", label: NAV_LABELS.sectionBuy, icon: "cart" },
   { key: "partners", path: hubPathFor("/workspaces/partnership"), label: NAV_LABELS.partners, icon: "partners" },
-  { key: "manage", path: "/hub/manage", label: NAV_LABELS.account, icon: "settings" },
+  { key: "manage", path: "/account", label: NAV_LABELS.account, icon: "settings" },
 ];
 
 function useShellNav(): HubTab[] {
@@ -70,9 +70,16 @@ export function AppShell({
   }
 
   function isActive(href: string) {
-    return href === "/hub"
-      ? pathname === "/hub" || pathname === "/hub/"
-      : pathname === href || pathname.startsWith(`${href}/`);
+    if (href === "/home" || href === "/hub") {
+      return (
+        pathname === "/home" ||
+        pathname === "/home/" ||
+        pathname === "/hub" ||
+        pathname === "/hub/" ||
+        pathname === "/"
+      );
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
   }
 
   return (

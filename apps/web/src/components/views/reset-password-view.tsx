@@ -35,7 +35,7 @@ function ResetPasswordForm() {
           markClientSession("password");
           setDevIdentity(result.actor.externalSubject, result.actor.displayName);
           setError(null);
-          router.push("/hub");
+          router.push("/home");
         } catch (err: unknown) {
           setError(err instanceof Error ? err.message : "بازیابی ناموفق بود");
         }

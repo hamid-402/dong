@@ -18,10 +18,12 @@ import type {
   CreatePettyCashFundRequest,
   CreatePettyCashMovementRequest,
   CreditPurchaseStatus,
+  GiftPettyCashRequest,
   OnBehalfPaymentStatus,
   PaymentReceiptStatus,
   RejectOnBehalfPaymentRequest,
   RejectPaymentReceiptRequest,
+  SettlePayRequest,
   SpendPettyCashAsExpenseRequest,
   TopupPettyCashFromMembersRequest,
 } from "@dang/contracts";
@@ -32,8 +34,10 @@ import {
   createPaymentReceiptRequestSchema,
   createPettyCashFundRequestSchema,
   createPettyCashMovementRequestSchema,
+  giftPettyCashRequestSchema,
   rejectOnBehalfPaymentRequestSchema,
   rejectPaymentReceiptRequestSchema,
+  settlePayRequestSchema,
   spendPettyCashAsExpenseRequestSchema,
   topupPettyCashFromMembersRequestSchema,
 } from "@dang/contracts";
@@ -118,6 +122,20 @@ export class WorkspacePaymentsController {
     return this.payments.pettyCashHealth(actor, workspaceId);
   }
 
+  @Get("petty-cash/:fid/ledger")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Petty-cash ledger: dates, topup/spend, running balance, who deposited and each member share",
+  })
+  getPettyCashLedger(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("fid") fid: string,
+  ) {
+    return this.payments.getPettyCashLedger(actor, workspaceId, fid);
+  }
+
   @Post("petty-cash")
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: "Create petty cash fund" })
@@ -128,6 +146,47 @@ export class WorkspacePaymentsController {
     body: CreatePettyCashFundRequest,
   ) {
     return this.payments.createPettyCashFund(actor, workspaceId, body);
+  }
+
+  @Post("petty-cash/ensure-default")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Ensure default active petty-cash fund exists (finance only; idempotent; forbidden on personal)",
+  })
+  ensureDefaultPettyCash(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body() body: { idempotencyKey?: string },
+  ) {
+    return this.payments.ensureDefaultPettyCashFund(actor, workspaceId, body);
+  }
+
+  @Post("petty-cash/:fid/close")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Soft-close petty cash fund (finance only) — ledger kept; no further movements",
+  })
+  closePettyCash(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("fid") fid: string,
+  ) {
+    return this.payments.closePettyCashFund(actor, workspaceId, fid);
+  }
+
+  @Post("petty-cash/:fid/reopen")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Reopen a soft-closed petty cash fund (finance only)",
+  })
+  reopenPettyCash(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("fid") fid: string,
+  ) {
+    return this.payments.reopenPettyCashFund(actor, workspaceId, fid);
   }
 
   @Post("petty-cash/:fid/movements")
@@ -157,6 +216,37 @@ export class WorkspacePaymentsController {
     body: TopupPettyCashFromMembersRequest,
   ) {
     return this.payments.topupPettyCashFromMembers(actor, workspaceId, fid, body);
+  }
+
+  @Post("petty-cash/:fid/gift")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Gift to petty cash — increases fund only; no shared expense / no debts for others",
+  })
+  giftPettyCash(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("fid") fid: string,
+    @Body(new ZodValidationPipe(giftPettyCashRequestSchema))
+    body: GiftPettyCashRequest,
+  ) {
+    return this.payments.giftPettyCash(actor, workspaceId, fid, body);
+  }
+
+  @Post("settle-pay")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Smart settle-pay: settlement claim ± fund gift by intent (previewOnly supported)",
+  })
+  settlePay(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body(new ZodValidationPipe(settlePayRequestSchema))
+    body: SettlePayRequest,
+  ) {
+    return this.payments.settlePay(actor, workspaceId, body);
   }
 
   @Post("petty-cash/:fid/spend-as-expense")

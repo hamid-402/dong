@@ -2,6 +2,7 @@
 
 import type { InputHTMLAttributes } from "react";
 import { displayUnitLabel, type DisplayUnit } from "./format.js";
+import { useDisplayUnit } from "./display-unit-context.js";
 
 export type MoneyInputProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -23,7 +24,7 @@ export type MoneyInputProps = Omit<
 export function MoneyInput({
   value,
   onValueChange,
-  displayUnit = "rial",
+  displayUnit: displayUnitProp,
   label,
   hint,
   error,
@@ -31,11 +32,13 @@ export function MoneyInput({
   disabled,
   ...rest
 }: MoneyInputProps) {
+  const contextUnit = useDisplayUnit();
+  const displayUnit = displayUnitProp ?? contextUnit;
   const fieldId = id ?? "money-input";
   return (
     <label style={{ display: "grid", gap: 6 }}>
       {label ? (
-        <span style={{ fontSize: 13, fontWeight: 600 }}>
+        <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>
           {label}
           <span style={{ marginInlineStart: 6, opacity: 0.7, fontWeight: 500 }}>
             ({displayUnitLabel(displayUnit)})
@@ -67,10 +70,10 @@ export function MoneyInput({
         </span>
       </span>
       {hint && !error ? (
-        <span style={{ fontSize: 12, opacity: 0.7 }}>{hint}</span>
+        <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>{hint}</span>
       ) : null}
       {error ? (
-        <span style={{ fontSize: 12, color: "var(--danger, #b91c1c)" }}>{error}</span>
+        <span style={{ fontSize: "0.75rem", color: "var(--danger, #b91c1c)" }}>{error}</span>
       ) : null}
     </label>
   );

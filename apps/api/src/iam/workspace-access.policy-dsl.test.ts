@@ -86,3 +86,69 @@ test("requireAccess denies settlement.dispute when isParty false for member", as
     },
   );
 });
+
+test("requireAccess denies deputy when amount exceeds approvalCapMinor", async () => {
+  const permissions = {
+    listRoleGrants: async () => [],
+    listMemberOverrides: async () => [],
+    findActiveDeputyWindow: async () => ({
+      id: "dw-1",
+      workspaceId,
+      userId,
+      startsAt: new Date(Date.now() - 60_000).toISOString(),
+      endsAt: new Date(Date.now() + 3_600_000).toISOString(),
+      reason: "cover",
+      approvalCapMinor: "1000",
+      revokedAt: null,
+      createdAt: new Date().toISOString(),
+    }),
+  };
+  const access = new WorkspaceAccessService(
+    iamWithRole("member"),
+    undefined,
+    permissions as never,
+  );
+  await assert.rejects(
+    () =>
+      access.requireAccess(workspaceId, userId, "expense.approve", {
+        status: "submitted",
+        amountMinor: "5000",
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof ForbiddenException);
+      const body = err.getResponse() as { code?: string; detail?: string };
+      assert.equal(body.code, "DENY_ATTRIBUTE");
+      assert.match(String(body.detail), /سقف تأیید جانشین/);
+      return true;
+    },
+  );
+});
+
+test("requireAccess allows deputy when amount is within approvalCapMinor", async () => {
+  const permissions = {
+    listRoleGrants: async () => [],
+    listMemberOverrides: async () => [],
+    findActiveDeputyWindow: async () => ({
+      id: "dw-2",
+      workspaceId,
+      userId,
+      startsAt: new Date(Date.now() - 60_000).toISOString(),
+      endsAt: new Date(Date.now() + 3_600_000).toISOString(),
+      reason: "cover",
+      approvalCapMinor: "10000",
+      revokedAt: null,
+      createdAt: new Date().toISOString(),
+    }),
+  };
+  const access = new WorkspaceAccessService(
+    iamWithRole("member"),
+    undefined,
+    permissions as never,
+  );
+  const result = await access.requireAccess(workspaceId, userId, "expense.approve", {
+    status: "submitted",
+    amountMinor: "5000",
+  });
+  assert.equal(result.decision.allowed, true);
+  assert.equal(result.role, "finance");
+});

@@ -1,4 +1,5 @@
 import type { CategoryBudgetUsage, CreateCategoryBudgetRequest, CreateReimbursementRequest, CreateSubscriptionInvoiceRequest, EmailDigestFrequency, ExpenseCsvImportRequest, NotificationPreferenceSummary, PaySubscriptionInvoiceRequest, PaymentLinkSummary, ReimbursementSummary, SaasUsageSnapshot, SubscriptionInvoiceSummary, UiPreferenceSummary, UpdateUiPreferenceRequest, UpdateWorkspaceExpensePolicyRequest, WorkspaceExpensePolicySummary, WorkspacePlanName, WorkspacePlanSummary } from "@dang/contracts";
+import { invalidateWorkspaceAnalyticsCache } from "./charts";
 import { apiFetch } from "./client";
 import { postWithOfflineQueue } from "./offline-post";
 
@@ -96,6 +97,9 @@ export const waveFApi = {
     apiFetch<WorkspacePlanSummary>(`/workspaces/${workspaceId}/plan`, {
       method: "PUT",
       body: JSON.stringify(body),
+    }).then((plan) => {
+      invalidateWorkspaceAnalyticsCache(workspaceId);
+      return plan;
     }),
   saasUsage: (workspaceId: string) =>
     apiFetch<SaasUsageSnapshot>(

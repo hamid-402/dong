@@ -124,3 +124,22 @@ export function netsToShareSeries(
       points.length === 0 ? "همهٔ فضاهای این حوزه تسویه‌اند یا مانده صفر است" : undefined,
   };
 }
+
+const CHART_SOURCE_LABELS: Record<string, string> = {
+  expenses_posted: "خرج‌های ثبت‌شده",
+  expense_splits: "سهم اعضا",
+  expense_provisional_balances: "ماندهٔ موقت",
+  oltp_expenses_posted: "خرج‌های ثبت‌شده",
+  analytics_daily_facts: "انبار تحلیلی",
+  merged_space_trends: "روند فضاها",
+  personal_dashboard_nets: "ماندهٔ شخصی",
+  daily_ledger: "دفتر روزانه",
+};
+
+/** Persian caption for a chart series source. Unknown ids stay visible. */
+export function chartSourceLabel(source: string): string {
+  const known = CHART_SOURCE_LABELS[source];
+  if (known) return known;
+  if (source.startsWith("merged:")) return "چند فضا";
+  return source;
+}

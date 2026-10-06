@@ -9,7 +9,8 @@ export type ShellIcon =
   | "settings"
   | "search"
   | "bell"
-  | "receipt";
+  | "receipt"
+  | "menu";
 
 export function ShellIconSvg({
   name,
@@ -90,6 +91,12 @@ export function ShellIconSvg({
         <svg {...common}>
           <path d="M7 3h10l2 4v14H5V7l2-4Z" />
           <path d="M9 11h6M9 15h4" {...accent} />
+        </svg>
+      );
+    case "menu":
+      return (
+        <svg {...common}>
+          <path d="M4 7h16M4 12h16M4 17h16" {...accent} />
         </svg>
       );
     default:

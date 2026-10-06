@@ -43,6 +43,9 @@ test("systemCapabilitiesSchema accepts providers from Stage 10", () => {
       secrets: "env",
       tracing: "local_spans",
       antifraud: "heuristics_v1",
+      savingsGoals: "goals_v1",
+      moneyIntents: "intents_v1",
+      charts: "charts_v1",
     },
     stubs: { paymentProvider: true },
   });
@@ -51,6 +54,9 @@ test("systemCapabilitiesSchema accepts providers from Stage 10", () => {
   assert.equal(parsed.providers?.payment, "local_psp");
   assert.equal(parsed.providers?.slo, "in_app_v1");
   assert.equal(parsed.providers?.paymentOnBehalf, "on_behalf_v1");
+  assert.equal(parsed.providers?.savingsGoals, "goals_v1");
+  assert.equal(parsed.providers?.moneyIntents, "intents_v1");
+  assert.equal(parsed.providers?.charts, "charts_v1");
 });
 
 test("systemCapabilitiesSchema accepts conversionLive true when rate table can bind IRR", () => {

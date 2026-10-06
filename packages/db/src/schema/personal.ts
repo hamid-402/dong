@@ -20,6 +20,7 @@ export const moneyAccountKind = personal.enum("money_account_kind", [
   "cash",
   "bank",
   "card",
+  "investment",
   "other",
 ]);
 
@@ -29,6 +30,8 @@ export const moneyTxnKind = personal.enum("money_txn_kind", [
   "transfer_in",
   "transfer_out",
   "adjustment",
+  "investment",
+  "installment",
 ]);
 
 export const moneyAccount = personal.table(
@@ -313,4 +316,88 @@ export const monthlyClose = personal.table(
     computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.yearMonth] })],
+);
+
+export const moneyIntentKind = personal.enum("money_intent_kind", [
+  "save_income_percent",
+  "spend_cap_amount",
+  "spend_cap_income_percent",
+  "debt_open_cap",
+  "liquid_floor",
+  "net_floor",
+  "savings_goal_link",
+  "installment_pay_cap",
+  "investment_floor",
+]);
+
+export const moneyIntentPeriod = personal.enum("money_intent_period", [
+  "month",
+  "week",
+  "range",
+]);
+
+export const moneyIntent = personal.table(
+  "money_intent",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userAccount.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    kind: moneyIntentKind("kind").notNull(),
+    period: moneyIntentPeriod("period").default("month").notNull(),
+    targetMinor: bigint("target_minor", { mode: "bigint" }),
+    targetPercent: integer("target_percent"),
+    goalId: uuid("goal_id").references(() => savingsGoal.id, { onDelete: "set null" }),
+    active: boolean("active").default(true).notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("money_intent_user_idempotency_uq").on(table.userId, table.idempotencyKey),
+    index("money_intent_user_idx").on(table.userId),
+  ],
+);
+
+/** Percent allocation across life domains; one row per user. */
+export const allocationPlan = personal.table("allocation_plan", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => userAccount.id, { onDelete: "cascade" }),
+  soloPercent: integer("solo_percent").notNull().default(40),
+  groupPercent: integer("group_percent").notNull().default(15),
+  buildingPercent: integer("building_percent").notNull().default(10),
+  orgPercent: integer("org_percent").notNull().default(5),
+  savingsPercent: integer("savings_percent").notNull().default(30),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** One paycheck event per Jalali month per user. */
+export const paycheck = personal.table(
+  "paycheck",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userAccount.id, { onDelete: "cascade" }),
+    yearMonth: text("year_month").notNull(),
+    amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
+    currency: text("currency").default("IRR").notNull(),
+    occurredOn: date("occurred_on").notNull(),
+    incomeSourceId: uuid("income_source_id").references(() => incomeSource.id, {
+      onDelete: "set null",
+    }),
+    moneyTxnId: uuid("money_txn_id").references(() => moneyTxn.id, {
+      onDelete: "set null",
+    }),
+    note: text("note"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("paycheck_user_year_month_uq").on(table.userId, table.yearMonth),
+    uniqueIndex("paycheck_user_idempotency_uq").on(table.userId, table.idempotencyKey),
+    index("paycheck_user_idx").on(table.userId),
+  ],
 );

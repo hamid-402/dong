@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main, master]
+    branches: [dev, main, master]
   pull_request:
 
 jobs:
@@ -124,7 +124,40 @@ jobs:
       - name: component line budget — components/** (warn >800, fail >1600)
         run: pnpm views:line-budget
 
+      - name: build api (a11y/e2e seed path)
+        run: pnpm --filter @dang/api build
+
+      - name: start api (background)
+        env:
+          # Same DB as migrate; ALLOW_DEV_AUTH so /demo/seed works for fail-closed a11y.
+          DATABASE_URL: postgresql://dang:dang@localhost:5432/dang_test
+          ALLOW_DEV_AUTH: "true"
+          NODE_ENV: development
+          SESSION_SECRET: "ci-session-secret-at-least-32-chars!!"
+          API_PORT: "3006"
+          WEB_ORIGIN: "http://127.0.0.1:3005"
+        run: |
+          set -e
+          nohup pnpm --filter @dang/api start > /tmp/dang-api.log 2>&1 &
+          echo $! > /tmp/dang-api.pid
+          for i in $(seq 1 90); do
+            if curl -sf http://127.0.0.1:3006/api/v1/health/live >/dev/null; then
+              echo "API live after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::API failed to become live"
+          cat /tmp/dang-api.log || true
+          exit 1
+
       - name: a11y smoke (Playwright Chromium)
+        env:
+          ALLOW_DEV_AUTH: "true"
+          # Fail-closed seeded finance routes (API + demo seed required above).
+          A11Y_REQUIRE_FINANCE: "1"
+          API_ORIGIN: "http://127.0.0.1:3006"
+          PLAYWRIGHT_API_ORIGIN: "http://127.0.0.1:3006"
         run: |
           pnpm --filter @dang/web exec playwright install chromium --with-deps
           # Bundled Chromium — do not rely on system Chrome / PLAYWRIGHT_CHANNEL
@@ -137,6 +170,8 @@ jobs:
           ENABLE_PLAN_ADMIN: "1"
           ENABLE_FX_RATES: "1"
           ALLOW_DEV_AUTH: "true"
+          API_ORIGIN: "http://127.0.0.1:3006"
+          PLAYWRIGHT_API_ORIGIN: "http://127.0.0.1:3006"
         run: |
           unset PLAYWRIGHT_CHANNEL || true
           # webServer in playwright.config starts next after build (from pnpm check)
@@ -146,22 +181,38 @@ jobs:
             e2e/debt-simplify-smoke.spec.ts \
             e2e/statements-journey.spec.ts \
             e2e/kind-reports-smoke.spec.ts \
-            e2e/charts-plan-matrix.spec.ts
+            e2e/charts-plan-matrix.spec.ts \
+            e2e/home-mobile-fold.spec.ts
 
       - name: i18n scaffold key parity
         run: node scripts/i18n-scaffold-check.mjs
+
+      - name: OpenAPI route break check (static inventory)
+        run: pnpm openapi:break
+
+      - name: Canary promote policy unit tests
+        run: pnpm canary:policy:test
+
+      - name: Generate unsigned SBOM artifact
+        run: pnpm sbom:generate
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: sbom-cdx
+          path: artifacts/sbom.cdx.json
+          retention-days: 14
 
       - name: CI gate summary
         if: always()
         run: |
           echo "## CI gates" >> "$GITHUB_STEP_SUMMARY"
-          echo "- secret-scan, audit, migrate, dr-drill, check, tests, coverage, license, bundle, a11y, e2e-auth-finance×4 + G17 charts/secondary, i18n-scaffold" >> "$GITHUB_STEP_SUMMARY"
+          echo "- secret-scan, audit, migrate, dr-drill, check, tests, coverage, license, bundle, a11y(+finance fail-closed + 5 themes), e2e-auth-finance + home-mobile-fold, i18n-scaffold, openapi-break, sbom, storybook hard, visual hard-when-linux-baseline" >> "$GITHUB_STEP_SUMMARY"
 
   storybook:
-    name: storybook build (soft)
+    name: storybook build (hard)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -181,8 +232,41 @@ jobs:
           path: packages/ui/storybook-static
           retention-days: 7
 
+  redis-worker-smoke:
+    name: redis + worker heartbeat smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - "6379:6379"
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: heartbeat key roundtrip + worker touchHeartbeat
+        env:
+          REDIS_URL: redis://127.0.0.1:6379
+          CI: "true"
+          REDIS_WORKER_REQUIRE_TOUCH: "1"
+        run: pnpm ci:redis-worker-smoke
+
   visual-regression-soft:
-    name: visual regression (soft / artifact)
+    name: visual regression (soft until Linux baseline)
+    # Soft only while Linux login baseline is missing — no fake hard-pass.
+    if: ${{ hashFiles('apps/web/e2e/visual-shell.spec.ts-snapshots/login-chromium-linux.png') == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     continue-on-error: true
@@ -200,12 +284,15 @@ jobs:
         run: pnpm --filter @dang/web build
       - name: install playwright chromium
         run: pnpm --filter @dang/web exec playwright install --with-deps chromium
-      - name: visual shell (opt-in; soft-fail until Linux baselines committed)
+      - name: visual shell (capture Linux baselines into artifact)
         env:
           VISUAL_REGRESSION: "1"
         run: |
-          pnpm --filter @dang/web exec playwright test e2e/visual-shell.spec.ts || true
-          echo "Soft visual job — see docs/ops/VISUAL-REGRESSION.md for Linux baseline commit before hard-fail."
+          # Soft path: always produce updatable Linux snapshots for human commit.
+          # Hard gate activates only after login-chromium-linux.png is committed.
+          pnpm --filter @dang/web exec playwright test e2e/visual-shell.spec.ts --update-snapshots || true
+          echo "Soft visual job — download artifact, review, commit login-chromium-linux.png (+ not-found)."
+          echo "Then visual-regression-hard runs without continue-on-error (docs/ops/VISUAL-REGRESSION.md)."
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -215,3 +302,28 @@ jobs:
             apps/web/e2e/visual-shell.spec.ts-snapshots
           retention-days: 7
           if-no-files-found: ignore
+
+  visual-regression-hard:
+    name: visual regression (hard)
+    # File-based: activates only after Linux baselines are committed (honest).
+    if: ${{ hashFiles('apps/web/e2e/visual-shell.spec.ts-snapshots/login-chromium-linux.png') != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: build web for playwright
+        run: pnpm --filter @dang/web build
+      - name: install playwright chromium
+        run: pnpm --filter @dang/web exec playwright install --with-deps chromium
+      - name: visual shell (hard fail)
+        env:
+          VISUAL_REGRESSION: "1"
+        run: pnpm --filter @dang/web exec playwright test e2e/visual-shell.spec.ts

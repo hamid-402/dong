@@ -13,24 +13,34 @@ import {
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import {
   createIncomeSourceRequestSchema,
+  createMoneyIntentRequestSchema,
   createSavingsGoalContributionRequestSchema,
   createSavingsGoalRequestSchema,
+  depositPersonalSavingsFundRequestSchema,
+  ensurePersonalSavingsFundRequestSchema,
   putSpendingAlertsRequestSchema,
   recomputeMonthlyCloseRequestSchema,
   updateIncomeSourceRequestSchema,
+  updateMoneyIntentRequestSchema,
   updateSavingsGoalRequestSchema,
   type AuthActor,
   type CreateIncomeSourceRequest,
+  type CreateMoneyIntentRequest,
   type CreateSavingsGoalContributionRequest,
   type CreateSavingsGoalRequest,
+  type DepositPersonalSavingsFundRequest,
+  type EnsurePersonalSavingsFundRequest,
   type IncomeSourceSummary,
+  type MoneyIntentSummary,
   type MonthlyCloseSummary,
   type PersonalFinanceOverviewResponse,
+  type PersonalSavingsFundSummary,
   type PutSpendingAlertsRequest,
   type SavingsGoalContributionSummary,
   type SavingsGoalSummary,
   type SpendingAlertSummary,
   type UpdateIncomeSourceRequest,
+  type UpdateMoneyIntentRequest,
   type UpdateSavingsGoalRequest,
 } from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
@@ -84,6 +94,37 @@ export class PersonalController {
     return this.finance.updateIncomeSource(actor, sid, body);
   }
 
+
+  @Get("money-intents")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "List configurable money intents/rules (alias)" })
+  listMoneyIntents(@CurrentActor() actor: AuthActor): Promise<MoneyIntentSummary[]> {
+    return this.finance.listMoneyIntents(actor);
+  }
+
+  @Post("money-intents")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Create money intent (alias)" })
+  createMoneyIntent(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(createMoneyIntentRequestSchema))
+    body: CreateMoneyIntentRequest,
+  ): Promise<MoneyIntentSummary> {
+    return this.finance.createMoneyIntent(actor, body);
+  }
+
+  @Patch("money-intents/:iid")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Update money intent (alias)" })
+  updateMoneyIntent(
+    @CurrentActor() actor: AuthActor,
+    @Param("iid") iid: string,
+    @Body(new ZodValidationPipe(updateMoneyIntentRequestSchema))
+    body: UpdateMoneyIntentRequest,
+  ): Promise<MoneyIntentSummary> {
+    return this.finance.updateMoneyIntent(actor, iid, body);
+  }
+
   @Get("savings-goals")
   @UseGuards(AuthGuard)
   listSavingsGoals(@CurrentActor() actor: AuthActor): Promise<SavingsGoalSummary[]> {
@@ -123,6 +164,47 @@ export class PersonalController {
     contribution: SavingsGoalContributionSummary;
   }> {
     return this.finance.addGoalContribution(actor, gid, body);
+  }
+
+  @Get("savings-fund")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Personal savings fund — live balance from goal contributions",
+  })
+  getSavingsFund(
+    @CurrentActor() actor: AuthActor,
+  ): Promise<PersonalSavingsFundSummary> {
+    return this.finance.getSavingsFundSummary(actor);
+  }
+
+  @Post("savings-fund/ensure-default")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Ensure default «صندوق پس‌انداز» goal exists (idempotent)",
+  })
+  ensureSavingsFund(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(ensurePersonalSavingsFundRequestSchema))
+    body: EnsurePersonalSavingsFundRequest,
+  ): Promise<{ created: boolean; fund: PersonalSavingsFundSummary }> {
+    return this.finance.ensureDefaultSavingsFund(actor, body);
+  }
+
+  @Post("savings-fund/deposit")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Deposit into personal savings fund (creates default box if needed)",
+  })
+  depositSavingsFund(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(depositPersonalSavingsFundRequestSchema))
+    body: DepositPersonalSavingsFundRequest,
+  ): Promise<{
+    fund: PersonalSavingsFundSummary;
+    goal: SavingsGoalSummary;
+    contribution: SavingsGoalContributionSummary;
+  }> {
+    return this.finance.depositToSavingsFund(actor, body);
   }
 
   @Get("alerts")

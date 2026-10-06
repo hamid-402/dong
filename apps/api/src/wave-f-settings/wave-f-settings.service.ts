@@ -37,6 +37,19 @@ const DEFAULT_EVENT_PREFS = {
   securityAlert: true,
 } as const;
 
+function normalizePinnedIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (typeof item !== "string" || !item || seen.has(item)) continue;
+    seen.add(item);
+    out.push(item);
+    if (out.length >= 8) break;
+  }
+  return out;
+}
+
 function defaultNotificationPref(): NotificationPreferenceSummary {
   return { emailDigest: "off", ...DEFAULT_EVENT_PREFS };
 }
@@ -200,6 +213,7 @@ export class WaveFSettingsService {
       this.uiPrefs.get(userId) ?? {
         dismissShellTour: false,
         dismissStatementsTour: false,
+        pinnedWorkspaceIds: [],
       };
     if (!this.useDb()) return fallback();
     try {
@@ -214,6 +228,7 @@ export class WaveFSettingsService {
           ? {
               dismissShellTour: rows[0].dismissShellTour,
               dismissStatementsTour: rows[0].dismissStatementsTour,
+              pinnedWorkspaceIds: normalizePinnedIds(rows[0].pinnedWorkspaceIds),
               updatedAt: rows[0].updatedAt.toISOString(),
             }
           : fallback();
@@ -229,7 +244,12 @@ export class WaveFSettingsService {
     const current = await this.getUiPref(userId);
     const next: UiPreferenceSummary = {
       dismissShellTour: body.dismissShellTour ?? current.dismissShellTour,
-      dismissStatementsTour: body.dismissStatementsTour ?? current.dismissStatementsTour,
+      dismissStatementsTour:
+        body.dismissStatementsTour ?? current.dismissStatementsTour,
+      pinnedWorkspaceIds:
+        body.pinnedWorkspaceIds !== undefined
+          ? normalizePinnedIds(body.pinnedWorkspaceIds)
+          : current.pinnedWorkspaceIds,
       updatedAt: new Date().toISOString(),
     };
     if (!this.useDb()) {
@@ -245,12 +265,14 @@ export class WaveFSettingsService {
             userId,
             dismissShellTour: next.dismissShellTour,
             dismissStatementsTour: next.dismissStatementsTour,
+            pinnedWorkspaceIds: next.pinnedWorkspaceIds,
           })
           .onConflictDoUpdate({
             target: userUiPref.userId,
             set: {
               dismissShellTour: next.dismissShellTour,
               dismissStatementsTour: next.dismissStatementsTour,
+              pinnedWorkspaceIds: next.pinnedWorkspaceIds,
               updatedAt: new Date(),
             },
           })
@@ -258,6 +280,7 @@ export class WaveFSettingsService {
         return {
           dismissShellTour: rows[0]!.dismissShellTour,
           dismissStatementsTour: rows[0]!.dismissStatementsTour,
+          pinnedWorkspaceIds: normalizePinnedIds(rows[0]!.pinnedWorkspaceIds),
           updatedAt: rows[0]!.updatedAt.toISOString(),
         };
       });
@@ -311,9 +334,8 @@ export class WaveFSettingsService {
   }
 
   /**
-   * Enforce freemium via `planAllows` after resolving workspace plan.
-   * Throws 403 with `code: "plan_required"` when the active plan lacks `feature`.
-   * See `planAllows` / `FREE_PLAN_FEATURES` for free vs pro mapping.
+   * Resolve workspace plan then apply `planAllows`.
+   * With current product policy, `planAllows` always succeeds (no premium upsell).
    */
   async requirePlanFeature(
     actor: AuthActor,

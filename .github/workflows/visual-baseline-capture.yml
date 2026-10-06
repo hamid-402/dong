@@ -1,0 +1,51 @@
+name: visual-baseline-capture
+
+# Phase 5.4 — capture Linux Playwright baselines as an artifact (for human review/commit).
+# Does not enable hard-fail by itself; committing login-chromium-linux.png activates
+# visual-regression-hard via hashFiles (see docs/ops/VISUAL-REGRESSION.md).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: build web
+        run: pnpm --filter @dang/web build
+      - name: install playwright chromium
+        run: pnpm --filter @dang/web exec playwright install --with-deps chromium
+      - name: update visual snapshots (Linux)
+        env:
+          VISUAL_REGRESSION: "1"
+        run: |
+          pnpm --filter @dang/web exec playwright test e2e/visual-shell.spec.ts --update-snapshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-shell-linux-baselines
+          path: |
+            apps/web/e2e/visual-shell.spec.ts-snapshots
+            apps/web/test-results
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Summary
+        run: |
+          {
+            echo "## Visual baseline capture"
+            echo "Download the artifact, review diffs, then commit snapshots under \`apps/web/e2e/visual-shell.spec.ts-snapshots\`."
+            echo "Commit at least \`login-chromium-linux.png\` (+ \`not-found-chromium-linux.png\`) — hard visual job activates via hashFiles."
+            echo "Runbook: \`docs/ops/VISUAL-REGRESSION.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"

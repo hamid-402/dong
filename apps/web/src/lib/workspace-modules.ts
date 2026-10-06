@@ -92,10 +92,10 @@ export function bottomTabsForTemplate(template: WorkspaceTemplate | undefined): 
         : { key: "space", path: hubPathFor("/group"), label: "گروه", icon: "partners" };
 
   const tabs: HubTab[] = [
-    { key: "home", path: "/hub", label: "خانه", icon: "home" },
+    { key: "home", path: "/home", label: "خانه", icon: "home" },
     spaceTab,
-    { key: "finance", path: "/hub/finance", label: "خرج‌ها", icon: "wallet" },
-    { key: "more", path: "/hub/manage", label: "بیشتر", icon: "settings" },
+    { key: "finance", path: "/me/finance", label: "خرج‌ها", icon: "wallet" },
+    { key: "more", path: "/account", label: "بیشتر", icon: "settings" },
   ];
 
   return tabs.filter((tab) => {
@@ -110,14 +110,15 @@ export function bottomTabsForTemplate(template: WorkspaceTemplate | undefined): 
  */
 export function classicNavForTemplate(template: WorkspaceTemplate | undefined): HubTab[] {
   const tree = buildNavForTemplate(template);
-  const links: HubTab[] = [{ key: "home", path: "/hub", label: "خانه", icon: "home" }];
+  const links: HubTab[] = [{ key: "home", path: "/home", label: "خانه", icon: "home" }];
 
   const walk = (nodes: NavNode[]) => {
     for (const node of nodes) {
       if (node.isGroup && node.children) {
+        // Groups open workspace home domain folders — not classic /hub mosaic URLs.
         links.push({
           key: node.key,
-          path: `/hub/${node.key}`,
+          path: "/home",
           label: node.label,
           icon: (node.icon as HubTab["icon"]) ?? "settings",
         });

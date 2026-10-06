@@ -368,62 +368,99 @@ export class PostgresPaymentOpsStore implements PaymentOpsStore {
     );
   }
 
-  listMovements(fundId: string): Promise<StoredPettyCashMovement[]> {
-    return this.db
-      .select()
-      .from(pettyCashMovement)
-      .where(eq(pettyCashMovement.fundId, fundId))
-      .then((rows) => rows.map(mapMovement));
+  setFundActive(
+    workspaceId: string,
+    fundId: string,
+    active: boolean,
+  ): Promise<StoredPettyCashFund> {
+    return withTenantContext(
+      this.db,
+      { workspaceId },
+      async (tx) => {
+        const updated = await tx
+          .update(pettyCashFund)
+          .set({ active })
+          .where(
+            and(
+              eq(pettyCashFund.workspaceId, workspaceId),
+              eq(pettyCashFund.id, fundId),
+            ),
+          )
+          .returning();
+        if (!updated[0]) {
+          throw new Error("PETTY_CASH_FUND_NOT_FOUND");
+        }
+        return mapFund(updated[0]);
+      },
+    );
+  }
+
+  listMovements(
+    workspaceId: string,
+    fundId: string,
+  ): Promise<StoredPettyCashMovement[]> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(pettyCashMovement)
+        .where(eq(pettyCashMovement.fundId, fundId));
+      return rows.map(mapMovement);
+    });
   }
 
   createMovement(
+    workspaceId: string,
     fundId: string,
     actorUserId: string,
     input: CreatePettyCashMovementRequest & { occurredAt: string },
   ): Promise<StoredPettyCashMovement> {
-    return this.db.transaction(async (tx) => {
-      const fundRows = await tx
-        .select()
-        .from(pettyCashFund)
-        .where(eq(pettyCashFund.id, fundId))
-        .limit(1);
-      const fund = fundRows[0];
-      if (!fund) throw new Error("PETTY_CASH_FUND_NOT_FOUND");
+    // Must set tenant GUCs before reading the fund — FORCE RLS hides rows otherwise
+    // (false PETTY_CASH_FUND_NOT_FOUND on deposit/topup/spend).
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const fundRows = await tx
+          .select()
+          .from(pettyCashFund)
+          .where(
+            and(
+              eq(pettyCashFund.workspaceId, workspaceId),
+              eq(pettyCashFund.id, fundId),
+            ),
+          )
+          .limit(1);
+        if (!fundRows[0]) throw new Error("PETTY_CASH_FUND_NOT_FOUND");
 
-      return withTenantContext(
-        this.db,
-        { workspaceId: fund.workspaceId, userId: actorUserId },
-        async (tenantTx) => {
-          const existing = await tenantTx
-            .select()
-            .from(pettyCashMovement)
-            .where(
-              and(
-                eq(pettyCashMovement.fundId, fundId),
-                eq(pettyCashMovement.idempotencyKey, input.idempotencyKey.trim()),
-              ),
-            )
-            .limit(1);
-          if (existing[0]) return mapMovement(existing[0]);
+        const existing = await tx
+          .select()
+          .from(pettyCashMovement)
+          .where(
+            and(
+              eq(pettyCashMovement.fundId, fundId),
+              eq(pettyCashMovement.idempotencyKey, input.idempotencyKey.trim()),
+            ),
+          )
+          .limit(1);
+        if (existing[0]) return mapMovement(existing[0]);
 
-          const inserted = await tenantTx
-            .insert(pettyCashMovement)
-            .values({
-              fundId,
-              kind: input.kind,
-              amountMinor: BigInt(input.amountMinor),
-              expenseId: input.expenseId ?? null,
-              settlementId: input.settlementId ?? null,
-              actorUserId,
-              occurredAt: new Date(input.occurredAt),
-              note: input.note ?? null,
-              idempotencyKey: input.idempotencyKey.trim(),
-            })
-            .returning();
-          return mapMovement(inserted[0]!);
-        },
-      );
-    });
+        const inserted = await tx
+          .insert(pettyCashMovement)
+          .values({
+            fundId,
+            kind: input.kind,
+            amountMinor: BigInt(input.amountMinor),
+            expenseId: input.expenseId ?? null,
+            settlementId: input.settlementId ?? null,
+            actorUserId,
+            occurredAt: new Date(input.occurredAt),
+            note: input.note ?? null,
+            idempotencyKey: input.idempotencyKey.trim(),
+          })
+          .returning();
+        return mapMovement(inserted[0]!);
+      },
+    );
   }
 
   listCreditPurchases(
@@ -734,3 +771,5 @@ export class PostgresPaymentOpsStore implements PaymentOpsStore {
     );
   }
 }
+
+

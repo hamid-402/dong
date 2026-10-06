@@ -97,7 +97,7 @@ export function RegisterView() {
       footer={
         <AuthLinkRow>
           <span>حساب دارید؟</span>
-          <Link href={`/login${nextPath !== "/spaces" ? `?next=${encodeURIComponent(nextPath)}` : ""}`}>
+          <Link href={`/login${nextPath !== "/home" ? `?next=${encodeURIComponent(nextPath)}` : ""}`}>
             {t("login.submit")}
           </Link>
           <AuthDevLink />
@@ -187,7 +187,7 @@ export function RegisterView() {
             {pending ? t("common.loading") : t("register.submit")}
           </Button>
           {debugVerifyUrl ? (
-            <Button type="button" variant="ghost" onClick={() => router.replace("/spaces")}>
+            <Button type="button" variant="ghost" onClick={() => router.replace("/home")}>
               ادامه به فضاها
             </Button>
           ) : null}

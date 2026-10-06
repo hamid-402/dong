@@ -305,6 +305,11 @@ export type WorkspaceSummary = {
   archivedAt?: string;
   /** Soft-delete (ISO). Excluded from chrome lists. */
   deletedAt?: string;
+  /**
+   * Actor's membership role when this summary came from a user-scoped list.
+   * Absent on create/get-by-id responses that are not membership-joined.
+   */
+  myRole?: MembershipRole;
 };
 
 /** Body for self-leave (non-owner). */
@@ -413,6 +418,7 @@ export * from "./account.js";
 export * from "./access-policy.js";
 export * from "./role-surface.js";
 export * from "./persona-home.js";
+export * from "./workspace-directory.js";
 export * from "./access-abac.js";
 export * from "./access-grants.js";
 export * from "./policy-dsl.js";
@@ -422,6 +428,8 @@ export * from "./membership.js";
 export * from "./catalog.js";
 export * from "./charts.js";
 export * from "./statements.js";
+export * from "./iranian-bank.js";
+export * from "./bank-sms.js";
 export * from "./statement-pack.js";
 export * from "./addon-charge.js";
 export * from "./assets.js";

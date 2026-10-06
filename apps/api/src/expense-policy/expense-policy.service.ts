@@ -15,7 +15,7 @@ import {
 export class ExpensePolicyService {
   constructor(
     @Inject(EXPENSE_POLICY_STORE) private readonly policies: ExpensePolicyStore,
-    private readonly access: WorkspaceAccessService,
+    @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
   ) {}
 
   async get(

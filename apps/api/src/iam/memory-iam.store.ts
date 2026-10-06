@@ -23,6 +23,7 @@ import type {
   DecideJoinRequestInput,
   DisableMemberInput,
   IamStore,
+  LeaveMembershipInput,
   ProposeOwnershipTransferInput,
   UpdateWorkspaceProfileInput,
   UpsertDevActorInput,
@@ -45,6 +46,8 @@ type StoredUser = {
 type StoredWorkspace = WorkspaceSummary & {
   createdBy: string;
   createdAt: string;
+  archivedByUserId?: string;
+  deletedByUserId?: string;
 };
 
 type StoredMembership = {
@@ -110,6 +113,19 @@ function toInviteSummary(invite: StoredInvite): InviteSummary {
     expiresAt: invite.expiresAt,
     acceptedAt: invite.acceptedAt,
     createdAt: invite.createdAt,
+  };
+}
+
+function toWorkspaceSummary(workspace: StoredWorkspace): WorkspaceSummary {
+  return {
+    id: workspace.id,
+    name: workspace.name,
+    slug: workspace.slug,
+    template: workspace.template,
+    timezone: workspace.timezone,
+    displayUnit: workspace.displayUnit,
+    archivedAt: workspace.archivedAt,
+    deletedAt: workspace.deletedAt,
   };
 }
 
@@ -210,14 +226,11 @@ export class MemoryIamStore implements IamStore {
       if (membership.userId !== userId) continue;
       if (!isActiveMember(membership)) continue;
       const workspace = this.workspaces.get(membership.workspaceId);
-      if (!workspace) continue;
+      if (!workspace || workspace.deletedAt) continue;
+      if (workspace.archivedAt && membership.role !== "owner") continue;
       result.push({
-        id: workspace.id,
-        name: workspace.name,
-        slug: workspace.slug,
-        template: workspace.template,
-        timezone: workspace.timezone,
-        displayUnit: workspace.displayUnit,
+        ...toWorkspaceSummary(workspace),
+        myRole: membership.role,
       });
     }
     return Promise.resolve(result);
@@ -268,14 +281,7 @@ export class MemoryIamStore implements IamStore {
       this.personalByUser.set(input.actorUserId, id);
     }
 
-    return Promise.resolve({
-      id: workspace.id,
-      name: workspace.name,
-      slug: workspace.slug,
-      template: workspace.template,
-      timezone: workspace.timezone,
-      displayUnit: workspace.displayUnit,
-    });
+    return Promise.resolve(toWorkspaceSummary(workspace));
   }
 
   updateWorkspaceProfile(
@@ -292,7 +298,10 @@ export class MemoryIamStore implements IamStore {
       return Promise.reject(new Error("WORKSPACE_UPDATE_FORBIDDEN"));
     }
     const current = this.workspaces.get(input.workspaceId);
-    if (!current) return Promise.resolve(undefined);
+    if (!current || current.deletedAt) return Promise.resolve(undefined);
+    if (current.archivedAt) {
+      return Promise.reject(new Error("WORKSPACE_ARCHIVED"));
+    }
     const updated: StoredWorkspace = {
       ...current,
       name: input.name,
@@ -300,14 +309,7 @@ export class MemoryIamStore implements IamStore {
       displayUnit: input.displayUnit,
     };
     this.workspaces.set(updated.id, updated);
-    return Promise.resolve({
-      id: updated.id,
-      name: updated.name,
-      slug: updated.slug,
-      template: updated.template,
-      timezone: updated.timezone,
-      displayUnit: updated.displayUnit,
-    });
+    return Promise.resolve(toWorkspaceSummary(updated));
   }
 
   async ensurePersonalWorkspace(userId: string): Promise<WorkspaceSummary> {
@@ -376,29 +378,18 @@ export class MemoryIamStore implements IamStore {
       return Promise.resolve(undefined);
     }
     const workspace = this.workspaces.get(workspaceId);
-    if (!workspace) return Promise.resolve(undefined);
-    return Promise.resolve({
-      id: workspace.id,
-      name: workspace.name,
-      slug: workspace.slug,
-      template: workspace.template,
-      timezone: workspace.timezone,
-      displayUnit: workspace.displayUnit,
-    });
+    if (!workspace || workspace.deletedAt) return Promise.resolve(undefined);
+    return Promise.resolve(toWorkspaceSummary(workspace));
   }
 
   getWorkspaceBySlug(slug: string): Promise<WorkspaceSummary | undefined> {
     const normalized = slug.trim().toLowerCase();
     for (const workspace of this.workspaces.values()) {
       if (workspace.slug === normalized) {
-        return Promise.resolve({
-          id: workspace.id,
-          name: workspace.name,
-          slug: workspace.slug,
-          template: workspace.template,
-          timezone: workspace.timezone,
-          displayUnit: workspace.displayUnit,
-        });
+        if (workspace.deletedAt || workspace.archivedAt) {
+          return Promise.resolve(undefined);
+        }
+        return Promise.resolve(toWorkspaceSummary(workspace));
       }
     }
     return Promise.resolve(undefined);
@@ -552,6 +543,122 @@ export class MemoryIamStore implements IamStore {
     const summary = this.toMemberSummary(updated);
     if (!summary) return Promise.reject(new Error("MEMBER_NOT_FOUND"));
     return Promise.resolve(summary);
+  }
+
+  leaveMembership(input: LeaveMembershipInput): Promise<MembershipSummary> {
+    const workspace = this.workspaces.get(input.workspaceId);
+    if (!workspace || workspace.deletedAt) {
+      return Promise.reject(new Error("WORKSPACE_NOT_FOUND"));
+    }
+    if (workspace.template === "personal") {
+      return Promise.reject(new Error("PERSONAL_WORKSPACE_PROTECTED"));
+    }
+    const self = this.memberships.get(`${input.workspaceId}:${input.userId}`);
+    if (!self || !isActiveMember(self)) {
+      return Promise.reject(new Error("MEMBER_NOT_FOUND"));
+    }
+    if (self.role === "owner") {
+      return Promise.reject(new Error("OWNER_MUST_TRANSFER"));
+    }
+    if (
+      wouldRemoveLastFinanceManager(this.workspaceMembers(input.workspaceId), input.userId, {
+        disabling: true,
+      })
+    ) {
+      return Promise.reject(new Error("LAST_FINANCE_MANAGER"));
+    }
+    const updated: StoredMembership = {
+      ...self,
+      disabledAt: new Date().toISOString(),
+      disabledByUserId: input.userId,
+      disabledReason: input.reason?.trim().slice(0, 500) || "left_by_member",
+    };
+    this.memberships.set(`${input.workspaceId}:${input.userId}`, updated);
+    const summary = this.toMemberSummary(updated);
+    if (!summary) return Promise.reject(new Error("MEMBER_NOT_FOUND"));
+    return Promise.resolve(summary);
+  }
+
+  archiveWorkspace(
+    workspaceId: string,
+    actorUserId: string,
+  ): Promise<WorkspaceSummary> {
+    const membership = this.memberships.get(`${workspaceId}:${actorUserId}`);
+    if (!membership || !isActiveMember(membership) || membership.role !== "owner") {
+      return Promise.reject(new Error("WORKSPACE_LIFECYCLE_FORBIDDEN"));
+    }
+    const current = this.workspaces.get(workspaceId);
+    if (!current || current.deletedAt) {
+      return Promise.reject(new Error("WORKSPACE_NOT_FOUND"));
+    }
+    if (current.template === "personal") {
+      return Promise.reject(new Error("PERSONAL_WORKSPACE_PROTECTED"));
+    }
+    if (current.archivedAt) {
+      return Promise.resolve(toWorkspaceSummary(current));
+    }
+    const updated: StoredWorkspace = {
+      ...current,
+      archivedAt: new Date().toISOString(),
+      archivedByUserId: actorUserId,
+    };
+    this.workspaces.set(workspaceId, updated);
+    return Promise.resolve(toWorkspaceSummary(updated));
+  }
+
+  unarchiveWorkspace(
+    workspaceId: string,
+    actorUserId: string,
+  ): Promise<WorkspaceSummary> {
+    const membership = this.memberships.get(`${workspaceId}:${actorUserId}`);
+    if (!membership || !isActiveMember(membership) || membership.role !== "owner") {
+      return Promise.reject(new Error("WORKSPACE_LIFECYCLE_FORBIDDEN"));
+    }
+    const current = this.workspaces.get(workspaceId);
+    if (!current || current.deletedAt) {
+      return Promise.reject(new Error("WORKSPACE_NOT_FOUND"));
+    }
+    if (!current.archivedAt) {
+      return Promise.resolve(toWorkspaceSummary(current));
+    }
+    const updated: StoredWorkspace = {
+      ...current,
+      archivedAt: undefined,
+      archivedByUserId: undefined,
+    };
+    this.workspaces.set(workspaceId, updated);
+    return Promise.resolve(toWorkspaceSummary(updated));
+  }
+
+  softDeleteWorkspace(
+    workspaceId: string,
+    actorUserId: string,
+    confirmSlug: string,
+  ): Promise<WorkspaceSummary> {
+    const membership = this.memberships.get(`${workspaceId}:${actorUserId}`);
+    if (!membership || !isActiveMember(membership) || membership.role !== "owner") {
+      return Promise.reject(new Error("WORKSPACE_LIFECYCLE_FORBIDDEN"));
+    }
+    const current = this.workspaces.get(workspaceId);
+    if (!current || current.deletedAt) {
+      return Promise.reject(new Error("WORKSPACE_NOT_FOUND"));
+    }
+    if (current.template === "personal") {
+      return Promise.reject(new Error("PERSONAL_WORKSPACE_PROTECTED"));
+    }
+    if (current.slug !== confirmSlug.trim().toLowerCase()) {
+      return Promise.reject(new Error("WORKSPACE_SLUG_MISMATCH"));
+    }
+    const now = new Date().toISOString();
+    const updated: StoredWorkspace = {
+      ...current,
+      deletedAt: now,
+      deletedByUserId: actorUserId,
+      archivedAt: current.archivedAt ?? now,
+      archivedByUserId: current.archivedByUserId ?? actorUserId,
+    };
+    this.workspaces.set(workspaceId, updated);
+    return Promise.resolve(toWorkspaceSummary(updated));
   }
 
   enableMember(

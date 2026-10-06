@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
   useContext,
@@ -248,6 +248,7 @@ export function SiteHeader({ compactAuth = false }: { compactAuth?: boolean }) {
 
 export function SiteFooter() {
   const year = new Date().getFullYear();
+  const router = useRouter();
   const { caps } = useSiteStatus();
   const healthUrl = `${API_PUBLIC_BASE.replace(/\/api\/v1\/?$/, "")}/api/v1/health/ready`;
   const allowDev = Boolean(caps?.allowDevAuth);
@@ -296,7 +297,13 @@ export function SiteFooter() {
             <b>پشتیبانی</b>
             <ul>
               <li>
-                <a href="mailto:support@dang.local">support@dang.local</a>
+                {caps?.supportContactEmail ? (
+                  <a href={`mailto:${caps.supportContactEmail}`}>
+                    {caps.supportContactEmail}
+                  </a>
+                ) : (
+                  <Link href="/contact">فرم تماس</Link>
+                )}
               </li>
               {allowDev ? (
                 <li>
@@ -308,7 +315,8 @@ export function SiteFooter() {
                       void bootstrapDevSession()
                         .catch(() => undefined)
                         .finally(() => {
-                          window.location.assign("/spaces/new");
+                          router.refresh();
+                          router.push("/spaces/new");
                         });
                     }}
                   >

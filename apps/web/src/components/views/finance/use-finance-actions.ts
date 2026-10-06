@@ -5,6 +5,7 @@ import { newClientId } from "@/lib/id";
 import type {
   PeriodKind,
   SettlementSummary,
+  SettlePayIntent,
   WorkspaceBalancesResponse,
 } from "@dang/contracts";
 import {
@@ -14,7 +15,9 @@ import {
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { useLiveInvalidation } from "@/lib/live-invalidation";
-import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import { displayInputToIrrMinor, irrMinorToDisplayInput } from "@/lib/irr-money";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { moneyUnitSuffix } from "@/lib/money-labels";
 import {
   listOfflineExpenseDrafts,
   removeOfflineExpenseDraft,
@@ -65,13 +68,37 @@ export type FinanceActionsDeps = {
   setRevisingExpenseId: (value: string | null) => void;
   reviseReason: string;
   setReviseReason: (value: string) => void;
-  fundingSourceKind: "" | "personal" | "petty_cash";
+  fundingSourceKind: "" | "personal" | "petty_cash" | "member" | "credit";
   fundingRefId: string;
+  /** Friends outing binding when creating from group space. */
+  outingId?: string;
+  setOutingId?: (value: string) => void;
   /** Current balances for settle-link from debtor line. */
   balances: WorkspaceBalancesResponse | null;
   /** When false, issue invoice without creating checkout link. */
   paymentsLive?: boolean;
+  /** When conversionLive — optional FX original money on draft. */
+  conversionLive?: boolean;
+  originalCurrency?: string;
+  setOriginalCurrency?: (value: string) => void;
+  originalAmountMajor?: string;
+  setOriginalAmountMajor?: (value: string) => void;
 };
+
+/** ISO-4217 minor factor — mirrors API fx-convert-live. */
+function currencyMinorFactor(code: string): number {
+  const upper = code.trim().toUpperCase();
+  if (upper === "JPY" || upper === "KRW" || upper === "VND") return 1;
+  return 100;
+}
+
+function majorToIsoMinor(major: string, currency: string): string | null {
+  const n = Number(String(major).replace(/,/g, "").trim());
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const minor = Math.round(n * currencyMinorFactor(currency));
+  if (minor < 1) return null;
+  return String(minor);
+}
 
 /**
  * All finance write-action handlers (create expense/settlement/period, invoices,
@@ -79,6 +106,8 @@ export type FinanceActionsDeps = {
  * behavior is identical - driven entirely by the passed-in deps.
  */
 export function useFinanceActions(deps: FinanceActionsDeps) {
+  const displayUnit = useDisplayUnit();
+  const unitLabel = moneyUnitSuffix(displayUnit);
   const {
     startTransition,
     selectedId,
@@ -113,6 +142,13 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
     setReviseReason,
     fundingSourceKind,
     fundingRefId,
+    outingId = "",
+    setOutingId,
+    conversionLive = false,
+    originalCurrency = "",
+    setOriginalCurrency,
+    originalAmountMajor = "",
+    setOriginalAmountMajor,
     balances,
     paymentsLive = false,
   } = deps;
@@ -165,12 +201,52 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
                 }
               : split,
           );
-          const total =
+          const fxCode = originalCurrency.trim().toUpperCase();
+          const fxMajor = originalAmountMajor.trim();
+          const wantsFx =
+            conversionLive &&
+            Boolean(fxCode) &&
+            Boolean(fxMajor) &&
+            fxCode !== "IRR" &&
+            split.splitMethod !== "itemized";
+          let total =
             payload.totalMinor != null
               ? { amountMinor: payload.totalMinor, currency: "IRR" as const }
-              : tomanInputToIrrMinor(amountToman);
+              : displayInputToIrrMinor(amountToman, displayUnit);
+          let originalMoney:
+            | { originalCurrency: string; originalAmountMinor: string }
+            | undefined;
+          if (wantsFx) {
+            if (!/^[A-Z]{3}$/.test(fxCode)) {
+              setError("کد ارز باید سه حرف ISO باشد (مثلاً USD)");
+              return;
+            }
+            const originalAmountMinor = majorToIsoMinor(fxMajor, fxCode);
+            if (!originalAmountMinor) {
+              setError("مبلغ ارز مبدأ نامعتبر است");
+              return;
+            }
+            const preview = await api.previewFxConvert({
+              fromCurrency: fxCode,
+              toCurrency: "IRR",
+              amount: fxMajor.replace(/,/g, ""),
+              asOf: expenseDate,
+            });
+            const irrMinor = String(Math.round(Number(preview.convertedAmount)));
+            if (!/^[1-9]\d*$/.test(irrMinor)) {
+              setError("تبدیل ارز به ریال نامعتبر بود");
+              return;
+            }
+            total = { amountMinor: irrMinor, currency: "IRR" as const };
+            originalMoney = { originalCurrency: fxCode, originalAmountMinor };
+            setAmountToman(irrMinorToDisplayInput(irrMinor, displayUnit));
+          }
           if (!total) {
-            setError("مبلغ معتبر وارد کنید (تومان)");
+            setError(
+              wantsFx
+                ? "تبدیل ارز ناموفق بود — مبلغ واحد نمایش یا ارز مبدأ را بررسی کنید"
+                : `مبلغ معتبر وارد کنید (${unitLabel})`,
+            );
             return;
           }
           const participants =
@@ -225,7 +301,17 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
                 }
               : fundingSourceKind === "personal"
                 ? { fundingSourceKind: "personal" as const }
-                : {}),
+                : fundingSourceKind === "member" && fundingRefId
+                  ? {
+                      fundingSourceKind: "member" as const,
+                      fundingRefId,
+                      paidByUserId: fundingRefId,
+                    }
+                  : fundingSourceKind === "credit"
+                    ? { fundingSourceKind: "credit" as const }
+                    : {}),
+            ...(outingId.trim() ? { outingId: outingId.trim() } : {}),
+            ...(originalMoney ?? {}),
           };
           if (revisingExpenseId) {
             const result = await api.reviseExpense(selectedId, revisingExpenseId, {
@@ -239,11 +325,16 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
             setAmountToman("");
             setRevisingExpenseId(null);
             setReviseReason("");
+            setOutingId?.("");
+            setOriginalCurrency?.("");
+            setOriginalAmountMajor?.("");
             setError(null);
             showSuccess(
               result.created.status === "posted"
                 ? "خرج اصلاح شد · جایگزین در دفترکل ثبت شد"
-                : "خرج اصلاح شد · جایگزین در انتظار تأیید",
+                : result.created.postingHoldMessageFa
+                  ? `خرج اصلاح شد · ${result.created.postingHoldMessageFa}`
+                  : "خرج اصلاح شد · جایگزین در انتظار تأیید",
             );
             return;
           }
@@ -251,11 +342,16 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
           applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setTitle("");
           setAmountToman("");
+          setOutingId?.("");
+          setOriginalCurrency?.("");
+          setOriginalAmountMajor?.("");
           setError(null);
           showSuccess(
             created.status === "posted"
               ? "خرج ثبت شد · در دفترکل آمده و مانده‌ها به‌روز شد"
-              : "خرج ثبت شد · در انتظار تأیید",
+              : created.postingHoldMessageFa
+                ? `خرج ثبت شد · ${created.postingHoldMessageFa}`
+                : "خرج ثبت شد · در انتظار تأیید",
           );
         } catch (err: unknown) {
           setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
@@ -266,8 +362,8 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
 
   function onSaveOfflineDraft() {
     if (!selectedId) return;
-    if (!tomanInputToIrrMinor(amountToman) && split.splitMethod !== "itemized") {
-      setError("مبلغ معتبر وارد کنید (تومان)");
+    if (!displayInputToIrrMinor(amountToman, displayUnit) && split.splitMethod !== "itemized") {
+      setError(`مبلغ معتبر وارد کنید (${unitLabel})`);
       return;
     }
     const saved = saveOfflineExpenseDraft({
@@ -275,10 +371,14 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
       title,
       totalToman: amountToman,
       participantUserIds: split.participantUserIds,
-      splitMethod: split.splitMethod === "itemized" ? "equal" : split.splitMethod,
+      splitMethod:
+        split.splitMethod === "itemized" || split.splitMethod === "formula"
+          ? "equal"
+          : split.splitMethod,
       occurredOn: expenseDate,
       periodId: expensePeriodId || undefined,
       visibility: split.visibility,
+      outingId: outingId.trim() || undefined,
     });
     setOfflineDrafts(listOfflineExpenseDrafts(selectedId));
     setLastDraftSavedAt(saved.updatedAt);
@@ -287,7 +387,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
 
   function onSyncOfflineDraft(draft: OfflineExpenseDraft) {
     if (!selectedId) return;
-    const total = tomanInputToIrrMinor(draft.totalToman);
+    const total = displayInputToIrrMinor(draft.totalToman, displayUnit);
     if (!total) {
       setError("پیش‌نویس آفلاین مبلغ معتبری ندارد");
       return;
@@ -310,6 +410,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
             note: draft.note,
             periodId: draft.periodId,
             visibility: draft.visibility,
+            outingId: draft.outingId,
             commit: "auto",
             idempotencyKey: newClientId(),
           });
@@ -326,9 +427,9 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
 
   function onCreateSettlement() {
     if (!selectedId || !settleToUserId) return;
-    const amount = tomanInputToIrrMinor(settleAmountToman);
+    const amount = displayInputToIrrMinor(settleAmountToman, displayUnit);
     if (!amount) {
-      setError("مبلغ معتبر وارد کنید (تومان)");
+      setError(`مبلغ معتبر وارد کنید (${unitLabel})`);
       return;
     }
     startTransition(() => {
@@ -350,6 +451,60 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
           applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
           showSuccess("ادعای تسویه ثبت شد");
+        } catch (err: unknown) {
+          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
+        }
+      })();
+    });
+  }
+
+  function onSettlePay(input: {
+    intent: SettlePayIntent;
+    fundId?: string;
+    asOf?: string;
+  }) {
+    if (!selectedId || !settleToUserId) return;
+    const amount = displayInputToIrrMinor(settleAmountToman, displayUnit);
+    if (!amount) {
+      setError(`مبلغ معتبر وارد کنید (${unitLabel})`);
+      return;
+    }
+    if (
+      (input.intent === "settle_and_fund_gift" || input.intent === "fund_gift_only") &&
+      !input.fundId
+    ) {
+      setError("برای هدیه به صندوق، یک صندوق فعال انتخاب کنید");
+      return;
+    }
+    startTransition(() => {
+      void (async () => {
+        try {
+          const me = await api.me();
+          if (settleToUserId === me.actor.userId) {
+            setError("طرف مقابل نمی‌تواند خود شما باشد");
+            return;
+          }
+          const res = await api.settlePay(selectedId, {
+            counterpartyUserId: settleToUserId,
+            amountMinor: amount.amountMinor,
+            intent: input.intent,
+            fundId: input.fundId,
+            asOf: input.asOf,
+            idempotencyKey: newClientId(),
+          });
+          applyWorkspaceData(
+            await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope),
+          );
+          setError(null);
+          const settlePart = BigInt(res.plan.settlementAmountMinor);
+          const giftPart = BigInt(res.plan.giftAmountMinor);
+          if (settlePart > 0n && giftPart > 0n) {
+            showSuccess("ادعای تسویه ثبت شد و مازاد به صندوق هدیه شد");
+          } else if (giftPart > 0n) {
+            showSuccess("هدیه به صندوق ثبت شد (بدون بدهی برای اعضا)");
+          } else {
+            showSuccess("ادعای تسویه ثبت شد — منتظر تأیید طرف مقابل");
+          }
         } catch (err: unknown) {
           setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
@@ -563,6 +718,46 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
           showSuccess("خرج برگشت داده شد · مانده‌ها اصلاح شد");
         } catch (err: unknown) {
           setError(friendlyErrorMessage(err, "برگشت خرج ناموفق بود"));
+        }
+      })();
+    });
+  }
+
+  function onRestoreExpense(expenseId: string) {
+    if (!selectedId) return;
+    startTransition(() => {
+      void (async () => {
+        try {
+          const result = await api.restoreExpense(selectedId, expenseId, {
+            idempotencyKey: newClientId(),
+          });
+          applyWorkspaceData(
+            await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope),
+          );
+          setError(null);
+          showSuccess(
+            `خرج به مانده برگشت · ردیف فعال جدید (${result.restored.title})`,
+          );
+        } catch (err: unknown) {
+          setError(friendlyErrorMessage(err, "بازیابی خرج ناموفق بود"));
+        }
+      })();
+    });
+  }
+
+  function onPurgeExpense(expenseId: string) {
+    if (!selectedId) return;
+    startTransition(() => {
+      void (async () => {
+        try {
+          await api.purgeExpense(selectedId, expenseId);
+          applyWorkspaceData(
+            await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope),
+          );
+          setError(null);
+          showSuccess("خرج به‌طور کامل از فهرست حذف شد");
+        } catch (err: unknown) {
+          setError(friendlyErrorMessage(err, "حذف کامل ناموفق بود"));
         }
       })();
     });
@@ -786,6 +981,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
     onSaveOfflineDraft,
     onSyncOfflineDraft,
     onCreateSettlement,
+    onSettlePay,
     onCreatePaymentLink,
     onBalanceSettleLink,
     onConfirmSettlement,
@@ -795,6 +991,8 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
     onPostExpense,
     onPromoteCompany,
     onReverseExpense,
+    onRestoreExpense,
+    onPurgeExpense,
     onCancelRevise,
     onCreatePeriod,
     onGenerateInvoices,

@@ -20,6 +20,17 @@ const RECONNECT_BASE_MS = 1_500;
 const RECONNECT_MAX_MS = 30_000;
 
 /**
+ * Prefer same-origin `/api/v1` (Next proxy) so cookies work and CORS is not needed.
+ * Optional `NEXT_PUBLIC_SSE_BASE_URL` for direct API (must send CORS on hijacked SSE).
+ * Proxy no longer times out SSE (see apps/web route proxy).
+ */
+function sseApiBase(): string {
+  const explicit = (process.env.NEXT_PUBLIC_SSE_BASE_URL ?? "").trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+  return API_BASE.replace(/\/$/, "");
+}
+
+/**
  * Fetch-based SSE (supports session cookies + DevAuth headers).
  * Native EventSource cannot set x-dang-* headers.
  * On stream end/error: exponential backoff reconnect (same API process only).
@@ -29,6 +40,7 @@ export function openSseStream(path: string, handlers: SseHandlers): () => void {
   let closed = false;
   let attempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let hmrPaused = false;
 
   const setStatus = (status: SseConnectionStatus) => {
     handlers.onStatus?.(status);
@@ -42,7 +54,7 @@ export function openSseStream(path: string, handlers: SseHandlers): () => void {
   };
 
   const scheduleReconnect = () => {
-    if (closed) return;
+    if (closed || hmrPaused) return;
     const delay = Math.min(
       RECONNECT_MAX_MS,
       RECONNECT_BASE_MS * 2 ** Math.min(attempt, 5),
@@ -57,7 +69,7 @@ export function openSseStream(path: string, handlers: SseHandlers): () => void {
   };
 
   const run = async () => {
-    if (closed) return;
+    if (closed || hmrPaused) return;
     setStatus(attempt === 0 ? "connecting" : "reconnecting");
     try {
       const headers = new Headers({
@@ -69,14 +81,13 @@ export function openSseStream(path: string, handlers: SseHandlers): () => void {
         headers.set("x-dang-subject", encodeDevHeader(identity.subject));
         headers.set("x-dang-display-name", encodeDevHeader(identity.displayName));
       }
-      const response = await fetch(`${API_BASE}${path}`, {
+      const response = await fetch(`${sseApiBase()}${path}`, {
         method: "GET",
         headers,
         credentials: "include",
         signal: ac.signal,
       });
       if (!response.ok || !response.body) {
-        // 503 during API restart / HMR proxy blip — reconnect quietly.
         if (response.status !== 503) {
           handlers.onError?.(new Error(`SSE ${response.status}`));
         }
@@ -101,7 +112,7 @@ export function openSseStream(path: string, handlers: SseHandlers): () => void {
         dataLines = [];
       };
 
-      while (!closed) {
+      while (!closed && !hmrPaused) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
@@ -122,24 +133,56 @@ export function openSseStream(path: string, handlers: SseHandlers): () => void {
           }
         }
       }
-      if (!closed) scheduleReconnect();
+      if (!closed && !hmrPaused) scheduleReconnect();
     } catch (error: unknown) {
-      if (ac.signal.aborted || closed) return;
-      // Incomplete chunked / network drop while proxy remounts — reconnect without noise.
+      if (ac.signal.aborted || closed || hmrPaused) return;
       const msg = error instanceof Error ? error.message : String(error);
-      if (!/abort|network|chunked|fetch/i.test(msg)) {
+      if (!/abort|network|chunked|fetch|Failed to fetch|CORS/i.test(msg)) {
         handlers.onError?.(error);
       }
       scheduleReconnect();
     }
   };
 
+  const onVisibility = () => {
+    if (document.visibilityState === "visible" && !closed && attempt > 0) {
+      clearReconnect();
+      void run();
+    }
+  };
+
+  const onHmrBefore = () => {
+    hmrPaused = true;
+    clearReconnect();
+  };
+  const onHmrAfter = () => {
+    if (closed) return;
+    hmrPaused = false;
+    attempt = 0;
+    clearReconnect();
+    void run();
+  };
+
+  if (typeof window !== "undefined") {
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("vite:beforeUpdate", onHmrBefore);
+    window.addEventListener("vite:afterUpdate", onHmrAfter);
+    window.addEventListener("webpackHotUpdate", onHmrBefore);
+  }
+
   void run();
 
   return () => {
     closed = true;
+    hmrPaused = false;
     clearReconnect();
     setStatus("closed");
     ac.abort();
+    if (typeof window !== "undefined") {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("vite:beforeUpdate", onHmrBefore);
+      window.removeEventListener("vite:afterUpdate", onHmrAfter);
+      window.removeEventListener("webpackHotUpdate", onHmrBefore);
+    }
   };
 }

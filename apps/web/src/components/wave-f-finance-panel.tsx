@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type {
   CategoryBudgetUsage,
   ProductFeatureFlags,
@@ -16,6 +16,13 @@ import {
   SectionCard,
   StatusLine,
 } from "@/components/ui-blocks";
+import {
+  RowSelectCheckbox,
+  SelectionActionBar,
+  rowSelectActivateProps,
+} from "@/components/selection/selection-action-bar";
+import { useRowSelection } from "@/components/selection/use-row-selection";
+import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { newClientId } from "@/lib/id";
@@ -68,6 +75,12 @@ export function WaveFFinancePanel({
   const [perDiemToman, setPerDiemToman] = useState("");
   const [tiersJson, setTiersJson] = useState("");
   const [pending, startTransition] = useTransition();
+  const claimIds = useMemo(() => claims.map((c) => c.id), [claims]);
+  const claimSelection = useRowSelection(claimIds);
+  const barClaim =
+    claimSelection.selectedCount === 1
+      ? (claims.find((c) => c.id === claimSelection.selectedIds[0]) ?? null)
+      : null;
 
   function reload() {
     return Promise.all([
@@ -248,82 +261,114 @@ export function WaveFFinancePanel({
             </FormStack>
           )}
           {claims.length ? (
-            <DataList>
-              {claims.map((c) => (
-                <DataRow
-                  key={c.id}
-                  title={c.title}
-                  meta={statusFa[c.status]}
-                  trailing={c.amount.amountMinor}
-                  actions={
-                    readOnly ? null : (
-                      <span className="dataRowActions">
-                        {c.status === "draft" ? (
-                          <>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              disabled={pending}
-                              onClick={() =>
-                                run(() => api.submitReimbursement(workspaceId, c.id))
-                              }
-                            >
-                              ارسال
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              disabled={pending}
-                              onClick={() =>
-                                run(() => api.cancelReimbursement(workspaceId, c.id))
-                              }
-                            >
-                              لغو
-                            </Button>
-                          </>
-                        ) : null}
-                        {c.status === "submitted" ? (
-                          <>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              disabled={pending}
-                              onClick={() =>
-                                run(() => api.approveReimbursement(workspaceId, c.id))
-                              }
-                            >
-                              تأیید
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              disabled={pending}
-                              onClick={() =>
-                                run(() => api.rejectReimbursement(workspaceId, c.id))
-                              }
-                            >
-                              رد
-                            </Button>
-                          </>
-                        ) : null}
-                        {c.status === "approved" ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            disabled={pending}
-                            onClick={() =>
-                              run(() => api.markReimbursementPaid(workspaceId, c.id))
-                            }
-                          >
-                            پرداخت شد
-                          </Button>
-                        ) : null}
-                      </span>
-                    )
-                  }
-                />
-              ))}
-            </DataList>
+            <>
+              {!readOnly ? (
+                <SelectionActionBar
+                  selectedCount={claimSelection.selectedCount}
+                  idleHint="روی ردیف کلیک کنید یا مربع کنار درخواست را تیک بزنید"
+                  onClear={claimSelection.clear}
+                >
+                  {barClaim?.status === "draft" ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => {
+                          run(() => api.submitReimbursement(workspaceId, barClaim.id));
+                          claimSelection.clear();
+                        }}
+                      >
+                        ارسال
+                      </button>
+                      <button
+                        type="button"
+                        className={selStyles.danger}
+                        disabled={pending}
+                        onClick={() => {
+                          run(() => api.cancelReimbursement(workspaceId, barClaim.id));
+                          claimSelection.clear();
+                        }}
+                      >
+                        لغو
+                      </button>
+                    </>
+                  ) : null}
+                  {barClaim?.status === "submitted" ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => {
+                          run(() => api.approveReimbursement(workspaceId, barClaim.id));
+                          claimSelection.clear();
+                        }}
+                      >
+                        تأیید
+                      </button>
+                      <button
+                        type="button"
+                        className={selStyles.danger}
+                        disabled={pending}
+                        onClick={() => {
+                          run(() => api.rejectReimbursement(workspaceId, barClaim.id));
+                          claimSelection.clear();
+                        }}
+                      >
+                        رد
+                      </button>
+                    </>
+                  ) : null}
+                  {barClaim?.status === "approved" ? (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => {
+                        run(() => api.markReimbursementPaid(workspaceId, barClaim.id));
+                        claimSelection.clear();
+                      }}
+                    >
+                      پرداخت شد
+                    </button>
+                  ) : null}
+                </SelectionActionBar>
+              ) : null}
+              <DataList>
+                {claims.map((c) => (
+                  <div
+                    key={c.id}
+                    className={!readOnly ? selStyles.selectableRow : undefined}
+                    {...(!readOnly
+                      ? rowSelectActivateProps({
+                          onActivate: () => {
+                            if (claimSelection.isSelected(c.id)) claimSelection.clear();
+                            else claimSelection.selectOnly(c.id);
+                          },
+                        })
+                      : {})}
+                  >
+                    <DataRow
+                      title={
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          {!readOnly ? (
+                            <RowSelectCheckbox
+                              checked={claimSelection.isSelected(c.id)}
+                              onChange={() => {
+                                if (claimSelection.isSelected(c.id)) claimSelection.clear();
+                                else claimSelection.selectOnly(c.id);
+                              }}
+                              label={`انتخاب ${c.title}`}
+                            />
+                          ) : null}
+                          {c.title}
+                        </span>
+                      }
+                      meta={statusFa[c.status]}
+                      trailing={c.amount.amountMinor}
+                    />
+                  </div>
+                ))}
+              </DataList>
+            </>
           ) : (
             <EmptyHint>درخواستی ثبت نشده است.</EmptyHint>
           )}

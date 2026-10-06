@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type {
   ContactSyncRunSummary,
   DirectoryUserSummary,
@@ -9,6 +9,11 @@ import type {
   MembershipRole,
   MembershipSummary,
   SocialCountsSummary,
+} from "@dang/contracts";
+import {
+  inviteSatisfiesFinanceQuorum,
+  isFinanceManagerRole,
+  spaceKindForTemplate,
 } from "@dang/contracts";
 import { Button, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
@@ -18,10 +23,19 @@ import {
   ProductGrid,
   SectionCard,
 } from "@/components/ui-blocks";
+import {
+  RowSelectCheckbox,
+  SelectionActionBar,
+  rowSelectActivateProps,
+} from "@/components/selection/selection-action-bar";
+import { useRowSelection } from "@/components/selection/use-row-selection";
+import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { EmptyStateIllustration } from "@/components/ui/empty-state-illustration";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { api } from "@/lib/api";
 import { authErrorMessage } from "@/lib/api-errors";
 import { formatFaDate } from "@/lib/fa-datetime";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { FlashMessages } from "@/lib/use-flash-message";
 import { wPath } from "@/lib/workspace-paths";
@@ -33,6 +47,12 @@ function parsePhoneLines(raw: string): string[] {
     .filter(Boolean)
     .slice(0, 100);
 }
+
+const rowTitleStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+} as const;
 
 export function FriendsView() {
   const chrome = useAppChrome();
@@ -54,7 +74,26 @@ export function FriendsView() {
   const [info, setInfo] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [myRole, setMyRole] = useState<MembershipRole | "">("");
+  const [workspaceMembers, setWorkspaceMembers] = useState<MembershipSummary[]>([]);
   const [, setSocialCounts] = useState<SocialCountsSummary | null>(null);
+
+  const friendIds = useMemo(() => friends.map((r) => r.id), [friends]);
+  const incomingIds = useMemo(() => incoming.map((r) => r.id), [incoming]);
+  const outgoingIds = useMemo(() => outgoing.map((r) => r.id), [outgoing]);
+  const matchIds = useMemo(() => matchResults.map((u) => u.userId), [matchResults]);
+  const friendSel = useRowSelection(friendIds);
+  const incomingSel = useRowSelection(incomingIds);
+  const outgoingSel = useRowSelection(outgoingIds);
+  const matchSel = useRowSelection(matchIds);
+
+  const barFriend =
+    friendSel.selectedCount === 1
+      ? (friends.find((r) => r.id === friendSel.selectedIds[0]) ?? null)
+      : null;
+  const barMatch =
+    matchSel.selectedCount === 1
+      ? (matchResults.find((u) => u.userId === matchSel.selectedIds[0]) ?? null)
+      : null;
 
   const activeWs =
     chrome.workspaces.find((w) => w.id === chrome.workspaceId) ?? chrome.workspaces[0];
@@ -63,6 +102,16 @@ export function FriendsView() {
   const membersHref = activeSlug ? wPath(activeSlug, "members") : "/onboarding";
   const canAddMember =
     myRole === "owner" || myRole === "admin" || myRole === "finance";
+  const activeMembers = workspaceMembers.filter((m) => !m.disabledAt);
+  const financeManagerCount = activeMembers.filter((m) =>
+    isFinanceManagerRole(m.role),
+  ).length;
+  const needsSecondFinance = !inviteSatisfiesFinanceQuorum({
+    spaceKind: spaceKindForTemplate(activeWs?.template),
+    currentMemberCount: activeMembers.length,
+    currentFinanceManagerCount: financeManagerCount,
+    inviteRole: "member",
+  }).ok;
 
   function refresh() {
     startTransition(() => {
@@ -84,11 +133,13 @@ export function FriendsView() {
           if (activeWorkspaceId && chrome.actor?.userId) {
             try {
               const members = await api.listMembers(activeWorkspaceId);
+              setWorkspaceMembers(members);
               setMyRole(
                 (members.find((m: MembershipSummary) => m.userId === chrome.actor?.userId)
                   ?.role as MembershipRole) ?? "",
               );
             } catch {
+              setWorkspaceMembers([]);
               setMyRole("");
             }
           }
@@ -172,16 +223,156 @@ export function FriendsView() {
     });
   }
 
+  function acceptIncomingSelected() {
+    if (incomingSel.selectedCount === 0) return;
+    const ids = incomingSel.selectedIds;
+    startTransition(() => {
+      void (async () => {
+        try {
+          for (const id of ids) await api.acceptFriendRequest(id);
+          setInfo(
+            ids.length === 1
+              ? "دوستی پذیرفته شد"
+              : `${ids.length.toLocaleString("fa-IR")} درخواست پذیرفته شد`,
+          );
+          incomingSel.clear();
+          refresh();
+        } catch (err: unknown) {
+          setError(authErrorMessage(err, "پذیرش ناموفق بود"));
+        }
+      })();
+    });
+  }
+
+  function declineIncomingSelected() {
+    if (incomingSel.selectedCount === 0) return;
+    const ids = incomingSel.selectedIds;
+    const label =
+      ids.length === 1
+        ? "این درخواست رد شود؟"
+        : `${ids.length.toLocaleString("fa-IR")} درخواست رد شوند؟`;
+    if (!window.confirm(label)) return;
+    startTransition(() => {
+      void (async () => {
+        try {
+          for (const id of ids) await api.declineFriendRequest(id);
+          incomingSel.clear();
+          refresh();
+        } catch (err: unknown) {
+          setError(authErrorMessage(err, "رد درخواست ناموفق بود"));
+        }
+      })();
+    });
+  }
+
+  function cancelOutgoingSelected() {
+    if (outgoingSel.selectedCount === 0) return;
+    const ids = outgoingSel.selectedIds;
+    const label =
+      ids.length === 1
+        ? "این درخواست لغو شود؟"
+        : `${ids.length.toLocaleString("fa-IR")} درخواست لغو شوند؟`;
+    if (!window.confirm(label)) return;
+    startTransition(() => {
+      void (async () => {
+        try {
+          for (const id of ids) await api.cancelFriendRequest(id);
+          setInfo(
+            ids.length === 1
+              ? "درخواست لغو شد"
+              : `${ids.length.toLocaleString("fa-IR")} درخواست لغو شد`,
+          );
+          outgoingSel.clear();
+          refresh();
+        } catch (err: unknown) {
+          setError(authErrorMessage(err, "لغو درخواست ناموفق بود"));
+        }
+      })();
+    });
+  }
+
+  function removeFriendsSelected() {
+    if (friendSel.selectedCount === 0) return;
+    const rows = friends.filter((r) => friendSel.selectedIds.includes(r.id));
+    const label =
+      rows.length === 1
+        ? "این دوستی حذف شود؟"
+        : `${rows.length.toLocaleString("fa-IR")} دوستی حذف شوند؟`;
+    if (!window.confirm(label)) return;
+    startTransition(() => {
+      void (async () => {
+        try {
+          for (const row of rows) await api.removeFriend(row.otherUser.userId);
+          friendSel.clear();
+          refresh();
+        } catch (err: unknown) {
+          setError(authErrorMessage(err, "حذف دوستی ناموفق بود"));
+        }
+      })();
+    });
+  }
+
+  function blockFriendSelected() {
+    if (!barFriend) return;
+    if (!window.confirm("این کاربر مسدود شود؟")) return;
+    startTransition(() => {
+      void api
+        .blockUser(barFriend.otherUser.userId)
+        .then(() => {
+          setInfo("کاربر مسدود شد — فهرست در حریم خصوصی");
+          friendSel.clear();
+          refresh();
+        })
+        .catch((err: unknown) => setError(authErrorMessage(err, "مسدودسازی ناموفق بود")));
+    });
+  }
+
+  function addFriendToSpace() {
+    if (!barFriend || !canAddMember || !activeWorkspaceId) return;
+    startTransition(() => {
+      const role = needsSecondFinance ? "finance" : "member";
+      void api
+        .addMember(
+          activeWorkspaceId,
+          { userId: barFriend.otherUser.userId, role },
+          `friend-add:${activeWorkspaceId}:${barFriend.otherUser.userId}`,
+        )
+        .then(() => {
+          setInfo(
+            needsSecondFinance
+              ? `${barFriend.otherUser.displayName} به‌عنوان مادرخرج به فضای فعال اضافه شد`
+              : `${barFriend.otherUser.displayName} به‌عنوان عضو به فضای فعال اضافه شد`,
+          );
+          friendSel.clear();
+          refresh();
+        })
+        .catch((err: unknown) =>
+          setError(authErrorMessage(err, "افزودن به فضا ناموفق بود")),
+        );
+    });
+  }
+
+  function requestMatchSelected() {
+    if (!barMatch) return;
+    onRequest(barMatch.userId);
+    matchSel.clear();
+  }
+
   return (
     <AppShell
       workspaceId={chrome.workspaceId}
-      workspaceName={chrome.workspaceName || "دوستان"}
+      workspaceName={chrome.workspaceName || NAV_LABELS.friends}
       userName={chrome.userName}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <FlashMessages error={error} successMessage={info ?? null} />
+      <WorkspacePageFrame
+        title={NAV_LABELS.friends}
+        description="یافتن کاربر، درخواست دوستی، و دعوت به فضای فعال — بدون فهرست عمومی."
+        secondaryActions={<Link href="/account/privacy">حریم خصوصی</Link>}
+      >
+        <FlashMessages error={error} successMessage={info ?? null} />
 
-      <ProductGrid>
+        <ProductGrid>
         <SectionCard title="یافتن کاربر" delayClass="delay1">
           <p className="liveHint">
             فقط نام کاربری دقیق یا شماره موبایل — فهرست‌برداری وجود ندارد. یافتن‌پذیری در{" "}
@@ -239,24 +430,44 @@ export function FriendsView() {
             </p>
           ) : null}
           {matchResults.length > 0 ? (
-            <ul className="profileAtelier__facts" style={{ marginTop: 12 }}>
-              {matchResults.map((u) => (
-                <li key={u.userId}>
-                  <small>
-                    {u.displayName}
-                    {u.username ? ` · @${u.username}` : ""}
-                  </small>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => onRequest(u.userId)}
-                    disabled={pending}
+            <>
+              <SelectionActionBar
+                selectedCount={matchSel.selectedCount}
+                idleHint="روی ردیف کلیک کنید یا مربع کنار نفر را تیک بزنید"
+                onClear={matchSel.clear}
+              >
+                <button
+                  type="button"
+                  disabled={!barMatch || pending}
+                  onClick={requestMatchSelected}
+                >
+                  درخواست دوستی
+                </button>
+              </SelectionActionBar>
+              <ul className="profileAtelier__facts" style={{ marginTop: 12 }}>
+                {matchResults.map((u) => (
+                  <li
+                    key={u.userId}
+                    className={selStyles.selectableRow}
+                    {...rowSelectActivateProps({
+                      onActivate: () => matchSel.toggle(u.userId),
+                    })}
                   >
-                    درخواست دوستی
-                  </Button>
-                </li>
-              ))}
-            </ul>
+                    <span style={rowTitleStyle}>
+                      <RowSelectCheckbox
+                        checked={matchSel.isSelected(u.userId)}
+                        onChange={() => matchSel.toggle(u.userId)}
+                        label={`انتخاب ${u.displayName}`}
+                      />
+                      <small>
+                        {u.displayName}
+                        {u.username ? ` · @${u.username}` : ""}
+                      </small>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
           ) : lastMatchMeta && lastMatchMeta.matched === 0 ? (
             <EmptyStateBlock
               title="تطبیقی نبود"
@@ -295,51 +506,49 @@ export function FriendsView() {
               }
             />
           ) : (
-            <ul className="profileAtelier__facts">
-              {incoming.map((row) => (
-                <li key={row.id}>
-                  <small>{row.otherUser.displayName}</small>
-                  <span style={{ display: "flex", gap: 8 }}>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => {
-                        startTransition(() => {
-                          void api
-                            .acceptFriendRequest(row.id)
-                            .then(() => {
-                              setInfo("دوستی پذیرفته شد");
-                              refresh();
-                            })
-                            .catch((err: unknown) =>
-                              setError(authErrorMessage(err, "پذیرش ناموفق بود")),
-                            );
-                        });
-                      }}
-                    >
-                      پذیرش
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        startTransition(() => {
-                          void api
-                            .declineFriendRequest(row.id)
-                            .then(refresh)
-                            .catch((err: unknown) =>
-                              setError(authErrorMessage(err, "رد درخواست ناموفق بود")),
-                            );
-                        });
-                      }}
-                    >
-                      رد
-                    </Button>
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <SelectionActionBar
+                selectedCount={incomingSel.selectedCount}
+                idleHint="روی ردیف کلیک کنید یا مربع کنار درخواست را تیک بزنید"
+                onClear={incomingSel.clear}
+              >
+                <button
+                  type="button"
+                  disabled={incomingSel.selectedCount === 0 || pending}
+                  onClick={acceptIncomingSelected}
+                >
+                  پذیرش
+                </button>
+                <button
+                  type="button"
+                  className={selStyles.danger}
+                  disabled={incomingSel.selectedCount === 0 || pending}
+                  onClick={declineIncomingSelected}
+                >
+                  رد
+                </button>
+              </SelectionActionBar>
+              <ul className="profileAtelier__facts">
+                {incoming.map((row) => (
+                  <li
+                    key={row.id}
+                    className={selStyles.selectableRow}
+                    {...rowSelectActivateProps({
+                      onActivate: () => incomingSel.toggle(row.id),
+                    })}
+                  >
+                    <span style={rowTitleStyle}>
+                      <RowSelectCheckbox
+                        checked={incomingSel.isSelected(row.id)}
+                        onChange={() => incomingSel.toggle(row.id)}
+                        label={`انتخاب ${row.otherUser.displayName}`}
+                      />
+                      <small>{row.otherUser.displayName}</small>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </SectionCard>
 
@@ -351,36 +560,45 @@ export function FriendsView() {
               sticker="spark"
             />
           ) : (
-            <ul className="profileAtelier__facts">
-              {outgoing.map((row) => (
-                <li key={row.id}>
-                  <small>
-                    {row.otherUser.displayName}
-                    {row.otherUser.username ? ` · @${row.otherUser.username}` : ""}
-                  </small>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      startTransition(() => {
-                        void api
-                          .cancelFriendRequest(row.id)
-                          .then(() => {
-                            setInfo("درخواست لغو شد");
-                            refresh();
-                          })
-                          .catch((err: unknown) =>
-                            setError(authErrorMessage(err, "لغو درخواست ناموفق بود")),
-                          );
-                      });
-                    }}
+            <>
+              <SelectionActionBar
+                selectedCount={outgoingSel.selectedCount}
+                idleHint="روی ردیف کلیک کنید یا مربع کنار درخواست را تیک بزنید"
+                onClear={outgoingSel.clear}
+              >
+                <button
+                  type="button"
+                  className={selStyles.danger}
+                  disabled={outgoingSel.selectedCount === 0 || pending}
+                  onClick={cancelOutgoingSelected}
+                >
+                  لغو
+                </button>
+              </SelectionActionBar>
+              <ul className="profileAtelier__facts">
+                {outgoing.map((row) => (
+                  <li
+                    key={row.id}
+                    className={selStyles.selectableRow}
+                    {...rowSelectActivateProps({
+                      onActivate: () => outgoingSel.toggle(row.id),
+                    })}
                   >
-                    لغو
-                  </Button>
-                </li>
-              ))}
-            </ul>
+                    <span style={rowTitleStyle}>
+                      <RowSelectCheckbox
+                        checked={outgoingSel.isSelected(row.id)}
+                        onChange={() => outgoingSel.toggle(row.id)}
+                        label={`انتخاب ${row.otherUser.displayName}`}
+                      />
+                      <small>
+                        {row.otherUser.displayName}
+                        {row.otherUser.username ? ` · @${row.otherUser.username}` : ""}
+                      </small>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </SectionCard>
 
@@ -395,91 +613,76 @@ export function FriendsView() {
               }
             />
           ) : (
-            <ul className="profileAtelier__facts">
-              {friends.map((row) => (
-                <li key={row.id}>
-                  <small>
-                    {row.otherUser.displayName}
-                    {row.otherUser.username ? ` · @${row.otherUser.username}` : ""}
-                  </small>
-                  <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {canAddMember && activeWorkspaceId ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => {
-                          startTransition(() => {
-                            void api
-                              .addMember(
-                                activeWorkspaceId,
-                                { userId: row.otherUser.userId, role: "member" },
-                                `friend-add:${activeWorkspaceId}:${row.otherUser.userId}`,
-                              )
-                              .then(() => {
-                                setInfo(
-                                  `${row.otherUser.displayName} به‌عنوان عضو به فضای فعال اضافه شد`,
-                                );
-                              })
-                              .catch((err: unknown) =>
-                                setError(authErrorMessage(err, "افزودن به فضا ناموفق بود")),
-                              );
-                          });
-                        }}
-                      >
-                        افزودن به فضا
-                      </Button>
-                    ) : activeSlug ? (
-                      <Link
-                        className="textButton"
-                        href={`${membersHref}?inviteUser=${encodeURIComponent(row.otherUser.userId)}&inviteName=${encodeURIComponent(row.otherUser.displayName)}`}
-                      >
-                        دعوت به فضا
-                      </Link>
-                    ) : null}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        startTransition(() => {
-                          void api
-                            .removeFriend(row.otherUser.userId)
-                            .then(refresh)
-                            .catch((err: unknown) =>
-                              setError(authErrorMessage(err, "حذف دوستی ناموفق بود")),
-                            );
-                        });
-                      }}
-                    >
-                      حذف
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        startTransition(() => {
-                          void api
-                            .blockUser(row.otherUser.userId)
-                            .then(() => {
-                              setInfo("کاربر مسدود شد — فهرست در حریم خصوصی");
-                              refresh();
-                            })
-                            .catch((err: unknown) =>
-                              setError(authErrorMessage(err, "مسدودسازی ناموفق بود")),
-                            );
-                        });
-                      }}
-                    >
-                      مسدود
-                    </Button>
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <SelectionActionBar
+                selectedCount={friendSel.selectedCount}
+                idleHint="روی ردیف کلیک کنید یا مربع کنار دوست را تیک بزنید"
+                onClear={friendSel.clear}
+              >
+                {canAddMember && activeWorkspaceId ? (
+                  <button
+                    type="button"
+                    disabled={!barFriend || pending}
+                    onClick={addFriendToSpace}
+                  >
+                    {needsSecondFinance ? "افزودن به‌عنوان مادرخرج" : "افزودن به فضا"}
+                  </button>
+                ) : activeSlug && barFriend ? (
+                  <Link
+                    href={`${membersHref}?inviteUser=${encodeURIComponent(barFriend.otherUser.userId)}&inviteName=${encodeURIComponent(barFriend.otherUser.displayName)}`}
+                  >
+                    دعوت به فضا
+                  </Link>
+                ) : activeSlug ? (
+                  <button type="button" disabled>
+                    دعوت به فضا
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={selStyles.danger}
+                  disabled={friendSel.selectedCount === 0 || pending}
+                  onClick={removeFriendsSelected}
+                >
+                  حذف
+                </button>
+                <button
+                  type="button"
+                  className={selStyles.danger}
+                  disabled={!barFriend || pending}
+                  onClick={blockFriendSelected}
+                >
+                  مسدود
+                </button>
+              </SelectionActionBar>
+              <ul className="profileAtelier__facts">
+                {friends.map((row) => (
+                  <li
+                    key={row.id}
+                    className={selStyles.selectableRow}
+                    {...rowSelectActivateProps({
+                      onActivate: () => friendSel.toggle(row.id),
+                    })}
+                  >
+                    <span style={rowTitleStyle}>
+                      <RowSelectCheckbox
+                        checked={friendSel.isSelected(row.id)}
+                        onChange={() => friendSel.toggle(row.id)}
+                        label={`انتخاب ${row.otherUser.displayName}`}
+                      />
+                      <small>
+                        {row.otherUser.displayName}
+                        {row.otherUser.username ? ` · @${row.otherUser.username}` : ""}
+                      </small>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </SectionCard>
       </ProductGrid>
+      </WorkspacePageFrame>
     </AppShell>
   );
 }

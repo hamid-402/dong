@@ -52,8 +52,12 @@ export const settlementsApi = {
       path: `/workspaces/${workspaceId}/settlements/${settlementId}/cancel`,
       label: "لغو تسویه",
     }),
-  getBalances: (workspaceId: string) =>
-    apiFetch<WorkspaceBalancesResponse>(`/workspaces/${workspaceId}/balances`),
+  getBalances: (workspaceId: string, asOf?: string) =>
+    apiFetch<WorkspaceBalancesResponse>(
+      `/workspaces/${workspaceId}/balances${
+        asOf && /^\d{4}-\d{2}-\d{2}$/.test(asOf) ? `?asOf=${encodeURIComponent(asOf)}` : ""
+      }`,
+    ),
   remindDebt: (workspaceId: string, targetUserId: string) =>
     postWithOfflineQueue<{ ok: true; skipped?: "already_today" | "not_debtor" }>({
       path: `/workspaces/${workspaceId}/balances/remind-debt`,

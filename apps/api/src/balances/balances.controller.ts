@@ -1,6 +1,6 @@
 // Zod body-validation: GET + remind-debt POST. See docs/adr/ADR-zod-get-exemptions.md
-import { Body, Controller, Get, Inject, Param, Post, UseGuards } from "@nestjs/common";
-import { ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { ApiHeader, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger";
 import type {
   AuthActor,
   DebtSimplifySuggestionsResponse,
@@ -21,14 +21,16 @@ export class BalancesController {
   @Get()
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: "Balances projected from in-memory double-entry journal",
+    summary: "Balances from journal; optional asOf=YYYY-MM-DD for historical cut",
   })
+  @ApiQuery({ name: "asOf", required: false, description: "ISO date YYYY-MM-DD" })
   @ApiHeader({ name: "x-dang-subject", required: false })
   get(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
+    @Query("asOf") asOf?: string,
   ): Promise<WorkspaceBalancesResponse> {
-    return this.balances.getProvisional(actor, workspaceId);
+    return this.balances.getProvisional(actor, workspaceId, asOf?.trim() || undefined);
   }
 
   @Post("remind-debt")

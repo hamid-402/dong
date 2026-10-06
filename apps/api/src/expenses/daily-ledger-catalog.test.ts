@@ -247,3 +247,88 @@ test("S11-07 postDay shared + personal in one request", async () => {
     ),
   );
 });
+
+test("daily ledger buildDraft carries personal vs petty_cash funding", () => {
+  const { daily } = buildServices();
+  const personal = daily.buildDraft(
+    actor,
+    workspaceId,
+    {
+      date: "2026-09-12",
+      itemName: "چای",
+      amount: { amountMinor: "10000", currency: "IRR" },
+      fundingSourceKind: "personal",
+      idempotencyKey: "fund-personal",
+    },
+    [alice, bob],
+    bob,
+  );
+  assert.equal(personal.fundingSourceKind, "personal");
+  assert.equal(personal.fundingRefId, undefined);
+
+  const petty = daily.buildDraft(
+    actor,
+    workspaceId,
+    {
+      date: "2026-09-12",
+      itemName: "نان",
+      amount: { amountMinor: "50000", currency: "IRR" },
+      fundingSourceKind: "petty_cash",
+      fundingRefId: "fund-1",
+      idempotencyKey: "fund-petty",
+    },
+    [alice, bob],
+    null,
+  );
+  assert.equal(petty.fundingSourceKind, "petty_cash");
+  assert.equal(petty.fundingRefId, "fund-1");
+});
+
+test("daily ledger validateEntryBody requires fund id for petty_cash", () => {
+  const { daily } = buildServices();
+  assert.throws(
+    () =>
+      daily.validateEntryBody({
+        date: "2026-09-12",
+        itemName: "نان",
+        amount: { amountMinor: "50000", currency: "IRR" },
+        fundingSourceKind: "petty_cash",
+        idempotencyKey: "no-fund",
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BadRequestException);
+      const body = err.getResponse() as { code?: string };
+      assert.equal(body.code, "FUNDING_REF_REQUIRED");
+      return true;
+    },
+  );
+});
+
+test("daily ledger relatedExpenses lists non-daily expenses same day", async () => {
+  const { daily, expenseStore } = buildServices();
+  const date = "2026-09-12";
+  await expenseStore.createDraft(alice, {
+    workspaceId,
+    title: "رستوران جمعه",
+    total: { amountMinor: "900000", currency: "IRR" },
+    paidByUserId: alice,
+    splitMethod: "equal",
+    participantUserIds: [alice, bob],
+    occurredOn: date,
+    idempotencyKey: "related-full-1",
+  });
+  await daily.addEntry(actor, workspaceId, {
+    date,
+    itemName: "نان",
+    amount: { amountMinor: "50000", currency: "IRR" },
+    memberUserId: alice,
+    idempotencyKey: "related-daily-1",
+  });
+
+  const ledger = await daily.getLedger(actor, workspaceId, date, date);
+  const day = ledger.days.find((d) => d.date === date);
+  assert.ok(day);
+  assert.equal(day!.relatedExpenses?.length, 1);
+  assert.equal(day!.relatedExpenses?.[0]?.title, "رستوران جمعه");
+  assert.ok(!day!.relatedExpenses?.some((e) => e.title === "نان"));
+});

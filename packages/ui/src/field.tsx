@@ -14,7 +14,7 @@ const fieldWrap: CSSProperties = {
 };
 
 const labelStyle: CSSProperties = {
-  fontSize: 13,
+  fontSize: "0.8125rem",
   fontWeight: 500,
   color: "var(--dang-muted)",
 };
@@ -27,17 +27,17 @@ const controlStyle: CSSProperties = {
   padding: "12px 14px",
   minHeight: "var(--dang-control-h, 48px)",
   font: "inherit",
-  fontSize: 15,
+  fontSize: "0.9375rem",
   width: "100%",
 };
 
 const hintStyle: CSSProperties = {
-  fontSize: 12,
+  fontSize: "0.75rem",
   color: "var(--dang-muted)",
 };
 
 const errorStyle: CSSProperties = {
-  fontSize: 12,
+  fontSize: "0.75rem",
   color: "var(--dang-danger)",
 };
 

@@ -1,0 +1,192 @@
+.card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 0.85rem;
+  padding: 1.25rem 1.35rem 1.3rem;
+  background:
+    linear-gradient(
+      152deg,
+      color-mix(in srgb, var(--surface) 92%, var(--primary, #0f766e) 8%) 0%,
+      var(--surface) 55%
+    ),
+    var(--surface);
+  border: 1px solid color-mix(in srgb, var(--line, #cbd5e1) 88%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--surface) 70%, transparent) inset,
+    0 14px 36px -22px color-mix(in srgb, #000 28%, transparent);
+  color: var(--text);
+}
+
+.glow {
+  position: absolute;
+  inset: -40% auto auto -20%;
+  width: 70%;
+  height: 90%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--primary, #0f766e) 22%, transparent),
+    transparent 72%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.personal .glow {
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--accent, #b45309) 20%, transparent),
+    transparent 72%
+  );
+}
+
+.head,
+.balanceBlock,
+.actions {
+  position: relative;
+  z-index: 1;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--primary, #0f766e);
+  font-weight: 650;
+}
+
+.personal .kicker {
+  color: var(--accent, #b45309);
+}
+
+.title {
+  margin: 0.2rem 0 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.lede {
+  margin: 0.35rem 0 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--muted);
+  max-width: 36rem;
+}
+
+.balanceBlock {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+
+.amount {
+  font-size: 1.85rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.unit {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.emptyAmount {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  margin-top: 1rem;
+}
+
+.ctaLink,
+a.ctaLink:link,
+a.ctaLink:visited {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.35rem;
+  padding: 0 1.05rem;
+  border-radius: 0.55rem;
+  background: var(--primary-deep, #115e59);
+  color: #f8fafc;
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.ctaLink:hover {
+  filter: brightness(1.06);
+}
+
+.personal .ctaLink,
+.personal a.ctaLink:link,
+.personal a.ctaLink:visited {
+  background: #b45309;
+  color: #fffbeb;
+}
+
+.quietLink {
+  font-size: 0.82rem;
+  color: var(--primary, #0f766e);
+  text-decoration: none;
+}
+
+.quietLink:hover {
+  text-decoration: underline;
+}
+
+.personal .quietLink {
+  color: var(--accent, #b45309);
+}
+
+.compact {
+  padding: 0.85rem 1rem;
+}
+
+.compact .title {
+  font-size: 1.05rem;
+}
+
+.compact .amount {
+  font-size: 1.45rem;
+}
+
+.compact .balanceBlock {
+  margin-top: 0.65rem;
+}
+
+@media (min-width: 960px) {
+  .card:not(.compact) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem 1.75rem;
+  }
+
+  .card:not(.compact) .head {
+    flex: 1 1 18rem;
+    min-width: min(100%, 18rem);
+  }
+
+  .card:not(.compact) .balanceBlock {
+    margin-top: 0;
+  }
+
+  .card:not(.compact) .actions {
+    margin-top: 0;
+    justify-content: flex-end;
+  }
+}

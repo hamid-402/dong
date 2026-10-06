@@ -8,14 +8,8 @@ export type PersonalFinanceMetricFocus = "paid" | "share" | "net";
 export type PersonalFinanceWorkspaceLine = {
   workspaceId: string;
   workspaceName: string;
-  template:
-    | "personal"
-    | "friends_family"
-    | "household"
-    | "project_partners"
-    | "small_team"
-    | "construction";
-  spaceKind: "personal" | "group" | "org";
+  template: string;
+  spaceKind: "personal" | "group" | "building" | "org";
   /** Sum of actor payment lines on posted expenses in range. */
   paid: Money;
   /** Sum of actor split lines on posted expenses in range. */
@@ -132,14 +126,16 @@ export function sumActorExpensesInRange(
   };
 }
 
-export type PersonalMoneyAccountKind = "cash" | "bank" | "card" | "other";
+export type PersonalMoneyAccountKind = "cash" | "bank" | "card" | "investment" | "other";
 
 export type PersonalMoneyTxnKind =
   | "income"
   | "expense"
   | "transfer_in"
   | "transfer_out"
-  | "adjustment";
+  | "adjustment"
+  | "investment"
+  | "installment";
 
 export type PersonalMoneyAccountSummary = {
   id: string;
@@ -234,7 +230,7 @@ export type UpdatePersonalMoneyAccountRequest = {
 
 export type CreatePersonalMoneyTxnRequest = {
   accountId: string;
-  kind: "income" | "expense" | "adjustment";
+  kind: "income" | "expense" | "adjustment" | "investment" | "installment";
   amount: Money;
   occurredOn: string;
   note?: string;
@@ -291,6 +287,8 @@ export function personalTxnSignedDelta(
       return amountMinor;
     case "expense":
     case "transfer_out":
+    case "investment":
+    case "installment":
       return -amountMinor;
     case "adjustment":
       return amountMinor;
@@ -693,6 +691,33 @@ export type CreateSavingsGoalContributionRequest = {
   occurredAt: string;
   txnId?: string;
   note?: string;
+  idempotencyKey: string;
+};
+
+/** Aggregated personal savings box — live balance from goal contributions (no fake totals). */
+export type PersonalSavingsFundSummary = {
+  balanceMinor: string;
+  currency: "IRR";
+  goalCount: number;
+  /** Primary / default box used for monthly deposits. */
+  defaultGoal: SavingsGoalSummary | null;
+  goals: SavingsGoalSummary[];
+};
+
+export type EnsurePersonalSavingsFundRequest = {
+  /** Optional custom name; default «صندوق پس‌انداز». */
+  name?: string;
+  /** Target ceiling for the default box (IRR minor). Default 100_000_000 تومان-scale minor. */
+  targetMinor?: string;
+  idempotencyKey?: string;
+};
+
+export type DepositPersonalSavingsFundRequest = {
+  amountMinor: string;
+  occurredAt?: string;
+  note?: string;
+  /** Prefer this goal; otherwise default/active goal. */
+  goalId?: string;
   idempotencyKey: string;
 };
 

@@ -53,6 +53,12 @@ export type AppEnv = {
   oidcClientSecret?: string;
   /** When true (default in development), accept trusted local actor headers. */
   allowDevAuth: boolean;
+  /**
+   * Hard MFA enrollment gate for finance/sensitive actions.
+   * Default: on in production; off in development/test unless REQUIRE_MFA=1
+   * (local DevAuth DX). Capabilities.mfa mirrors this — never claim MFA on while off.
+   */
+  requireMfa: boolean;
   /** Session cookie secret (dev default is insecure; set SESSION_SECRET in prod). */
   sessionSecret: string;
   /** Local directory for attachment binary blobs (optional). */
@@ -107,6 +113,7 @@ export function loadAppEnv(partial: EnvBag = readEnv()): AppEnv {
       partial.ALLOW_DEV_AUTH,
       nodeEnv === "development" || nodeEnv === "test",
     ),
+    requireMfa: parseBoolean(partial.REQUIRE_MFA, nodeEnv === "production"),
     sessionSecret:
       partial.SESSION_SECRET ||
       (nodeEnv === "production"
@@ -139,6 +146,46 @@ export function isRedisConfigured(env: AppEnv = loadAppEnv()): boolean {
 
 export function requireDatabaseUrl(env: AppEnv = loadAppEnv()): string {
   return requireString("DATABASE_URL", env.databaseUrl);
+}
+
+const WEAK_SESSION_SECRETS = new Set([
+  "",
+  "dev-only-session-secret-change-me",
+  "change-me",
+  "secret",
+  "session-secret",
+  "changeme",
+]);
+
+/**
+ * Fail-closed production boot: weak SESSION_SECRET or ALLOW_DEV_AUTH must not ship.
+ * Exported for unit tests.
+ */
+export function assertProductionBootSafety(env: AppEnv = loadAppEnv()): void {
+  if (env.nodeEnv !== "production") return;
+  const secret = (env.sessionSecret ?? "").trim();
+  if (!secret || WEAK_SESSION_SECRETS.has(secret) || secret.length < 32) {
+    throw new Error(
+      "SESSION_SECRET must be a strong unique value (≥32 chars) in production",
+    );
+  }
+  if (env.allowDevAuth) {
+    throw new Error("ALLOW_DEV_AUTH must be false in production");
+  }
+}
+
+/**
+ * Public support inbox from env — never invent @dang.local.
+ * Rejects empty and *.local placeholders.
+ */
+export function resolveSupportContactEmail(
+  bag: NodeJS.ProcessEnv = process.env,
+): string | null {
+  const raw = (bag.CONTACT_INBOX ?? bag.SUPPORT_EMAIL ?? "").trim();
+  if (!raw) return null;
+  if (/\.local$/i.test(raw) || /@dang\.local$/i.test(raw)) return null;
+  if (!raw.includes("@")) return null;
+  return raw;
 }
 
 export * from "./integrations.js";

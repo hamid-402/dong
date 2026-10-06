@@ -1,0 +1,22 @@
+# ZAP baseline rules — R6 High gate (pair with scripts/security/zap-fail-on-high.mjs)
+# Format: pluginId<TAB>action<TAB>comment
+# Actions: FAIL | WARN | INFO | IGNORE
+# Noisy Low/INFO rules ignored so Medium WARN does not drown High signal.
+# Fail-on-High is enforced by zap-fail-on-high.mjs (riskcode >= 3), not by FAIL-all.
+
+10010	IGNORE	(Cookie No HttpOnly Flag — triage; often local_psp/dev)
+10011	IGNORE	(Cookie Without Secure Flag — http staging/dev)
+10015	IGNORE	(Incomplete/Outdated Content-Security-Policy — tracked separately)
+10016	IGNORE	(Web Browser XSS Protection header obsolete)
+10017	IGNORE	(Cross-Domain JavaScript Source File Inclusion — CDN)
+10020	IGNORE	(X-Frame-Options Header Not Set — SPA shells)
+10021	IGNORE	(X-Content-Type-Options Header Missing)
+10027	IGNORE	(Information Disclosure - Suspicious Comments)
+10035	IGNORE	(Strict-Transport-Security Header Not Set — http targets)
+10036	IGNORE	(HTTP Server Response Header)
+10038	IGNORE	(Content Security Policy (CSP) Header Not Set)
+10054	IGNORE	(Cookie without SameSite Attribute — triage)
+10055	IGNORE	(CSP: Wildcard Directive)
+10063	IGNORE	(Permissions Policy Header Not Set)
+10109	IGNORE	(Modern Web Application — informational)
+90022	IGNORE	(Application Error Disclosure — often Next/dev overlays)

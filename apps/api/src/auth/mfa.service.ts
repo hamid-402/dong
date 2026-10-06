@@ -170,7 +170,7 @@ export class MfaService {
    * Enrollment UI remains reachable; ops that mutate money or secrets are blocked until enrolled.
    */
   mfaCapabilityEnabled(): boolean {
-    return true;
+    return loadAppEnv().requireMfa;
   }
 
   async assertMfaEnrolledForFinanceAction(userId: string): Promise<void> {

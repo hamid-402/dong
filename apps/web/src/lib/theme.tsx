@@ -10,6 +10,18 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import {
+  APP_MOTIONS,
+  effectiveMotion,
+  isAppMotion,
+  motionAllowsAmbient,
+  motionAllowsFeedback,
+  motionAllowsNarrative,
+  type AppMotion,
+} from "@/lib/motion-levels";
+
+export type { AppMotion };
+export { APP_MOTIONS, isAppMotion };
 
 /** Product surface themes — dark/light/dusk/mist + linear (دانش‌بان Linear/Vercel). */
 export type AppTheme = "dark" | "light" | "dusk" | "mist" | "linear";
@@ -23,6 +35,7 @@ export type AppDensity = "comfortable" | "compact";
 const THEME_KEY = "dang-theme";
 const ATMOSPHERE_KEY = "dang-atmosphere";
 const DENSITY_KEY = "dang-density";
+const MOTION_KEY = "dang-motion";
 
 export const APP_THEMES: ReadonlyArray<{
   id: AppTheme;
@@ -30,11 +43,11 @@ export const APP_THEMES: ReadonlyArray<{
   caption: string;
   swatch: string;
 }> = [
-  { id: "linear", label: "Linear", caption: "پرکنتراست و دقیق", swatch: "#09090b" },
+  { id: "linear", label: "Linear", caption: "پرکنتراست و دقیق", swatch: "#050506" },
   { id: "dark", label: "شب نیمه‌شب", caption: "OLED و فیروزه‌ای", swatch: "#070a0c" },
-  { id: "dusk", label: "غروب گرم", caption: "آلبالویی و کهربایی", swatch: "#1a1418" },
-  { id: "mist", label: "مه خنک", caption: "آبی‌خاکستری", swatch: "#e8eef4" },
-  { id: "light", label: "روز روشن", caption: "کاغذ خنک", swatch: "#f5f7fa" },
+  { id: "dusk", label: "غروب گرم", caption: "آلبالویی و کهربایی", swatch: "#171217" },
+  { id: "mist", label: "مه خنک", caption: "آبی‌خاکستری", swatch: "#e6edf4" },
+  { id: "light", label: "روز روشن", caption: "کاغذ ملایم", swatch: "#f4f7f9" },
 ];
 
 export const APP_ATMOSPHERES: ReadonlyArray<{
@@ -59,19 +72,27 @@ export const APP_DENSITIES: ReadonlyArray<{
 
 const THEME_COLORS: Record<AppTheme, string> = {
   dark: "#070a0c",
-  light: "#f5f7fa",
-  dusk: "#1a1418",
-  mist: "#e8eef4",
-  linear: "#09090b",
+  light: "#f4f7f9",
+  dusk: "#171217",
+  mist: "#e6edf4",
+  linear: "#050506",
 };
 
 type ThemeContextValue = {
   theme: AppTheme;
   atmosphere: AppAtmosphere;
   density: AppDensity;
+  /** User preference (may be overridden by OS reduced-motion). */
+  motion: AppMotion;
+  /** Effective level after OS clamp — drive UI from this. */
+  motionEffective: AppMotion;
+  allowsAmbient: boolean;
+  allowsFeedback: boolean;
+  allowsNarrative: boolean;
   setTheme: (theme: AppTheme) => void;
   setAtmosphere: (atmosphere: AppAtmosphere) => void;
   setDensity: (density: AppDensity) => void;
+  setMotion: (motion: AppMotion) => void;
   /** Cycles dark ↔ light for one-tap compatibility. */
   toggleTheme: () => void;
 };
@@ -138,43 +159,87 @@ function readStoredDensity(): AppDensity {
   return "comfortable";
 }
 
+function readStoredMotion(): AppMotion {
+  if (typeof window === "undefined") return "full";
+  try {
+    const raw = localStorage.getItem(MOTION_KEY);
+    if (isAppMotion(raw)) return raw;
+  } catch {
+    /* ignore */
+  }
+  return "full";
+}
+
 function applyAppearance(
   theme: AppTheme,
   atmosphere: AppAtmosphere,
   density: AppDensity,
+  motion: AppMotion,
 ) {
   document.documentElement.setAttribute("data-theme", theme);
   document.documentElement.setAttribute("data-atmosphere", atmosphere);
   document.documentElement.setAttribute("data-density", density);
+  document.documentElement.setAttribute("data-motion", motion);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", THEME_COLORS[theme]);
 }
 
-/** Persists theme + atmosphere + density on <html>. Default theme is dark. */
+/** Persists theme + atmosphere + density + motion on <html>. */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<AppTheme>("dark");
   const [atmosphere, setAtmosphereState] = useState<AppAtmosphere>("deep");
   const [density, setDensityState] = useState<AppDensity>("comfortable");
+  const [motion, setMotionState] = useState<AppMotion>("full");
+  const [osReduced, setOsReduced] = useState(false);
   const themeRef = useRef(theme);
   const atmosphereRef = useRef(atmosphere);
   const densityRef = useRef(density);
-  themeRef.current = theme;
-  atmosphereRef.current = atmosphere;
-  densityRef.current = density;
+  const motionRef = useRef(motion);
+  useEffect(() => {
+    themeRef.current = theme;
+    atmosphereRef.current = atmosphere;
+    densityRef.current = density;
+    motionRef.current = motion;
+  }, [theme, atmosphere, density, motion]);
+
+  const motionEffective = effectiveMotion(motion, osReduced);
 
   useEffect(() => {
     const nextTheme = readStoredTheme();
     const nextAtmosphere = readStoredAtmosphere();
     const nextDensity = readStoredDensity();
+    const nextMotion = readStoredMotion();
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setOsReduced(mq.matches);
     setThemeState(nextTheme);
     setAtmosphereState(nextAtmosphere);
     setDensityState(nextDensity);
-    applyAppearance(nextTheme, nextAtmosphere, nextDensity);
+    setMotionState(nextMotion);
+    applyAppearance(
+      nextTheme,
+      nextAtmosphere,
+      nextDensity,
+      effectiveMotion(nextMotion, mq.matches),
+    );
+    const onChange = () => {
+      setOsReduced(mq.matches);
+      applyAppearance(
+        themeRef.current,
+        atmosphereRef.current,
+        densityRef.current,
+        effectiveMotion(motionRef.current, mq.matches),
+      );
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, []);
+
+  useEffect(() => {
+    applyAppearance(theme, atmosphere, density, motionEffective);
+  }, [theme, atmosphere, density, motionEffective]);
 
   const setTheme = useCallback((next: AppTheme) => {
     setThemeState(next);
-    applyAppearance(next, atmosphereRef.current, densityRef.current);
     try {
       localStorage.setItem(THEME_KEY, next);
     } catch {
@@ -184,7 +249,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setAtmosphere = useCallback((next: AppAtmosphere) => {
     setAtmosphereState(next);
-    applyAppearance(themeRef.current, next, densityRef.current);
     try {
       localStorage.setItem(ATMOSPHERE_KEY, next);
     } catch {
@@ -194,9 +258,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setDensity = useCallback((next: AppDensity) => {
     setDensityState(next);
-    applyAppearance(themeRef.current, atmosphereRef.current, next);
     try {
       localStorage.setItem(DENSITY_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const setMotion = useCallback((next: AppMotion) => {
+    setMotionState(next);
+    try {
+      localStorage.setItem(MOTION_KEY, next);
     } catch {
       /* ignore */
     }
@@ -213,12 +285,29 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       theme,
       atmosphere,
       density,
+      motion,
+      motionEffective,
+      allowsAmbient: motionAllowsAmbient(motionEffective),
+      allowsFeedback: motionAllowsFeedback(motionEffective),
+      allowsNarrative: motionAllowsNarrative(motionEffective),
       setTheme,
       setAtmosphere,
       setDensity,
+      setMotion,
       toggleTheme,
     }),
-    [theme, atmosphere, density, setTheme, setAtmosphere, setDensity, toggleTheme],
+    [
+      theme,
+      atmosphere,
+      density,
+      motion,
+      motionEffective,
+      setTheme,
+      setAtmosphere,
+      setDensity,
+      setMotion,
+      toggleTheme,
+    ],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

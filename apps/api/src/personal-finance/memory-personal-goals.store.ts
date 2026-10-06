@@ -1,13 +1,24 @@
 import {
+  assertAllocationPercents,
+  assertMoneyIntentPayload,
   enrichSavingsGoalSummary,
   irrMoney,
+  type AllocationPlanSummary,
   type CreateIncomeSourceRequest,
+  type CreateMoneyIntentRequest,
+  type CreatePaycheckRequest,
   type CreateSavingsGoalContributionRequest,
   type CreateSavingsGoalRequest,
   type IncomeCadence,
   type IncomeSourceKind,
   type IncomeSourceSummary,
+  type LifeDomain,
+  type MoneyIntentKind,
+  type MoneyIntentPeriod,
+  type MoneyIntentSummary,
   type MonthlyCloseSummary,
+  type PaycheckSummary,
+  type PutAllocationPlanRequest,
   type PutSpendingAlertsRequest,
   type SavingsGoalContributionSummary,
   type SavingsGoalStatus,
@@ -17,6 +28,7 @@ import {
   type SpendingAlertScope,
   type SpendingAlertSummary,
   type UpdateIncomeSourceRequest,
+  type UpdateMoneyIntentRequest,
   type UpdateSavingsGoalRequest,
 } from "@dang/contracts";
 import type { PersonalGoalsStore } from "./personal-goals.types.js";
@@ -44,6 +56,21 @@ type MemGoal = {
   idempotencyKey: string;
   createdAt: string;
   reachedAt: string | null;
+};
+
+type MemIntent = {
+  id: string;
+  userId: string;
+  name: string;
+  kind: MoneyIntentKind;
+  period: MoneyIntentPeriod;
+  targetMinor: string | null;
+  targetPercent: number | null;
+  goalId: string | null;
+  active: boolean;
+  idempotencyKey: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type MemContribution = {
@@ -83,6 +110,25 @@ type MemClose = {
   computedAt: string;
   empty: boolean;
   emptyReason?: string;
+};
+
+type MemAllocation = {
+  userId: string;
+  percents: Record<LifeDomain, number>;
+  updatedAt: string;
+};
+
+type MemPaycheck = {
+  id: string;
+  userId: string;
+  yearMonth: string;
+  amountMinor: bigint;
+  occurredOn: string;
+  incomeSourceId?: string;
+  moneyTxnId?: string;
+  note?: string;
+  idempotencyKey: string;
+  createdAt: string;
 };
 
 function assertMoneyPositive(amountMinor: string): bigint {
@@ -144,9 +190,12 @@ export class MemoryPersonalGoalsStore implements PersonalGoalsStore {
 
   private readonly incomes = new Map<string, MemIncome>();
   private readonly goals = new Map<string, MemGoal>();
+  private readonly intents = new Map<string, MemIntent>();
   private readonly contributions = new Map<string, MemContribution>();
   private readonly alerts = new Map<string, MemAlert>();
   private readonly closes = new Map<string, MemClose>();
+  private readonly allocations = new Map<string, MemAllocation>();
+  private readonly paychecks = new Map<string, MemPaycheck>();
 
   private goalContributions(goalId: string): MemContribution[] {
     return [...this.contributions.values()].filter((c) => c.goalId === goalId);
@@ -457,4 +506,201 @@ export class MemoryPersonalGoalsStore implements PersonalGoalsStore {
     this.closes.set(`${userId}:${row.yearMonth}`, stored);
     return toClose(stored);
   }
+
+  private toIntent(row: MemIntent): MoneyIntentSummary {
+    return {
+      id: row.id,
+      name: row.name,
+      kind: row.kind,
+      period: row.period,
+      targetMinor: row.targetMinor ?? undefined,
+      targetPercent: row.targetPercent ?? undefined,
+      goalId: row.goalId ?? undefined,
+      active: row.active,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  async listMoneyIntents(userId: string): Promise<MoneyIntentSummary[]> {
+    return [...this.intents.values()]
+      .filter((i) => i.userId === userId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .map((i) => this.toIntent(i));
+  }
+
+  async createMoneyIntent(
+    userId: string,
+    input: CreateMoneyIntentRequest,
+  ): Promise<MoneyIntentSummary> {
+    const key = input.idempotencyKey?.trim();
+    if (!key) throw new Error("IDEMPOTENCY");
+    assertMoneyIntentPayload({
+      kind: input.kind,
+      name: input.name,
+      targetMinor: input.targetMinor,
+      targetPercent: input.targetPercent,
+      goalId: input.goalId,
+    });
+    const existing = [...this.intents.values()].find(
+      (i) => i.userId === userId && i.idempotencyKey === key,
+    );
+    if (existing) return this.toIntent(existing);
+    const now = new Date().toISOString();
+    const row: MemIntent = {
+      id: crypto.randomUUID(),
+      userId,
+      name: input.name.trim(),
+      kind: input.kind,
+      period: input.period ?? "month",
+      targetMinor: input.targetMinor ?? null,
+      targetPercent: input.targetPercent ?? null,
+      goalId: input.goalId ?? null,
+      active: input.active !== false,
+      idempotencyKey: key,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.intents.set(row.id, row);
+    return this.toIntent(row);
+  }
+
+  async updateMoneyIntent(
+    userId: string,
+    intentId: string,
+    input: UpdateMoneyIntentRequest,
+  ): Promise<MoneyIntentSummary> {
+    const row = this.intents.get(intentId);
+    if (!row || row.userId !== userId) throw new Error("INTENT_NOT_FOUND");
+    if (input.name !== undefined) {
+      const name = input.name.trim();
+      if (!name) throw new Error("INTENT_NAME");
+      row.name = name;
+    }
+    if (input.period !== undefined) row.period = input.period;
+    if (input.targetMinor === null) row.targetMinor = null;
+    else if (input.targetMinor !== undefined) row.targetMinor = input.targetMinor;
+    if (input.targetPercent === null) row.targetPercent = null;
+    else if (input.targetPercent !== undefined) row.targetPercent = input.targetPercent;
+    if (input.goalId === null) row.goalId = null;
+    else if (input.goalId !== undefined) row.goalId = input.goalId;
+    if (input.active !== undefined) row.active = input.active;
+    assertMoneyIntentPayload({
+      kind: row.kind,
+      name: row.name,
+      targetMinor: row.targetMinor,
+      targetPercent: row.targetPercent,
+      goalId: row.goalId,
+    });
+    row.updatedAt = new Date().toISOString();
+    return this.toIntent(row);
+  }
+
+  async sumContributionsInRange(
+    userId: string,
+    from: string,
+    to: string,
+  ): Promise<bigint> {
+    const goalIds = new Set(
+      [...this.goals.values()].filter((g) => g.userId === userId).map((g) => g.id),
+    );
+    let total = 0n;
+    for (const c of this.contributions.values()) {
+      if (!goalIds.has(c.goalId)) continue;
+      const day = c.occurredAt.slice(0, 10);
+      if (day < from || day > to) continue;
+      total += c.amountMinor;
+    }
+    return total;
+  }
+
+  async getAllocationPlan(userId: string): Promise<AllocationPlanSummary | null> {
+    const row = this.allocations.get(userId);
+    if (!row) return null;
+    return {
+      userId,
+      percents: { ...row.percents },
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  async putAllocationPlan(
+    userId: string,
+    input: PutAllocationPlanRequest,
+  ): Promise<AllocationPlanSummary> {
+    assertAllocationPercents(input.percents);
+    const updatedAt = new Date().toISOString();
+    const row: MemAllocation = {
+      userId,
+      percents: { ...input.percents },
+      updatedAt,
+    };
+    this.allocations.set(userId, row);
+    return { userId, percents: { ...row.percents }, updatedAt };
+  }
+
+  async listPaychecks(
+    userId: string,
+    opts?: { yearMonth?: string },
+  ): Promise<PaycheckSummary[]> {
+    return [...this.paychecks.values()]
+      .filter((p) => {
+        if (p.userId !== userId) return false;
+        if (opts?.yearMonth && p.yearMonth !== opts.yearMonth) return false;
+        return true;
+      })
+      .sort((a, b) => b.occurredOn.localeCompare(a.occurredOn))
+      .map(toPaycheck);
+  }
+
+  async createPaycheck(
+    userId: string,
+    input: CreatePaycheckRequest & {
+      yearMonth: string;
+      moneyTxnId?: string;
+    },
+  ): Promise<PaycheckSummary> {
+    const key = input.idempotencyKey?.trim();
+    if (!key) throw new Error("IDEMPOTENCY");
+    assertYearMonth(input.yearMonth);
+    const amount = BigInt(input.amountMinor);
+    if (amount <= 0n) throw new Error("MONEY_AMOUNT");
+    const byKey = [...this.paychecks.values()].find(
+      (p) => p.userId === userId && p.idempotencyKey === key,
+    );
+    if (byKey) return toPaycheck(byKey);
+    const byMonth = [...this.paychecks.values()].find(
+      (p) => p.userId === userId && p.yearMonth === input.yearMonth,
+    );
+    if (byMonth) throw new Error("PAYCHECK_MONTH_EXISTS");
+    const row: MemPaycheck = {
+      id: crypto.randomUUID(),
+      userId,
+      yearMonth: input.yearMonth,
+      amountMinor: amount,
+      occurredOn: input.occurredOn,
+      incomeSourceId: input.incomeSourceId,
+      moneyTxnId: input.moneyTxnId,
+      note: input.note?.trim() || undefined,
+      idempotencyKey: key,
+      createdAt: new Date().toISOString(),
+    };
+    this.paychecks.set(row.id, row);
+    return toPaycheck(row);
+  }
+
+}
+
+function toPaycheck(row: MemPaycheck): PaycheckSummary {
+  return {
+    id: row.id,
+    userId: row.userId,
+    yearMonth: row.yearMonth,
+    amount: irrMoney(row.amountMinor),
+    occurredOn: row.occurredOn,
+    incomeSourceId: row.incomeSourceId,
+    moneyTxnId: row.moneyTxnId,
+    note: row.note,
+    createdAt: row.createdAt,
+  };
 }

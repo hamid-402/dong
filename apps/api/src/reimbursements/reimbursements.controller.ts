@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Inject, Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
 import { createReimbursementSchema, reimbursementDecisionSchema, type AuthActor, type CreateReimbursementRequest } from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
@@ -7,7 +7,7 @@ import { ReimbursementsService } from "./reimbursements.service.js";
 @Controller("workspaces/:workspaceId/reimbursements")
 @UseGuards(AuthGuard)
 export class ReimbursementsController {
-  constructor(private readonly service: ReimbursementsService) {}
+  constructor(@Inject(ReimbursementsService) private readonly service: ReimbursementsService) {}
   @Get() list(@CurrentActor() actor: AuthActor, @Param("workspaceId") workspaceId: string) { return this.service.list(actor, workspaceId); }
   @Post() create(@CurrentActor() actor: AuthActor, @Param("workspaceId") workspaceId: string,
     @Body(new ZodValidationPipe(createReimbursementSchema)) body: CreateReimbursementRequest) {

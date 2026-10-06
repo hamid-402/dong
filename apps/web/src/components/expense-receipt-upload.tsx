@@ -2,17 +2,23 @@
 
 import { useEffect, useState, useTransition } from "react";
 import type { AttachmentSummary, OcrReceiptResult } from "@dang/contracts";
+import { formatJalaliIso } from "@dang/contracts";
 import { Button } from "@dang/ui";
 import { api } from "@/lib/api";
 import { uploadErrorMessage } from "@/lib/api-errors";
 import { readFileAsBase64, resolveUploadMimeType, sha256HexFromFile } from "@/lib/file-hash";
-import { irrMinorToTomanInput } from "@/lib/irr-money";
+import { irrMinorToDisplayInput } from "@/lib/irr-money";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { moneyUnitSuffix } from "@/lib/money-labels";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
 export type OcrFormHints = {
   title?: string;
   amountToman?: string;
+  lineItems?: Array<{ title: string; quantity?: string; amountMinor?: string }>;
+  taxMinor?: string;
+  occurredOn?: string;
 };
 
 export function ExpenseReceiptUpload({
@@ -29,6 +35,8 @@ export function ExpenseReceiptUpload({
   ocrMode?: "stub" | "configured";
   onApplyOcr?: (hints: OcrFormHints) => void;
 }) {
+  const displayUnit = useDisplayUnit();
+  const unitLabel = moneyUnitSuffix(displayUnit);
   const [attachments, setAttachments] = useState<AttachmentSummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -55,6 +63,9 @@ export function ExpenseReceiptUpload({
               status: row.ocrResult.status,
               merchantHint: row.ocrResult.merchantHint,
               amountMinorHint: row.ocrResult.amountMinorHint,
+              lineItems: row.ocrResult.lineItems,
+              taxMinor: row.ocrResult.taxMinor,
+              occurredOn: row.ocrResult.occurredOn,
               rawTextPreview: row.ocrResult.rawTextPreview,
               completedAt: row.ocrResult.completedAt,
             };
@@ -176,8 +187,11 @@ export function ExpenseReceiptUpload({
     onApplyOcr({
       title: ocr.merchantHint,
       amountToman: ocr.amountMinorHint
-        ? irrMinorToTomanInput(ocr.amountMinorHint)
+        ? irrMinorToDisplayInput(ocr.amountMinorHint, displayUnit)
         : undefined,
+      lineItems: ocr.lineItems,
+      taxMinor: ocr.taxMinor,
+      occurredOn: ocr.occurredOn,
     });
     setMessage("پیشنهاد OCR روی فرم اعمال شد — قبل از ثبت بررسی کنید");
   }
@@ -209,27 +223,70 @@ export function ExpenseReceiptUpload({
         <ul className="receiptUpload__list">
           {attachments.map((attachment) => {
             const ocr = ocrById[attachment.id];
+            const quarantine = attachment.quarantineStatus ?? "pending";
+            const blocked =
+              quarantine === "blocked" || quarantine === "error";
+            const clean = quarantine === "clean";
+            const quarantineLabel =
+              quarantine === "clean"
+                ? "اسکن: پاک"
+                : quarantine === "blocked"
+                  ? "قرنطینه — دانلود/OCR مسدود"
+                  : quarantine === "error"
+                    ? "خطای اسکن"
+                    : quarantine === "scanning"
+                      ? "در حال اسکن…"
+                      : "اسکن در انتظار";
             return (
               <li key={attachment.id} className="receiptUpload__item">
                 <span>{attachment.fileName}</span>
-                {attachment.hasBlob ? (
+                <span className="emptyHint">{quarantineLabel}</span>
+                {attachment.hasBlob && !blocked ? (
                   <Button type="button" variant="ghost" disabled={pending} onClick={() => onDownload(attachment)}>
                     دانلود
                   </Button>
+                ) : attachment.hasBlob && blocked ? (
+                  <span className="emptyHint">دانلود غیرفعال</span>
                 ) : (
                   <span className="emptyHint">فقط اطلاعات</span>
                 )}
-                {ocrMode === "configured" && !ocr ? (
+                {ocrMode === "configured" && !ocr && clean ? (
                   <Button type="button" variant="ghost" disabled={pending} onClick={() => onRunOcr(attachment)}>
                     OCR
                   </Button>
                 ) : null}
-                {ocr?.status === "completed" && (ocr.merchantHint || ocr.amountMinorHint) ? (
+                {ocrMode === "configured" && !ocr && !clean ? (
+                  <span className="emptyHint">OCR پس از اسکن پاک</span>
+                ) : null}
+                {ocrMode === "configured" &&
+                ocr?.status === "completed" &&
+                (ocr.merchantHint ||
+                  ocr.amountMinorHint ||
+                  ocr.taxMinor ||
+                  ocr.occurredOn ||
+                  (ocr.lineItems?.length ?? 0) > 0) ? (
                   <span className="emptyHint">
                     {ocr.merchantHint ?? "—"}
                     {ocr.amountMinorHint
-                      ? ` · ${irrMinorToTomanInput(ocr.amountMinorHint)} تومان`
+                      ? ` · ${irrMinorToDisplayInput(ocr.amountMinorHint, displayUnit)} ${unitLabel}`
                       : ""}
+                    {ocr.taxMinor
+                      ? ` · مالیات ${irrMinorToDisplayInput(ocr.taxMinor, displayUnit)} ${unitLabel}`
+                      : ""}
+                    {ocr.occurredOn ? ` · تاریخ ${formatJalaliIso(ocr.occurredOn)}` : ""}
+                    {ocr.lineItems && ocr.lineItems.length > 0 ? (
+                      <ul>
+                        {ocr.lineItems.map((line, index) => (
+                          <li key={`${line.title}-${index}`}>
+                            {line.title}
+                            {line.quantity ? ` × ${line.quantity}` : ""}
+                            {line.amountMinor
+                              ? ` · ${irrMinorToDisplayInput(line.amountMinor, displayUnit)} ${unitLabel}`
+                              : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                     {onApplyOcr ? (
                       <>
                         {" "}

@@ -34,6 +34,6 @@ export function createSettlementStore(): SettlementStore {
       useFactory: createSettlementStore,
     },
   ],
-  exports: [SETTLEMENT_STORE],
+  exports: [SETTLEMENT_STORE, SettlementsService],
 })
 export class SettlementsModule {}

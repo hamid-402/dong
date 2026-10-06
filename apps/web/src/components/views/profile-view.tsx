@@ -21,6 +21,7 @@ import { api, ApiError, clearClientSession, getDevIdentity, setDevIdentity } fro
 import { formatFaDateTime } from "@/lib/fa-datetime";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { FlashMessages } from "@/lib/use-flash-message";
+import { MotionSceneStrip } from "@/components/visual/motion-scene";
 import { MfaSettingsPanel } from "@/components/shell/mfa-settings-panel";
 import { NotificationPrefsPanel } from "@/components/notification-prefs-panel";
 import { t } from "@/lib/i18n";
@@ -226,12 +227,13 @@ export function ProfileView() {
         description="هویت، امنیت و ترجیح‌های شخصی — جدا از خانهٔ فضای کاری."
         actions={
           <>
-            <Link href="/spaces">{NAV_LABELS.spacesList}</Link>
+            <Link href="/home">{NAV_LABELS.spacesList}</Link>
             <Link href="/account/security">امنیت</Link>
             <Link href="/account/privacy">حریم خصوصی</Link>
           </>
         }
       />
+      <MotionSceneStrip kind="security" prominence="banner" />
       {debugVerifyUrl ? (
         <AuthAlert tone="info">
           <a href={debugVerifyUrl}>تأیید ایمیل</a>
@@ -556,6 +558,7 @@ export function ProfileView() {
         <MfaSettingsPanel profile={profile} onProfileChange={setProfile} />
         <NotificationPrefsPanel
           flags={chrome.capabilities?.productFlags}
+          emailProvider={chrome.capabilities?.providers?.email}
           onError={(message) => setError(message)}
         />
       </ProductGrid>

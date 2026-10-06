@@ -1,5 +1,6 @@
 import type { Money } from "./money.js";
 import type { ApprovalTier } from "./maker-checker.js";
+import type { PostingHoldReason } from "./expense-posting.js";
 
 export type SplitMethod =
   | "equal"
@@ -660,6 +661,13 @@ export type ExpenseSummary = {
   createdAt: string;
   /** Creator — used for four-eyes / maker-checker. */
   createdByUserId?: string;
+  /**
+   * When `commit:auto` stops at submitted: server-side hold reasons
+   * (receipt / four-eyes / approval threshold / company role).
+   */
+  postingHoldReasons?: PostingHoldReason[];
+  /** Persian one-liner for {@link postingHoldReasons}; omit when posted. */
+  postingHoldMessageFa?: string;
   /** Multi-level tier progress (Phase 2.3); present when approve is still pending. */
   approvalsHave?: number;
   approvalsNeeded?: number;
@@ -681,6 +689,10 @@ export type ExpenseSummary = {
   /** Travel advance/settlement when recorded (G09 #35). */
   missionKind?: "advance" | "settlement";
   note?: string;
+  /** Soft-void provenance when status is reversed (additive). */
+  reverseReason?: string;
+  reversedAt?: string;
+  reversedByUserId?: string;
 };
 
 export type CreateOutingRequest = {
@@ -805,17 +817,21 @@ export function isDebtSimplifyClaimNote(note: string | undefined | null): boolea
   return (note?.trim() ?? "") === DEBT_SIMPLIFY_CLAIM_NOTE;
 }
 
-/** Net balance line. Positive amountMinor => others owe this user. */
+/** Net balance line. Positive amountMinor => others (or fund) owe this party. */
 export type BalanceLine = {
+  /** Member user id, or fund party id `fund:{fundId}`. */
   userId: string;
   net: Money;
+  /** When omitted, inferred from userId prefix. */
+  partyKind?: "member" | "fund";
 };
 
 export type JournalLineSide = "debit" | "credit";
 
 export type JournalLine = {
-  /** Soft account key, e.g. `member:{userId}`. */
+  /** Soft account key, e.g. `member:{userId}` or `fund:{fundId}`. */
   accountCode: string;
+  /** Member user id or fund party id `fund:{fundId}`. */
   userId: string;
   side: JournalLineSide;
   amount: Money;
@@ -837,8 +853,24 @@ export type JournalEntrySummary = {
   lines: JournalLine[];
   idempotencyKey: string;
   actorUserId: string;
+  /**
+   * Business date (YYYY-MM-DD) used for asOf balance cuts.
+   * Falls back to createdAt day when omitted (legacy rows).
+   */
+  occurredOn?: string;
   createdAt: string;
 };
+
+/** Day used for asOf filtering — prefer business date over wall-clock. */
+export function journalAsOfDay(
+  entry: Pick<JournalEntrySummary, "createdAt" | "occurredOn">,
+): string {
+  const business = entry.occurredOn?.trim();
+  if (business && /^\d{4}-\d{2}-\d{2}/.test(business)) {
+    return business.slice(0, 10);
+  }
+  return entry.createdAt.slice(0, 10);
+}
 
 export type WorkspaceBalancesResponse = {
   workspaceId: string;
@@ -849,6 +881,11 @@ export type WorkspaceBalancesResponse = {
   lines: BalanceLine[];
   /** Sum of all nets must be zero for a consistent slice. */
   zeroSum: boolean;
+  /**
+   * When set, lines are projected only from journal activity on/before this
+   * ISO date (YYYY-MM-DD). Live balances omit this field.
+   */
+  asOf?: string;
 };
 
 /** First-class debt-simplification payload (Dong 2.0 Wave 3). */
@@ -958,6 +995,131 @@ export function memberAccountCode(userId: string): string {
   return `member:${userId}`;
 }
 
+/** Journal / balance party id for a petty-cash fund. */
+export function fundPartyId(fundId: string): string {
+  const id = fundId.trim();
+  if (!id) throw new Error("FUND_ID");
+  return id.startsWith("fund:") ? id : `fund:${id}`;
+}
+
+export type FundingSourceKind = NonNullable<ExpenseSummary["fundingSourceKind"]>;
+
+/** Short Persian label for funding source (statements, invoices, Excel). */
+export function fundingSourceKindLabelFa(
+  kind?: FundingSourceKind | null,
+): string {
+  switch (kind) {
+    case "petty_cash":
+      return "صندوق تنخواه";
+    case "personal":
+      return "حساب شخصی";
+    case "member":
+      return "حساب عضو";
+    case "credit":
+      return "خرید اعتباری";
+    default:
+      return "—";
+  }
+}
+
+/**
+ * Per-member settlement note for statement lines (printable / UI).
+ * Explains who is owed relative to funding source — independent of journal mode.
+ */
+export function statementFundingNoteFa(
+  expense: Pick<ExpenseSummary, "fundingSourceKind" | "paidByUserId">,
+  userId: string,
+): string | undefined {
+  const kind = expense.fundingSourceKind ?? "personal";
+  const source = fundingSourceKindLabelFa(kind);
+  if (kind === "petty_cash") {
+    return `${source}: سهم شما بدهی به صندوق است؛ با شارژ تنخواه تسویه می‌شود.`;
+  }
+  if (kind === "credit") {
+    return `${source}: طبق سیاست فضای کاری تسویه می‌شود.`;
+  }
+  if (kind === "member") {
+    return userId === expense.paidByUserId
+      ? `${source} تأمین‌کننده: سهم خودتان از جبران کم می‌شود.`
+      : `${source}: سهم شما بدهی به صندوق/گروه است.`;
+  }
+  return userId === expense.paidByUserId
+    ? `${source} شما: سهم خود از جبران کم می‌شود؛ مانده بستانکاری از صندوق است.`
+    : `${source} پرداخت‌کننده: سهم شما بدهی به صندوق/گروه است (نه لزوماً پرداخت مستقیم به او).`;
+}
+
+/** Result of POST …/expenses/rebuild-fund-party-journals */
+export type RebuildFundPartyJournalsResult = {
+  rebuilt: number;
+  created: number;
+  skipped: number;
+  totalPosted: number;
+  /** Already had fund:* journal lines (idempotent skip). */
+  skippedAlreadyFund: number;
+  /** No fund id available — classic journal kept. */
+  skippedNoFund: number;
+  /** Whether force=true was requested. */
+  forced: boolean;
+};
+
+export function formatFundPartyRebuildSummaryFa(
+  result: RebuildFundPartyJournalsResult,
+): string {
+  const parts = [
+    `${result.rebuilt} بازسازی`,
+    `${result.created} ایجاد`,
+    `${result.skipped} ردشده`,
+  ];
+  if (result.skippedAlreadyFund > 0) {
+    parts.push(`${result.skippedAlreadyFund} از قبل مدل صندوق`);
+  }
+  if (result.skippedNoFund > 0) {
+    parts.push(`${result.skippedNoFund} بدون صندوق`);
+  }
+  const forceNote = result.forced ? " (اجباری)" : "";
+  return `از ${result.totalPosted} خرج ثبت‌شده${forceNote}: ${parts.join(" · ")}`;
+}
+
+export function fundAccountCode(fundId: string): string {
+  return fundPartyId(fundId);
+}
+
+export function isFundPartyId(partyId: string | null | undefined): boolean {
+  return Boolean(partyId?.startsWith("fund:"));
+}
+
+export function parseFundIdFromParty(partyId: string): string | null {
+  if (!isFundPartyId(partyId)) return null;
+  const id = partyId.slice("fund:".length).trim();
+  return id || null;
+}
+
+export function balancePartyKind(
+  partyId: string,
+): NonNullable<BalanceLine["partyKind"]> {
+  return isFundPartyId(partyId) ? "fund" : "member";
+}
+
+export type BuildExpenseJournalOptions = {
+  /**
+   * When true and a fund id is available, post member↔fund lines instead of
+   * classic payer-credit Splitwise lines.
+   */
+  fundAsSettlementParty?: boolean;
+  /** Fallback fund when expense has no fundingRefId (personal advance clearing). */
+  defaultFundId?: string;
+};
+
+function resolveExpenseFundId(
+  expense: Pick<ExpenseSummary, "fundingSourceKind" | "fundingRefId">,
+  options?: BuildExpenseJournalOptions,
+): string | null {
+  const fromExpense = expense.fundingRefId?.trim();
+  if (fromExpense) return fromExpense;
+  const fallback = options?.defaultFundId?.trim();
+  return fallback || null;
+}
+
 export function assertBalancedJournalLines(lines: readonly JournalLine[]): void {
   if (lines.length < 2) {
     throw new Error("JOURNAL_LINES");
@@ -980,10 +1142,78 @@ export function assertBalancedJournalLines(lines: readonly JournalLine[]): void 
   }
 }
 
-/** Payer(s) credited; each participant debited for their share. */
+/**
+ * Payer(s) credited; each participant debited for their share.
+ *
+ * With `fundAsSettlementParty` + fund id:
+ * - `petty_cash`: members debit (owe fund), fund credits (receivable).
+ * - `personal` / unset / `member`: members debit to fund, then fund debits and
+ *   payer credits for the cash advanced (fund nets ~0; payer reimbursable =
+ *   paid − own share; prior debt nets on balances).
+ * - `credit`: classic member lines (unchanged).
+ */
 export function buildExpenseJournalLines(
-  expense: Pick<ExpenseSummary, "paidByUserId" | "total" | "splits" | "paymentLines">,
+  expense: Pick<
+    ExpenseSummary,
+    | "paidByUserId"
+    | "total"
+    | "splits"
+    | "paymentLines"
+    | "fundingSourceKind"
+    | "fundingRefId"
+  >,
+  options?: BuildExpenseJournalOptions,
 ): JournalLine[] {
+  const fundMode = Boolean(options?.fundAsSettlementParty);
+  const fundId = resolveExpenseFundId(expense, options);
+  const kind = expense.fundingSourceKind ?? "personal";
+
+  if (fundMode && fundId && kind !== "credit") {
+    const fundParty = fundPartyId(fundId);
+    const lines: JournalLine[] = [];
+
+    for (const split of expense.splits) {
+      const amt = BigInt(split.amount.amountMinor);
+      if (amt <= 0n) continue;
+      lines.push({
+        accountCode: memberAccountCode(split.userId),
+        userId: split.userId,
+        side: "debit",
+        amount: split.amount,
+      });
+      lines.push({
+        accountCode: fundAccountCode(fundId),
+        userId: fundParty,
+        side: "credit",
+        amount: split.amount,
+      });
+    }
+
+    if (kind !== "petty_cash") {
+      const payers =
+        expense.paymentLines?.length > 0
+          ? expense.paymentLines
+          : [{ userId: expense.paidByUserId, amount: expense.total }];
+      for (const payer of payers) {
+        lines.push({
+          accountCode: fundAccountCode(fundId),
+          userId: fundParty,
+          side: "debit",
+          amount: payer.amount,
+        });
+        lines.push({
+          accountCode: memberAccountCode(payer.userId),
+          userId: payer.userId,
+          side: "credit",
+          amount: payer.amount,
+        });
+      }
+    }
+
+    assertBalancedJournalLines(lines);
+    return lines;
+  }
+
   const payers =
     expense.paymentLines?.length > 0
       ? expense.paymentLines
@@ -1008,20 +1238,29 @@ export function buildExpenseJournalLines(
   return lines;
 }
 
-/** Confirmed settlement: debtor credited, creditor debited. */
+/** Confirmed settlement: debtor credited, creditor debited (member or fund party). */
 export function buildSettlementJournalLines(
   settlement: Pick<SettlementSummary, "fromUserId" | "toUserId" | "amount">,
 ): JournalLine[] {
+  const partyAccount = (partyId: string) => {
+    if (isFundPartyId(partyId)) {
+      const fid = parseFundIdFromParty(partyId)!;
+      return { accountCode: fundAccountCode(fid), userId: fundPartyId(fid) };
+    }
+    return { accountCode: memberAccountCode(partyId), userId: partyId };
+  };
+  const to = partyAccount(settlement.toUserId);
+  const from = partyAccount(settlement.fromUserId);
   const lines: JournalLine[] = [
     {
-      accountCode: memberAccountCode(settlement.toUserId),
-      userId: settlement.toUserId,
+      accountCode: to.accountCode,
+      userId: to.userId,
       side: "debit",
       amount: settlement.amount,
     },
     {
-      accountCode: memberAccountCode(settlement.fromUserId),
-      userId: settlement.fromUserId,
+      accountCode: from.accountCode,
+      userId: from.userId,
       side: "credit",
       amount: settlement.amount,
     },
@@ -1109,8 +1348,8 @@ export function buildOnBehalfFundingTransferLines(input: {
 }
 
 /**
- * Member net = credits − debits on `member:{userId}` accounts.
- * Positive => others owe this user.
+ * Member net = credits − debits on party accounts (`member:*` or `fund:*`).
+ * Positive => others (or counterparties) owe this party.
  */
 export function computeBalancesFromJournal(
   entries: readonly Pick<JournalEntrySummary, "lines" | "status">[],
@@ -1133,6 +1372,7 @@ export function computeBalancesFromJournal(
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([userId, net]) => ({
       userId,
+      partyKind: balancePartyKind(userId),
       net: { amountMinor: net.toString(), currency: "IRR" as const },
     }));
 }
@@ -1177,6 +1417,7 @@ export function computeProvisionalBalances(
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([userId, net]) => ({
       userId,
+      partyKind: balancePartyKind(userId),
       net: { amountMinor: net.toString(), currency: "IRR" as const },
     }));
 }
@@ -1192,6 +1433,36 @@ export type SettlementSuggestion = {
   toUserId: string;
   amount: Money;
 };
+
+/** Largest simplified edge that touches this user. Personal spaces have no counterparty. */
+export function primaryCounterpartyEdge(
+  lines: readonly BalanceLine[],
+  userId: string,
+): {
+  direction: "debt" | "credit";
+  counterpartyId: string;
+  amountMinor: string;
+} | null {
+  const mine = suggestMinimalSettlements(lines).filter(
+    (edge) => edge.fromUserId === userId || edge.toUserId === userId,
+  );
+  if (mine.length === 0 || !userId) return null;
+  const top = mine.reduce((best, edge) =>
+    BigInt(edge.amount.amountMinor) > BigInt(best.amount.amountMinor) ? edge : best,
+  );
+  if (top.fromUserId === userId) {
+    return {
+      direction: "debt",
+      counterpartyId: top.toUserId,
+      amountMinor: top.amount.amountMinor,
+    };
+  }
+  return {
+    direction: "credit",
+    counterpartyId: top.fromUserId,
+    amountMinor: top.amount.amountMinor,
+  };
+}
 
 export function suggestMinimalSettlements(
   lines: readonly BalanceLine[],
@@ -1266,6 +1537,135 @@ export function settlementSuggestionsSatisfyGoldenRules(
   }
   return true;
 }
+
+/** Human-readable settlement edge for UI (member or fund). */
+export function settlementEdgeLabelFa(input: {
+  fromPartyId: string;
+  toPartyId: string;
+  memberLabel: (userId: string) => string;
+  fundLabel?: string;
+}): string {
+  const fund = input.fundLabel?.trim() || "صندوق تنخواه";
+  const from = isFundPartyId(input.fromPartyId)
+    ? fund
+    : input.memberLabel(input.fromPartyId);
+  const to = isFundPartyId(input.toPartyId)
+    ? fund
+    : input.memberLabel(input.toPartyId);
+  if (isFundPartyId(input.toPartyId) && !isFundPartyId(input.fromPartyId)) {
+    return `${from} واریز به ${to}`;
+  }
+  if (isFundPartyId(input.fromPartyId) && !isFundPartyId(input.toPartyId)) {
+    return `${fund} جبران به ${to}`;
+  }
+  return `${from} می‌دهد به ${to}`;
+}
+
+export type ExpenseFundingExplain = {
+  mode: "classic" | "fund_spend" | "personal_advance";
+  fundId?: string;
+  payerUserId: string;
+  totalMinor: string;
+  payerOwnShareMinor: string;
+  /** Paid − own share (before prior-debt netting on balances). */
+  payerGrossReimbursableMinor: string;
+  notesFa: string[];
+  lines: Array<{
+    userId: string;
+    amountMinor: string;
+    roleFa: string;
+  }>;
+};
+
+/** Transparent explanation for statements / expense detail when fund party is on. */
+export function explainExpenseFundingSettlement(
+  expense: Pick<
+    ExpenseSummary,
+    | "paidByUserId"
+    | "total"
+    | "splits"
+    | "fundingSourceKind"
+    | "fundingRefId"
+  >,
+  options?: BuildExpenseJournalOptions,
+): ExpenseFundingExplain {
+  const fundMode = Boolean(options?.fundAsSettlementParty);
+  const fundId = resolveExpenseFundId(expense, options) ?? undefined;
+  const kind = expense.fundingSourceKind ?? "personal";
+  const totalMinor = expense.total.amountMinor;
+  const payerOwn =
+    expense.splits.find((s) => s.userId === expense.paidByUserId)?.amount
+      .amountMinor ?? "0";
+  const grossReimb = (
+    BigInt(totalMinor) - BigInt(payerOwn)
+  ).toString();
+
+  if (!fundMode || !fundId || kind === "credit") {
+    return {
+      mode: "classic",
+      payerUserId: expense.paidByUserId,
+      totalMinor,
+      payerOwnShareMinor: payerOwn,
+      payerGrossReimbursableMinor: grossReimb,
+      notesFa: [
+        "مدل کلاسیک: طلبکار همان پرداخت‌کننده است؛ بدهکاران سهم مصرف را به او می‌پردازند.",
+      ],
+      lines: expense.splits.map((s) => ({
+        userId: s.userId,
+        amountMinor: s.amount.amountMinor,
+        roleFa:
+          s.userId === expense.paidByUserId
+            ? "سهم مصرف پرداخت‌کننده"
+            : "بدهی به پرداخت‌کننده",
+      })),
+    };
+  }
+
+  if (kind === "petty_cash") {
+    return {
+      mode: "fund_spend",
+      fundId,
+      payerUserId: expense.paidByUserId,
+      totalMinor,
+      payerOwnShareMinor: payerOwn,
+      payerGrossReimbursableMinor: "0",
+      notesFa: [
+        "منبع پرداخت: صندوق تنخواه گروه.",
+        "هر عضو به‌اندازهٔ سهم مصرف به صندوق بدهکار است و باید تنخواه را شارژ کند.",
+        "پرداخت‌کنندهٔ شخصی برای این خرج طلبکار نمی‌شود.",
+      ],
+      lines: expense.splits.map((s) => ({
+        userId: s.userId,
+        amountMinor: s.amount.amountMinor,
+        roleFa: "بدهی به صندوق تنخواه",
+      })),
+    };
+  }
+
+  return {
+    mode: "personal_advance",
+    fundId,
+    payerUserId: expense.paidByUserId,
+    totalMinor,
+    payerOwnShareMinor: payerOwn,
+    payerGrossReimbursableMinor: grossReimb.startsWith("-") ? "0" : grossReimb,
+    notesFa: [
+      "منبع پرداخت: حساب شخصی پرداخت‌کننده.",
+      "سهم مصرف بقیه به‌عنوان بدهی به صندوق ثبت می‌شود.",
+      "سهم خود پرداخت‌کننده از جبران کم می‌شود؛ بدهی قبلی او به صندوق در مانده‌ها تهاتر می‌شود.",
+      "اگر بعد از سهم خود و بدهی قبلی چیزی بماند، بستانکاری او از صندوق است (جبران از تنخواه).",
+    ],
+    lines: expense.splits.map((s) => ({
+      userId: s.userId,
+      amountMinor: s.amount.amountMinor,
+      roleFa:
+        s.userId === expense.paidByUserId
+          ? "سهم مصرف خود (از جبران کم می‌شود)"
+          : "بدهی به صندوق تنخواه",
+    })),
+  };
+}
+
 
 /** Workspace expense tag (G03 #18). */
 export type ExpenseTagSummary = {

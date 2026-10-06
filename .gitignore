@@ -17,6 +17,7 @@ Thumbs.db
 .dang/
 backups/
 .dang/
+artifacts/
 perf/k6/last-summary.json
 zap-report.html
 report_html.html

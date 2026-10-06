@@ -1,5 +1,6 @@
 import {
   bigint,
+  date,
   index,
   integer,
   pgSchema,
@@ -44,6 +45,8 @@ export const journalEntry = accounting.table(
     actorUserId: uuid("actor_user_id")
       .notNull()
       .references(() => userAccount.id),
+    /** Business date (YYYY-MM-DD) for asOf balance cuts — not wall-clock createdAt. */
+    occurredOn: date("occurred_on").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -61,6 +64,10 @@ export const journalEntry = accounting.table(
     index("journal_entry_workspace_time_idx").on(
       table.workspaceId,
       table.createdAt,
+    ),
+    index("journal_entry_workspace_occurred_idx").on(
+      table.workspaceId,
+      table.occurredOn,
     ),
   ],
 );

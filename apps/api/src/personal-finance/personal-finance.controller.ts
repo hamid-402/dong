@@ -21,8 +21,16 @@ import {
   createPersonalMoneyAccountRequestSchema,
   createPersonalMoneyTxnRequestSchema,
   createPersonalTransferRequestSchema,
+  createPaycheckRequestSchema,
+  createPersonalAnnualStatementRequestSchema,
   createSavingsGoalContributionRequestSchema,
   createSavingsGoalRequestSchema,
+  createMoneyIntentRequestSchema,
+  depositPersonalSavingsFundRequestSchema,
+  ensurePersonalSavingsFundRequestSchema,
+  lifestyleQuerySchema,
+  updateMoneyIntentRequestSchema,
+  putAllocationPlanRequestSchema,
   putSpendingAlertsRequestSchema,
   recomputeMonthlyCloseRequestSchema,
   updateIncomeSourceRequestSchema,
@@ -30,17 +38,25 @@ import {
   updatePersonalMoneyAccountRequestSchema,
   updateSavingsGoalRequestSchema,
   upsertPersonalBudgetRequestSchema,
+  type AllocationPlanSummary,
   type AuthActor,
   type CreateIncomeSourceRequest,
+  type CreatePaycheckRequest,
+  type CreatePersonalAnnualStatementRequestInput,
   type CreatePersonalCategoryRequest,
   type CreatePersonalFinanceExportRequest,
   type CreatePersonalMoneyAccountRequest,
   type CreatePersonalMoneyTxnRequest,
   type CreatePersonalTransferRequest,
   type CreateSavingsGoalContributionRequest,
+  type CreateMoneyIntentRequest,
   type CreateSavingsGoalRequest,
+  type DepositPersonalSavingsFundRequest,
+  type EnsurePersonalSavingsFundRequest,
   type IncomeSourceSummary,
+  type MonthLifestyleSnapshot,
   type MonthlyCloseSummary,
+  type PaycheckSummary,
   type PersonalBudgetSummary,
   type PersonalCategorySummary,
   type PersonalFinanceExportSummary,
@@ -49,6 +65,8 @@ import {
   type PersonalMoneyAccountSummary,
   type PersonalMoneyTxnSummary,
   type PersonalResourcesSummary,
+  type PersonalSavingsFundSummary,
+  type PutAllocationPlanRequest,
   type PutSpendingAlertsRequest,
   type SavingsGoalContributionSummary,
   type SavingsGoalSummary,
@@ -56,6 +74,8 @@ import {
   type UpdateIncomeSourceRequest,
   type UpdatePersonalCategoryRequest,
   type UpdatePersonalMoneyAccountRequest,
+  type MoneyIntentSummary,
+  type UpdateMoneyIntentRequest,
   type UpdateSavingsGoalRequest,
   type UpsertPersonalBudgetRequest,
 } from "@dang/contracts";
@@ -297,6 +317,37 @@ export class PersonalFinanceController {
     return this.finance.updateIncomeSource(actor, sid, body);
   }
 
+
+  @Get("money-intents")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "List configurable money intents/rules" })
+  listMoneyIntents(@CurrentActor() actor: AuthActor): Promise<MoneyIntentSummary[]> {
+    return this.finance.listMoneyIntents(actor);
+  }
+
+  @Post("money-intents")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Create a money intent from the kind catalog" })
+  createMoneyIntent(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(createMoneyIntentRequestSchema))
+    body: CreateMoneyIntentRequest,
+  ): Promise<MoneyIntentSummary> {
+    return this.finance.createMoneyIntent(actor, body);
+  }
+
+  @Patch("money-intents/:iid")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Update or activate/deactivate a money intent" })
+  updateMoneyIntent(
+    @CurrentActor() actor: AuthActor,
+    @Param("iid") iid: string,
+    @Body(new ZodValidationPipe(updateMoneyIntentRequestSchema))
+    body: UpdateMoneyIntentRequest,
+  ): Promise<MoneyIntentSummary> {
+    return this.finance.updateMoneyIntent(actor, iid, body);
+  }
+
   @Get("savings-goals")
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: "List savings goals with computed progress (S11-10)" })
@@ -339,6 +390,47 @@ export class PersonalFinanceController {
     return this.finance.addGoalContribution(actor, gid, body);
   }
 
+  @Get("savings-fund")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Personal savings fund — live balance from goal contributions",
+  })
+  getSavingsFund(
+    @CurrentActor() actor: AuthActor,
+  ): Promise<PersonalSavingsFundSummary> {
+    return this.finance.getSavingsFundSummary(actor);
+  }
+
+  @Post("savings-fund/ensure-default")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Ensure default «صندوق پس‌انداز» goal exists (idempotent)",
+  })
+  ensureSavingsFund(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(ensurePersonalSavingsFundRequestSchema))
+    body: EnsurePersonalSavingsFundRequest,
+  ): Promise<{ created: boolean; fund: PersonalSavingsFundSummary }> {
+    return this.finance.ensureDefaultSavingsFund(actor, body);
+  }
+
+  @Post("savings-fund/deposit")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Deposit into personal savings fund (creates default box if needed)",
+  })
+  depositSavingsFund(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(depositPersonalSavingsFundRequestSchema))
+    body: DepositPersonalSavingsFundRequest,
+  ): Promise<{
+    fund: PersonalSavingsFundSummary;
+    goal: SavingsGoalSummary;
+    contribution: SavingsGoalContributionSummary;
+  }> {
+    return this.finance.depositToSavingsFund(actor, body);
+  }
+
   @Get("alerts")
   @UseGuards(AuthGuard)
   listAlerts(@CurrentActor() actor: AuthActor): Promise<SpendingAlertSummary[]> {
@@ -374,5 +466,86 @@ export class PersonalFinanceController {
     body: { yearMonth: string },
   ): Promise<MonthlyCloseSummary> {
     return this.finance.recomputeMonthlyClose(actor, body.yearMonth);
+  }
+
+  @Get("allocation-plan")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Life-domain allocation percents (defaults if unset)" })
+  getAllocationPlan(
+    @CurrentActor() actor: AuthActor,
+  ): Promise<AllocationPlanSummary> {
+    return this.finance.getAllocationPlan(actor);
+  }
+
+  @Put("allocation-plan")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Upsert life-domain allocation percents (must sum to 100)" })
+  putAllocationPlan(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(putAllocationPlanRequestSchema))
+    body: PutAllocationPlanRequest,
+  ): Promise<AllocationPlanSummary> {
+    return this.finance.putAllocationPlan(actor, body);
+  }
+
+  @Get("paychecks")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "List paychecks; optional Jalali yearMonth filter" })
+  listPaychecks(
+    @CurrentActor() actor: AuthActor,
+    @Query("yearMonth") yearMonth?: string,
+  ): Promise<PaycheckSummary[]> {
+    return this.finance.listPaychecks(actor, yearMonth);
+  }
+
+  @Post("paychecks")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Record paycheck for a Jalali month (creates linked income money_txn)",
+  })
+  createPaycheck(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(createPaycheckRequestSchema))
+    body: CreatePaycheckRequest,
+  ): Promise<PaycheckSummary> {
+    return this.finance.createPaycheck(actor, body);
+  }
+
+  @Get("lifestyle")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "Closed lifestyle balance snapshot for Jalali month or date range",
+  })
+  lifestyle(
+    @CurrentActor() actor: AuthActor,
+    @Query(new ZodValidationPipe(lifestyleQuerySchema))
+    query: { yearMonth?: string; from?: string; to?: string },
+  ): Promise<MonthLifestyleSnapshot> {
+    return this.finance.lifestyleSnapshot(actor, query);
+  }
+
+  @Post("statements/annual")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Personal annual statement pack (CSV or print HTML)" })
+  @Header("Cache-Control", "no-store")
+  async createAnnualStatement(
+    @CurrentActor() actor: AuthActor,
+    @Body(new ZodValidationPipe(createPersonalAnnualStatementRequestSchema))
+    body: CreatePersonalAnnualStatementRequestInput,
+    @Res({ passthrough: false }) reply: FastifyReply,
+  ): Promise<void> {
+    const result = await this.finance.createAnnualStatement(actor, {
+      jalaliYear: body.jalaliYear,
+      format: body.format ?? "html_print",
+    });
+    reply
+      .header("Content-Type", result.contentType)
+      .header(
+        "Content-Disposition",
+        result.format === "csv"
+          ? `attachment; filename="personal-annual-${body.jalaliYear}.csv"`
+          : `inline; filename="personal-annual-${body.jalaliYear}.html"`,
+      )
+      .send(result.body);
   }
 }

@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   numeric,
   pgSchema,
   primaryKey,
@@ -183,6 +184,14 @@ export const workspace = iam.table(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    archivedByUserId: uuid("archived_by_user_id").references(() => userAccount.id, {
+      onDelete: "set null",
+    }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedByUserId: uuid("deleted_by_user_id").references(() => userAccount.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     uniqueIndex("workspace_slug_uq").on(table.slug),
@@ -317,13 +326,18 @@ export const userNotificationPref = iam.table("user_notification_pref", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-/** Coach / tour dismissals — account-backed with localStorage fallback on web. */
+/** Coach / tour dismissals + directory pins — account-backed with localStorage fallback on web. */
 export const userUiPref = iam.table("user_ui_pref", {
   userId: uuid("user_id")
     .primaryKey()
     .references(() => userAccount.id, { onDelete: "cascade" }),
   dismissShellTour: boolean("dismiss_shell_tour").default(false).notNull(),
   dismissStatementsTour: boolean("dismiss_statements_tour").default(false).notNull(),
+  /** Ordered workspace ids for directory switcher pins (max 8 in API). */
+  pinnedWorkspaceIds: jsonb("pinned_workspace_ids")
+    .$type<string[]>()
+    .default([])
+    .notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

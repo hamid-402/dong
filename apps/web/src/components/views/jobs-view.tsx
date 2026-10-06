@@ -46,8 +46,11 @@ export function JobsDlqView() {
   const [info, setInfo] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const redisConfigured =
+    jobsMode === "redis_queue" || jobsMode === "redis_queue_degraded";
   const redisLive = jobsMode === "redis_queue";
-  const jobsLive = redisLive || jobsMode === "inline_stub";
+  const jobsLive = redisConfigured || jobsMode === "inline_stub";
+  const jobsDegraded = jobsMode === "redis_queue_degraded";
   const persistLabel =
     chrome.capabilities?.persistence?.jobRuns === "postgres"
       ? t("jobs.persistPostgres")
@@ -57,7 +60,7 @@ export function JobsDlqView() {
     if (!workspaceId || !jobsLive) return;
     startTransition(() => {
       void Promise.all([
-        redisLive
+        redisConfigured
           ? api.listDlq(workspaceId)
           : Promise.resolve({ items: [] as DeadLetterJob[], length: 0 }),
         api.listRecentJobs(workspaceId).catch(() => [] as JobRunResultDto[]),
@@ -84,7 +87,7 @@ export function JobsDlqView() {
   }, [workspaceId, jobsMode, chrome.actor?.userId]);
 
   function onReplay() {
-    if (!workspaceId || !redisLive) return;
+    if (!workspaceId || !redisConfigured) return;
     startTransition(() => {
       void api
         .replayDlq(workspaceId)
@@ -144,7 +147,13 @@ export function JobsDlqView() {
   return (
     <WorkspacePageFrame
       title={NAV_LABELS.jobs}
-      description={redisLive ? t("jobs.descRedis") : t("jobs.descInline")}
+      description={
+        jobsDegraded
+          ? "Redis پیکربندی شده ولی کارگر زنده نیست — صف ممکن است گیر کند."
+          : redisLive
+            ? t("jobs.descRedis")
+            : t("jobs.descInline")
+      }
       primaryAction={
         <Button type="button" onClick={refresh} disabled={pending}>
           {t("jobs.refresh")}
@@ -157,14 +166,18 @@ export function JobsDlqView() {
 
       {!workspaceId ? (
         <EmptyHint>{t("jobs.pickWorkspace")}</EmptyHint>
-      ) : pending && runs.length === 0 && (!redisLive || dlq.length === 0) ? (
+      ) : pending && runs.length === 0 && (!redisConfigured || dlq.length === 0) ? (
         <ContentSkeleton rows={3} label={t("jobs.loading")} />
       ) : (
         <>
           <SectionCard title={t("jobs.actionsTitle")}>
             <StatusLine>
               {t("jobs.actionsHint", {
-                mode: redisLive ? "redis_queue" : "inline_stub",
+                mode: jobsDegraded
+                  ? "redis_queue_degraded"
+                  : redisLive
+                    ? "redis_queue"
+                    : "inline_stub",
                 persist: persistLabel,
               })}
               {chrome.capabilities?.providers?.ledgerRebuild === "ack_v1"
@@ -219,7 +232,7 @@ export function JobsDlqView() {
             )}
           </SectionCard>
 
-          {redisLive ? (
+          {redisConfigured ? (
           <SectionCard title={t("jobs.dlqTitle")}>
             <div className={styles.toolbar}>
               <StatusLine>{t("jobs.dlqHint")}</StatusLine>

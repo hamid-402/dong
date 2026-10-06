@@ -6,11 +6,13 @@ import type { AccountSessionSummary, UserProfile } from "@dang/contracts";
 import { Button } from "@dang/ui";
 import { AuthAlert } from "@/components/auth-shell";
 import { AppShell } from "@/components/app-shell";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { ProductGrid, SectionCard, StatusPill } from "@/components/ui-blocks";
 import { MfaSettingsPanel } from "@/components/shell/mfa-settings-panel";
 import { NotificationPrefsPanel } from "@/components/notification-prefs-panel";
 import { api, ApiError, clearClientSession } from "@/lib/api";
 import { formatFaDateTime } from "@/lib/fa-datetime";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useRouter } from "next/navigation";
 import styles from "./account-security-view.module.css";
@@ -82,10 +84,15 @@ export function AccountSecurityView() {
   return (
     <AppShell
       workspaceId={chrome.workspaceId}
-      workspaceName={chrome.workspaceName || "امنیت"}
+      workspaceName={chrome.workspaceName || NAV_LABELS.security}
       userName={profile?.displayName ?? chrome.userName}
       persistenceLabel={chrome.persistenceLabel}
     >
+      <WorkspacePageFrame
+        title={NAV_LABELS.security}
+        description="نشست‌ها، عامل دوم، و ترجیحات اعلان — وضعیت فقط از API حساب."
+        secondaryActions={<Link href="/account">پروفایل</Link>}
+      >
       {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
       <SectionCard title="دستگاه‌ها و نشست‌های فعال">
         {sessions.length ? (
@@ -165,9 +172,11 @@ export function AccountSecurityView() {
         <MfaSettingsPanel profile={profile} onProfileChange={setProfile} />
         <NotificationPrefsPanel
           flags={chrome.capabilities?.productFlags}
+          emailProvider={chrome.capabilities?.providers?.email}
           onError={setError}
         />
       </ProductGrid>
+      </WorkspacePageFrame>
     </AppShell>
   );
 }

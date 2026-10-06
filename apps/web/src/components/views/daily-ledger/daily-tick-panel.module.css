@@ -9,6 +9,15 @@
   background: color-mix(in srgb, var(--surface-elevated) 70%, transparent);
 }
 
+.compact {
+  gap: 10px;
+  margin-block: 0;
+  padding: 4px 0 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .header {
   display: flex;
   flex-wrap: wrap;
@@ -39,9 +48,80 @@
 
 .sharedRow {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 10px;
   align-items: center;
+}
+
+@media (max-width: 640px) {
+  .sharedRow {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .matrixWrap {
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .matrix {
+    font-size: 0.8rem;
+  }
+
+  .matrix th,
+  .matrix td {
+    padding: 4px 6px;
+  }
+
+  .freeMember {
+    width: 100%;
+  }
+}
+
+.colHead {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.removeBtn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--danger, #b91c1c) 85%, var(--fg));
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  opacity: 0.85;
+}
+
+.removeBtn:hover:not(:disabled) {
+  opacity: 1;
+  background: color-mix(in srgb, var(--danger, #b91c1c) 12%, transparent);
+}
+
+.removeBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.quietBtn {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.quietBtn:hover {
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
 }
 
 .check {
@@ -59,6 +139,7 @@
   border-radius: 8px;
   padding: 4px 10px;
   cursor: pointer;
+  min-width: 2rem;
 }
 
 .qty:disabled {
@@ -66,9 +147,42 @@
   cursor: default;
 }
 
+.qtyGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.qtyInput {
+  width: 3.5rem;
+  padding: 4px 6px;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+}
+
+.qtyInput:disabled {
+  opacity: 0.5;
+}
+
+.unitHint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-inline-start: 2px;
+}
+
 .matrixWrap {
   overflow: auto;
   margin-bottom: 8px;
+}
+
+.matrixHint {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
 }
 
 .matrix {
@@ -108,6 +222,11 @@
   border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   background: var(--surface, #fff);
   color: inherit;
+}
+
+.funding {
+  display: grid;
+  gap: 6px;
 }
 
 .footer {

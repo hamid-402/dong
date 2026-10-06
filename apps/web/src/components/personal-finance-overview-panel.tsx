@@ -1,8 +1,5 @@
 "use client";
 
-import { newClientId } from "@/lib/id";
-
-import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import type {
   PersonalFinanceMetricFocus,
@@ -10,26 +7,22 @@ import type {
   PersonalFinanceOverviewScope,
   PersonalFinanceTrendGroupBy,
   PersonalFinanceTrendsResponse,
-  SpaceKind,
 } from "@dang/contracts";
 import { resolveDailyLedgerRange } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
 import {
-  DataList,
-  DataRow,
   EmptyHint,
   FormStack,
   SectionCard,
   StatusLine,
 } from "@/components/ui-blocks";
 import { JalaliDateField } from "@/components/jalali-date-field";
+import { PersonalSpacesAccordion } from "@/components/shell/personal-spaces-accordion";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { formatFaDate, todayIsoLocal } from "@/lib/fa-datetime";
-import { hubPathFor } from "@/lib/hub-links";
-import { spaceKindForTemplateLabel } from "@/lib/status-labels";
+import { newClientId } from "@/lib/id";
 import { useAppChrome } from "@/lib/use-app-chrome";
-import { wPath } from "@/lib/workspace-paths";
 
 function monthStart(): string {
   return resolveDailyLedgerRange("month").from;
@@ -39,20 +32,7 @@ function todayIso(): string {
   return todayIsoLocal();
 }
 
-function spaceHomeHref(
-  workspaceId: string,
-  spaceKind: SpaceKind,
-  workspaces: Array<{ id: string; slug: string }>,
-): string {
-  const slug = workspaces.find((workspace) => workspace.id === workspaceId)?.slug;
-  if (slug) return wPath(slug, "space");
-  if (spaceKind === "personal") return hubPathFor("/me");
-  if (spaceKind === "building") return hubPathFor("/group");
-  if (spaceKind === "org") return hubPathFor("/orgs");
-  return hubPathFor("/group");
-}
-
-/** Cross-workspace personal finance � only API-backed numbers. */
+/** Cross-workspace personal finance — only API-backed numbers. */
 export function PersonalFinanceOverviewPanel() {
   const chrome = useAppChrome();
   const [from, setFrom] = useState(monthStart);
@@ -80,7 +60,7 @@ export function PersonalFinanceOverviewPanel() {
           setTrends(tr);
           setError(null);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "???????? ????? ???? ??????"));
+          setError(friendlyErrorMessage(err, "بارگذاری مالیه شخصی ناموفق"));
         }
       })();
     });
@@ -103,16 +83,16 @@ export function PersonalFinanceOverviewPanel() {
     : 0n;
 
   return (
-    <SectionCard title="????? ?? ?? ??? ?????" delayClass="delay1">
+    <SectionCard title="مالیه من در همه فضاها" delayClass="delay1">
       <FormStack>
         <StatusLine>
-          ?????? ?? ???? ??? ????? ? ????? ???? ?? ????/?????? � ??? ?? ??.
+          پرداخت از جیب، سهم مصرف، و مانده فعلی هر گروه/سازمان — جدا از هم.
         </StatusLine>
         <div className="pfRangeRow">
-          <JalaliDateField label="?? ?????" value={from} onChange={setFrom} />
-          <JalaliDateField label="?? ?????" value={to} onChange={setTo} />
+          <JalaliDateField label="از تاریخ" value={from} onChange={setFrom} />
+          <JalaliDateField label="تا تاریخ" value={to} onChange={setTo} />
           <Button type="button" onClick={load} disabled={pending}>
-            {pending ? "?? ??? ??????�" : "????? ????"}
+            {pending ? "در حال محاسبه…" : "اعمال بازه"}
           </Button>
           <Button
             type="button"
@@ -127,7 +107,7 @@ export function PersonalFinanceOverviewPanel() {
                       idempotencyKey: newClientId(),
                     });
                     if (!created.hasFile) {
-                      setError(created.errorDetail || "???? CSV ????? ???");
+                      setError(created.errorDetail || "فایل CSV آماده نشد");
                       return;
                     }
                     window.open(
@@ -136,23 +116,23 @@ export function PersonalFinanceOverviewPanel() {
                     );
                     setError(null);
                   } catch (err: unknown) {
-                    setError(friendlyErrorMessage(err, "????? ??????"));
+                    setError(friendlyErrorMessage(err, "خروجی ناموفق"));
                   }
                 })();
               });
             }}
             disabled={pending}
           >
-            CSV ?????
+            CSV فضاها
           </Button>
         </div>
 
-        <div className="pfFocusRow" role="tablist" aria-label="????? ???? ???">
+        <div className="pfFocusRow" role="tablist" aria-label="دامنه مالیه من">
           {(
             [
-              ["combined", "??????"],
-              ["personal", "????"],
-              ["group", "?????"],
+              ["combined", "ترکیبی"],
+              ["personal", "شخصی"],
+              ["group", "گروهی"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -174,7 +154,7 @@ export function PersonalFinanceOverviewPanel() {
                       setOverview(ov);
                       setError(null);
                     } catch (err: unknown) {
-                      setError(friendlyErrorMessage(err, "???????? ???? ??? ??????"));
+                      setError(friendlyErrorMessage(err, "بارگذاری دامنه مالیه ناموفق"));
                     }
                   })();
                 });
@@ -185,12 +165,12 @@ export function PersonalFinanceOverviewPanel() {
           ))}
         </div>
 
-        <div className="pfFocusRow" role="tablist" aria-label="????? ?????">
+        <div className="pfFocusRow" role="tablist" aria-label="معیار نمایش">
           {(
             [
-              ["paid", "?????? ??"],
-              ["share", "??? ????"],
-              ["net", "????? ????"],
+              ["paid", "پرداخت من"],
+              ["share", "سهم مصرف"],
+              ["net", "مانده فعلی"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -209,107 +189,63 @@ export function PersonalFinanceOverviewPanel() {
         {error ? <p className="liveError">{error}</p> : null}
 
         {!overview && !error ? (
-          <EmptyHint>?? ??? ????????�</EmptyHint>
+          <EmptyHint>در حال بارگذاری…</EmptyHint>
         ) : null}
 
         {overview ? (
           <>
             <div className="pfTotals">
               <div>
-                <span className="pfTotalsLabel">??? ?????? ?? ????</span>
+                <span className="pfTotalsLabel">جمع پرداخت در بازه</span>
                 <Amount irrMinor={overview.totals.paid.amountMinor} />
               </div>
               <div>
-                <span className="pfTotalsLabel">??? ??? ???? ?? ????</span>
+                <span className="pfTotalsLabel">جمع سهم مصرف در بازه</span>
                 <Amount irrMinor={overview.totals.share.amountMinor} />
               </div>
               {overview.totals.personalIncome ? (
                 <div>
-                  <span className="pfTotalsLabel">????? ????</span>
+                  <span className="pfTotalsLabel">درآمد شخصی</span>
                   <Amount irrMinor={overview.totals.personalIncome.amountMinor} />
                 </div>
               ) : null}
               {overview.totals.personalExpense ? (
                 <div>
-                  <span className="pfTotalsLabel">????? ????</span>
+                  <span className="pfTotalsLabel">هزینه شخصی</span>
                   <Amount irrMinor={overview.totals.personalExpense.amountMinor} />
                 </div>
               ) : null}
             </div>
             <StatusLine>
-              {workspaceCount != null ? `${workspaceCount} ??? � ` : null}
-              ????: ??? {overview.source.expense === "postgres" ? "Postgres" : "?????"} � ??????{" "}
-              {overview.source.ledger === "postgres" ? "Postgres" : "?????"} �{" "}
-              {formatFaDate(overview.from)} ?? {formatFaDate(overview.to)}
+              {workspaceCount != null ? `${workspaceCount} فضا · ` : null}
+              منبع: خرج {overview.source.expense === "postgres" ? "Postgres" : "حافظه"} · دفترکل{" "}
+              {overview.source.ledger === "postgres" ? "Postgres" : "حافظه"} ·{" "}
+              {formatFaDate(overview.from)} تا {formatFaDate(overview.to)}
             </StatusLine>
 
             {overview.workspaces.length === 0 ? (
-              <EmptyHint>???? ????? ????? ??????.</EmptyHint>
+              <EmptyHint>هنوز عضویت فضایی ندارید.</EmptyHint>
             ) : (
-              <DataList>
-                {overview.workspaces.map((line) => {
-                  const primary =
-                    focus === "paid"
-                      ? line.paid.amountMinor
-                      : focus === "share"
-                        ? line.share.amountMinor
-                        : line.net.amountMinor;
-                  return (
-                    <DataRow
-                      key={line.workspaceId}
-                      title={line.workspaceName}
-                      meta={
-                        <span className="pfRowMeta">
-                          {spaceKindForTemplateLabel(line.spaceKind)}
-                          {line.expenseCount > 0
-                            ? ` � ${line.expenseCount} ??? ?? ????`
-                            : " � ???? ??? ?? ????"}
-                          {focus !== "paid" ? (
-                            <>
-                              {" "}
-                              � ?????? <Amount irrMinor={line.paid.amountMinor} />
-                            </>
-                          ) : null}
-                          {focus !== "share" ? (
-                            <>
-                              {" "}
-                              � ??? <Amount irrMinor={line.share.amountMinor} />
-                            </>
-                          ) : null}
-                          {focus !== "net" ? (
-                            <>
-                              {" "}
-                              � ????? <Amount irrMinor={line.net.amountMinor} />
-                            </>
-                          ) : null}
-                        </span>
-                      }
-                      trailing={
-                        <Link
-                          href={spaceHomeHref(line.workspaceId, line.spaceKind, chrome.workspaces)}
-                          className="pfRowLink"
-                          onClick={() => chrome.selectWorkspace(line.workspaceId)}
-                        >
-                          <Amount irrMinor={primary} />
-                        </Link>
-                      }
-                    />
-                  );
-                })}
-              </DataList>
+              <PersonalSpacesAccordion
+                lines={overview.workspaces}
+                sourceLabel={`خرج ${overview.source.expense === "postgres" ? "Postgres" : "حافظه"} · دفترکل ${overview.source.ledger === "postgres" ? "Postgres" : "حافظه"}`}
+                focus={focus}
+                hidePersonal={scope === "group"}
+                compact
+              />
             )}
           </>
         ) : null}
 
         {trends ? (
           <div className="pfTrends">
-            <StatusLine>??? ????? (??? ???? ????? API)</StatusLine>
-            <div className="pfFocusRow" role="tablist" aria-label="????????? ????">
+            <StatusLine>سری زمانی (فقط داده واقعی API)</StatusLine>
+            <div className="pfFocusRow" role="tablist" aria-label="گروه‌بندی زمان">
               {(
                 [
-                  ["day", "???"],
-                  ["week", "????"],
-                  ["month", "???"],
+                  ["day", "روز"],
+                  ["week", "هفته"],
+                  ["month", "ماه"],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -331,7 +267,7 @@ export function PersonalFinanceOverviewPanel() {
                           setTrends(tr);
                           setError(null);
                         } catch (err: unknown) {
-                          setError(friendlyErrorMessage(err, "???????? ???? ??????"));
+                          setError(friendlyErrorMessage(err, "بارگذاری روند ناموفق"));
                         }
                       })();
                     });
@@ -342,7 +278,7 @@ export function PersonalFinanceOverviewPanel() {
               ))}
             </div>
             {trends.buckets.length === 0 ? (
-              <EmptyHint>?? ??? ???? ??????? ????.</EmptyHint>
+              <EmptyHint>در این بازه تراکنشی نیست.</EmptyHint>
             ) : (
               <ul className="pfTrendList">
                 {trends.buckets.map((b) => {
@@ -365,9 +301,9 @@ export function PersonalFinanceOverviewPanel() {
                         aria-hidden
                       />
                       <small>
-                        ??? <Amount irrMinor={b.share.amountMinor} /> � ????{" "}
+                        سهم <Amount irrMinor={b.share.amountMinor} /> · شخصی{" "}
                         <Amount irrMinor={b.personalExpense.amountMinor} />
-                        {b.expenseCount > 0 ? ` � ${b.expenseCount} ???` : ""}
+                        {b.expenseCount > 0 ? ` · ${b.expenseCount} خرج` : ""}
                       </small>
                     </li>
                   );
@@ -375,10 +311,10 @@ export function PersonalFinanceOverviewPanel() {
               </ul>
             )}
             <StatusLine>
-              ??? ???? ?? ????:{" "}
-              <Amount irrMinor={trends.totals.personalExpense.amountMinor} /> � ????{" "}
-              {trends.source.expense === "postgres" ? "Postgres" : "?????"}/
-              {trends.source.personal === "postgres" ? "Postgres" : "?????"}
+              جمع شخصی در بازه:{" "}
+              <Amount irrMinor={trends.totals.personalExpense.amountMinor} /> · منبع{" "}
+              {trends.source.expense === "postgres" ? "Postgres" : "حافظه"}/
+              {trends.source.personal === "postgres" ? "Postgres" : "حافظه"}
             </StatusLine>
           </div>
         ) : null}

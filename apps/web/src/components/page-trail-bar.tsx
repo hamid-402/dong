@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { DirIcon } from "@/components/dir-icon";
 
 const LABELS: Record<string, string> = {
   hub: "خانه",
@@ -40,7 +41,7 @@ function labelForSegment(seg: string): string {
  * Hub uses MosaicBackBar instead.
  */
 export function PageTrailBar({
-  homeHref = "/hub",
+  homeHref = "/home",
   homeLabel = "خانه",
 }: {
   homeHref?: string;
@@ -65,7 +66,9 @@ export function PageTrailBar({
           router.push(homeHref);
         }}
       >
-        <span aria-hidden>→</span>
+        <span aria-hidden>
+          <DirIcon>→</DirIcon>
+        </span>
         بازگشت
       </button>
       <nav className="page-trail-bar__crumbs" aria-label="مسیر">

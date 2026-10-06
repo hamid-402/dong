@@ -20,6 +20,7 @@ export function ReportRangeToolbar({
   onExport,
   disabled = false,
   label = "بازه گزارش",
+  rangeHint,
 }: {
   months: ReportMonths;
   onMonthsChange: (months: ReportMonths) => void;
@@ -27,10 +28,15 @@ export function ReportRangeToolbar({
   onExport?: () => void;
   disabled?: boolean;
   label?: string;
+  /** Optional Jalali range under the chips (e.g. ۱۴۰۴/۰۶/۰۱ تا ۱۴۰۴/۱۲/۰۳). */
+  rangeHint?: string | null;
 }) {
   return (
     <div className={styles.bar} role="group" aria-label={label}>
-      <span className={styles.label}>{label}</span>
+      <div className={styles.lead}>
+        <span className={styles.label}>{label}</span>
+        {rangeHint ? <span className={styles.rangeHint}>{rangeHint}</span> : null}
+      </div>
       <div className={styles.chips}>
         {OPTIONS.map((opt) => (
           <button

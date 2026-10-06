@@ -1,24 +1,27 @@
 import {
+  Body,
   Controller,
   Get,
   Header,
+  Inject,
   Param,
   Post,
   Query,
   Res,
   UseGuards,
-  Body,
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import type {
   AuthActor,
   CreateStatementExportRequest,
+  CreateStatementPackExportRequest,
   MemberStatementDetail,
   StatementExportSummary,
   WorkspaceStatementsResponse,
 } from "@dang/contracts";
 import {
   createStatementExportRequestSchema,
+  createStatementPackExportRequestSchema,
   statementDetailQuerySchema,
   statementListQuerySchema,
   statementNotifyRequestSchema,
@@ -31,7 +34,7 @@ import { StatementsService } from "./statements.service.js";
 @ApiTags("statements")
 @Controller("workspaces/:workspaceId/statements")
 export class StatementsController {
-  constructor(private readonly statements: StatementsService) {}
+  constructor(@Inject(StatementsService) private readonly statements: StatementsService) {}
 
   @Get()
   @UseGuards(AuthGuard)
@@ -49,6 +52,21 @@ export class StatementsController {
       query.to,
       query.granularity,
     );
+  }
+
+  @Post("pack/exports")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Create organizational statement pack (xlsx multi-sheet / csv / formal HTML for print→PDF)",
+  })
+  createPackExport(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body(new ZodValidationPipe(createStatementPackExportRequestSchema))
+    body: CreateStatementPackExportRequest,
+  ): Promise<StatementExportSummary> {
+    return this.statements.createPackExport(actor, workspaceId, body);
   }
 
   @Get("exports/:exportId")

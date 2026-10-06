@@ -16,7 +16,8 @@ type DailyLedgerToolbarProps = {
   to: string;
   daysCount: number;
   showCustomRange: boolean;
-  viewMode: "table" | "cards";
+  /** Optional legacy table/cards toggle — omit for overview-only UX. */
+  viewMode?: "table" | "cards";
   pending: boolean;
   hasLedger: boolean;
   onShiftPeriod: (delta: -1 | 1) => void;
@@ -27,7 +28,7 @@ type DailyLedgerToolbarProps = {
   onCustomFrom: (iso: string) => void;
   onCustomTo: (iso: string) => void;
   onApplyCustom: () => void;
-  onSelectViewMode: (mode: "table" | "cards") => void;
+  onSelectViewMode?: (mode: "table" | "cards") => void;
   onExportCsv: () => void;
 };
 
@@ -75,6 +76,33 @@ export function DailyLedgerToolbar({
         ))}
       </SelectField>
 
+      <div className="dlToolbarActions">
+        {viewMode != null && onSelectViewMode ? (
+          <div className="dlPresets" role="group" aria-label="نمایش">
+            <button
+              type="button"
+              className={viewMode === "table" ? "focusChip pfFocusChip isActive" : "focusChip pfFocusChip"}
+              onClick={() => onSelectViewMode("table")}
+            >
+              جدول
+            </button>
+            <button
+              type="button"
+              className={viewMode === "cards" ? "focusChip pfFocusChip isActive" : "focusChip pfFocusChip"}
+              onClick={() => onSelectViewMode("cards")}
+            >
+              کارت
+            </button>
+          </div>
+        ) : null}
+        <Button type="button" onClick={onExportCsv} disabled={!workspaceId || !hasLedger}>
+          خروجی CSV
+        </Button>
+        <Link className="dlLinkBtn" href={settlementsHref}>
+          تسویه
+        </Link>
+      </div>
+
       <div className="dlPeriodNav" role="group" aria-label="جابه‌جایی بازه">
         <button type="button" className="dlNavBtn" onClick={() => onShiftPeriod(-1)} aria-label="بازه قبل">
           ›
@@ -94,7 +122,7 @@ export function DailyLedgerToolbar({
         <button type="button" className="dlNavBtn" onClick={() => onShiftPeriod(1)} aria-label="بازه بعد">
           ‹
         </button>
-        <button type="button" className="pfFocusChip" onClick={onGoToday}>
+        <button type="button" className="focusChip pfFocusChip" onClick={onGoToday}>
           برو به امروز
         </button>
       </div>
@@ -111,7 +139,7 @@ export function DailyLedgerToolbar({
           <button
             key={id}
             type="button"
-            className={preset === id ? "pfFocusChip isActive" : "pfFocusChip"}
+            className={preset === id ? "focusChip pfFocusChip isActive" : "focusChip pfFocusChip"}
             onClick={() => onApplyPreset(id)}
           >
             {label}
@@ -131,7 +159,7 @@ export function DailyLedgerToolbar({
         </label>
         <button
           type="button"
-          className={showCustomRange || preset === "custom" ? "pfFocusChip isActive" : "pfFocusChip"}
+          className={showCustomRange || preset === "custom" ? "focusChip pfFocusChip isActive" : "focusChip pfFocusChip"}
           onClick={onToggleCustomRange}
         >
           بازه دستی
@@ -147,31 +175,6 @@ export function DailyLedgerToolbar({
           </Button>
         </div>
       ) : null}
-
-      <div className="dlToolbarActions">
-        <div className="dlPresets" role="group" aria-label="نمایش">
-          <button
-            type="button"
-            className={viewMode === "table" ? "pfFocusChip isActive" : "pfFocusChip"}
-            onClick={() => onSelectViewMode("table")}
-          >
-            جدول
-          </button>
-          <button
-            type="button"
-            className={viewMode === "cards" ? "pfFocusChip isActive" : "pfFocusChip"}
-            onClick={() => onSelectViewMode("cards")}
-          >
-            کارت
-          </button>
-        </div>
-        <Button type="button" onClick={onExportCsv} disabled={!workspaceId || !hasLedger}>
-          خروجی CSV
-        </Button>
-        <Link className="dlLinkBtn" href={settlementsHref}>
-          تسویه
-        </Link>
-      </div>
     </div>
   );
 }

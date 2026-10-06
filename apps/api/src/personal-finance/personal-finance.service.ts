@@ -6,22 +6,33 @@ import {
 } from "@nestjs/common";
 import {
   aggregatePersonalFinanceTrends,
+  buildMonthLifestyleSnapshot,
+  buildPersonalAnnualStatementPack,
+  buildPersonalAnnualStatementPrintHtml,
   buildPersonalOverviewCsv,
   computeMonthlyCloseTotals,
   currentJalaliYearMonth,
+  DEFAULT_ALLOCATION_PERCENTS,
   enrichSavingsGoalSummary,
   isSpendingAlertBreached,
   jalaliYearMonthDateBounds,
   jalaliYearMonthFromIsoDate,
+  normalizeAllocationPercents,
+  personalAnnualStatementToCsv,
+  requireJalaliYearMonthFromIso,
   resolveYearMonthDateBounds,
   shouldNotifyPersonalBudgetAlert,
   shouldNotifySpendingAlert,
   spaceKindForTemplate,
+  spaceKindToLifeDomain,
   spendingAlertPeriodBounds,
   sumActorExpensesInRange,
   zeroIrr,
+  type AllocationPlanSummary,
   type AuthActor,
   type CreateIncomeSourceRequest,
+  type CreateMoneyIntentRequest,
+  type CreatePaycheckRequest,
   type CreatePersonalCategoryRequest,
   type CreatePersonalFinanceExportRequest,
   type CreatePersonalMoneyAccountRequest,
@@ -29,8 +40,14 @@ import {
   type CreatePersonalTransferRequest,
   type CreateSavingsGoalContributionRequest,
   type CreateSavingsGoalRequest,
+  type DepositPersonalSavingsFundRequest,
+  type EnsurePersonalSavingsFundRequest,
   type IncomeSourceSummary,
+  type LifeDomain,
+  type MonthLifestyleSnapshot,
   type MonthlyCloseSummary,
+  type PaycheckSummary,
+  type PersonalAnnualStatementPack,
   type PersonalBudgetAlertLevel,
   type PersonalBudgetSummary,
   type PersonalCategorySummary,
@@ -43,11 +60,14 @@ import {
   type PersonalMoneyAccountSummary,
   type PersonalMoneyTxnSummary,
   type PersonalResourcesSummary,
+  type PersonalSavingsFundSummary,
+  type PutAllocationPlanRequest,
   type PutSpendingAlertsRequest,
   type SavingsGoalContributionSummary,
   type SavingsGoalSummary,
   type SpendingAlertSummary,
   type UpdateIncomeSourceRequest,
+  type UpdateMoneyIntentRequest,
   type UpdatePersonalCategoryRequest,
   type UpdatePersonalMoneyAccountRequest,
   type UpdateSavingsGoalRequest,
@@ -347,7 +367,23 @@ export class PersonalFinanceService {
     );
   }
 
-  async listSavingsGoals(actor: AuthActor): Promise<SavingsGoalSummary[]> {
+  async listMoneyIntents(actor: AuthActor) {
+    return this.mapErrors(() => this.goals.listMoneyIntents(actor.userId));
+  }
+
+  async createMoneyIntent(actor: AuthActor, body: CreateMoneyIntentRequest) {
+    return this.mapErrors(() => this.goals.createMoneyIntent(actor.userId, body));
+  }
+
+  async updateMoneyIntent(
+    actor: AuthActor,
+    intentId: string,
+    body: UpdateMoneyIntentRequest,
+  ) {
+    return this.mapErrors(() => this.goals.updateMoneyIntent(actor.userId, intentId, body));
+  }
+
+    async listSavingsGoals(actor: AuthActor): Promise<SavingsGoalSummary[]> {
     const goals = await this.mapErrors(() =>
       this.goals.listSavingsGoals(actor.userId),
     );
@@ -386,8 +422,15 @@ export class PersonalFinanceService {
       let payload = body;
       const goals = await this.goals.listSavingsGoals(actor.userId);
       const existing = goals.find((g) => g.id === goalId);
+      if (!existing) {
+        throw new NotFoundException({
+          type: "https://dang.local/problems/not-found",
+          title: "هدف پس‌انداز یافت نشد",
+          status: 404,
+        });
+      }
       if (
-        existing?.accountId &&
+        existing.accountId &&
         !body.txnId?.trim() &&
         existing.status !== "archived"
       ) {
@@ -414,6 +457,113 @@ export class PersonalFinanceService {
         contribution: result.contribution,
       };
     });
+  }
+
+  async getSavingsFundSummary(
+    actor: AuthActor,
+  ): Promise<PersonalSavingsFundSummary> {
+    const goals = await this.listSavingsGoals(actor);
+    return this.toSavingsFundSummary(goals);
+  }
+
+  async ensureDefaultSavingsFund(
+    actor: AuthActor,
+    body?: EnsurePersonalSavingsFundRequest,
+  ): Promise<{
+    created: boolean;
+    fund: PersonalSavingsFundSummary;
+  }> {
+    const existing = await this.listSavingsGoals(actor);
+    const active = existing.filter((g) => g.status === "active");
+    if (active.length > 0) {
+      return { created: false, fund: this.toSavingsFundSummary(existing) };
+    }
+    const name = body?.name?.trim() || "صندوق پس‌انداز";
+    // Default ceiling: 100M تومان = 1_000_000_000 IRR minor
+    const targetMinor = body?.targetMinor?.trim() || "1000000000";
+    const created = await this.createSavingsGoal(actor, {
+      name,
+      targetMinor,
+      idempotencyKey:
+        body?.idempotencyKey?.trim() ||
+        `ensure-default-savings:${actor.userId}`,
+    });
+    const goals = await this.listSavingsGoals(actor);
+    const withCreated = goals.some((g) => g.id === created.id)
+      ? goals
+      : [created, ...goals];
+    return { created: true, fund: this.toSavingsFundSummary(withCreated) };
+  }
+
+  async depositToSavingsFund(
+    actor: AuthActor,
+    body: DepositPersonalSavingsFundRequest,
+  ): Promise<{
+    fund: PersonalSavingsFundSummary;
+    goal: SavingsGoalSummary;
+    contribution: SavingsGoalContributionSummary;
+  }> {
+    let goals = await this.listSavingsGoals(actor);
+    let target =
+      (body.goalId
+        ? goals.find((g) => g.id === body.goalId && g.status === "active")
+        : null) ??
+      goals.find((g) => g.status === "active" && g.name === "صندوق پس‌انداز") ??
+      goals.find((g) => g.status === "active") ??
+      null;
+    if (!target) {
+      const ensured = await this.ensureDefaultSavingsFund(actor, {
+        idempotencyKey: `ensure-before-deposit:${body.idempotencyKey}`,
+      });
+      target = ensured.fund.defaultGoal;
+      goals = ensured.fund.goals;
+    }
+    if (!target) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "صندوق پس‌انداز در دسترس نیست",
+        status: 400,
+        code: "SAVINGS_FUND_MISSING",
+      });
+    }
+    const { goal, contribution } = await this.addGoalContribution(
+      actor,
+      target.id,
+      {
+        amountMinor: body.amountMinor,
+        occurredAt: body.occurredAt?.trim() || new Date().toISOString(),
+        note: body.note,
+        idempotencyKey: body.idempotencyKey,
+      },
+    );
+    const refreshed = await this.listSavingsGoals(actor);
+    return {
+      fund: this.toSavingsFundSummary(refreshed),
+      goal,
+      contribution,
+    };
+  }
+
+  private toSavingsFundSummary(
+    goals: SavingsGoalSummary[],
+  ): PersonalSavingsFundSummary {
+    const active = goals.filter((g) => g.status !== "archived");
+    const balance = active.reduce(
+      (acc, g) => acc + BigInt(g.contributed.amountMinor || "0"),
+      0n,
+    );
+    const defaultGoal =
+      active.find((g) => g.status === "active" && g.name === "صندوق پس‌انداز") ??
+      active.find((g) => g.status === "active") ??
+      active[0] ??
+      null;
+    return {
+      balanceMinor: balance.toString(),
+      currency: "IRR",
+      goalCount: active.length,
+      defaultGoal,
+      goals: active,
+    };
   }
 
   listAlerts(actor: AuthActor): Promise<SpendingAlertSummary[]> {
@@ -462,9 +612,10 @@ export class PersonalFinanceService {
     for (const txn of txns) {
       const amount = BigInt(txn.amount.amountMinor);
       if (txn.kind === "income") incomeMinor += amount;
-      if (txn.kind === "expense") {
+      // Installment is cash outflow for monthly close; investment stays allocation-only (pulse BI).
+      if (txn.kind === "expense" || txn.kind === "installment") {
         personalMinor += amount;
-        if (txn.categoryId) {
+        if (txn.kind === "expense" && txn.categoryId) {
           categoryTotals.set(
             txn.categoryId,
             (categoryTotals.get(txn.categoryId) ?? 0n) + amount,
@@ -482,11 +633,19 @@ export class PersonalFinanceService {
       groupShareMinor += BigInt(slice.share.amountMinor);
     }
 
+    const savingsContributed = await this.goals.sumContributionsInRange(
+      actor.userId,
+      from,
+      to,
+    );
     const totals = computeMonthlyCloseTotals({
       incomeMinor,
       personalExpenseMinor: personalMinor,
       groupShareMinor,
     });
+    // Prefer real savings contributions when present (lifestyle ledger); else inferred remainder.
+    const savedMinor =
+      savingsContributed > 0n ? savingsContributed : totals.savedMinor;
     let topCategoryId: string | null = null;
     let topAmount = 0n;
     for (const [categoryId, amount] of categoryTotals) {
@@ -500,13 +659,232 @@ export class PersonalFinanceService {
       this.goals.upsertMonthlyClose(actor.userId, {
         yearMonth,
         ...totals,
+        savedMinor,
         topCategoryId,
-        empty: totals.empty,
-        emptyReason: totals.empty
-          ? "برای این ماه تراکنش یا سهم گروهی ثبت نشده است"
-          : undefined,
+        empty: totals.empty && savingsContributed === 0n,
+        emptyReason:
+          totals.empty && savingsContributed === 0n
+            ? "برای این ماه تراکنش یا سهم گروهی ثبت نشده است"
+            : undefined,
       }),
     );
+  }
+
+  async getAllocationPlan(actor: AuthActor): Promise<AllocationPlanSummary> {
+    const existing = await this.mapErrors(() =>
+      this.goals.getAllocationPlan(actor.userId),
+    );
+    if (existing) return existing;
+    return {
+      userId: actor.userId,
+      percents: { ...DEFAULT_ALLOCATION_PERCENTS },
+      updatedAt: new Date(0).toISOString(),
+    };
+  }
+
+  putAllocationPlan(
+    actor: AuthActor,
+    body: PutAllocationPlanRequest,
+  ): Promise<AllocationPlanSummary> {
+    return this.mapErrors(() => this.goals.putAllocationPlan(actor.userId, body));
+  }
+
+  listPaychecks(
+    actor: AuthActor,
+    yearMonth?: string,
+  ): Promise<PaycheckSummary[]> {
+    return this.goals.listPaychecks(actor.userId, {
+      yearMonth: yearMonth?.trim() || undefined,
+    });
+  }
+
+  async createPaycheck(
+    actor: AuthActor,
+    body: CreatePaycheckRequest,
+  ): Promise<PaycheckSummary> {
+    return this.mapErrors(async () => {
+      const yearMonth =
+        body.yearMonth?.trim() || requireJalaliYearMonthFromIso(body.occurredOn);
+      const fromIso = requireJalaliYearMonthFromIso(body.occurredOn);
+      if (yearMonth !== fromIso) {
+        throw new BadRequestException({
+          detail: "yearMonth باید با ماه شمسی occurredOn یکی باشد",
+        });
+      }
+      if (body.incomeSourceId) {
+        const sources = await this.goals.listIncomeSources(actor.userId);
+        if (!sources.some((s) => s.id === body.incomeSourceId)) {
+          throw new BadRequestException({ detail: "منبع درآمد پیدا نشد" });
+        }
+      }
+
+      const accounts = await this.resources.listAccounts(actor.userId);
+      const active = accounts.filter((a) => !a.archived);
+      let accountId = active[0]?.id;
+      if (!accountId) {
+        const created = await this.resources.createAccount(actor.userId, {
+          name: "حساب اصلی",
+          kind: "bank",
+          openingBalance: { amountMinor: "0", currency: "IRR" },
+          idempotencyKey: `paycheck-default-account:${actor.userId}`,
+        });
+        accountId = created.id;
+      }
+
+      const txn = await this.resources.createTxn(actor.userId, {
+        accountId,
+        kind: "income",
+        amount: { amountMinor: body.amountMinor, currency: "IRR" },
+        occurredOn: body.occurredOn,
+        note: body.note?.trim() || "حقوق ماهانه",
+        idempotencyKey: `paycheck-txn:${body.idempotencyKey}`,
+      });
+
+      return this.goals.createPaycheck(actor.userId, {
+        ...body,
+        yearMonth,
+        moneyTxnId: txn.id,
+      });
+    });
+  }
+
+  async lifestyleSnapshot(
+    actor: AuthActor,
+    opts: { yearMonth?: string; from?: string; to?: string },
+  ): Promise<MonthLifestyleSnapshot> {
+    let yearMonth = opts.yearMonth?.trim();
+    let from = opts.from?.trim();
+    let to = opts.to?.trim();
+    if (yearMonth) {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(yearMonth)) {
+        throw new BadRequestException({ detail: "ماه باید YYYY-MM باشد" });
+      }
+      const bounds = resolveYearMonthDateBounds(yearMonth, jalaliYearMonthDateBounds);
+      from = bounds.from;
+      to = bounds.to;
+    } else if (from && to) {
+      this.assertRange(from, to);
+      yearMonth = jalaliYearMonthFromIsoDate(from) ?? from.slice(0, 7);
+    } else {
+      yearMonth = this.currentYearMonth();
+      const bounds = resolveYearMonthDateBounds(yearMonth, jalaliYearMonthDateBounds);
+      from = bounds.from;
+      to = bounds.to;
+    }
+
+    const plan = await this.getAllocationPlan(actor);
+    const percents = normalizeAllocationPercents(plan.percents);
+    const paychecks = await this.goals.listPaychecks(actor.userId, { yearMonth });
+    const paycheckAmounts = paychecks.map((p) => BigInt(p.amount.amountMinor));
+
+    const spendByDomain: Partial<Record<Exclude<LifeDomain, "savings">, bigint>> =
+      {};
+    const paidByDomain: Partial<Record<Exclude<LifeDomain, "savings">, bigint>> =
+      {};
+
+    const workspaces = await this.iam.listWorkspacesForUser(actor.userId);
+    for (const workspace of workspaces) {
+      const kind = spaceKindForTemplate(workspace.template);
+      const domain = spaceKindToLifeDomain(kind);
+      const expenses = await this.expenses.listForWorkspace(
+        workspace.id,
+        actor.userId,
+      );
+      const slice = sumActorExpensesInRange(expenses, actor.userId, from, to);
+      spendByDomain[domain] =
+        (spendByDomain[domain] ?? 0n) + BigInt(slice.share.amountMinor);
+      paidByDomain[domain] =
+        (paidByDomain[domain] ?? 0n) + BigInt(slice.paid.amountMinor);
+    }
+
+    const personalTxns = await this.resources.listTxns(actor.userId, {
+      from: from,
+      to: to,
+      limit: 50_000,
+    });
+    let personalExpense = 0n;
+    for (const txn of personalTxns) {
+      if (txn.kind === "expense" || txn.kind === "installment") {
+        personalExpense += BigInt(txn.amount.amountMinor);
+      }
+    }
+    spendByDomain.solo = (spendByDomain.solo ?? 0n) + personalExpense;
+
+    const savingsContributed = await this.goals.sumContributionsInRange(
+      actor.userId,
+      from,
+      to,
+    );
+
+    return buildMonthLifestyleSnapshot({
+      yearMonth: yearMonth,
+      from: from,
+      to: to,
+      percents,
+      paycheckAmountsMinor: paycheckAmounts,
+      spendByDomain,
+      paidByDomain,
+      savingsContributedMinor: savingsContributed,
+      persistence: {
+        paychecks: this.goals.persistence,
+        workspaces: this.expenses.persistence,
+        personal: this.resources.persistence,
+        savings: this.goals.persistence,
+      },
+    });
+  }
+
+  async createAnnualStatement(
+    actor: AuthActor,
+    body: { jalaliYear: number; format: "csv" | "html_print" },
+  ): Promise<{
+    format: "csv" | "html_print";
+    contentType: string;
+    body: string;
+    pack: PersonalAnnualStatementPack;
+  }> {
+    const year = body.jalaliYear;
+    if (!Number.isInteger(year) || year < 1300 || year > 1699) {
+      throw new BadRequestException({ detail: "سال شمسی نامعتبر است" });
+    }
+    const months: MonthLifestyleSnapshot[] = [];
+    for (let m = 1; m <= 12; m += 1) {
+      const ym = `${year}-${String(m).padStart(2, "0")}`;
+      months.push(await this.lifestyleSnapshot(actor, { yearMonth: ym }));
+    }
+    const from = months[0]!.from;
+    const to = months[11]!.to;
+    const goals = await this.listSavingsGoals(actor);
+    const displayName = actor.displayName?.trim() || actor.userId.slice(0, 8);
+    const pack = buildPersonalAnnualStatementPack({
+      jalaliYear: year,
+      from,
+      to,
+      displayName,
+      issuedAtIso: new Date().toISOString(),
+      months,
+      goals: goals.map((g) => ({
+        name: g.name,
+        target: g.target,
+        contributed: g.contributed,
+        progressPercent: g.progressPercent,
+        status: g.status,
+      })),
+    });
+    if (body.format === "csv") {
+      return {
+        format: "csv",
+        contentType: "text/csv; charset=utf-8",
+        body: personalAnnualStatementToCsv(pack),
+        pack,
+      };
+    }
+    return {
+      format: "html_print",
+      contentType: "text/html; charset=utf-8",
+      body: buildPersonalAnnualStatementPrintHtml(pack),
+      pack,
+    };
   }
 
   private async maybeNotifyBudgetAlert(
@@ -889,7 +1267,8 @@ export class PersonalFinanceService {
         code === "ACCOUNT_NOT_FOUND" ||
         code === "CATEGORY_NOT_FOUND" ||
         code === "INCOME_NOT_FOUND" ||
-        code === "GOAL_NOT_FOUND"
+        code === "GOAL_NOT_FOUND" ||
+        code === "INTENT_NOT_FOUND"
       ) {
         throw new NotFoundException({
           detail:
@@ -899,7 +1278,9 @@ export class PersonalFinanceService {
                 ? "منبع درآمد پیدا نشد"
                 : code === "GOAL_NOT_FOUND"
                   ? "هدف پس‌انداز پیدا نشد"
-                  : "حساب پیدا نشد",
+                  : code === "INTENT_NOT_FOUND"
+                    ? "قاعده مالی پیدا نشد"
+                    : "حساب پیدا نشد",
         });
       }
       const details: Record<string, string> = {
@@ -911,6 +1292,9 @@ export class PersonalFinanceService {
         DATE: "تاریخ باید YYYY-MM-DD باشد",
         DATE_RANGE: "بازه تاریخ نامعتبر است",
         YEAR_MONTH: "ماه باید YYYY-MM باشد",
+        PAYCHECK_MONTH_EXISTS: "برای این ماه شمسی قبلاً حقوق ثبت شده است",
+        ALLOCATION_SUM: "جمع درصدهای تخصیص باید ۱۰۰ باشد",
+        ALLOCATION_PERCENT: "درصد تخصیص نامعتبر است",
         TRANSFER_SAME: "حساب مبدأ و مقصد باید متفاوت باشند",
         ALERT_PERCENT: "آستانه هشدار باید بین ۱ تا ۱۰۰ باشد",
         CATEGORY_NAME: "نام دسته نامعتبر است",

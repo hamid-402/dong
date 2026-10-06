@@ -62,7 +62,7 @@ export const PREVIEW_SCREENS = [
   { id: "procurement", title: "تدارکات", eyebrow: "خرید", scope: "workspace", group: "operations", summary: "نیاز، درخواست خرید، فروشنده، سفارش و تحویل.", primaryAction: "درخواست خرید", module: "procurement" },
   { id: "proposals", title: "پیشنهاد و رأی", eyebrow: "حاکمیت", scope: "workspace", group: "operations", summary: "پیشنهاد، حدنصاب، رأی و انتقال به نیاز.", primaryAction: "ثبت پیشنهاد", module: "proposals" },
   { id: "assets", title: "تجهیزات", eyebrow: "عملیات", scope: "workspace", group: "operations", summary: "دارایی، تحویل، تخصیص، انتقال و خرابی.", primaryAction: "ثبت دارایی", module: "assets" },
-  { id: "members", title: "اعضا و دعوت", eyebrow: "فضای کاری", scope: "workspace", group: "workspace", summary: "عضویت، نقش، سهم و دعوت با قانون دو مدیر مالی.", primaryAction: "دعوت عضو", module: "invites" },
+  { id: "members", title: "اعضا و دعوت", eyebrow: "فضای کاری", scope: "workspace", group: "workspace", summary: "عضویت، نقش، سهم و دعوت با حداقل یک مدیر مالی.", primaryAction: "دعوت عضو", module: "invites" },
   { id: "partners", title: "شرکا", eyebrow: "فضای کاری", scope: "workspace", group: "workspace", summary: "قرارداد، آورده، قرض، مالکیت، گزارش و قفل دوره.", primaryAction: "ثبت قرارداد", module: "partnerships" },
   { id: "settings", title: "تنظیمات فضا", eyebrow: "فضای کاری", scope: "workspace", group: "workspace", summary: "نام، الگو، واحد نمایش و مقصدهای مدیریتی.", primaryAction: "ذخیره تنظیمات" },
   { id: "audit", title: "تاریخچه عملیات", eyebrow: "فضای کاری", scope: "workspace", group: "system", summary: "رخدادهای واقعی audit با نتیجه، عامل و فراداده ثبت‌شده." },

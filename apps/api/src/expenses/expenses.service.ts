@@ -17,11 +17,13 @@ import type {
   ExpenseSummary,
   JournalEntrySummary,
   MemberInvoiceAdjustmentSummary,
+  RebuildFundPartyJournalsResult,
 } from "@dang/contracts";
 import {
   buildFormulaWeightsFromSubunits,
   readProductFeatureFlags,
   resolvePostingDecision,
+  postingHoldMessageFa,
   spaceKindForTemplate,
   COMPANY_EXPENSE_POST_ROLES,
   type PostingDecision,
@@ -33,7 +35,7 @@ import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
 import { IdempotencyService } from "../common/idempotency.service.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
-import { LEDGER_STORE, type LedgerStore } from "../ledger/ledger.types.js";
+import { LEDGER_STORE, type LedgerStore, type LedgerWriteOptions } from "../ledger/ledger.types.js";
 import { OutboxRelay } from "../outbox/outbox.relay.js";
 import {
   OUTBOX_STORE,
@@ -41,6 +43,13 @@ import {
   type OutboxStore,
 } from "../outbox/outbox.types.js";
 import { ATTACHMENT_STORE, type AttachmentStore } from "../attachments/attachment.store.js";
+
+function isMfaEnrollmentForbidden(error: ForbiddenException): boolean {
+  const body = error.getResponse();
+  if (!body || typeof body !== "object") return false;
+  const type = (body as { type?: string }).type ?? "";
+  return type.includes("mfa-enrollment-required");
+}
 import { ApprovalStepsService } from "../approval-steps/approval-steps.module.js";
 import { MakerCheckerService } from "../maker-checker/maker-checker.service.js";
 import { MfaService } from "../auth/mfa.service.js";
@@ -174,8 +183,23 @@ export class ExpensesService {
     const workspace = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
     const visibility = resolvedBody.visibility ?? "shared";
     const flags = readProductFeatureFlags(process.env);
+    const kind = spaceKindForTemplate(workspace?.template);
+    if (
+      kind === "personal" &&
+      (resolvedBody.fundingSourceKind === "petty_cash" ||
+        resolvedBody.fundingSourceKind === "member")
+    ) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "فضای شخصی تنخواه مشترک ندارد",
+        status: 400,
+        code: "PETTY_CASH_PERSONAL_FORBIDDEN",
+        detail:
+          "در فضای شخصی از پس‌انداز شخصی استفاده کنید — تنخواه و پرداخت از حساب عضو دیگر مجاز نیست.",
+      });
+    }
     const orgExpense =
-      flags.expensePolicy && spaceKindForTemplate(workspace?.template) === "org";
+      flags.expensePolicy && kind === "org";
     if (orgExpense && (visibility === "shared" || visibility === "company")) {
       const policy = await this.policies.get(workspaceId, actor.userId);
       if (policy.requireCostCenter && !resolvedBody.costCenterId?.trim()) {
@@ -375,11 +399,24 @@ export class ExpensesService {
       workspaceId,
       submitted,
     );
-    if (decision.commit !== "post") return submitted;
+    if (decision.commit !== "post") {
+      return {
+        ...submitted,
+        postingHoldReasons: [...decision.reasons],
+        postingHoldMessageFa: postingHoldMessageFa(decision.reasons),
+      };
+    }
     try {
       return await this.post(actor, workspaceId, draft.id);
     } catch (error: unknown) {
-      // A guard we could not predict (role/approval) — leave it submitted.
+      // MFA enrollment must surface — silent "submitted" looks like success.
+      if (
+        error instanceof ForbiddenException &&
+        isMfaEnrollmentForbidden(error)
+      ) {
+        throw error;
+      }
+      // Other guards we could not predict (role/approval) — leave it submitted.
       if (error instanceof ForbiddenException) return submitted;
       throw error;
     }
@@ -675,7 +712,15 @@ export class ExpensesService {
             const entry = await withSpan(
               "ledger.postExpense",
               { expenseId, journal: "tx" },
-              () => this.ledger.postExpense(actor.userId, summary, { tx }),
+              async () => {
+                const ledgerOpts = await this.resolveLedgerExpenseOptions(
+                  actor,
+                  workspaceId,
+                  summary,
+                  { tx },
+                );
+                return this.ledger.postExpense(actor.userId, summary, ledgerOpts);
+              },
             );
             if (summary.visibility === "company") {
               await this.procurement.applyCompanyExpenseSpend(
@@ -751,9 +796,14 @@ export class ExpensesService {
           viewAllPrivate,
         });
         const summary = toExpenseSummary(updated);
-        journal = await withSpan("ledger.postExpense", { expenseId }, () =>
-          this.ledger.postExpense(actor.userId, summary),
-        );
+        journal = await withSpan("ledger.postExpense", { expenseId }, async () => {
+          const ledgerOpts = await this.resolveLedgerExpenseOptions(
+            actor,
+            workspaceId,
+            summary,
+          );
+          return this.ledger.postExpense(actor.userId, summary, ledgerOpts);
+        });
         if (summary.visibility === "company") {
           await this.procurement.applyCompanyExpenseSpend(
             workspaceId,
@@ -832,6 +882,7 @@ export class ExpensesService {
     actor: AuthActor,
     workspaceId: string,
     expenseId: string,
+    body?: { reason?: string },
   ): Promise<ExpenseSummary> {
     await this.access.requireAccess(workspaceId, actor.userId, "expense.create");
     if (this.mfa) await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
@@ -848,6 +899,7 @@ export class ExpensesService {
       if (!current) throw new Error("EXPENSE_NOT_FOUND");
       if (current.status === "reversed") throw new Error("EXPENSE_STATUS");
       const previousStatus = current.status;
+      const reverseReason = body?.reason?.trim() || "unspecified";
       const moneyDb = this.sharedMoneyDb();
       let updated: StoredExpense;
       let outboxId: string | undefined;
@@ -864,7 +916,7 @@ export class ExpensesService {
               workspaceId,
               expenseId,
               actor.userId,
-              { viewAllPrivate, tx },
+              { viewAllPrivate, tx, reverseReason },
             );
             await withSpan("ledger.reverseExpense", { expenseId }, () =>
               this.ledger.reverseExpense(workspaceId, actor.userId, expenseId, {
@@ -915,6 +967,7 @@ export class ExpensesService {
         try {
           updated = await this.expenses.reverse(workspaceId, expenseId, actor.userId, {
             viewAllPrivate,
+            reverseReason,
           });
           if (previousStatus === "posted") {
             await withSpan("ledger.reverseExpense", { expenseId }, () =>
@@ -987,6 +1040,7 @@ export class ExpensesService {
         traceId: getTraceId(),
         metadata: {
           previousStatus: current.status,
+          reason: reverseReason,
           ...(outboxId ? { outboxId } : {}),
         },
       });
@@ -1006,6 +1060,124 @@ export class ExpensesService {
   }
 
   /**
+   * Recreate a posted replacement from a reversed expense (holiday-restore pattern).
+   * The reversed row stays unless the client also purges it.
+   */
+  async restoreReversed(
+    actor: AuthActor,
+    workspaceId: string,
+    expenseId: string,
+    body: { idempotencyKey: string },
+    reply?: RateLimitHeaderReply | null,
+  ): Promise<{ restored: ExpenseSummary; fromExpenseId: string }> {
+    await this.access.requireAccess(workspaceId, actor.userId, "expense.create");
+    if (this.mfa) await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
+    const { viewAllPrivate } = await resolveExpenseListOptions(
+      this.iam,
+      workspaceId,
+      actor.userId,
+    );
+    const listed = await this.expenses.listForWorkspace(workspaceId, actor.userId, {
+      viewAllPrivate,
+    });
+    const old = listed.find((e) => e.id === expenseId);
+    if (!old) throw new NotFoundException({ detail: "خرج پیدا نشد" });
+    if (old.status !== "reversed") {
+      throw new BadRequestException({
+        detail: "فقط خرج برگشت‌خورده قابل بازیابی است",
+        code: "EXPENSE_STATUS",
+      });
+    }
+    const useSplitLines =
+      old.splitMethod === "amount" ||
+      old.splitMethod === "percent" ||
+      old.splitMethod === "shares";
+    const draft: CreateExpenseDraftRequest = {
+      workspaceId,
+      title: old.title,
+      total: old.total,
+      tip: old.tip,
+      tax: old.tax,
+      discount: old.discount,
+      paidByUserId: old.paidByUserId,
+      paymentLines: old.paymentLines,
+      splitMethod: old.splitMethod === "itemized" ? "equal" : old.splitMethod,
+      participantUserIds: [...old.participantUserIds],
+      splitLines: useSplitLines
+        ? old.splits.map((s) => ({
+            userId: s.userId,
+            amount: s.amount,
+            percent: s.percent,
+            shares: s.shares,
+          }))
+        : undefined,
+      occurredOn: old.occurredOn,
+      visibility: old.visibility,
+      source: old.source,
+      catalogItemId: old.catalogItemId,
+      unitCode: old.unitCode,
+      quantity: old.quantity,
+      unitPriceMinor: old.unitPriceMinor,
+      fundingSourceKind: old.fundingSourceKind,
+      fundingRefId: old.fundingRefId,
+      missionKind: old.missionKind,
+      periodId: old.periodId,
+      outingId: old.outingId,
+      categoryId: old.categoryId,
+      costCenterId: old.costCenterId,
+      note: `بازیابی از خرج ابطال‌شده ${old.id.slice(0, 8)}`,
+      commit: "auto",
+      idempotencyKey: body.idempotencyKey.trim(),
+    };
+    const created = await this.createDraft(actor, workspaceId, draft, reply);
+    await this.audit.append({
+      workspaceId,
+      actorUserId: actor.userId,
+      action: "expense.restore",
+      targetType: "expense",
+      targetId: created.id,
+      result: "success",
+      requestId: getRequestId(),
+      traceId: getTraceId(),
+      metadata: { fromExpenseId: old.id },
+    });
+    return { restored: created, fromExpenseId: old.id };
+  }
+
+  /** Hard-delete a reversed (or never-posted draft) expense row. */
+  async purgeExpense(
+    actor: AuthActor,
+    workspaceId: string,
+    expenseId: string,
+  ): Promise<{ deleted: true }> {
+    await this.access.requireAccess(workspaceId, actor.userId, "expense.create");
+    if (this.mfa) await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
+    try {
+      const { viewAllPrivate } = await resolveExpenseListOptions(
+        this.iam,
+        workspaceId,
+        actor.userId,
+      );
+      await this.expenses.hardDelete(workspaceId, expenseId, actor.userId, {
+        viewAllPrivate,
+      });
+      await this.audit.append({
+        workspaceId,
+        actorUserId: actor.userId,
+        action: "expense.purge",
+        targetType: "expense",
+        targetId: expenseId,
+        result: "success",
+        requestId: getRequestId(),
+        traceId: getTraceId(),
+      });
+      return { deleted: true };
+    } catch (error: unknown) {
+      this.rethrowLifecycle(error);
+    }
+  }
+
+  /**
    * Soft-void the old expense then create a corrected replacement in one call.
    */
   async revise(
@@ -1015,7 +1187,9 @@ export class ExpensesService {
     body: CreateExpenseDraftRequest & { reverseReason?: string },
     reply?: RateLimitHeaderReply | null,
   ): Promise<{ reversed: ExpenseSummary; created: ExpenseSummary }> {
-    const reversed = await this.reverse(actor, workspaceId, expenseId);
+    const reversed = await this.reverse(actor, workspaceId, expenseId, {
+      reason: body.reverseReason,
+    });
     const { reverseReason: _reason, ...draftBody } = body;
     void _reason;
     const created = await this.createDraft(
@@ -1061,21 +1235,144 @@ export class ExpensesService {
     return expenseDb;
   }
 
-  /** Debit petty cash when a posted expense declares funding_source=petty_cash. */
+  /** Debit petty cash or open credit purchase when expense declares funding source. */
   private async afterExpensePosted(
     actor: AuthActor,
     workspaceId: string,
     summary: ExpenseSummary,
   ): Promise<void> {
     if (!this.workspacePayments) return;
-    if (summary.fundingSourceKind !== "petty_cash" || !summary.fundingRefId) {
+    if (summary.fundingSourceKind === "petty_cash" && summary.fundingRefId) {
+      await this.workspacePayments.applyFundingSpendForPostedExpense(
+        actor,
+        workspaceId,
+        summary,
+      );
       return;
     }
-    await this.workspacePayments.applyFundingSpendForPostedExpense(
-      actor,
+    if (summary.fundingSourceKind === "credit") {
+      await this.workspacePayments.applyFundingCreditForPostedExpense(
+        actor,
+        workspaceId,
+        summary,
+      );
+    }
+  }
+
+  /**
+   * Journal options for fund-as-settlement-party: members↔تنخواه when flag on
+   * and a workspace fund exists (explicit fundingRefId or default active fund).
+   */
+  private async resolveLedgerExpenseOptions(
+    actor: AuthActor,
+    workspaceId: string,
+    expense: ExpenseSummary,
+    base?: LedgerWriteOptions,
+  ): Promise<LedgerWriteOptions> {
+    const flags = readProductFeatureFlags(process.env);
+    if (!flags.fundAsSettlementParty) {
+      return { ...base };
+    }
+    let defaultFundId = expense.fundingRefId?.trim() || undefined;
+    if (!defaultFundId && this.workspacePayments) {
+      try {
+        const funds = await this.workspacePayments.listPettyCash(actor, workspaceId);
+        defaultFundId = funds.find((f) => f.active)?.id ?? funds[0]?.id;
+      } catch {
+        defaultFundId = undefined;
+      }
+    }
+    return {
+      ...base,
+      fundAsSettlementParty: true,
+      defaultFundId,
+    };
+  }
+
+  /**
+   * Opt-in migration: rebuild posted expense journals under fund-as-settlement-party.
+   * Safe to re-run (skips entries that already credit/debit fund:* unless force).
+   */
+  async rebuildFundPartyJournals(
+    actor: AuthActor,
+    workspaceId: string,
+    options?: { force?: boolean },
+  ): Promise<RebuildFundPartyJournalsResult> {
+    const flags = readProductFeatureFlags(process.env);
+    if (!flags.fundAsSettlementParty) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/feature-disabled",
+        title: "قابلیت صندوق طرف حساب خاموش است",
+        detail:
+          "برای بازسازی ژورنال، ENABLE_FUND_AS_SETTLEMENT_PARTY=1 را تنظیم کنید.",
+        status: 403,
+      });
+    }
+    const forced = Boolean(options?.force);
+    await this.access.requireFinanceManager(workspaceId, actor.userId);
+    const viewAllPrivate = true;
+    const all = await this.expenses.listForWorkspace(
       workspaceId,
-      summary,
+      actor.userId,
+      { viewAllPrivate },
     );
+    const posted = all.filter((e) => e.status === "posted");
+    let rebuilt = 0;
+    let created = 0;
+    let skipped = 0;
+    let skippedAlreadyFund = 0;
+    let skippedNoFund = 0;
+    for (const expense of posted) {
+      const ledgerOpts = await this.resolveLedgerExpenseOptions(
+        actor,
+        workspaceId,
+        expense,
+        { force: forced },
+      );
+      if (!ledgerOpts.fundAsSettlementParty) {
+        skipped += 1;
+        continue;
+      }
+      if (
+        !ledgerOpts.defaultFundId &&
+        !(expense.fundingRefId?.trim()) &&
+        expense.fundingSourceKind !== "petty_cash"
+      ) {
+        skippedNoFund += 1;
+        skipped += 1;
+        continue;
+      }
+      const result = await this.ledger.rebuildExpenseJournal(
+        actor.userId,
+        expense,
+        ledgerOpts,
+      );
+      if (result.status === "rebuilt") rebuilt += 1;
+      else if (result.status === "created") created += 1;
+      else {
+        skippedAlreadyFund += 1;
+        skipped += 1;
+      }
+    }
+    const summary: RebuildFundPartyJournalsResult = {
+      rebuilt,
+      created,
+      skipped,
+      totalPosted: posted.length,
+      skippedAlreadyFund,
+      skippedNoFund,
+      forced,
+    };
+    await this.audit.append({
+      workspaceId,
+      actorUserId: actor.userId,
+      action: "ledger.rebuild_fund_party",
+      targetType: "workspace",
+      targetId: workspaceId,
+      result: "success",
+      metadata: { ...summary },
+    });
+    return summary;
   }
 
   /**
@@ -1274,6 +1571,7 @@ export class ExpensesService {
         status: current.status,
         visibility: current.visibility,
         ownerUserId: current.createdByUserId,
+        amountMinor: current.total.amountMinor,
       },
     );
     await this.makerChecker.assertFourEyes({

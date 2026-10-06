@@ -21,7 +21,7 @@ export function Badge({ tone = "neutral", children, style, ...rest }: BadgeProps
     minHeight: 28,
     padding: "2px 10px",
     borderRadius: 999,
-    fontSize: 12,
+    fontSize: "0.75rem",
     fontWeight: 600,
     color: colors[tone],
     background: `color-mix(in srgb, ${colors[tone]} 14%, transparent)`,
@@ -56,9 +56,9 @@ export function EmptyState({ title, description, action }: EmptyStateProps) {
         textAlign: "start",
       }}
     >
-      <strong style={{ fontSize: 15 }}>{title}</strong>
+      <strong style={{ fontSize: "0.9375rem" }}>{title}</strong>
       {description ? (
-        <p style={{ margin: 0, color: "var(--dang-muted)", fontSize: 14, lineHeight: 1.6 }}>
+        <p style={{ margin: 0, color: "var(--dang-muted)", fontSize: "0.875rem", lineHeight: 1.6 }}>
           {description}
         </p>
       ) : null}
@@ -120,7 +120,7 @@ export type TableProps = {
 export function Table({ caption, headers, rows }: TableProps) {
   return (
     <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
         {caption ? <caption style={{ textAlign: "start", marginBottom: 8 }}>{caption}</caption> : null}
         <thead>
           <tr>

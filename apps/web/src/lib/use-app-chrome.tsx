@@ -33,6 +33,7 @@ import {
   writeStoredWorkspaceId,
 } from "@/lib/workspace-storage";
 import { filterVisibleWorkspaces } from "@/lib/demo-workspaces";
+import { rememberWorkspaceVisit } from "@/lib/workspace-directory-prefs";
 
 export type AppChromeState = {
   workspaceName: string;
@@ -72,6 +73,10 @@ export type AppChromeState = {
   discardOfflineMutation: (id: string) => void;
   ready: boolean;
   error: string | null;
+  /** Capabilities fetch failed while other chrome may still work — not silent empty. */
+  capabilitiesUnavailable: boolean;
+  /** Notifications fetch failed — distinct from empty inbox. */
+  notificationsError: string | null;
   selectWorkspace: (id: string) => void;
   refreshChrome: () => void;
   refreshNotifications: () => Promise<void>;
@@ -114,6 +119,8 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [capabilitiesUnavailable, setCapabilitiesUnavailable] = useState(false);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
   const refreshChrome = useCallback(() => setTick((n) => n + 1), []);
@@ -121,18 +128,22 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
   const selectWorkspace = useCallback((id: string) => {
     setWorkspaceId(id);
     writeStoredWorkspaceId(id);
+    rememberWorkspaceVisit(id);
   }, []);
 
   const refreshNotifications = useCallback(async () => {
     if (!workspaceId) {
       setNotifications([]);
+      setNotificationsError(null);
       return;
     }
     try {
       const list = await api.listNotifications(workspaceId);
       setNotifications(list);
+      setNotificationsError(null);
     } catch {
       setNotifications([]);
+      setNotificationsError("بارگذاری اعلان‌ها ناموفق بود — دوباره تلاش کنید.");
     }
   }, [workspaceId]);
 
@@ -154,12 +165,22 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
         const identity = getDevIdentity();
         setDevIdentity(identity.subject, identity.displayName);
         // SessionGate already verified auth — single bootstrap for product chrome.
-        const [me, caps, list] = await Promise.all([
-          api.me().catch(() => null),
-          api.capabilities().catch(() => null),
+        const [meSettled, capsSettled, list] = await Promise.all([
+          api.me().then(
+            (v) => ({ ok: true as const, value: v }),
+            () => ({ ok: false as const, value: null }),
+          ),
+          api.capabilities().then(
+            (v) => ({ ok: true as const, value: v }),
+            () => ({ ok: false as const, value: null }),
+          ),
           api.listWorkspaces(),
         ]);
         if (cancelled) return;
+
+        const me = meSettled.ok ? meSettled.value : null;
+        const caps = capsSettled.ok ? capsSettled.value : null;
+        const capsFailed = !capsSettled.ok;
 
         const stored = readStoredWorkspaceId();
         const visible = filterVisibleWorkspaces(list);
@@ -176,19 +197,17 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
         setUserDisplayUnit(me?.displayUnit ?? null);
         setUserName(nextActor?.displayName ?? identity.displayName);
         setCapabilities(caps);
+        setCapabilitiesUnavailable(capsFailed);
         setPersistenceLabel(
           caps
             ? persistenceLabelFa(caps.persistence, caps.databaseConfigured)
-            : "بدون اتصال",
+            : capsFailed
+              ? "قابلیت‌ها در دسترس نیست"
+              : "بدون اتصال",
         );
         setAllowDevAuth(Boolean(caps?.allowDevAuth));
-        // Never treat production as seedable: demoSeedAllowed is false there.
-        setDemoSeedAllowed(
-          caps?.demoSeedAllowed === true ||
-            (caps != null &&
-              caps.demoSeedAllowed === undefined &&
-              Boolean(caps.allowDevAuth)),
-        );
+        // Only explicit true — never infer from allowDevAuth when field is missing.
+        setDemoSeedAllowed(caps?.demoSeedAllowed === true);
         setReady(true);
         setError(null);
       } catch (err: unknown) {
@@ -212,15 +231,22 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     if (!workspaceId) {
       setNotifications([]);
+      setNotificationsError(null);
       setPresenceUserIds([]);
       return;
     }
     void (async () => {
       try {
         const list = await api.listNotifications(workspaceId);
-        if (!cancelled) setNotifications(list);
+        if (!cancelled) {
+          setNotifications(list);
+          setNotificationsError(null);
+        }
       } catch {
-        if (!cancelled) setNotifications([]);
+        if (!cancelled) {
+          setNotifications([]);
+          setNotificationsError("بارگذاری اعلان‌ها ناموفق بود — دوباره تلاش کنید.");
+        }
       }
     })();
     return () => {
@@ -427,6 +453,8 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
       discardOfflineMutation,
       ready,
       error,
+      capabilitiesUnavailable,
+      notificationsError,
       selectWorkspace,
       refreshChrome,
       refreshNotifications,
@@ -455,6 +483,8 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
       discardOfflineMutation,
       ready,
       error,
+      capabilitiesUnavailable,
+      notificationsError,
       selectWorkspace,
       refreshChrome,
       refreshNotifications,

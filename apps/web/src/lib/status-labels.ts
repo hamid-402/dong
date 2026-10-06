@@ -183,6 +183,33 @@ export function expenseVisibilityLabel(visibility: string): string {
   return "جمعی";
 }
 
+/** Who the expense is for — private person vs shared members (display only). */
+export function expenseAudienceLine(
+  expense: {
+    visibility: string;
+    paidByUserId: string;
+    participantUserIds?: string[];
+  },
+  memberLabel: (userId: string) => string,
+): string {
+  const ids = [...new Set((expense.participantUserIds ?? []).filter(Boolean))];
+  const names = ids.map(memberLabel);
+
+  if (expense.visibility === "private") {
+    const who = names[0] ?? memberLabel(expense.paidByUserId);
+    return `خصوصی · برای ${who}`;
+  }
+  if (expense.visibility === "company") {
+    if (names.length === 0) return "شرکتی";
+    if (names.length <= 2) return `شرکتی · ${names.join("، ")}`;
+    return `شرکتی · ${names.slice(0, 2).join("، ")} و ${(names.length - 2).toLocaleString("fa-IR")} نفر دیگر`;
+  }
+  if (names.length === 0) return "جمعی · مشترک";
+  if (names.length === 1) return `جمعی · فقط ${names[0]}`;
+  if (names.length <= 3) return `جمعی · ${names.join("، ")}`;
+  return `جمعی · ${names.slice(0, 2).join("، ")} و ${(names.length - 2).toLocaleString("fa-IR")} نفر دیگر`;
+}
+
 export function membershipRoleLabel(role: string | undefined | null): string {
   switch (role) {
     case "owner":
@@ -271,23 +298,25 @@ export function zeroSumHint(zeroSum: boolean): string {
   return zeroSum ? "مانده اعضا متعادل است" : "مانده اعضا متعادل نیست";
 }
 
+/**
+ * Chrome persistence label from live capabilities.persistence.
+ * Counts every postgres/memory store (skips attachmentBlob local/S3);
+ * mixed when any memory remains — never claims all-durable from three fields alone.
+ */
 export function persistenceLabelFa(
-  persistence:
-    | {
-        iam: string;
-        ledger: string;
-        expense: string;
-        personalFinance?: string;
-      }
-    | undefined,
+  persistence: Record<string, string | undefined> | undefined,
   databaseConfigured: boolean,
 ): string {
   if (!persistence) return "در حال بارگذاری…";
   if (!databaseConfigured) return "بدون اتصال پایگاه";
-  const durable =
-    persistence.iam === "postgres" &&
-    persistence.ledger === "postgres" &&
-    persistence.expense === "postgres" &&
-    (persistence.personalFinance == null || persistence.personalFinance === "postgres");
-  return durable ? "ذخیره‌سازی پایدار" : "حافظه موقت (توسعه)";
+  const skip = new Set(["attachmentBlob"]);
+  const entries = Object.entries(persistence).filter(
+    ([key, value]) => !skip.has(key) && (value === "postgres" || value === "memory"),
+  );
+  if (entries.length === 0) return "بدون اتصال پایگاه";
+  const postgres = entries.filter(([, value]) => value === "postgres").length;
+  const memory = entries.filter(([, value]) => value === "memory").length;
+  if (memory === 0) return "ذخیره‌سازی پایدار";
+  if (postgres === 0) return "حافظه موقت (توسعه)";
+  return `مختلط (${postgres}/${postgres + memory} پایدار)`;
 }

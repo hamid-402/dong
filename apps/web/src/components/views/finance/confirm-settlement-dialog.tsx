@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ConfirmSettlementRequest } from "@dang/contracts";
 import { Button, TextField, SelectField } from "@dang/ui";
 import { FormStack } from "@/components/ui-blocks";
+import { AppModal } from "@/components/ui/app-modal";
 
 export function ConfirmSettlementDialog({
   pending,
@@ -47,86 +48,52 @@ export function ConfirmSettlementDialog({
     (kind === "receipt" && receiptId.trim().length > 0);
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-settlement-title"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 80,
-        display: "grid",
-        placeItems: "center",
-        background: "color-mix(in srgb, #0b1210 72%, transparent)",
-        padding: 16,
-      }}
+    <AppModal
+      open
+      ariaLabel="تأیید تسویه"
+      title="تأیید تسویه"
+      onClose={onCancel}
     >
-      <div
-        style={{
-          width: "min(420px, 100%)",
-          background: "var(--surface, #fff)",
-          borderRadius: 14,
-          border: "1px solid var(--line)",
-          padding: 20,
-          display: "grid",
-          gap: 14,
-        }}
-      >
-        <div>
-          <h2
-            id="confirm-settlement-title"
-            style={{ margin: 0, fontSize: "1.1rem" }}
-          >
-            تأیید تسویه
-          </h2>
-          <p
-            style={{
-              margin: "6px 0 0",
-              color: "var(--muted)",
-              fontSize: "0.9rem",
-            }}
-          >
-            {evidenceRequired
-              ? "برای ثبت در دفترکل، نوع شاهد را مشخص کنید."
-              : "تأیید می‌کند که مبلغ بین طرفین جابه‌جا شده است."}
-          </p>
-        </div>
-        <FormStack>
-          <SelectField
-            label="نوع شاهد"
-            value={kind}
-            onChange={(e) =>
-              setKind(e.target.value as "cash_ack" | "receipt" | "gateway")
-            }
-          >
-            <option value="cash_ack">نقدی / حضوری</option>
-            <option value="receipt">رسید تأییدشده</option>
-            <option value="gateway">درگاه پرداخت</option>
-          </SelectField>
-          {kind === "cash_ack" ? (
-            <TextField
-              label="یادداشت تأیید"
-              value={cashAckNote}
-              onChange={(e) => setCashAckNote(e.target.value)}
-            />
-          ) : null}
-          {kind === "receipt" ? (
-            <TextField
-              label="شناسه رسید تأییدشده"
-              value={receiptId}
-              onChange={(e) => setReceiptId(e.target.value)}
-            />
-          ) : null}
-        </FormStack>
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={pending}>
-            انصراف
-          </Button>
-          <Button type="button" onClick={submit} disabled={pending || !canSubmit}>
-            تأیید تسویه
-          </Button>
-        </div>
+      <p className="appModalLead">
+        {evidenceRequired
+          ? "برای ثبت در دفترکل، نوع شاهد را مشخص کنید."
+          : "تأیید می‌کند که مبلغ بین طرفین جابه‌جا شده است."}
+      </p>
+      <FormStack>
+        <SelectField
+          label="نوع شاهد"
+          value={kind}
+          onChange={(e) =>
+            setKind(e.target.value as "cash_ack" | "receipt" | "gateway")
+          }
+        >
+          <option value="cash_ack">نقدی / حضوری</option>
+          <option value="receipt">رسید تأییدشده</option>
+          <option value="gateway">درگاه پرداخت</option>
+        </SelectField>
+        {kind === "cash_ack" ? (
+          <TextField
+            label="یادداشت تأیید"
+            value={cashAckNote}
+            onChange={(e) => setCashAckNote(e.target.value)}
+          />
+        ) : null}
+        {kind === "receipt" ? (
+          <TextField
+            label="شناسه رسید تأییدشده"
+            value={receiptId}
+            onChange={(e) => setReceiptId(e.target.value)}
+          />
+        ) : null}
+      </FormStack>
+      <div className="appModalActions">
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={pending}>
+          انصراف
+        </Button>
+        <Button type="button" onClick={submit} disabled={pending || !canSubmit}>
+          تأیید تسویه
+        </Button>
       </div>
-    </div>
+    </AppModal>
   );
 }

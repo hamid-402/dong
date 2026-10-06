@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { assertIrrMoney, tomanInputToIrrMinor } from "./irr-money";
+import { assertIrrMoney, displayInputToIrrMinor, tomanInputToIrrMinor } from "./irr-money";
 import { formatToman } from "@dang/ui";
+
+describe("displayInputToIrrMinor", () => {
+  it("keeps rial scale and multiplies toman ×10", () => {
+    expect(displayInputToIrrMinor("1000", "rial")).toEqual({
+      amountMinor: "1000",
+      currency: "IRR",
+    });
+    expect(displayInputToIrrMinor("1000", "toman")).toEqual({
+      amountMinor: "10000",
+      currency: "IRR",
+    });
+  });
+});
 
 describe("tomanInputToIrrMinor", () => {
   it("converts positive toman to IRR minor (×10)", () => {

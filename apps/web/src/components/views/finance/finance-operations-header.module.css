@@ -212,7 +212,7 @@
       var(--surface)
     );
   border-color: color-mix(in srgb, var(--primary) 28%, var(--line));
-  color: var(--primary-deep, var(--primary));
+  color: var(--primary);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--primary) 12%, transparent),
     var(--elev-1);
@@ -225,7 +225,7 @@
 
 .surfaceCompact .commandRow nav .active {
   background: transparent;
-  color: var(--primary-deep, var(--primary));
+  color: var(--primary);
   box-shadow: none;
   border-bottom-color: var(--primary);
 }

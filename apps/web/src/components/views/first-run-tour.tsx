@@ -47,7 +47,7 @@ export function FirstRunTour({
       id: "spaces",
       titleKey: "shell.tourSpacesTitle",
       bodyKey: "shell.tourSpacesBody",
-      href: "/spaces",
+      href: "/home",
       hrefLabelKey: "shell.tourSpacesCta",
       sticker: "invite",
     },

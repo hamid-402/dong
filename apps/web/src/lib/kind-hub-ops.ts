@@ -61,14 +61,14 @@ export function kindDomainMosaicItems(
       key: "group",
       label: "گروهی",
       summary: "دوستان، خانواده و سفر",
-      gemKey: "amber",
+      gemKey: "teal",
       icon: "partners",
     },
     {
       key: "building",
       label: "ساختمان",
       summary: "واحدها، شارژ و قبوض",
-      gemKey: "slate",
+      gemKey: "amber",
       icon: "home",
     },
     {
@@ -76,7 +76,7 @@ export function kindDomainMosaicItems(
       label: "سازمان",
       summary: "تیم، بخش و تدارکات",
       gemKey: "violet",
-      icon: "settings",
+      icon: "partners",
     },
   ];
 
@@ -85,7 +85,7 @@ export function kindDomainMosaicItems(
     return {
       key: `kind-${row.key}`,
       label: row.label,
-      href: count > 0 ? `/spaces?kind=${row.key}` : `/spaces/new?kind=${row.key}`,
+      href: count > 0 ? `/home?kind=${row.key}` : `/spaces/new?kind=${row.key}`,
       icon: row.icon,
       summary:
         count > 0

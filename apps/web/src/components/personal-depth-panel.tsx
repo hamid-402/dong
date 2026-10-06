@@ -5,11 +5,17 @@ import { useEffect, useState, useTransition } from "react";
 import type {
   IncomeSourceKind,
   IncomeSourceSummary,
+  MoneyIntentKind,
+  MoneyIntentSummary,
   MonthlyCloseSummary,
   SavingsGoalSummary,
   SpendingAlertSummary,
 } from "@dang/contracts";
-import { currentJalaliYearMonth } from "@dang/contracts";
+import {
+  currentJalaliYearMonth,
+  MONEY_INTENT_KIND_CATALOG,
+  moneyIntentMeta,
+} from "@dang/contracts";
 import { Amount, Button, TextField } from "@dang/ui";
 import {
   DataList,
@@ -24,6 +30,7 @@ import { JalaliDateField } from "@/components/jalali-date-field";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { formatFaDateTime } from "@/lib/fa-datetime";
+import { useAppChrome } from "@/lib/use-app-chrome";
 
 function currentYearMonth(): string {
   return currentJalaliYearMonth();
@@ -49,7 +56,7 @@ function goalStatusLabel(status: SavingsGoalSummary["status"]): string {
   return "فعال";
 }
 
-type Tab = "goals" | "month" | "income" | "alerts";
+type Tab = "goals" | "intents" | "month" | "income" | "alerts";
 
 /** S11-10: savings goals + monthly close + income + alerts — API-backed only. */
 export function PersonalDepthPanel({
@@ -58,8 +65,11 @@ export function PersonalDepthPanel({
   /** When false, goals tab is hidden (capabilities.providers.savingsGoals). */
   goalsLive?: boolean;
 }) {
+  const chrome = useAppChrome();
+  const intentsLive = chrome.capabilities?.providers?.moneyIntents === "intents_v1";
   const [tab, setTab] = useState<Tab>(goalsLive ? "goals" : "month");
   const [goals, setGoals] = useState<SavingsGoalSummary[]>([]);
+  const [intents, setIntents] = useState<MoneyIntentSummary[]>([]);
   const [sources, setSources] = useState<IncomeSourceSummary[]>([]);
   const [alerts, setAlerts] = useState<SpendingAlertSummary[]>([]);
   const [close, setClose] = useState<MonthlyCloseSummary | null>(null);
@@ -81,23 +91,44 @@ export function PersonalDepthPanel({
   const [alertLimitToman, setAlertLimitToman] = useState("");
   const [alertThreshold, setAlertThreshold] = useState("80");
 
+  const [intentName, setIntentName] = useState("");
+  const [intentKind, setIntentKind] = useState<MoneyIntentKind>("save_income_percent");
+  const [intentPercent, setIntentPercent] = useState("");
+  const [intentAmountToman, setIntentAmountToman] = useState("");
+  const [intentGoalId, setIntentGoalId] = useState("");
+
   async function refresh() {
-    const [g, s, m, a] = await Promise.all([
+    const [g, intentRows, s, m, a] = await Promise.all([
       goalsLive ? api.listSavingsGoals() : Promise.resolve([] as SavingsGoalSummary[]),
+      intentsLive
+        ? api.listMoneyIntents().catch(() => [] as MoneyIntentSummary[])
+        : Promise.resolve([] as MoneyIntentSummary[]),
       api.listIncomeSources(),
       api.getMonthlyClose(yearMonth),
       api.listSpendingAlerts(),
     ]);
     setGoals(g);
+    setIntents(intentRows);
     setSources(s);
     setClose(m);
     setAlerts(a);
     if (!contribGoalId && g[0]) setContribGoalId(g[0].id);
+    if (!intentGoalId && g[0]) setIntentGoalId(g[0].id);
   }
 
   useEffect(() => {
     if (!goalsLive && tab === "goals") setTab("month");
   }, [goalsLive, tab]);
+
+  useEffect(() => {
+    function applyHash() {
+      const raw = window.location.hash.replace(/^#/, "").trim();
+      if (raw === "intents" && intentsLive) setTab("intents");
+    }
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, [intentsLive]);
 
   useEffect(() => {
     startTransition(() => {
@@ -110,9 +141,13 @@ export function PersonalDepthPanel({
         }
       })();
     });
-  }, [yearMonth, goalsLive]);
+  }, [yearMonth, goalsLive, intentsLive]);
 
   function onCreateGoal() {
+    if (!goalsLive) {
+      setError("اهداف پس‌انداز در این محیط فعال نیست");
+      return;
+    }
     const targetMinor = tomanToMinor(goalTargetToman);
     if (!goalName.trim() || !targetMinor) {
       setError("نام و مبلغ هدف لازم است");
@@ -254,8 +289,53 @@ export function PersonalDepthPanel({
     });
   }
 
+
+  function onCreateIntent() {
+    const meta = moneyIntentMeta(intentKind);
+    const targetPercent = intentPercent ? Number(intentPercent) : undefined;
+    const targetMinor = meta.needsAmount ? tomanToMinor(intentAmountToman) : undefined;
+    if (!intentName.trim()) {
+      setError("نام قاعده لازم است");
+      return;
+    }
+    if (meta.needsPercent && (targetPercent == null || targetPercent < 1 || targetPercent > 100)) {
+      setError("درصد هدف بین ۱ تا ۱۰۰ لازم است");
+      return;
+    }
+    if (meta.needsAmount && !targetMinor) {
+      setError("مبلغ هدف لازم است");
+      return;
+    }
+    if (meta.needsGoalId && !intentGoalId) {
+      setError("یک هدف پس‌انداز برای پیوند انتخاب کنید");
+      return;
+    }
+    startTransition(() => {
+      void (async () => {
+        try {
+          await api.createMoneyIntent({
+            name: intentName.trim(),
+            kind: intentKind,
+            targetPercent,
+            targetMinor: targetMinor || undefined,
+            goalId: meta.needsGoalId ? intentGoalId : undefined,
+            idempotencyKey: newClientId(),
+          });
+          setIntentName("");
+          setIntentPercent("");
+          setIntentAmountToman("");
+          setInfo("قاعده مالی ثبت شد");
+          await refresh();
+          setError(null);
+        } catch (err: unknown) {
+          setError(friendlyErrorMessage(err, "ثبت قاعده ناموفق"));
+        }
+      })();
+    });
+  }
+
   return (
-    <SectionCard title="اهداف و تحلیل ماه" delayClass="delay1">
+    <SectionCard id="intents" title="اهداف و تحلیل ماه" delayClass="delay1">
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
         {goalsLive ? (
           <Button
@@ -264,6 +344,15 @@ export function PersonalDepthPanel({
             onClick={() => setTab("goals")}
           >
             اهداف پس‌انداز
+          </Button>
+        ) : null}
+        {intentsLive ? (
+          <Button
+            type="button"
+            variant={tab === "intents" ? "primary" : "secondary"}
+            onClick={() => setTab("intents")}
+          >
+            قواعد مالی
           </Button>
         ) : null}
         <Button
@@ -311,7 +400,7 @@ export function PersonalDepthPanel({
             onChange={(e) => setGoalTargetToman(e.target.value)}
           />
           <JalaliDateField label="تاریخ هدف (اختیاری)" value={goalDate} onChange={setGoalDate} />
-          <Button type="button" onClick={onCreateGoal} disabled={pending}>
+          <Button type="button" onClick={onCreateGoal} disabled={pending || !goalsLive}>
             افزودن هدف
           </Button>
 
@@ -387,6 +476,130 @@ export function PersonalDepthPanel({
               </Button>
             </>
           ) : null}
+        </FormStack>
+      ) : null}
+
+
+      {tab === "intents" && intentsLive ? (
+        <FormStack>
+          <StatusLine>
+            قواعد از کاتالوگ واقعی ساخته می‌شوند (
+            {MONEY_INTENT_KIND_CATALOG.length.toLocaleString("fa-IR")} نوع) — نه نمونهٔ ثابت.
+            ارزیابی روی پول‌نمای خانه با اعداد همان بازه است.
+          </StatusLine>
+          <TextField
+            label="نام قاعده"
+            value={intentName}
+            onChange={(e) => setIntentName(e.target.value)}
+          />
+          <label className="field">
+            <span>نوع قاعده</span>
+            <select
+              value={intentKind}
+              onChange={(e) => setIntentKind(e.target.value as MoneyIntentKind)}
+            >
+              {MONEY_INTENT_KIND_CATALOG.map((m) => (
+                <option key={m.kind} value={m.kind}>
+                  {m.labelFa}
+                </option>
+              ))}
+            </select>
+          </label>
+          <StatusLine>{moneyIntentMeta(intentKind).descriptionFa}</StatusLine>
+          {moneyIntentMeta(intentKind).needsPercent ? (
+            <TextField
+              label="درصد هدف (۱–۱۰۰)"
+              value={intentPercent}
+              onChange={(e) => setIntentPercent(e.target.value)}
+            />
+          ) : null}
+          {moneyIntentMeta(intentKind).needsAmount ? (
+            <TextField
+              label="مبلغ هدف (تومان)"
+              value={intentAmountToman}
+              onChange={(e) => setIntentAmountToman(e.target.value)}
+            />
+          ) : null}
+          {moneyIntentMeta(intentKind).needsGoalId ? (
+            goals.length === 0 ? (
+              <EmptyHint>
+                برای این نوع قاعده ابتدا یک هدف پس‌انداز بسازید.
+              </EmptyHint>
+            ) : (
+              <label className="field">
+                <span>هدف پس‌انداز پیوندی</span>
+                <select
+                  value={intentGoalId}
+                  onChange={(e) => setIntentGoalId(e.target.value)}
+                >
+                  {goals.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )
+          ) : null}
+          <Button type="button" onClick={onCreateIntent} disabled={pending}>
+            ثبت قاعده
+          </Button>
+
+          {intents.length === 0 ? (
+            <EmptyHint>هنوز قاعده مالی ثبت نشده است.</EmptyHint>
+          ) : (
+            <DataList>
+              {intents.map((item) => (
+                <DataRow
+                  key={item.id}
+                  title={item.name}
+                  meta={
+                    <StatusPill tone={item.active ? "ok" : "neutral"}>
+                      {moneyIntentMeta(item.kind).labelFa}
+                      {item.active ? "" : " · غیرفعال"}
+                      {item.targetPercent != null
+                        ? ` · ${item.targetPercent.toLocaleString("fa-IR")}٪`
+                        : ""}
+                      {item.targetMinor
+                        ? " · مبلغ هدف ثبت‌شده"
+                        : ""}
+                    </StatusPill>
+                  }
+                  trailing={
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={pending}
+                      onClick={() => {
+                        startTransition(() => {
+                          void (async () => {
+                            try {
+                              await api.updateMoneyIntent(item.id, {
+                                active: !item.active,
+                              });
+                              setInfo(
+                                item.active
+                                  ? "قاعده غیرفعال شد"
+                                  : "قاعده فعال شد",
+                              );
+                              await refresh();
+                              setError(null);
+                            } catch (err: unknown) {
+                              setError(
+                                friendlyErrorMessage(err, "به‌روزرسانی قاعده ناموفق"),
+                              );
+                            }
+                          })();
+                        });
+                      }}
+                    >
+                      {item.active ? "غیرفعال" : "فعال"}
+                    </Button>
+                  }
+                />
+              ))}
+            </DataList>
+          )}
         </FormStack>
       ) : null}
 

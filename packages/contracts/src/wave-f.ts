@@ -169,23 +169,59 @@ export type UpdateNotificationPreferenceRequest = z.infer<
   typeof updateNotificationPreferenceSchema
 >;
 
-/** Account-backed tour dismissals (localStorage remains fallback on web). */
+/** Soft cap for synced directory pins (matches client localStorage). */
+export const UI_PINNED_WORKSPACE_CAP = 8;
+
+/** Account-backed tour dismissals + directory pins (localStorage remains fallback on web). */
 export type UiPreferenceSummary = {
   dismissShellTour: boolean;
   dismissStatementsTour: boolean;
+  /** Ordered pinned workspace ids — only live memberships should be kept by clients. */
+  pinnedWorkspaceIds: string[];
   updatedAt?: string;
 };
 export const updateUiPreferenceSchema = z
   .object({
     dismissShellTour: z.boolean().optional(),
     dismissStatementsTour: z.boolean().optional(),
+    pinnedWorkspaceIds: z
+      .array(z.string().uuid())
+      .max(UI_PINNED_WORKSPACE_CAP)
+      .optional(),
   })
   .strict()
   .refine(
-    (b) => b.dismissShellTour !== undefined || b.dismissStatementsTour !== undefined,
+    (b) =>
+      b.dismissShellTour !== undefined ||
+      b.dismissStatementsTour !== undefined ||
+      b.pinnedWorkspaceIds !== undefined,
     { message: "at_least_one_pref" },
   );
 export type UpdateUiPreferenceRequest = z.infer<typeof updateUiPreferenceSchema>;
+
+/**
+ * Merge local and server pin lists without dropping either side.
+ * Server order wins for shared ids; local-only ids are prepended (newest first).
+ */
+export function mergePinnedWorkspaceIds(
+  localIds: readonly string[],
+  serverIds: readonly string[],
+  cap = UI_PINNED_WORKSPACE_CAP,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of localIds) {
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  for (const id of serverIds) {
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out.slice(0, cap);
+}
 
 export type WorkspacePlanName = "free" | "pro" | "business";
 export type WorkspacePlanSummary = {
@@ -199,30 +235,35 @@ export const updateWorkspacePlanSchema = z.object({
 }).strict();
 
 /**
- * Freemium feature ids for `planAllows` / API `requirePlanFeature`.
+ * Plan feature gate for `planAllows` / API `requirePlanFeature`.
  *
- * Always allowed on every plan (including free) — core product path:
- *   `core` | `expenses` | `settlements` | `reports`
+ * Product policy (current): **all features are free** — no premium upsell.
+ * `plan` names (free/pro/business) remain for metering/admin labels only;
+ * `planAllows` always returns true so API never 403s with `plan_required`.
  *
- * Pro / business only (API gates with 403 `plan_required` when free lacks them):
- *   `analytics`     — analytics warehouse snapshot/ETL + workspace charts
- *   `costCenter`    — create cost centers
- *   `categoryBudget`— create category budgets (org-finance depth)
- *   `biCompare`     — BI compare reports (legacy Wave 6 name)
- *
- * Any other feature string not in the free list is treated as pro/business-only.
- * Core expenses + settlements must stay on free; do not add them to the paid set.
+ * Documented feature ids (all unlocked on every plan):
+ *   `core` | `expenses` | `settlements` | `reports` | `analytics`
+ *   `costCenter` | `categoryBudget` | `biCompare` | …
  */
 export const FREE_PLAN_FEATURES = [
   "core",
   "expenses",
   "settlements",
   "reports",
+  "analytics",
+  "costCenter",
+  "categoryBudget",
+  "biCompare",
 ] as const;
 
-export function planAllows(plan: WorkspacePlanName, feature: string): boolean {
-  if ((FREE_PLAN_FEATURES as readonly string[]).includes(feature)) return true;
-  return plan === "pro" || plan === "business";
+/** Always true — freemium upsell disabled; keep signature for callers/tests. */
+export function planAllows(
+  _plan: WorkspacePlanName,
+  _feature: string,
+): boolean {
+  void _plan;
+  void _feature;
+  return true;
 }
 
 export type ApprovalWorkflowStepSummary = {

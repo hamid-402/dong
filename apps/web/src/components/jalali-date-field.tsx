@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 import {
   JALALI_MONTH_FA,
   WEEKDAY_FA_SAT_FIRST,
@@ -33,6 +42,8 @@ type DayCell = {
   row: number;
 };
 
+type PopCoords = { top: number; left: number; width: number };
+
 function todayJalali(): { jy: number; jm: number; jd: number } {
   const now = new Date();
   return gregorianToJalali(now.getFullYear(), now.getMonth() + 1, now.getDate());
@@ -64,6 +75,7 @@ function formatTodayIso(): string {
 }
 
 const WEEKDAY_SHORT = WEEKDAY_FA_SAT_FIRST.map((w) => w.charAt(0));
+const POP_EST_HEIGHT = 340;
 
 export function JalaliDateField({
   label,
@@ -77,12 +89,20 @@ export function JalaliDateField({
   const autoId = useId();
   const inputId = id ?? autoId;
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [coords, setCoords] = useState<PopCoords | null>(null);
   const selected = value ? parseIsoToJalali(value) : null;
   const [view, setView] = useState<ViewMonth>(() => {
     const t = selected ?? todayJalali();
     return { jy: t.jy, jm: t.jm };
   });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -91,17 +111,53 @@ export function JalaliDateField({
     setView({ jy: cur.jy, jm: cur.jm });
   }, [open, value]);
 
+  useLayoutEffect(() => {
+    if (!open) {
+      setCoords(null);
+      return;
+    }
+    const place = () => {
+      const el = triggerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const width = Math.min(300, Math.max(r.width, 260));
+      const rtl =
+        getComputedStyle(document.documentElement).direction === "rtl" ||
+        getComputedStyle(el).direction === "rtl";
+      let left = rtl ? r.right - width : r.left;
+      left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
+      let top = r.bottom + 6;
+      if (top + POP_EST_HEIGHT > window.innerHeight - 8) {
+        top = Math.max(8, r.top - POP_EST_HEIGHT - 6);
+      }
+      setCoords({ top, left, width });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (rootRef.current?.contains(t) || popRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    document.addEventListener("mousedown", onDoc);
+    // defer so the opening click does not immediately close
+    const timer = window.setTimeout(() => {
+      document.addEventListener("mousedown", onDoc);
+    }, 0);
     document.addEventListener("keydown", onKey);
     return () => {
+      window.clearTimeout(timer);
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
@@ -127,6 +183,109 @@ export function JalaliDateField({
   const display = value ? formatJalaliIso(value) : "";
   const todayIso = formatTodayIso();
 
+  const popStyle: CSSProperties | undefined = coords
+    ? {
+        top: coords.top,
+        left: coords.left,
+        width: coords.width,
+      }
+    : undefined;
+
+  const pop =
+    open && mounted && coords
+      ? createPortal(
+          <div
+            className="jdfPop jdfPop--portal"
+            role="dialog"
+            aria-label="تقویم شمسی"
+            ref={popRef}
+            style={popStyle}
+          >
+            <div className="jdfNav">
+              <button
+                type="button"
+                className="jdfNavBtn"
+                onClick={() => shiftMonth(1)}
+                aria-label="ماه بعد"
+              >
+                ‹
+              </button>
+              <div className="jdfTitle">
+                {JALALI_MONTH_FA[view.jm - 1]} {view.jy}
+              </div>
+              <button
+                type="button"
+                className="jdfNavBtn"
+                onClick={() => shiftMonth(-1)}
+                aria-label="ماه قبل"
+              >
+                ›
+              </button>
+            </div>
+            <div className="jdfWeekdays" aria-hidden>
+              {WEEKDAY_SHORT.map((w, i) => (
+                <span key={WEEKDAY_FA_SAT_FIRST[i]} style={{ gridColumn: i + 1 }}>
+                  {w}
+                </span>
+              ))}
+            </div>
+            <div
+              className="jdfGrid"
+              style={{ gridTemplateRows: `repeat(${rowCount}, minmax(32px, auto))` }}
+            >
+              {days.map((cell) => {
+                const cls =
+                  cell.iso === value
+                    ? "jdfDay isSelected"
+                    : cell.iso === todayIso
+                      ? "jdfDay isToday"
+                      : "jdfDay";
+                return (
+                  <button
+                    key={cell.iso}
+                    type="button"
+                    className={cls}
+                    style={{ gridColumn: cell.col + 1, gridRow: cell.row }}
+                    onClick={() => {
+                      onChange(cell.iso);
+                      setOpen(false);
+                    }}
+                  >
+                    {cell.jd}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="jdfFooter">
+              <button
+                type="button"
+                className="jdfTodayBtn"
+                onClick={() => {
+                  const t = todayJalali();
+                  onChange(isoFromJalali(t.jy, t.jm, t.jd));
+                  setOpen(false);
+                }}
+              >
+                امروز
+              </button>
+              {value ? (
+                <button
+                  type="button"
+                  className="jdfClearBtn"
+                  onClick={() => {
+                    onChange("");
+                    setOpen(false);
+                  }}
+                >
+                  پاک کردن
+                </button>
+              ) : null}
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
     <div className="jdf" ref={rootRef}>
       <label className="jdfLabel" htmlFor={inputId}>
@@ -134,89 +293,23 @@ export function JalaliDateField({
         <button
           type="button"
           id={inputId}
+          ref={triggerRef}
           className="jdfTrigger"
           disabled={disabled}
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
-          <span className={display ? "jdfValue" : "jdfPlaceholder"}>{display || placeholder}</span>
+          <span className={display ? "jdfValue" : "jdfPlaceholder"}>
+            {display || placeholder}
+          </span>
           <span className="jdfIcon" aria-hidden>
             ▾
           </span>
         </button>
       </label>
       {hint ? <span className="jdfHint">{hint}</span> : null}
-      {open ? (
-        <div className="jdfPop" role="dialog" aria-label="تقویم شمسی">
-          <div className="jdfNav">
-            <button type="button" className="jdfNavBtn" onClick={() => shiftMonth(1)} aria-label="ماه بعد">
-              ‹
-            </button>
-            <div className="jdfTitle">
-              {JALALI_MONTH_FA[view.jm - 1]} {view.jy}
-            </div>
-            <button type="button" className="jdfNavBtn" onClick={() => shiftMonth(-1)} aria-label="ماه قبل">
-              ›
-            </button>
-          </div>
-          <div className="jdfWeekdays" aria-hidden>
-            {WEEKDAY_SHORT.map((w, i) => (
-              <span key={WEEKDAY_FA_SAT_FIRST[i]} style={{ gridColumn: i + 1 }}>
-                {w}
-              </span>
-            ))}
-          </div>
-          <div
-            className="jdfGrid"
-            style={{ gridTemplateRows: `repeat(${rowCount}, minmax(32px, auto))` }}
-          >
-            {days.map((cell) => {
-              const cls =
-                cell.iso === value ? "jdfDay isSelected" : cell.iso === todayIso ? "jdfDay isToday" : "jdfDay";
-              return (
-                <button
-                  key={cell.iso}
-                  type="button"
-                  className={cls}
-                  style={{ gridColumn: cell.col + 1, gridRow: cell.row }}
-                  onClick={() => {
-                    onChange(cell.iso);
-                    setOpen(false);
-                  }}
-                >
-                  {cell.jd}
-                </button>
-              );
-            })}
-          </div>
-          <div className="jdfFooter">
-            <button
-              type="button"
-              className="jdfTodayBtn"
-              onClick={() => {
-                const t = todayJalali();
-                onChange(isoFromJalali(t.jy, t.jm, t.jd));
-                setOpen(false);
-              }}
-            >
-              امروز
-            </button>
-            {value ? (
-              <button
-                type="button"
-                className="jdfClearBtn"
-                onClick={() => {
-                  onChange("");
-                  setOpen(false);
-                }}
-              >
-                پاک کردن
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      {pop}
     </div>
   );
 }

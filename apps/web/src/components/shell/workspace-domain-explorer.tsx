@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, type CSSProperties } from "react";
+import { useEffect, useMemo } from "react";
 import {
   ContextualMosaicHub,
   type ContextualMosaicFact,
@@ -22,7 +22,8 @@ import {
   type DomainFolderBase,
   type DomainGroupKey,
 } from "@/lib/navigation-v2";
-import { TILE_GEM_PALETTES } from "@/lib/tile-gem-palettes";
+import { gemCssVars } from "@/lib/tile-gem-palettes";
+import { prefetchRoute, softTileHaptic } from "@/lib/tile-press";
 import { t } from "@/lib/i18n";
 
 export function WorkspaceDomainExplorer({
@@ -198,24 +199,20 @@ export function WorkspaceDomainExplorer({
       <ul className="shell-tools__folder-grid">
         {visibleDomains.map((domain) => {
           const count = folderCounts[domain];
-          const gem = TILE_GEM_PALETTES[DOMAIN_GROUP_GEM[domain]]!;
           const enabled = count > 0 && Boolean(slug);
           const href = enabled && slug ? workspaceFolderHref(slug, folderBase, domain) : null;
-          const tileStyle = {
-            "--tile-gem-edge": gem.edge,
-            "--tile-gem-mid": gem.mid,
-            "--tile-gem-center": gem.center,
-            "--tile-gem-ink": gem.ink,
-          } as CSSProperties;
+          const tileStyle = gemCssVars(DOMAIN_GROUP_GEM[domain]);
           return (
             <li key={domain}>
               {href ? (
                 <Link
                   href={href}
-                  className="shell-tools__folder-tile"
+                  className="dang-gem shell-tools__folder-tile"
                   style={tileStyle}
-                  onMouseEnter={() => router.prefetch(href)}
-                  onFocus={() => router.prefetch(href)}
+                  onMouseEnter={() => prefetchRoute(router, href)}
+                  onFocus={() => prefetchRoute(router, href)}
+                  onTouchStart={() => prefetchRoute(router, href)}
+                  onPointerDown={() => softTileHaptic()}
                 >
                   <span className="shell-tools__folder-count">{count}</span>
                   <strong>{domainGroupLabel(domain)}</strong>
@@ -227,7 +224,7 @@ export function WorkspaceDomainExplorer({
                 </Link>
               ) : (
                 <span
-                  className="shell-tools__folder-tile is-disabled"
+                  className="dang-gem shell-tools__folder-tile is-disabled"
                   style={tileStyle}
                   aria-disabled="true"
                 >

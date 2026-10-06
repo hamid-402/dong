@@ -1,22 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { AppBreadcrumb, type BreadcrumbCrumb } from "@/components/shell/app-breadcrumb";
 import { DirIcon } from "@/components/dir-icon";
-import { trailParentHref } from "@/lib/shell-breadcrumb";
+import { trailParent } from "@/lib/shell-breadcrumb";
 import { useViewportMode } from "@/lib/use-viewport";
 import { t } from "@/lib/i18n";
-
-function sameOriginReferrer(): boolean {
-  if (typeof window === "undefined") return false;
-  const ref = document.referrer;
-  if (!ref) return true;
-  try {
-    return new URL(ref).origin === window.location.origin;
-  } catch {
-    return false;
-  }
-}
 
 function collapseCrumbs(items: BreadcrumbCrumb[]): BreadcrumbCrumb[] {
   if (items.length <= 2) return items;
@@ -26,45 +15,49 @@ function collapseCrumbs(items: BreadcrumbCrumb[]): BreadcrumbCrumb[] {
 }
 
 /**
- * Unified path chrome for Shell V2: back + breadcrumb (≤3).
- * Classic auth shells keep PageTrailBar; workspace/account use this.
+ * Path chrome for subpages: one back control aimed at the parent crumb.
+ * The destination matches the breadcrumb, so the button and the path agree.
+ * `backOnly` — back control alone; the path lives in ShellHeaderWayfinding.
  */
 export function ShellPageTrail({
   items,
-  fallbackHref = "/spaces",
+  fallbackHref = "/home",
+  backOnly = false,
 }: {
   items: BreadcrumbCrumb[];
   fallbackHref?: string;
+  backOnly?: boolean;
 }) {
-  const router = useRouter();
   const viewport = useViewportMode();
-  const parentHref = trailParentHref(items, fallbackHref);
+  const parent = trailParent(items, fallbackHref);
   if (items.length === 0) return null;
 
+  const place = parent.label || t("nav.back");
+  const aria = parent.label ? t("nav.backTo", { place: parent.label }) : t("nav.back");
   const displayItems =
     viewport === "mobile" ? collapseCrumbs(items) : items.slice(0, 3);
 
   return (
-    <div className="shell-page-trail" aria-label={t("nav.pageTrail")}>
-      <button
-        type="button"
+    <div
+      className={`shell-page-trail${backOnly ? " shell-page-trail--backOnly" : ""}`}
+      aria-label={t("nav.pageTrail")}
+    >
+      <Link
+        href={parent.href}
         className="shell-page-trail__back"
-        onClick={() => {
-          if (typeof window !== "undefined" && window.history.length > 1 && sameOriginReferrer()) {
-            router.back();
-            return;
-          }
-          router.push(parentHref || fallbackHref);
-        }}
+        aria-label={aria}
+        title={aria}
       >
         <span className="shell-page-trail__back-icon" aria-hidden>
-          <DirIcon>→</DirIcon>
+          <DirIcon flip={false}>→</DirIcon>
         </span>
-        <span className="shell-page-trail__back-label">{t("nav.back")}</span>
-      </button>
-      <div className="shell-page-trail__crumbs">
-        <AppBreadcrumb items={displayItems} />
-      </div>
+        <span className="shell-page-trail__back-label">{place}</span>
+      </Link>
+      {backOnly ? null : (
+        <div className="shell-page-trail__crumbs">
+          <AppBreadcrumb items={displayItems} />
+        </div>
+      )}
     </div>
   );
 }

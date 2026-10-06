@@ -63,6 +63,13 @@ export type DisableMemberInput = {
   reason: string;
 };
 
+/** Self-leave: soft-disable own membership (non-owner). */
+export type LeaveMembershipInput = {
+  workspaceId: string;
+  userId: string;
+  reason?: string;
+};
+
 export type CreateJoinRequestInput = {
   workspaceId: string;
   userId: string;
@@ -111,11 +118,28 @@ export type IamStore = {
   addMemberByUserId(input: AddMemberByUserIdInput): Promise<MembershipSummary>;
   changeMemberRole(input: ChangeMemberRoleInput): Promise<MembershipSummary>;
   disableMember(input: DisableMemberInput): Promise<MembershipSummary>;
+  /** Soft-disable own membership. Owners must transfer first. */
+  leaveMembership(input: LeaveMembershipInput): Promise<MembershipSummary>;
   enableMember(
     workspaceId: string,
     actorUserId: string,
     targetUserId: string,
   ): Promise<MembershipSummary>;
+  /** Owner-only soft archive (ledger retained). */
+  archiveWorkspace(
+    workspaceId: string,
+    actorUserId: string,
+  ): Promise<WorkspaceSummary>;
+  unarchiveWorkspace(
+    workspaceId: string,
+    actorUserId: string,
+  ): Promise<WorkspaceSummary>;
+  /** Owner-only soft delete; confirmSlug must match workspace slug. */
+  softDeleteWorkspace(
+    workspaceId: string,
+    actorUserId: string,
+    confirmSlug: string,
+  ): Promise<WorkspaceSummary>;
   listJoinRequests(
     workspaceId: string,
     actorUserId: string,

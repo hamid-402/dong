@@ -88,7 +88,12 @@ export type SystemCapabilities = {
     payment: "stub" | "local_psp" | "zarinpal";
     ocr: "stub" | "configured";
     antivirus: "stub" | "configured";
-    jobs: "inline_stub" | "redis_queue";
+    /**
+     * inline_stub = no Redis queue.
+     * redis_queue = Redis + worker heartbeat alive.
+     * redis_queue_degraded = Redis configured but worker heartbeat dead (enqueue may stall).
+     */
+    jobs: "inline_stub" | "redis_queue" | "redis_queue_degraded";
     email: "log" | "resend" | "smtp" | "none";
     attachmentBlob: "local" | "none";
     /** Table-backed rates; conversion remains intentionally non-live. */
@@ -211,10 +216,16 @@ export type SystemCapabilities = {
      */
     catalog?: "none" | "catalog_v1";
     /**
-     * Member statements + CSV/JSON export (S11-08).
-     * csv_json_print_v1 = real endpoints; PDF via browser print page.
+     * Member statements + CSV/JSON/XLSX pack + print HTML (S11-08+).
+     * csv_json_print_v1 = real endpoints; browser print HTML always available.
+     * Binary pack PDF is reported separately via statementPackPdf.
      */
     statements?: "none" | "csv_json_print_v1";
+    /**
+     * Binary statement-pack PDF (pdfkit + bundled Vazirmatn).
+     * pdfkit_vazir_v1 when font file is present; else unavailable (HTML print still works).
+     */
+    statementPackPdf?: "unavailable" | "pdfkit_vazir_v1";
     /**
      * Workspace receiving-account instructions shown on statements.
      * workspace_v1 = GET/PUT payout-instructions live (not PSP custody).
@@ -243,6 +254,11 @@ export type SystemCapabilities = {
      * goals_v1 = progress computed from real contributions only.
      */
     savingsGoals?: "none" | "goals_v1";
+    /**
+     * Configurable money intents/rules (save %, spend cap, debt floor, …).
+     * intents_v1 = CRUD + home evaluation from live pulse metrics.
+     */
+    moneyIntents?: "none" | "intents_v1";
     /**
      * Real chart aggregates (S11-11).
      * charts_v1 = points from expenses / money_txn / analytics / monthly_close / savings.
@@ -316,11 +332,17 @@ export type SystemCapabilities = {
     activityFeed?: "none" | "activity_v1";
   };
   /**
-   * true when FX rate table is available (DATABASE_URL) and expense drafts
+   * true when the FX rate table has at least one row and expense drafts
    * can bind originalCurrency → IRR total via the live conversion path.
+   * Not inferred from DATABASE_URL alone (empty table ⇒ false).
    * Ledger storage remains IRR-only.
    */
   conversionLive?: boolean;
+  /**
+   * Public support inbox when CONTACT_INBOX or SUPPORT_EMAIL is set to a real address.
+   * Null/absent ⇒ no mailto chrome (never invent @dang.local).
+   */
+  supportContactEmail?: string | null;
   integrationsReady?: {
     zarinpal: { merchantConfigured: boolean; enabled: boolean };
     clamav: { hostConfigured: boolean; enabled: boolean };

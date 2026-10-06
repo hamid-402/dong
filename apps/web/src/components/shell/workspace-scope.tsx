@@ -41,11 +41,11 @@ export function WorkspaceScopeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!chromeReady) return;
     if (!slugParam) {
-      router.replace("/spaces");
+      router.replace("/home");
       return;
     }
     if (!match) {
-      router.replace("/spaces");
+      router.replace("/home");
       return;
     }
     if (match.id !== workspaceId) {

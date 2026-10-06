@@ -30,7 +30,7 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
     void (async () => {
       const goLogin = () => {
         clearClientSession();
-        const next = encodeURIComponent(pathname || "/spaces");
+        const next = encodeURIComponent(pathname || "/home");
         router.replace(`/login?next=${next}`);
       };
 

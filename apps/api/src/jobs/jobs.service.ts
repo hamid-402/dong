@@ -111,6 +111,9 @@ export class JobsService {
     meta?: Record<string, string>,
   ): Promise<JobRunResult> {
     await this.access.requireMember(workspaceId, actor.userId);
+    if (name === "settle.remind") {
+      await this.access.requireFinanceManager(workspaceId, actor.userId);
+    }
     const jobMeta =
       name === "recurrence.tick" ||
       name === "analytics.etl" ||

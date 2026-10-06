@@ -12,8 +12,10 @@ import {
 } from "@dang/contracts";
 import type {
   LedgerStore,
+  LedgerWriteOptions,
   OnBehalfJournalInput,
   PaymentReceiptJournalInput,
+  RebuildExpenseJournalResult,
 } from "./ledger.types.js";
 
 export class MemoryLedgerStore implements LedgerStore {
@@ -33,6 +35,7 @@ export class MemoryLedgerStore implements LedgerStore {
   async postExpense(
     actorUserId: string,
     expense: ExpenseSummary,
+    options?: LedgerWriteOptions,
   ): Promise<JournalEntrySummary> {
     if (expense.status !== "posted") {
       throw new Error("LEDGER_EXPENSE_STATUS");
@@ -43,7 +46,11 @@ export class MemoryLedgerStore implements LedgerStore {
       sourceId: expense.id,
       actorUserId,
       idempotencyKey: `expense.post:${expense.id}`,
-      lines: buildExpenseJournalLines(expense),
+      lines: buildExpenseJournalLines(expense, {
+        fundAsSettlementParty: options?.fundAsSettlementParty,
+        defaultFundId: options?.defaultFundId,
+      }),
+      occurredOn: expense.occurredOn,
     });
   }
 
@@ -61,6 +68,59 @@ export class MemoryLedgerStore implements LedgerStore {
     this.entries.set(existingId, { ...existing, status: "reversed" });
   }
 
+  async rebuildExpenseJournal(
+    actorUserId: string,
+    expense: ExpenseSummary,
+    options?: LedgerWriteOptions,
+  ): Promise<RebuildExpenseJournalResult> {
+    if (expense.status !== "posted") {
+      throw new Error("LEDGER_EXPENSE_STATUS");
+    }
+    const key = this.sourceKey(expense.workspaceId, "expense", expense.id);
+    const existingId = this.sourceIndex.get(key);
+    const existing = existingId ? this.entries.get(existingId) : undefined;
+    const alreadyFund =
+      existing?.status === "posted" &&
+      existing.lines.some((l) => l.accountCode.startsWith("fund:"));
+    if (alreadyFund && !options?.force) {
+      return { status: "skipped", entry: existing };
+    }
+
+    if (existing) {
+      const legacySource = `${expense.id}#legacy-${existing.id.slice(0, 8)}`;
+      const legacyKey = this.sourceKey(
+        expense.workspaceId,
+        "expense",
+        legacySource,
+      );
+      this.entries.set(existingId!, {
+        ...existing,
+        status: "reversed",
+        sourceId: legacySource,
+        idempotencyKey: `expense.post.legacy:${existing.id}`,
+      });
+      this.sourceIndex.delete(key);
+      this.sourceIndex.set(legacyKey, existingId!);
+    }
+
+    const entry = await this.post({
+      workspaceId: expense.workspaceId,
+      sourceType: "expense",
+      sourceId: expense.id,
+      actorUserId,
+      idempotencyKey: `expense.fund_party.rebuild:${expense.id}:${Date.now()}`,
+      lines: buildExpenseJournalLines(expense, {
+        fundAsSettlementParty: options?.fundAsSettlementParty,
+        defaultFundId: options?.defaultFundId,
+      }),
+      occurredOn: expense.occurredOn,
+    });
+    return {
+      status: existing ? "rebuilt" : "created",
+      entry,
+    };
+  }
+
   async postSettlement(
     actorUserId: string,
     settlement: SettlementSummary,
@@ -75,6 +135,7 @@ export class MemoryLedgerStore implements LedgerStore {
       actorUserId,
       idempotencyKey: `settlement.confirm:${settlement.id}`,
       lines: buildSettlementJournalLines(settlement),
+      occurredOn: settlement.createdAt.slice(0, 10),
     });
   }
 
@@ -128,6 +189,7 @@ export class MemoryLedgerStore implements LedgerStore {
     actorUserId: string;
     idempotencyKey: string;
     lines: JournalEntrySummary["lines"];
+    occurredOn?: string;
   }): Promise<JournalEntrySummary> {
     assertBalancedJournalLines(input.lines);
     const key = this.sourceKey(input.workspaceId, input.sourceType, input.sourceId);
@@ -140,6 +202,11 @@ export class MemoryLedgerStore implements LedgerStore {
       return Promise.resolve(existing);
     }
 
+    const createdAt = new Date().toISOString();
+    const occurredOn =
+      input.occurredOn && /^\d{4}-\d{2}-\d{2}/.test(input.occurredOn)
+        ? input.occurredOn.slice(0, 10)
+        : createdAt.slice(0, 10);
     const id = crypto.randomUUID();
     const entry: JournalEntrySummary = {
       id,
@@ -151,7 +218,8 @@ export class MemoryLedgerStore implements LedgerStore {
       lines: input.lines,
       idempotencyKey: input.idempotencyKey,
       actorUserId: input.actorUserId,
-      createdAt: new Date().toISOString(),
+      occurredOn,
+      createdAt,
     };
     this.entries.set(id, entry);
     this.sourceIndex.set(key, id);

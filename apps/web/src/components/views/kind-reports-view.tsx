@@ -15,6 +15,13 @@ import {
   type ReportMonths,
 } from "@/components/charts/report-range-toolbar";
 import { PageHeader, SectionCard, StatusLine, StatusPill } from "@/components/ui-blocks";
+import {
+  RowSelectCheckbox,
+  SelectionActionBar,
+  rowSelectActivateProps,
+} from "@/components/selection/selection-action-bar";
+import { useRowSelection } from "@/components/selection/use-row-selection";
+import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
@@ -36,6 +43,7 @@ import {
 import { MiniSparkline } from "@/components/charts/mini-sparkline";
 import { NAV_LABELS, spaceTabLabel } from "@/lib/nav-labels";
 import { netFromIrrMinor, type SpaceNetRow } from "@/lib/space-net-balance";
+import { useDisplayUnit } from "@/lib/display-unit";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { wPath } from "@/lib/workspace-paths";
 
@@ -57,6 +65,7 @@ export function KindReportsView({
   onMonthsChange?: (months: ReportMonths) => void;
 }) {
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
   const chartsEnabled = chrome.capabilities?.providers?.charts === "charts_v1";
   const reportViewsEnabled =
     chrome.capabilities?.providers?.reportViews === "report_views_v1";
@@ -76,6 +85,12 @@ export function KindReportsView({
   const [savedViews, setSavedViews] = useState<ReportViewSummary[]>([]);
   const [viewName, setViewName] = useState("");
   const [viewMsg, setViewMsg] = useState<string | null>(null);
+  const savedViewIds = useMemo(() => savedViews.map((v) => v.id), [savedViews]);
+  const viewSelection = useRowSelection(savedViewIds);
+  const barView =
+    viewSelection.selectedCount === 1
+      ? (savedViews.find((v) => v.id === viewSelection.selectedIds[0]) ?? null)
+      : null;
 
   const spaces = useMemo(
     () =>
@@ -112,7 +127,7 @@ export function KindReportsView({
             slug: ws.slug,
             name: ws.name,
             spaceKind: kind,
-            net: netFromIrrMinor(line.net.amountMinor),
+            net: netFromIrrMinor(line.net.amountMinor, displayUnit),
             openSettlements: line.openSettlements,
           });
         }
@@ -124,7 +139,7 @@ export function KindReportsView({
     return () => {
       cancelled = true;
     };
-  }, [chrome.ready, spaces, kind]);
+  }, [chrome.ready, spaces, kind, displayUnit]);
 
   useEffect(() => {
     if (!chartsEnabled || spaces.length === 0) {
@@ -235,9 +250,9 @@ export function KindReportsView({
   const insights = useMemo(() => {
     const items = [
       ...(chartsEnabled ? buildTrendInsights(mergedTrend, "خرج حوزه") : []),
-      ...(chartsEnabled ? buildShareInsights(mergedMix, "دسته") : []),
-      ...(chartsEnabled ? buildShareInsights(spendLeaderboard, "فضا از نظر خرج") : []),
-      ...buildShareInsights(netShare, "فضا از نظر مانده"),
+      ...(chartsEnabled ? buildShareInsights(mergedMix, "دسته", "mix") : []),
+      ...(chartsEnabled ? buildShareInsights(spendLeaderboard, "فضا از نظر خرج", "spend") : []),
+      ...buildShareInsights(netShare, "فضا از نظر مانده", "net"),
     ];
     return items.slice(0, 8);
   }, [chartsEnabled, mergedTrend, mergedMix, netShare, spendLeaderboard]);
@@ -287,13 +302,25 @@ export function KindReportsView({
     setViewMsg(`نما «${view.name}» اعمال شد`);
   }
 
-  function onDeleteView(id: string) {
+  function deleteSelectedViews() {
+    if (viewSelection.selectedCount === 0) return;
+    const ids = viewSelection.selectedIds;
+    const label =
+      ids.length === 1
+        ? "این نما حذف شود؟"
+        : `${ids.length.toLocaleString("fa-IR")} نما حذف شوند؟`;
+    if (!window.confirm(label)) return;
     startTransition(() => {
       void (async () => {
         try {
-          await api.deleteReportView(id);
-          setSavedViews((prev) => prev.filter((v) => v.id !== id));
-          setViewMsg("نما حذف شد");
+          for (const id of ids) await api.deleteReportView(id);
+          setSavedViews((prev) => prev.filter((v) => !ids.includes(v.id)));
+          viewSelection.clear();
+          setViewMsg(
+            ids.length === 1
+              ? "نما حذف شد"
+              : `${ids.length.toLocaleString("fa-IR")} نما حذف شد`,
+          );
         } catch (err: unknown) {
           setViewMsg(friendlyErrorMessage(err, "حذف نما ناموفق"));
         }
@@ -331,7 +358,7 @@ export function KindReportsView({
         }
         actions={
           <>
-            <Link className="textButton" href={`/spaces?kind=${kind}`}>
+            <Link className="textButton" href={`/home?kind=${kind}`}>
               فهرست فضاها
             </Link>
             <Link className="shell-v2__cta" href={`/spaces/new?kind=${kind}`}>
@@ -500,26 +527,62 @@ export function KindReportsView({
               {savedViews.length === 0 ? (
                 <EmptyHintLocal />
               ) : (
-                <ul className="kindReports__savedList">
-                  {savedViews.map((v) => (
-                    <li key={v.id}>
-                      <button type="button" className="textButton" onClick={() => applyView(v)}>
-                        {v.name}
-                      </button>
-                      <span>
-                        {v.months}م · {v.sortKey}
-                      </span>
-                      <button
-                        type="button"
-                        className="textButton"
-                        disabled={pending}
-                        onClick={() => onDeleteView(v.id)}
+                <>
+                  <SelectionActionBar
+                    selectedCount={viewSelection.selectedCount}
+                    idleHint="روی ردیف کلیک کنید یا مربع کنار نما را تیک بزنید"
+                    onClear={viewSelection.clear}
+                  >
+                    <button
+                      type="button"
+                      disabled={!barView || pending}
+                      onClick={() => {
+                        if (!barView) return;
+                        applyView(barView);
+                        viewSelection.clear();
+                      }}
+                    >
+                      اعمال
+                    </button>
+                    <button
+                      type="button"
+                      className={selStyles.danger}
+                      disabled={viewSelection.selectedCount === 0 || pending}
+                      onClick={deleteSelectedViews}
+                    >
+                      حذف
+                    </button>
+                  </SelectionActionBar>
+                  <ul className="kindReports__savedList">
+                    {savedViews.map((v) => (
+                      <li
+                        key={v.id}
+                        className={selStyles.selectableRow}
+                        {...rowSelectActivateProps({
+                          onActivate: () => viewSelection.toggle(v.id),
+                        })}
                       >
-                        حذف
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <RowSelectCheckbox
+                            checked={viewSelection.isSelected(v.id)}
+                            onChange={() => viewSelection.toggle(v.id)}
+                            label={`انتخاب نمای ${v.name}`}
+                          />
+                          <span>{v.name}</span>
+                        </span>
+                        <span>
+                          {v.months}م · {v.sortKey}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               )}
             </SectionCard>
           ) : null}

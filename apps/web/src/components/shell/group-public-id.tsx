@@ -38,7 +38,7 @@ export function GroupPublicIdCard({
     return (
       <div className="groupPublicId groupPublicId--compact">
         <span className="groupPublicId__label">شناسه گروه</span>
-        <code className="groupPublicId__code" title={slug}>
+        <code className="groupPublicId__code" dir="ltr" title={slug}>
           {slug}
         </code>
         <button
@@ -61,7 +61,11 @@ export function GroupPublicIdCard({
       <header className="groupPublicId__head">
         <h2 className="groupPublicId__title">شناسه گروه</h2>
         <p className="groupPublicId__lead">
-          {name ? `«${name}» · ` : null}
+          {name ? (
+            <>
+              «<bdi>{name}</bdi>» ·{" "}
+            </>
+          ) : null}
           این شناسه را به دوستان بدهید تا با صفحهٔ پیوستن درخواست عضویت بفرستند — لازم نیست
           دعوت بسازید.
         </p>

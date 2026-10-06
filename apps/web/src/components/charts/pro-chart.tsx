@@ -7,10 +7,13 @@ import {
   chartMaxMinor,
   chartPointMinor,
   chartSecondaryMinor,
+  chartSourceLabel,
   formatChartToman,
 } from "@/lib/chart-format";
 import {
   downloadTextFile,
+  formatChartMonthLabel,
+  formatChartRangeLabel,
   seriesToCsv,
   withFriendlyChartLabels,
 } from "@/lib/chart-insights";
@@ -121,7 +124,8 @@ export function ProChart({
         <EmptyStateBlock
           title="داده‌ای برای گزارش نیست"
           description={series?.emptyReason ?? "هنوز دادهٔ واقعی ثبت نشده است"}
-          sticker="calendar"
+          sticker="chartEmpty"
+          stickerSize={64}
         />
       </section>
     );
@@ -152,16 +156,33 @@ export function ProChart({
         </div>
         <p className={styles.meta}>
           <span>
-            منبع: <span className={styles.stat}>{series.source}</span>
+            منبع:{" "}
+            <span className={styles.stat} title={series.source}>
+              {chartSourceLabel(series.source)}
+            </span>
           </span>
           {series.months != null ? (
             <span>
-              بازه: <span className={styles.stat}>{series.months} ماه</span>
+              بازه:{" "}
+              <span className={styles.stat}>
+                {series.months.toLocaleString("fa-IR")} ماه
+              </span>
             </span>
           ) : null}
           {series.from && series.to ? (
-            <span dir="ltr">
-              {series.from} → {series.to}
+            <span>
+              شمسی:{" "}
+              <span className={styles.stat}>
+                {formatChartRangeLabel(series.from, series.to)}
+              </span>
+            </span>
+          ) : null}
+          {series.yearMonth ? (
+            <span>
+              ماه:{" "}
+              <span className={styles.stat}>
+                {formatChartMonthLabel(series.yearMonth)}
+              </span>
             </span>
           ) : null}
           {total > 0n && variant !== "dualColumn" && variant !== "progress" ? (
@@ -435,7 +456,17 @@ function DonutChart({ series }: { series: ChartSeriesResponse }) {
   const r = 58;
   const stroke = 22;
   const c = 2 * Math.PI * r;
-  let offset = 0;
+  const arcs: Array<{ point: (typeof series.points)[number]; dash: number; offset: number }> = [];
+  {
+    let cursor = 0;
+    for (const point of series.points) {
+      const value = chartPointMinor(point);
+      const frac = total > 0n ? Number(value) / Number(total) : 0;
+      const dash = frac * c;
+      arcs.push({ point, dash, offset: cursor });
+      cursor += dash;
+    }
+  }
 
   return (
     <div className={styles.donutWrap}>
@@ -455,32 +486,25 @@ function DonutChart({ series }: { series: ChartSeriesResponse }) {
           stroke="color-mix(in srgb, var(--line) 80%, transparent)"
           strokeWidth={stroke}
         />
-        {series.points.map((point, index) => {
-          const value = chartPointMinor(point);
-          const frac = total > 0n ? Number(value) / Number(total) : 0;
-          const dash = frac * c;
-          const el = (
-            <circle
-              key={point.key}
-              cx={cx}
-              cy={cy}
-              r={r}
-              fill="none"
-              stroke={DONUT_COLORS[index % DONUT_COLORS.length]}
-              strokeWidth={stroke}
-              strokeDasharray={`${dash} ${c - dash}`}
-              strokeDashoffset={-offset}
-              transform={`rotate(-90 ${cx} ${cy})`}
-              strokeLinecap="butt"
-            >
-              <title>
-                {point.label}: {formatChartToman(point.valueMinor)}
-              </title>
-            </circle>
-          );
-          offset += dash;
-          return el;
-        })}
+        {arcs.map((arc, index) => (
+          <circle
+            key={arc.point.key}
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke={DONUT_COLORS[index % DONUT_COLORS.length]}
+            strokeWidth={stroke}
+            strokeDasharray={`${arc.dash} ${c - arc.dash}`}
+            strokeDashoffset={-arc.offset}
+            transform={`rotate(-90 ${cx} ${cy})`}
+            strokeLinecap="butt"
+          >
+            <title>
+              {arc.point.label}: {formatChartToman(arc.point.valueMinor)}
+            </title>
+          </circle>
+        ))}
         <text
           x={cx}
           y={cy - 4}

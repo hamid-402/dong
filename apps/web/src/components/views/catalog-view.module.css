@@ -49,6 +49,13 @@
   justify-content: end;
 }
 
+.rowTitleWithCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .itemBlock {
   display: flex;
   flex-direction: column;

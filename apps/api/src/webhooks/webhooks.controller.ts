@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Inject,
   Param,
   Post,
   UseGuards,
@@ -30,7 +31,7 @@ const createWebhookSchema = z
 @Controller("workspaces/:workspaceId/webhooks")
 @UseGuards(AuthGuard)
 export class WebhooksController {
-  constructor(private readonly webhooks: WebhooksService) {}
+  constructor(@Inject(WebhooksService) private readonly webhooks: WebhooksService) {}
 
   @Get()
   list(
@@ -40,11 +41,32 @@ export class WebhooksController {
     return this.webhooks.list(actor, workspaceId);
   }
 
+  @Get("deliveries")
+  listDeliveries(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+  ) {
+    return this.webhooks.listDeliveries(actor, workspaceId, { limit: 40 });
+  }
+
+  @Get(":webhookId/deliveries")
+  listWebhookDeliveries(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("webhookId") webhookId: string,
+  ) {
+    return this.webhooks.listDeliveries(actor, workspaceId, {
+      webhookId,
+      limit: 40,
+    });
+  }
+
   @Post()
   create(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Body(new ZodValidationPipe(createWebhookSchema)) body: CreateWorkspaceWebhookRequest,
+    @Body(new ZodValidationPipe(createWebhookSchema))
+    body: CreateWorkspaceWebhookRequest,
   ) {
     return this.webhooks.create(actor, workspaceId, { ...body, workspaceId });
   }

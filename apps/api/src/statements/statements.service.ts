@@ -10,14 +10,25 @@ import {
   statementDetailToCsv,
   statementDetailToJson,
   summarizeMemberStatement,
+  buildStatementPack,
+  statementPackToCsv,
+  buildStatementPackPrintHtml,
+  defaultKindDocumentTitle,
+  spaceKindForTemplate,
   type AuthActor,
   type CreateStatementExportRequest,
+  type CreateStatementPackExportRequest,
   type MemberStatementDetail,
   type StatementExportSummary,
   type StatementGranularity,
   type WorkspacePayoutInstructions,
   type WorkspaceStatementsResponse,
 } from "@dang/contracts";
+import { buildXlsxWorkbook } from "../reports/xlsx-body.js";
+import {
+  buildStatementPackPdf,
+  statementPackPdfProviderMode,
+} from "../reports/statement-pack-pdf.js";
 import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
 import { ACCOUNT_STORE, type AccountStore } from "../auth/account.types.js";
 import { MailerService } from "../auth/mailer.service.js";
@@ -77,6 +88,12 @@ export class StatementsService {
 
   providerMode(): "csv_json_print_v1" {
     return "csv_json_print_v1";
+  }
+
+  /** Honest binary PDF capability — depends on bundled Vazirmatn font. */
+  packPdfProviderMode(): "pdfkit_vazir_v1" | "unavailable" {
+    // Lazy import path via reports helper would create cycle; duplicate check here.
+    return statementPackPdfProviderMode();
   }
 
   payoutProviderMode(): "workspace_v1" {
@@ -337,6 +354,186 @@ export class StatementsService {
     return this.toSummary(created);
   }
 
+  /**
+   * Organizational pack: master day×member sheet + one sheet per member
+   * (xlsx / csv / formal HTML print / binary PDF).
+   */
+  async createPackExport(
+    actor: AuthActor,
+    workspaceId: string,
+    body: CreateStatementPackExportRequest,
+  ): Promise<StatementExportSummary> {
+    const { role } = await this.access.requireAccess(
+      workspaceId,
+      actor.userId,
+      "statement.read_self",
+    );
+    const canReadAny = this.access.evaluate(
+      role,
+      "statement.read_any",
+      actor.userId,
+    ).allowed;
+    await this.access.requireAccess(workspaceId, actor.userId, "statement.export", {
+      ownerUserId: actor.userId,
+    });
+
+    const allMembers = (await this.iam.listMembers(workspaceId, actor.userId)) ?? [];
+    const members = canReadAny
+      ? allMembers
+      : allMembers.filter((m) => m.userId === actor.userId);
+    if (!members.length) {
+      throw new NotFoundException({
+        type: "https://dang.local/problems/not-found",
+        title: "عضوی یافت نشد",
+        status: 404,
+      });
+    }
+
+    const workspace = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
+    const expenses = await this.loadExpenses(workspaceId, actor.userId);
+    const payoutRow = await this.payout.get(workspaceId, actor.userId);
+    const payoutInstructions = payoutRow
+      ? ({
+          holderName: payoutRow.holderName,
+          destinationKind: payoutRow.destinationKind,
+          destinationValue: payoutRow.destinationValue,
+          bankName: payoutRow.bankName,
+          updatedAt: payoutRow.updatedAt,
+          updatedByUserId: payoutRow.updatedByUserId,
+        } satisfies WorkspacePayoutInstructions)
+      : null;
+
+    const kind = spaceKindForTemplate(workspace?.template);
+    const kindLabel =
+      kind === "personal"
+        ? "شخصی"
+        : kind === "building"
+          ? "ساختمان"
+          : kind === "org"
+            ? "سازمان"
+            : "گروه";
+
+    const issuedAtIso = new Date().toISOString();
+    const documentNo =
+      body.documentNo?.trim() ||
+      `STP-${workspaceId.slice(0, 8)}-${body.from.replaceAll("-", "")}`;
+
+    const pack = buildStatementPack({
+      meta: {
+        workspaceId,
+        workspaceName: workspace?.name ?? workspaceId,
+        spaceKindLabel: kindLabel,
+        kindDocumentTitle:
+          body.kindDocumentTitle?.trim() || defaultKindDocumentTitle(kindLabel),
+        letterheadNote: body.letterheadNote?.trim() || undefined,
+        footerNote:
+          body.footerNote?.trim() ||
+          "این سند بر اساس هزینه‌های ثبت‌شده در سامانه دنگ صادر شده است.",
+        sealLabel: body.sealLabel?.trim() || undefined,
+        from: body.from,
+        to: body.to,
+        documentNo,
+        issuedAtIso,
+        payoutInstructions,
+      },
+      members: members.map((m) => ({
+        userId: m.userId,
+        displayName: m.displayName?.trim() || m.userId.slice(0, 8),
+      })),
+      expenses,
+    });
+
+    const id = crypto.randomUUID();
+    let fileName: string;
+    let mimeType: string;
+    let content: string;
+    let encoding: "utf8" | "base64" = "utf8";
+
+    if (body.format === "xlsx") {
+      const buf = buildXlsxWorkbook(pack.sheets);
+      content = buf.toString("base64");
+      encoding = "base64";
+      mimeType =
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      fileName = `statement-pack-${body.from}_${body.to}.xlsx`;
+    } else if (body.format === "pdf") {
+      const buf = await buildStatementPackPdf(pack);
+      if (!buf.length || buf.subarray(0, 4).toString("latin1") !== "%PDF") {
+        throw new HttpException(
+          {
+            type: "https://dang.local/problems/pdf-unavailable",
+            title: "PDF در دسترس نیست",
+            status: 503,
+            detail:
+              statementPackPdfProviderMode() === "unavailable"
+                ? "فونت Vazirmatn روی سرور نیست — از چاپ رسمی HTML استفاده کنید"
+                : "تولید PDF ناموفق بود",
+          },
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      content = buf.toString("base64");
+      encoding = "base64";
+      mimeType = "application/pdf";
+      fileName = `statement-pack-${body.from}_${body.to}.pdf`;
+    } else if (body.format === "html_print") {
+      content = buildStatementPackPrintHtml(pack);
+      mimeType = "text/html; charset=utf-8";
+      fileName = `statement-pack-${body.from}_${body.to}.html`;
+    } else {
+      content = statementPackToCsv(pack);
+      mimeType = "text/csv; charset=utf-8";
+      fileName = `statement-pack-${body.from}_${body.to}.csv`;
+    }
+
+    const nowIso = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + EXPORT_TTL_MS).toISOString();
+    const downloadPath = `/workspaces/${workspaceId}/statements/exports/${id}/download`;
+    const created = await this.exports.create({
+      id,
+      workspaceId,
+      subjectUserId: actor.userId,
+      from: body.from,
+      to: body.to,
+      format:
+        body.format === "csv"
+          ? "csv"
+          : body.format === "xlsx"
+            ? "xlsx"
+            : body.format === "pdf"
+              ? "pdf"
+              : "html_print",
+      status: "ready",
+      rowCount: pack.details.reduce((n, d) => n + d.lines.length, 0),
+      downloadPath,
+      requestedByUserId: actor.userId,
+      createdAt: nowIso,
+      completedAt: nowIso,
+      expiresAt,
+      body: encoding === "base64" ? `base64:${content}` : content,
+      mimeType,
+      fileName,
+    });
+
+    await this.audit.append({
+      workspaceId,
+      actorUserId: actor.userId,
+      action: "statement.pack.export.create",
+      targetType: "statement_export",
+      targetId: id,
+      result: "success",
+      metadata: {
+        format: body.format,
+        from: body.from,
+        to: body.to,
+        memberCount: String(members.length),
+        rowCount: String(created.rowCount),
+      },
+    });
+
+    return this.toSummary(created);
+  }
+
   async getExport(
     actor: AuthActor,
     workspaceId: string,
@@ -359,7 +556,7 @@ export class StatementsService {
     actor: AuthActor,
     workspaceId: string,
     exportId: string,
-  ): Promise<{ body: string; mimeType: string; fileName: string }> {
+  ): Promise<{ body: string | Buffer; mimeType: string; fileName: string }> {
     await this.access.requireMember(workspaceId, actor.userId);
     const row = await this.exports.get(workspaceId, exportId, actor.userId);
     if (!row || row.status !== "ready" || !row.body) {
@@ -395,8 +592,12 @@ export class StatementsService {
       },
     });
 
+    const raw = row.body;
+    const body =
+      raw.startsWith("base64:") ? Buffer.from(raw.slice("base64:".length), "base64") : raw;
+
     return {
-      body: row.body,
+      body,
       mimeType: row.mimeType ?? "application/octet-stream",
       fileName: row.fileName ?? `statement-${exportId}`,
     };

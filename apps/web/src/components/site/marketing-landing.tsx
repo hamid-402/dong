@@ -64,13 +64,15 @@ function SessionContinueBanner() {
   return (
     <p className="siteSessionBanner" role="status">
       نشست شما فعال است.{" "}
-      <Link href="/spaces">ادامه در فضاهای کاری</Link>
+      <Link href="/home">ادامه در فضاهای کاری</Link>
     </p>
   );
 }
 
 /**
  * Public marketing home — slogan, promise, path, audience.
+ * First viewport: brand, one tagline, one short lead, CTA group, dominant visual.
+ * Status, trust, how-it-works, FAQ, and grids stay below the fold (not removed).
  * No invented metrics or customer logos; trust from live capabilities only.
  */
 export function MarketingLanding() {
@@ -86,7 +88,6 @@ export function MarketingLanding() {
           <StickerSvg name="handshake" className="siteHero__sticker siteHero__sticker--home" />
         </div>
         <div className="siteHero__copy siteHero__copy--home">
-          <p className="siteHero__eyebrow">دفتر عملیات مشترک</p>
           <h1 id="site-hero-brand" className="siteHero__brand">
             دنگ همکاری
           </h1>
@@ -94,8 +95,7 @@ export function MarketingLanding() {
             هزینه، خرید و شرکا را در یک جا شفاف نگه دارید
           </p>
           <p className="siteHero__lead">
-            برای گروه‌های کوچک تا تیم‌های عملیاتی: ثبت خرج، تأیید خرید، تجهیزات و
-            تسویه — با ماندهٔ واقعی از API، نه آمار نمایشی.
+            ثبت خرج، تأیید خرید و تسویه — با ماندهٔ زنده، نه آمار نمایشی.
           </p>
           <div className="siteHero__actions">
             <Link href="/register" className="authLayout__headerBtn authLayout__headerBtn--primary">
@@ -108,26 +108,40 @@ export function MarketingLanding() {
               ورود به فضای کاری
             </Link>
           </div>
+        </div>
+      </section>
+
+      <section
+        className="siteSection siteSection--trust"
+        aria-labelledby="site-trust-title"
+      >
+        <div className="siteSection__head">
+          <p className="siteHero__eyebrow" id="site-trust-title">
+            دفتر عملیات مشترک
+          </p>
+          <p className="siteSection__lead">
+            برای گروه‌های کوچک تا تیم‌های عملیاتی: ثبت خرج، تأیید خرید، تجهیزات و
+            تسویه — با ماندهٔ واقعی از API، نه آمار نمایشی.
+          </p>
           <p className="siteHero__status" aria-live="polite">
             وضعیت سرویس:{" "}
             <strong className={offline ? "warn" : undefined}>{statusLabel}</strong>
           </p>
         </div>
+        {trustBadges.length > 0 ? (
+          <div className="authLayout__trustRow siteHero__trust" aria-label="قابلیت‌های واقعی محیط">
+            {trustBadges.map((badge) => (
+              <span key={badge} className="authLayout__trustBadge">
+                {badge}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="siteHero__trustHint liveHint">
+            برچسب‌های اعتماد پس از پاسخ capabilities نمایش داده می‌شوند.
+          </p>
+        )}
       </section>
-
-      {trustBadges.length > 0 ? (
-        <div className="authLayout__trustRow siteHero__trust" aria-label="قابلیت‌های واقعی محیط">
-          {trustBadges.map((badge) => (
-            <span key={badge} className="authLayout__trustBadge">
-              {badge}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <p className="siteHero__trustHint liveHint">
-          برچسب‌های اعتماد پس از پاسخ capabilities نمایش داده می‌شوند.
-        </p>
-      )}
 
       <section className="siteSection siteSection--problem" aria-labelledby="site-problem-title">
         <div className="siteSection__head">

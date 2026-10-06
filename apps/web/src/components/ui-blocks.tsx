@@ -1,8 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { StickerSvg, type StickerName } from "@/components/visual/stickers";
+import { StickerSvg, stickerDefaultMotion, type StickerName } from "@/components/visual/stickers";
 import { useHubEmbed } from "@/components/mosaic/hub-embed";
+import { useOptionalTheme } from "@/lib/theme";
 
 export function PageHeader({
   eyebrow,
@@ -153,6 +154,7 @@ export function EmptyStateBlock({
   action,
   illustration,
   sticker = "spark",
+  stickerSize = 64,
 }: {
   title: string;
   description?: ReactNode;
@@ -161,12 +163,23 @@ export function EmptyStateBlock({
   illustration?: ReactNode;
   /** Built-in SVG sticker when illustration is omitted; null disables. */
   sticker?: StickerName | null;
+  stickerSize?: number;
 }) {
+  const theme = useOptionalTheme();
+  const animate = theme ? theme.allowsNarrative : true;
   const art =
-    illustration ?? (sticker ? <StickerSvg name={sticker} /> : null);
+    illustration ??
+    (sticker ? (
+      <StickerSvg
+        name={sticker}
+        animated={animate}
+        size={stickerSize}
+        motionClass={animate ? stickerDefaultMotion(sticker) : undefined}
+      />
+    ) : null);
   return (
     <div className="emptyStateBlock" role="status">
-      {art ? <div className="emptyStateBlock__art">{art}</div> : null}
+      {art ? <div className="emptyStateBlock__art dang-motion-ambient">{art}</div> : null}
       <strong>{title}</strong>
       {description ? <p>{description}</p> : null}
       {action ? <div className="emptyStateBlock__action">{action}</div> : null}

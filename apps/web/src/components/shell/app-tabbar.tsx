@@ -75,7 +75,7 @@ export function AppTabbar({
             <span className="shell-fab__plus" aria-hidden>
               ＋
             </span>
-            <span className="shell-fab__label">خرج</span>
+            <span className="shell-fab__label">{NAV_LABELS.addExpense}</span>
           </Link>
         </div>
       ) : null}

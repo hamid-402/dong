@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import type { WorkspaceWebhookSummary } from "@dang/contracts";
+import type {
+  WorkspaceWebhookDeliverySummary,
+  WorkspaceWebhookSummary,
+} from "@dang/contracts";
 import { Button, TextField } from "@dang/ui";
 import {
   DataList,
@@ -28,6 +31,9 @@ export function WorkspaceWebhooksPanel({
   const chrome = useOptionalAppChrome();
   const live = chrome?.capabilities?.providers?.outboundWebhooks === "hmac_v1";
   const [rows, setRows] = useState<WorkspaceWebhookSummary[]>([]);
+  const [deliveries, setDeliveries] = useState<WorkspaceWebhookDeliverySummary[]>(
+    [],
+  );
   const [url, setUrl] = useState("https://example.com/dang-hook");
   const [secret, setSecret] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -36,10 +42,17 @@ export function WorkspaceWebhooksPanel({
 
   function refresh() {
     startTransition(() => {
-      void api
-        .listWebhooks(workspaceId)
-        .then(setRows)
-        .catch((err: unknown) => setError(friendlyErrorMessage(err, "بارگذاری وب‌هوک")));
+      void Promise.all([
+        api.listWebhooks(workspaceId),
+        api.listWebhookDeliveries(workspaceId),
+      ])
+        .then(([hooks, logs]) => {
+          setRows(hooks);
+          setDeliveries(logs);
+        })
+        .catch((err: unknown) =>
+          setError(friendlyErrorMessage(err, "بارگذاری وب‌هوک")),
+        );
     });
   }
 
@@ -138,6 +151,25 @@ export function WorkspaceWebhooksPanel({
                     غیرفعال
                   </Button>
                 ) : null
+              }
+            />
+          ))}
+        </DataList>
+      )}
+      <StatusLine>لاگ تحویل اخیر (واقعی از dispatch)</StatusLine>
+      {deliveries.length === 0 ? (
+        <EmptyHint>هنوز تحویلی ثبت نشده — پس از expense.posted / settlement.confirmed ظاهر می‌شود.</EmptyHint>
+      ) : (
+        <DataList>
+          {deliveries.map((d) => (
+            <DataRow
+              key={d.id}
+              title={d.eventType}
+              meta={`${d.detail}${d.statusCode != null ? ` · HTTP ${d.statusCode}` : ""} · ${d.webhookId.slice(0, 8)}…`}
+              trailing={
+                <StatusPill tone={d.ok ? "ok" : "warn"}>
+                  {d.ok ? "موفق" : "ناموفق"}
+                </StatusPill>
               }
             />
           ))}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  chartSourceLabel,
   formatChartToman,
   mergeSumSeries,
   netsToShareSeries,
@@ -7,6 +8,13 @@ import {
 import type { ChartSeriesResponse } from "@dang/contracts";
 
 describe("chart-format", () => {
+  it("chartSourceLabel uses Persian names and keeps unknown ids", () => {
+    expect(chartSourceLabel("expenses_posted")).toBe("خرج‌های ثبت‌شده");
+    expect(chartSourceLabel("expense_splits")).toBe("سهم اعضا");
+    expect(chartSourceLabel("merged:a+b")).toBe("چند فضا");
+    expect(chartSourceLabel("custom_feed")).toBe("custom_feed");
+  });
+
   it("formatChartToman converts IRR minor", () => {
     expect(formatChartToman("10000")).toMatch(/۱٬?۰۰۰|1,?000/);
   });

@@ -7,7 +7,7 @@ import {
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import { loadAppEnv, loadEnvFile } from "@dang/config";
+import { loadAppEnv, loadEnvFile, assertProductionBootSafety } from "@dang/config";
 import { resolveTracingMode, startOtlpSpanExporter } from "@dang/observability";
 import { createLogger } from "@dang/observability";
 import { AppModule } from "./app.module.js";
@@ -30,6 +30,7 @@ async function bootstrap() {
   if (env.nodeEnv === "production" && !process.env.SESSION_SECRET) {
     throw new Error("SESSION_SECRET is required in production");
   }
+  assertProductionBootSafety(env);
 
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,

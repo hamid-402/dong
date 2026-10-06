@@ -32,7 +32,7 @@ export type PersonaHomeHrefs = {
 export function buildPersonaHomeHrefs(slug: string): PersonaHomeHrefs {
   const members = wPath(slug, "members");
   return {
-    expense: `${wPath(slug, "expenses")}#quick-expense`,
+    expense: wPath(slug, "record"),
     expenses: wPath(slug, "expenses"),
     settlements: wPath(slug, "settlements"),
     members,

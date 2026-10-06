@@ -1,10 +1,28 @@
 # وضعیت اجرای پروژه
 
-آخرین به‌روزرسانی: ۱۵ سپتامبر ۲۰۲۶ — **خانه بازیابی شد · فقط نوار ops بالای خرج/گروه یکپارچه**
+آخرین به‌روزرسانی: ۲۱ سپتامبر ۲۰۲۶ — **رستم R1–R9 هسته · تعمیق DoD برای R4/R6/R7**
 
 ## جواب
 
-**نقشه فنی ۰–۵ و Dong 2.۰ (موج‌های ۰–F) در کد بسته‌اند.**
+**نقشه فنی ۰–۵ و Dong 2.۰ (موج‌های ۰–F) در کد بسته‌اند.**  
+**نقشه رستم:** R1–R3 · R5 · R8 ✅ کامل. R4/R6/R7/R9 هسته + تعمیق DoD در این پاس. جزئیات: canvas `rostam-roadmap`.
+
+| گام | وضعیت دقیق |
+|-----|------------|
+| R1–R3 · R5 · R8 | DONE |
+| R4 | خانه/briefing/error≠empty + axe ۵ تم + e2e fold موبایل |
+| R6 | storybook سخت · a11y finance fail-closed (`A11Y_REQUIRE_FINANCE=1` + API در CI) · visual hard پس از commit baseline لینوکس |
+| R7 | pen-test pack · ABAC **v5** + UI سقف `approvalCapMinor` · Vault فقط از capabilities |
+| R9 | persistence مختلط صادق · badges · digest/Depth · i18n partners/procurement · SoT اسناد |
+
+**SoT اسناد:**
+| موضوع | منبع حقیقت |
+|--------|------------|
+| وضعیت محصول / Done | همین [`STATUS.md`](./STATUS.md) |
+| ناوبری / chrome / مسیر canonical | [`IA.md`](./IA.md) |
+| امنیت / residual / pen-test | [`security/PENTEST-REMEDIATION-TRACKER.md`](./security/PENTEST-REMEDIATION-TRACKER.md) |
+| پایلوت میدانی | [`ops/PILOT.md`](./ops/PILOT.md) |
+| Visual regression | [`ops/VISUAL-REGRESSION.md`](./ops/VISUAL-REGRESSION.md) |
 
 **توضیح برای کاربر:** خلوت‌سازی اشتباهِ خانه (حذف نمای موبایل و موزاییک کامل) برگردانده شد. تغییر عمدی فقط روی نوار کارت‌مانند بالای خرج/گروه/ابزار بود.
 
@@ -30,7 +48,7 @@
 | Approval tiers روی approve واقعی (expense/settlement/pay-on-behalf) | DONE — pending تا N تأیید · queue progress |
 | `providers.makerChecker=four_eyes_tiers_v1` + `persistence.approvalDecisions` | DONE |
 | `requirePlanFeature` / `planAllows` روی analytics/charts/costCenter/categoryBudget | DONE — 403 `plan_required` |
-| Policy DSL داخل `requireAccess` (ABAC v4) | DONE |
+| Policy DSL داخل `requireAccess` (ABAC v5 · `approvalCapMinor` جانشین) | DONE |
 | Jobs UI `retention.purge` + `providers.retention=purge_v1` | DONE |
 | X-RateLimit روی expense/social/statements | DONE |
 | prefs رویداد اعلان (+ `emailDigest`) مهاجرت `0072` | DONE |

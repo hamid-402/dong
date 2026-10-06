@@ -6,13 +6,13 @@ describe("kind-hub-ops", () => {
     const pick = pickKindTarget(
       [
         { id: "a", slug: "friends", name: "دوستان", template: "friends_family" },
-        { id: "b", slug: "vida", name: "vidaverse", template: "friends_family" },
+        { id: "b", slug: "demo-group", name: "گروه نمونه", template: "friends_family" },
         { id: "c", slug: "me", name: "دفتر من", template: "personal" },
       ],
       "group",
       "b",
     );
-    expect(pick?.slug).toBe("vida");
+    expect(pick?.slug).toBe("demo-group");
   });
 
   it("kindDomainMosaicItems counts drive list vs create", () => {
@@ -23,7 +23,7 @@ describe("kind-hub-ops", () => {
       org: 0,
     });
     expect(items.find((i) => i.key === "kind-group")?.href).toBe(
-      "/spaces?kind=group",
+      "/home?kind=group",
     );
     expect(items.find((i) => i.key === "kind-building")?.href).toBe(
       "/spaces/new?kind=building",

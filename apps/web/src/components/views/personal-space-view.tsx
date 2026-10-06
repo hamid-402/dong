@@ -4,10 +4,16 @@ import Link from "next/link";
 import { newClientId } from "@/lib/id";
 
 import { useEffect, useState, useTransition } from "react";
-import type { ExpenseSummary, MembershipSummary, WorkspaceSummary } from "@dang/contracts";
+import type {
+  ExpenseSummary,
+  MembershipSummary,
+  PersonalSavingsFundSummary,
+  WorkspaceSummary,
+} from "@dang/contracts";
 import { spaceKindForTemplate } from "@dang/contracts";
 import { Amount, Button, TextField } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
+import { TreasuryBalanceCard } from "@/components/shell/treasury-balance-card";
 import { AppShell } from "@/components/app-shell";
 import {
   SplitComposer,
@@ -29,6 +35,7 @@ import { PersonalFinanceOverviewPanel } from "@/components/personal-finance-over
 import { PersonalDepthPanel } from "@/components/personal-depth-panel";
 import { PersonalChartsPanel } from "@/components/charts/personal-charts-panel";
 import { PersonalResourcesPanel } from "@/components/personal-resources/personal-resources-panel";
+import { PersonalSpacesAccordion } from "@/components/shell/personal-spaces-accordion";
 import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
@@ -61,6 +68,19 @@ export function PersonalSpaceView() {
   const [toman, setToman] = useState("");
   const [split, setSplit] = useState<SplitComposerValue>(initialSplit);
   const [pending, startTransition] = useTransition();
+  const [savingsFund, setSavingsFund] = useState<PersonalSavingsFundSummary | null>(
+    null,
+  );
+  const goalsLive = chrome.capabilities?.providers?.savingsGoals === "goals_v1";
+
+  async function refreshSavings() {
+    if (!goalsLive) {
+      setSavingsFund(null);
+      return;
+    }
+    const fund = await api.getSavingsFund().catch(() => null);
+    setSavingsFund(fund);
+  }
 
   async function refresh(workspaceId: string) {
     const actorId = chrome.actor?.userId;
@@ -99,11 +119,11 @@ export function PersonalSpaceView() {
       return;
     }
     setLoading(true);
-    void refresh(scoped.id)
+    void Promise.all([refresh(scoped.id), refreshSavings()])
       .then(() => setError(null))
       .catch((err: unknown) => setError(friendlyErrorMessage(err, "خطا")))
       .finally(() => setLoading(false));
-  }, [chrome.ready, chrome.workspaceId, chrome.workspaces, scope?.workspaceId, chrome.actor?.userId]);
+  }, [chrome.ready, chrome.workspaceId, chrome.workspaces, scope?.workspaceId, chrome.actor?.userId, goalsLive]);
 
   function onEnsurePersonal() {
     startTransition(() => {
@@ -169,7 +189,7 @@ export function PersonalSpaceView() {
 
   const pageError = error ?? chrome.error;
   const slug = workspace?.slug ?? scope?.slug ?? null;
-  const goalsLive = chrome.capabilities?.providers?.savingsGoals === "goals_v1";
+  const intentsLive = chrome.capabilities?.providers?.moneyIntents === "intents_v1";
 
   return (
     <AppShell
@@ -181,15 +201,15 @@ export function PersonalSpaceView() {
       <WorkspacePageFrame
       title={"دفتر من"}
       description={"مالی شخصی و خرج خصوصی از دادهٔ واقعی."}
-      primaryAction={slug ? <Link href={wPath(slug, "expenses")}>{NAV_LABELS.addExpense}</Link> : <Link href="/spaces">{NAV_LABELS.spacesList}</Link>}
+      primaryAction={slug ? <Link href={wPath(slug, "record")}>{NAV_LABELS.addExpense}</Link> : <Link href="/home">{NAV_LABELS.spacesList}</Link>}
       secondaryActions={
         <>
-          <Link href="/me/finance">{NAV_LABELS.personalFinance}</Link>
-          {" · "}
+          <Link href="/me/finance#lifestyle">{NAV_LABELS.personalFinance}</Link>
+          <Link href="/me/finance#lifestyle">تراز زندگی</Link>
+          <Link href="#spaces">گروه‌ها</Link>
           <Link href="#goals">اهداف</Link>
-          {" · "}
+          {intentsLive ? <Link href="#intents">قواعد</Link> : null}
           <Link href="#resources">حساب‌ها</Link>
-          {" · "}
           <Link href="#charts">نمودار</Link>
         </>
       }
@@ -197,6 +217,80 @@ export function PersonalSpaceView() {
     >
       {pageError ? <p className="liveError">{pageError}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
+
+      <div style={{ marginBottom: "1rem" }}>
+        <TreasuryBalanceCard
+          spaceKind="personal"
+          funds={[]}
+          paymentsHref="/me/finance#goals"
+          savingsHref="/me/finance#goals"
+          canManage={goalsLive}
+          pending={pending}
+          savingsBalanceMinor={
+            goalsLive ? (savingsFund?.balanceMinor ?? "0") : null
+          }
+          savingsGoalCount={savingsFund?.goalCount ?? 0}
+          onEnsureSavings={
+            goalsLive
+              ? () => {
+                  startTransition(() => {
+                    void (async () => {
+                      try {
+                        const result = await api.ensureDefaultSavingsFund({
+                          idempotencyKey: crypto.randomUUID(),
+                        });
+                        setSavingsFund(result.fund);
+                        flashSuccess(
+                          result.created
+                            ? "صندوق پس‌انداز ایجاد شد"
+                            : "صندوق پس‌انداز از قبل وجود داشت",
+                        );
+                      } catch (err) {
+                        setError(
+                          friendlyErrorMessage(err, "ایجاد صندوق پس‌انداز ناموفق"),
+                        );
+                      }
+                    })();
+                  });
+                }
+              : undefined
+          }
+          onDepositSavings={
+            goalsLive
+              ? () => {
+                  const raw = window.prompt("مبلغ واریز ماهانه (تومان)");
+                  if (raw == null) return;
+                  const money = tomanInputToIrrMinor(raw);
+                  if (!money) {
+                    setError("مبلغ معتبر نیست");
+                    return;
+                  }
+                  startTransition(() => {
+                    void (async () => {
+                      try {
+                        const result = await api.depositSavingsFund({
+                          amountMinor: money.amountMinor,
+                          note: "واریز ماهانه",
+                          idempotencyKey: crypto.randomUUID(),
+                        });
+                        setSavingsFund(result.fund);
+                        flashSuccess("واریز در صندوق پس‌انداز ثبت شد");
+                      } catch (err) {
+                        setError(
+                          friendlyErrorMessage(err, "واریز پس‌انداز ناموفق"),
+                        );
+                      }
+                    })();
+                  });
+                }
+              : undefined
+          }
+        />
+      </div>
+
+      <div id="spaces" style={{ marginBottom: "1.15rem" }}>
+        <PersonalSpacesAccordion focus="share" hidePersonal />
+      </div>
 
       {loading ? (
         <ContentSkeleton rows={4} label="در حال بارگذاری دفتر شخصی…" />

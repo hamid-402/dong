@@ -1,0 +1,10 @@
+{
+  "site": [
+    {
+      "alerts": [
+        { "name": "SQL Injection", "riskcode": "3", "count": "1" },
+        { "name": "Path Traversal", "riskcode": "4", "count": "1" }
+      ]
+    }
+  ]
+}

@@ -159,7 +159,28 @@ export class MemoryPaymentOpsStore implements PaymentOpsStore {
     return Promise.resolve(row);
   }
 
-  listMovements(fundId: string): Promise<StoredPettyCashMovement[]> {
+  setFundActive(
+    workspaceId: string,
+    fundId: string,
+    active: boolean,
+  ): Promise<StoredPettyCashFund> {
+    const row = this.funds.get(fundId);
+    if (!row || row.workspaceId !== workspaceId) {
+      throw new Error("PETTY_CASH_FUND_NOT_FOUND");
+    }
+    const next = { ...row, active };
+    this.funds.set(fundId, next);
+    return Promise.resolve(next);
+  }
+
+  listMovements(
+    workspaceId: string,
+    fundId: string,
+  ): Promise<StoredPettyCashMovement[]> {
+    const fund = this.funds.get(fundId);
+    if (!fund || fund.workspaceId !== workspaceId) {
+      return Promise.resolve([]);
+    }
     return Promise.resolve(
       [...this.movements.values()]
         .filter((m) => m.fundId === fundId)
@@ -168,10 +189,15 @@ export class MemoryPaymentOpsStore implements PaymentOpsStore {
   }
 
   createMovement(
+    workspaceId: string,
     fundId: string,
     actorUserId: string,
     input: CreatePettyCashMovementRequest & { occurredAt: string },
   ): Promise<StoredPettyCashMovement> {
+    const fund = this.funds.get(fundId);
+    if (!fund || fund.workspaceId !== workspaceId) {
+      throw new Error("PETTY_CASH_FUND_NOT_FOUND");
+    }
     const existing = [...this.movements.values()].find(
       (m) =>
         m.fundId === fundId &&

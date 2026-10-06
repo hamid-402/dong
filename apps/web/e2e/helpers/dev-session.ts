@@ -210,8 +210,27 @@ export async function resolveWorkspace(
   }
 
   const seeded = await seedDemoWorkspace(request);
-  if (!seeded) return null;
-  return { id: seeded.id, slug: seeded.slug, source: "seed" };
+  if (seeded) return { id: seeded.id, slug: seeded.slug, source: "seed" };
+
+  // Fallback: reuse an existing workspace for the e2e subject (seed may be disabled).
+  const listed =
+    (await tryGetJson<Array<{ id?: string; slug?: string; template?: string }>>(
+      request,
+      `/api/v1/workspaces`,
+      headers,
+    )) ||
+    (await tryGetJson<Array<{ id?: string; slug?: string; template?: string }>>(
+      request,
+      `${API_ORIGIN}/api/v1/workspaces`,
+      headers,
+    ));
+  const pick =
+    listed?.find((w) => w.id && w.slug && w.template !== "personal") ??
+    listed?.find((w) => w.id && w.slug);
+  if (pick?.id && pick.slug) {
+    return { id: pick.id, slug: pick.slug, source: "seed" };
+  }
+  return null;
 }
 
 /**

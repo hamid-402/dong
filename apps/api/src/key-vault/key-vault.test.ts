@@ -15,6 +15,7 @@ import {
   createMasterKeyProvider,
   EnvMasterKeyProvider,
   HttpVaultMasterKeyProvider,
+  resolveMasterKeySource,
 } from "./master-key-provider.js";
 import {
   decryptSecret,
@@ -305,5 +306,33 @@ test("HttpVaultMasterKeyProvider fails closed on fetch error", async () => {
     (err: unknown) =>
       err instanceof VaultCryptoError &&
       String(err.message).includes("VAULT_HTTP_FETCH_FAILED"),
+  );
+});
+
+test("resolveMasterKeySource stays honest without material", () => {
+  assert.equal(
+    resolveMasterKeySource({
+      provider: new EnvMasterKeyProvider({}),
+      hasMaterial: false,
+    }),
+    "none",
+  );
+  assert.equal(
+    resolveMasterKeySource({
+      provider: new HttpVaultMasterKeyProvider({
+        VAULT_ADDR: "http://vault.test",
+        VAULT_TOKEN: "t",
+        ENABLE_HTTP_VAULT_MASTER_KEY: "1",
+      }),
+      hasMaterial: false,
+    }),
+    "http_vault",
+  );
+  assert.equal(
+    resolveMasterKeySource({
+      provider: new EnvMasterKeyProvider({}),
+      hasMaterial: true,
+    }),
+    "env",
   );
 });

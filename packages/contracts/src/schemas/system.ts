@@ -67,9 +67,13 @@ export const systemCapabilitiesSchema = z.object({
       fxPreview: z.enum(["none", "preview_v1"]).optional(),
       outboundWebhooks: z.enum(["none", "hmac_v1"]).optional(),
       notificationEventPrefs: z.enum(["none", "in_app_v1"]).optional(),
+      savingsGoals: z.enum(["none", "goals_v1"]).optional(),
+      moneyIntents: z.enum(["none", "intents_v1"]).optional(),
+      charts: z.enum(["none", "charts_v1"]).optional(),
     })
     .passthrough()
     .optional(),
   stubs: z.record(z.string(), z.boolean()).optional(),
   conversionLive: z.boolean().optional(),
+  supportContactEmail: z.string().nullable().optional(),
 }).passthrough();

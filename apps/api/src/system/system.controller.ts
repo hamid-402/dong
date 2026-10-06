@@ -29,6 +29,7 @@ import {
   isZarinpalMerchantConfigured,
   loadAppEnv,
   resolvePaymentProviderMode,
+  resolveSupportContactEmail,
 } from "@dang/config";
 import { MailerService } from "../auth/mailer.service.js";
 import { ACCOUNT_STORE, type AccountStore } from "../auth/account.types.js";
@@ -102,8 +103,18 @@ import {
   type ReportViewsStore,
 } from "../report-views/report-views.types.js";
 import { BuildingChargesService } from "../building-charges/building-charges.service.js";
+import { FxRatesService } from "../fx-rates/fx-rates.module.js";
 
 type CapabilitiesResponse = SystemCapabilities;
+
+/** Honest jobs provider label for capabilities (not the enqueue transport). */
+export function resolveJobsProviderCapability(input: {
+  redisConfigured: boolean;
+  workerAlive: boolean;
+}): "inline_stub" | "redis_queue" | "redis_queue_degraded" {
+  if (!input.redisConfigured) return "inline_stub";
+  return input.workerAlive ? "redis_queue" : "redis_queue_degraded";
+}
 
 @ApiTags("system")
 @Controller("system")
@@ -156,6 +167,7 @@ export class SystemController {
     @Inject(BuildingChargesService)
     private readonly buildingCharges?: BuildingChargesService,
     @Optional() @Inject(SloService) private readonly slo?: SloService,
+    @Optional() @Inject(FxRatesService) private readonly fxRates?: FxRatesService,
   ) {}
 
   @Get("capabilities")
@@ -175,6 +187,14 @@ export class SystemController {
     const mailMode = this.mailer.mode();
     const workerAlive = await this.jobs.consumerAlive();
     const redisConfigured = isRedisConfigured(env);
+    const conversionLive = this.fxRates
+      ? await this.fxRates.hasRates()
+      : false;
+    const supportContactEmail = resolveSupportContactEmail();
+    const jobsProvider = resolveJobsProviderCapability({
+      redisConfigured,
+      workerAlive,
+    });
 
     return {
       version: "0.1.0",
@@ -183,8 +203,9 @@ export class SystemController {
         env.nodeEnv !== "production" && env.allowDevAuth,
       oidcConfigured: isOidcConfigured(env),
       databaseConfigured,
-      mfa: true,
+      mfa: env.requireMfa,
       readiness: readiness.status,
+      supportContactEmail,
       productFlags: readProductFeatureFlags(process.env),
       persistence: {
         iam: this.iam.persistence,
@@ -222,7 +243,7 @@ export class SystemController {
         webhooks: this.webhooks.persistence,
         attachmentBlob: this.attachmentBlobs.mode(),
       },
-      conversionLive: Boolean(env.databaseUrl),
+      conversionLive,
       stubs: {
         // Derive from providers.payment — never hardcode. local_psp / zarinpal are live adapters.
         paymentProvider: paymentMode === "stub",
@@ -235,7 +256,7 @@ export class SystemController {
         payment: paymentMode,
         ocr: ocrLive ? "configured" : "stub",
         antivirus: clamLive ? "configured" : "stub",
-        jobs: redisConfigured ? "redis_queue" : "inline_stub",
+        jobs: jobsProvider,
         email:
           mailMode === "resend"
             ? "resend"
@@ -291,6 +312,7 @@ export class SystemController {
             ? "catalog_v1"
             : "none",
         statements: this.statements.providerMode(),
+        statementPackPdf: this.statements.packPdfProviderMode(),
         payoutInstructions: this.statements.payoutProviderMode(),
         payoutDestinationCrypto: this.statements.payoutDestinationCryptoMode(),
         paymentReceipts:
@@ -312,6 +334,11 @@ export class SystemController {
           this.personalGoals.persistence === "postgres" ||
           this.personalGoals.persistence === "memory"
             ? "goals_v1"
+            : "none",
+        moneyIntents:
+          this.personalGoals.persistence === "postgres" ||
+          this.personalGoals.persistence === "memory"
+            ? "intents_v1"
             : "none",
         charts: CHARTS_PROVIDER,
         reportExport:
@@ -340,8 +367,8 @@ export class SystemController {
         retention: this.retention ? "dry_run_purge_v1" : "none",
         outboundWebhooks: "hmac_v1",
         fxProvider: (process.env.FX_PROVIDER_URL ?? "").trim() ? "http_v1" : "none",
-        // Preview needs rate table (Postgres); conversionLive mirrors this.
-        fxPreview: env.databaseUrl ? "preview_v1" : "none",
+        // Preview needs at least one rate row; mirrors conversionLive honesty.
+        fxPreview: conversionLive ? "preview_v1" : "none",
         notificationEventPrefs: "in_app_v1",
         buildingCharges: this.buildingCharges ? "building_charges_v1" : "none",
         partnerPrices:

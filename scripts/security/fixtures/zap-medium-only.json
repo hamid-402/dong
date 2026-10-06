@@ -1,0 +1,10 @@
+{
+  "site": [
+    {
+      "alerts": [
+        { "name": "CSP", "riskcode": "1", "count": "2" },
+        { "name": "Missing HSTS", "riskcode": "2", "count": "1" }
+      ]
+    }
+  ]
+}

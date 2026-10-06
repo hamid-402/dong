@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Amount, displayUnitLabel, formatMoneyFromIrrMinor, irrMinorToDisplayInteger } from "@dang/ui";
 import { useDisplayUnit } from "@/lib/display-unit";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import { netFromIrrMinor, sortPeersByAbsNet } from "@/lib/space-net-balance";
 
 type PeerLine = {
@@ -30,6 +31,7 @@ export function GroupBalanceHero({
   peers,
   settleHref,
   expenseHref,
+  recordHref,
   simplifyHref,
   simplifyAvailable,
   openSettlements,
@@ -40,7 +42,10 @@ export function GroupBalanceHero({
   myNetMinor: string | null;
   peers: PeerLine[];
   settleHref: string;
+  /** Expenses list / inspector deep-links. */
   expenseHref: string;
+  /** Money entry chooser (clarity). Falls back to expenseHref. */
+  recordHref?: string;
   simplifyHref?: string;
   simplifyAvailable?: boolean;
   openSettlements?: number;
@@ -55,6 +60,8 @@ export function GroupBalanceHero({
   const topPeers = sortPeersByAbsNet(peers, unit).slice(0, 5);
   const open = openSettlements ?? 0;
   const absDisplay = formatMoneyFromIrrMinor(Math.abs(mine.irrMinor), unit);
+  const expensesBase = expenseHref.split("#")[0] ?? expenseHref;
+  const writeHref = recordHref ?? expenseHref;
 
   return (
     <section className="groupBalanceHero" aria-labelledby="group-balance-hero-title">
@@ -74,7 +81,7 @@ export function GroupBalanceHero({
             ? "طلبکارید — از تسویه برای دریافت سهم استفاده کنید."
             : mine.tone === "debt"
               ? "بدهکارید — با تسویه حساب یا پیشنهاد کمینه، پرداخت را کوتاه کنید."
-              : "با ثبت خرج تازه، مانده از دفتر زنده دوباره محاسبه می‌شود."}
+              : `با ${NAV_LABELS.addExpense} تازه، مانده از دفتر زنده دوباره محاسبه می‌شود.`}
         </p>
         {open > 0 ? (
           <p className="groupBalanceHero__badge" role="status">
@@ -92,12 +99,12 @@ export function GroupBalanceHero({
             </Link>
           ) : null}
           {canMutate ? (
-            <Link href={expenseHref} className="authLayout__headerBtn">
-              ثبت خرج
+            <Link href={writeHref} className="authLayout__headerBtn">
+              {NAV_LABELS.addExpense}
             </Link>
           ) : (
-            <Link href={expenseHref} className="authLayout__headerBtn">
-              مشاهدهٔ خرج‌ها
+            <Link href={expensesBase} className="authLayout__headerBtn">
+              مشاهدهٔ {NAV_LABELS.expenses}
             </Link>
           )}
           {canMutate &&
@@ -147,7 +154,7 @@ export function GroupBalanceHero({
                 return (
                   <li key={e.id}>
                     <Link
-                      href={`${expenseHref}${expenseHref.includes("?") ? "&" : "?"}expense=${encodeURIComponent(e.id)}#expense-inspector`}
+                      href={`${expensesBase}${expensesBase.includes("?") ? "&" : "?"}expense=${encodeURIComponent(e.id)}`}
                       className="groupBalanceHero__expenseLink"
                     >
                       <span>{e.title}</span>
@@ -159,8 +166,8 @@ export function GroupBalanceHero({
                 );
               })}
             </ul>
-            <Link href={expenseHref} className="textButton">
-              همهٔ خرج‌ها
+            <Link href={expensesBase} className="textButton">
+              همهٔ {NAV_LABELS.expenses}
             </Link>
           </div>
         ) : null}

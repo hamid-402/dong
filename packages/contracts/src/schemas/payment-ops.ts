@@ -57,7 +57,7 @@ export const createPettyCashFundRequestSchema = z
 
 export const createPettyCashMovementRequestSchema = z
   .object({
-    kind: z.enum(["topup", "spend", "return", "adjust"]),
+    kind: z.enum(["topup", "spend", "return", "adjust", "gift"]),
     amountMinor: z
       .string()
       .trim()
@@ -228,6 +228,60 @@ export type TopupPettyCashFromMembersRequestInput = z.infer<
 export type SpendPettyCashAsExpenseRequestInput = z.infer<
   typeof spendPettyCashAsExpenseRequestSchema
 >;
+
+/**
+ * Gift / donation to petty cash — increases fund balance only.
+ * Does NOT create a shared expense or member debts for others.
+ */
+export const giftPettyCashRequestSchema = z
+  .object({
+    amountMinor: amountMinorPositive,
+    /** Who put cash in; defaults to actor. */
+    cashInByUserId: entityIdSchema.optional(),
+    note: z.string().trim().max(500).optional(),
+    occurredAt: z.string().trim().datetime({ offset: true }).optional(),
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict();
+
+export type GiftPettyCashRequestInput = z.infer<typeof giftPettyCashRequestSchema>;
+
+/**
+ * Smart settle-pay: settlement ± fund gift in one intent.
+ * previewOnly skips writes and returns the plan + live nets.
+ */
+export const settlePayRequestSchema = z
+  .object({
+    counterpartyUserId: entityIdSchema,
+    amountMinor: amountMinorPositive,
+    intent: z.enum(["settle_only", "settle_and_fund_gift", "fund_gift_only"]),
+    fundId: entityIdSchema.optional(),
+    /** Optional balance cut-off for suggestion context (YYYY-MM-DD). */
+    asOf: z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    note: z.string().trim().max(500).optional(),
+    previewOnly: z.boolean().optional(),
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (
+      (data.intent === "settle_and_fund_gift" || data.intent === "fund_gift_only") &&
+      !data.fundId
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "FUND_ID_REQUIRED_FOR_GIFT",
+        path: ["fundId"],
+      });
+    }
+  });
+
+export type SettlePayRequestInput = z.infer<typeof settlePayRequestSchema>;
+
 export type CreateCreditPurchaseRequestInput = z.infer<
   typeof createCreditPurchaseRequestSchema
 >;

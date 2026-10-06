@@ -2,6 +2,7 @@
 
 import { useCallback, useState, type ReactNode } from "react";
 import { Toast } from "@dang/ui";
+import { MotionSuccessMark } from "@/components/visual/motion-scene";
 
 /** Short-lived success banner + shared error state for form views. */
 export function useFlashMessage() {
@@ -38,12 +39,13 @@ export function FlashMessages({
   return (
     <>
       {error ? (
-        <Toast tone="error" style={{ marginBottom: 12 }}>
+        <Toast tone="error" style={{ marginBottom: 12 }} className="dang-motion-feedback">
           {error}
         </Toast>
       ) : null}
       {successMessage ? (
-        <Toast tone="success" style={{ marginBottom: 12 }}>
+        <Toast tone="success" style={{ marginBottom: 12 }} className="dang-motion-feedback">
+          <MotionSuccessMark active />
           {successMessage}
         </Toast>
       ) : null}

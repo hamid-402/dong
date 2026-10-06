@@ -11,6 +11,7 @@ import {
   type AuthActor,
   type CreateWorkspaceWebhookRequest,
   type WorkspaceWebhookDeliveryResult,
+  type WorkspaceWebhookDeliverySummary,
   type WorkspaceWebhookSummary,
 } from "@dang/contracts";
 import { createLogger } from "@dang/observability";
@@ -73,6 +74,15 @@ export class WebhooksService {
     return this.store.list(workspaceId);
   }
 
+  async listDeliveries(
+    actor: AuthActor,
+    workspaceId: string,
+    opts?: { webhookId?: string; limit?: number },
+  ): Promise<WorkspaceWebhookDeliverySummary[]> {
+    await this.requireMember(workspaceId, actor.userId);
+    return this.store.listDeliveries(workspaceId, opts);
+  }
+
   async deactivate(
     actor: AuthActor,
     workspaceId: string,
@@ -108,6 +118,7 @@ export class WebhooksService {
       });
       const timestamp = String(Date.now());
       const signature = signWebhookBody(hook.secret, timestamp, body);
+      let result: WorkspaceWebhookDeliveryResult;
       try {
         const res = await fetch(hook.url, {
           method: "POST",
@@ -120,15 +131,32 @@ export class WebhooksService {
           body,
           signal: AbortSignal.timeout(8_000),
         });
-        results.push({
+        result = {
           ok: res.ok,
           statusCode: res.status,
           detail: res.ok ? "delivered" : `HTTP ${res.status}`,
-        });
+        };
       } catch (err: unknown) {
         const detail = err instanceof Error ? err.message : String(err);
         logger.warn("webhook delivery failed", { workspaceId, eventType, detail });
-        results.push({ ok: false, detail });
+        result = { ok: false, detail };
+      }
+      results.push(result);
+      try {
+        await this.store.recordDelivery({
+          workspaceId,
+          webhookId: hook.id,
+          eventType,
+          ok: result.ok,
+          statusCode: result.statusCode,
+          detail: result.detail,
+        });
+      } catch (err: unknown) {
+        logger.warn("webhook delivery log failed", {
+          workspaceId,
+          eventType,
+          detail: err instanceof Error ? err.message : String(err),
+        });
       }
     }
     return results;

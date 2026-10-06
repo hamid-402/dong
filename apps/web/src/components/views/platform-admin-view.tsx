@@ -19,6 +19,13 @@ import {
   SectionCard,
   StatusLine,
 } from "@/components/ui-blocks";
+import {
+  RowSelectCheckbox,
+  SelectionActionBar,
+  rowSelectActivateProps,
+} from "@/components/selection/selection-action-bar";
+import { useRowSelection } from "@/components/selection/use-row-selection";
+import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { RouteErrorState } from "@/components/shell/route-error-state";
 import { api, ApiError } from "@/lib/api";
 import { authErrorMessage } from "@/lib/api-errors";
@@ -68,6 +75,12 @@ export function PlatformAdminView() {
   );
   const [pending, startTransition] = useTransition();
   const eventCategorySeeded = useRef(false);
+  const userSelection = useRowSelection(users.map((u) => u.userId));
+  const barUser =
+    userSelection.selectedCount === 1
+      ? (users.find((u) => u.userId === userSelection.selectedIds[0]) ?? null)
+      : null;
+  const barIsSelf = barUser != null && barUser.userId === profile?.userId;
 
   const isOwner = profile?.platformRole === "platform_owner";
   const platformLive =
@@ -352,7 +365,10 @@ export function PlatformAdminView() {
           )}
         </SectionCard>
         {isOwner ? (
-          <SectionCard title="کاربران">
+          <SectionCard
+            title="کاربران"
+            description="برای عملیات، روی ردیف کلیک کنید یا مربع کنار کاربر را تیک بزنید (نوار انتخاب)."
+          >
             <FormStack>
               <TextField
                 label="جست‌وجو"
@@ -370,167 +386,168 @@ export function PlatformAdminView() {
             {users.length === 0 ? (
               <EmptyHint>کاربری یافت نشد.</EmptyHint>
             ) : (
-              <ul className="stackList">
-                {users.map((u) => (
-                  <li key={u.userId}>
-                    <strong>{u.displayName}</strong> · {u.username ?? "—"} ·{" "}
-                    {u.platformRole}
-                    {u.disabledAt ? " · غیرفعال" : ""}
-                    <div className="rowActions">
-                      {u.userId !== profile?.userId ? (
-                        <>
-                          <SelectField
-                            label="نقش سامانه"
-                            value={roleDraftByUser[u.userId] ?? u.platformRole}
-                            disabled={pending}
-                            onChange={(e) =>
-                              setRoleDraftByUser((prev) => ({
-                                ...prev,
-                                [u.userId]: e.target.value as PlatformRole,
-                              }))
-                            }
-                          >
-                            <option value="user">user</option>
-                            <option value="platform_support">platform_support</option>
-                            <option value="platform_owner">platform_owner</option>
-                          </SelectField>
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={
-                              pending ||
-                              (roleDraftByUser[u.userId] ?? u.platformRole) ===
-                                u.platformRole
-                            }
-                            onClick={() => {
-                              const nextRole =
-                                roleDraftByUser[u.userId] ?? u.platformRole;
-                              startTransition(() => {
-                                void (async () => {
-                                  try {
-                                    const res = await api.setUserRole(u.userId, {
-                                      platformRole: nextRole,
-                                    });
-                                    if (res.status === "pending_second_owner") {
-                                      if (res.pendingId) {
-                                        setPendingRoleByUser((prev) => ({
-                                          ...prev,
-                                          [u.userId]: {
-                                            pendingId: res.pendingId!,
-                                            role: nextRole,
-                                          },
-                                        }));
-                                      }
-                                      setInfo(
-                                        res.pendingId
-                                          ? `ارتقا در انتظار تأیید مالک دوم · pendingId: ${res.pendingId}`
-                                          : "ارتقا در انتظار تأیید مالک دوم",
-                                      );
-                                    } else {
-                                      setPendingRoleByUser((prev) => {
-                                        const next = { ...prev };
-                                        delete next[u.userId];
-                                        return next;
-                                      });
-                                      setInfo(`نقش به ${res.user.platformRole} اعمال شد`);
-                                      if (profile) loadConsole(profile);
-                                    }
-                                    setError(null);
-                                  } catch (err: unknown) {
-                                    setError(authErrorMessage(err, "تغییر نقش ناموفق"));
+              <>
+                <SelectionActionBar
+                  selectedCount={userSelection.selectedCount}
+                  idleHint="روی ردیف کلیک کنید یا مربع کنار کاربر را تیک بزنید"
+                  onClear={userSelection.clear}
+                >
+                  {barUser && !barIsSelf ? (
+                    <>
+                      <SelectField
+                        label="نقش سامانه"
+                        value={roleDraftByUser[barUser.userId] ?? barUser.platformRole}
+                        disabled={pending}
+                        onChange={(e) =>
+                          setRoleDraftByUser((prev) => ({
+                            ...prev,
+                            [barUser.userId]: e.target.value as PlatformRole,
+                          }))
+                        }
+                      >
+                        <option value="user">user</option>
+                        <option value="platform_support">platform_support</option>
+                        <option value="platform_owner">platform_owner</option>
+                      </SelectField>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={
+                          pending ||
+                          (roleDraftByUser[barUser.userId] ?? barUser.platformRole) ===
+                            barUser.platformRole
+                        }
+                        onClick={() => {
+                          const nextRole =
+                            roleDraftByUser[barUser.userId] ?? barUser.platformRole;
+                          startTransition(() => {
+                            void (async () => {
+                              try {
+                                const res = await api.setUserRole(barUser.userId, {
+                                  platformRole: nextRole,
+                                });
+                                if (res.status === "pending_second_owner") {
+                                  if (res.pendingId) {
+                                    setPendingRoleByUser((prev) => ({
+                                      ...prev,
+                                      [barUser.userId]: {
+                                        pendingId: res.pendingId!,
+                                        role: nextRole,
+                                      },
+                                    }));
                                   }
-                                })();
-                              });
-                            }}
-                          >
-                            اعمال نقش
-                          </Button>
-                          {pendingRoleByUser[u.userId] ? (
-                            <p className="liveHint">
-                              وضعیت API: pending_second_owner · pendingId:{" "}
-                              <code>{pendingRoleByUser[u.userId]?.pendingId}</code>
-                              {" "}(تأیید باید توسط مالک سامانهٔ دیگر انجام شود)
-                            </p>
-                          ) : null}
-                          <TextField
-                            label="confirmPendingId (مالک دوم)"
-                            value={
-                              confirmPendingByUser[u.userId] ??
-                              pendingRoleByUser[u.userId]?.pendingId ??
-                              ""
-                            }
-                            disabled={pending}
-                            onChange={(e) =>
-                              setConfirmPendingByUser((prev) => ({
-                                ...prev,
-                                [u.userId]: e.target.value,
-                              }))
-                            }
-                          />
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={
-                              pending ||
-                              !(
-                                confirmPendingByUser[u.userId] ??
-                                pendingRoleByUser[u.userId]?.pendingId
-                              )?.trim()
-                            }
-                            onClick={() => {
-                              const confirmPendingId = (
-                                confirmPendingByUser[u.userId] ??
-                                pendingRoleByUser[u.userId]?.pendingId ??
-                                ""
-                              ).trim();
-                              const nextRole =
-                                roleDraftByUser[u.userId] ??
-                                pendingRoleByUser[u.userId]?.role ??
-                                "platform_owner";
-                              if (!confirmPendingId) return;
-                              startTransition(() => {
-                                void (async () => {
-                                  try {
-                                    const res = await api.setUserRole(u.userId, {
-                                      platformRole: nextRole,
-                                      confirmPendingId,
-                                    });
-                                    if (res.status === "applied") {
-                                      setPendingRoleByUser((prev) => {
-                                        const next = { ...prev };
-                                        delete next[u.userId];
-                                        return next;
-                                      });
-                                      setConfirmPendingByUser((prev) => {
-                                        const next = { ...prev };
-                                        delete next[u.userId];
-                                        return next;
-                                      });
-                                      setInfo(
-                                        `نقش به ${res.user.platformRole} تأیید و اعمال شد`,
-                                      );
-                                      if (profile) loadConsole(profile);
-                                    } else {
-                                      setInfo(
-                                        res.pendingId
-                                          ? `هنوز در انتظار تأیید · pendingId: ${res.pendingId}`
-                                          : "هنوز در انتظار تأیید مالک دوم",
-                                      );
-                                    }
-                                    setError(null);
-                                  } catch (err: unknown) {
-                                    setError(
-                                      authErrorMessage(err, "تأیید ارتقا ناموفق"),
-                                    );
-                                  }
-                                })();
-                              });
-                            }}
-                          >
-                            تأیید با pendingId
-                          </Button>
-                        </>
+                                  setInfo(
+                                    res.pendingId
+                                      ? `ارتقا در انتظار تأیید مالک دوم · pendingId: ${res.pendingId}`
+                                      : "ارتقا در انتظار تأیید مالک دوم",
+                                  );
+                                } else {
+                                  setPendingRoleByUser((prev) => {
+                                    const next = { ...prev };
+                                    delete next[barUser.userId];
+                                    return next;
+                                  });
+                                  setInfo(`نقش به ${res.user.platformRole} اعمال شد`);
+                                  if (profile) loadConsole(profile);
+                                }
+                                setError(null);
+                              } catch (err: unknown) {
+                                setError(authErrorMessage(err, "تغییر نقش ناموفق"));
+                              }
+                            })();
+                          });
+                        }}
+                      >
+                        اعمال نقش
+                      </Button>
+                      {pendingRoleByUser[barUser.userId] ? (
+                        <span className="liveHint">
+                          وضعیت API: pending_second_owner · pendingId:{" "}
+                          <code>{pendingRoleByUser[barUser.userId]?.pendingId}</code>
+                          {" "}(تأیید باید توسط مالک سامانهٔ دیگر انجام شود)
+                        </span>
                       ) : null}
+                      <TextField
+                        label="confirmPendingId (مالک دوم)"
+                        value={
+                          confirmPendingByUser[barUser.userId] ??
+                          pendingRoleByUser[barUser.userId]?.pendingId ??
+                          ""
+                        }
+                        disabled={pending}
+                        onChange={(e) =>
+                          setConfirmPendingByUser((prev) => ({
+                            ...prev,
+                            [barUser.userId]: e.target.value,
+                          }))
+                        }
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={
+                          pending ||
+                          !(
+                            confirmPendingByUser[barUser.userId] ??
+                            pendingRoleByUser[barUser.userId]?.pendingId
+                          )?.trim()
+                        }
+                        onClick={() => {
+                          const confirmPendingId = (
+                            confirmPendingByUser[barUser.userId] ??
+                            pendingRoleByUser[barUser.userId]?.pendingId ??
+                            ""
+                          ).trim();
+                          const nextRole =
+                            roleDraftByUser[barUser.userId] ??
+                            pendingRoleByUser[barUser.userId]?.role ??
+                            "platform_owner";
+                          if (!confirmPendingId) return;
+                          startTransition(() => {
+                            void (async () => {
+                              try {
+                                const res = await api.setUserRole(barUser.userId, {
+                                  platformRole: nextRole,
+                                  confirmPendingId,
+                                });
+                                if (res.status === "applied") {
+                                  setPendingRoleByUser((prev) => {
+                                    const next = { ...prev };
+                                    delete next[barUser.userId];
+                                    return next;
+                                  });
+                                  setConfirmPendingByUser((prev) => {
+                                    const next = { ...prev };
+                                    delete next[barUser.userId];
+                                    return next;
+                                  });
+                                  setInfo(
+                                    `نقش به ${res.user.platformRole} تأیید و اعمال شد`,
+                                  );
+                                  if (profile) loadConsole(profile);
+                                } else {
+                                  setInfo(
+                                    res.pendingId
+                                      ? `هنوز در انتظار تأیید · pendingId: ${res.pendingId}`
+                                      : "هنوز در انتظار تأیید مالک دوم",
+                                  );
+                                }
+                                setError(null);
+                              } catch (err: unknown) {
+                                setError(
+                                  authErrorMessage(err, "تأیید ارتقا ناموفق"),
+                                );
+                              }
+                            })();
+                          });
+                        }}
+                      >
+                        تأیید با pendingId
+                      </Button>
+                    </>
+                  ) : null}
+                  {barUser ? (
+                    <>
                       <Button
                         type="button"
                         size="sm"
@@ -539,7 +556,7 @@ export function PlatformAdminView() {
                           startTransition(() => {
                             void (async () => {
                               try {
-                                const res = await api.passwordReset(u.userId);
+                                const res = await api.passwordReset(barUser.userId);
                                 setInfo(
                                   res.debugResetUrl
                                     ? `لینک بازنشانی: ${res.debugResetUrl}`
@@ -555,16 +572,17 @@ export function PlatformAdminView() {
                       >
                         بازنشانی رمز
                       </Button>
-                      {!u.disabledAt ? (
+                      {!barUser.disabledAt ? (
                         <Button
                           type="button"
                           size="sm"
-                          disabled={pending || u.userId === profile?.userId}
+                          variant="danger"
+                          disabled={pending || barIsSelf}
                           onClick={() => {
                             startTransition(() => {
                               void (async () => {
                                 try {
-                                  await api.disableUser(u.userId, {
+                                  await api.disableUser(barUser.userId, {
                                     reason: "disabled from platform console",
                                   });
                                   setInfo("حساب غیرفعال شد");
@@ -579,10 +597,44 @@ export function PlatformAdminView() {
                           غیرفعال
                         </Button>
                       ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    </>
+                  ) : null}
+                </SelectionActionBar>
+                <ul className="stackList">
+                  {users.map((u) => (
+                    <li
+                      key={u.userId}
+                      className={selStyles.selectableRow}
+                      {...rowSelectActivateProps({
+                        onActivate: () => {
+                          if (userSelection.isSelected(u.userId)) userSelection.clear();
+                          else userSelection.selectOnly(u.userId);
+                        },
+                      })}
+                    >
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <RowSelectCheckbox
+                          checked={userSelection.isSelected(u.userId)}
+                          onChange={() => {
+                            if (userSelection.isSelected(u.userId)) userSelection.clear();
+                            else userSelection.selectOnly(u.userId);
+                          }}
+                          label={`انتخاب ${u.displayName}`}
+                        />
+                        <strong>{u.displayName}</strong>
+                      </span>{" "}
+                      · {u.username ?? "—"} · {u.platformRole}
+                      {u.disabledAt ? " · غیرفعال" : ""}
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </SectionCard>
         ) : null}

@@ -67,17 +67,30 @@ export function SubunitsView() {
   const [editOccupancy, setEditOccupancy] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [assignIds, setAssignIds] = useState<string[]>([]);
+  const [listQuery, setListQuery] = useState("");
+  const [showAllRows, setShowAllRows] = useState(false);
 
   const myRole = members.find((m) => m.userId === chrome.actor?.userId)?.role;
   const canManage = isFinanceManagerRole(myRole);
   const readOnly = isReadOnlyRole(myRole);
   const canCharge = Boolean(myRole) && !readOnly;
   const selected = rows.find((r) => r.id === selectedId) ?? null;
-  const rowIds = useMemo(() => rows.map((r) => r.id), [rows]);
+  const filteredRows = useMemo(() => {
+    const q = listQuery.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((row) =>
+      `${row.name} ${row.code} ${row.kind}`.toLowerCase().includes(q),
+    );
+  }, [rows, listQuery]);
+  const visibleRows = showAllRows || listQuery.trim()
+    ? filteredRows
+    : filteredRows.slice(0, 20);
+  const hiddenRowCount = Math.max(0, filteredRows.length - visibleRows.length);
+  const rowIds = useMemo(() => filteredRows.map((r) => r.id), [filteredRows]);
   const selection = useRowSelection(rowIds);
   const barRow =
     selection.selectedCount === 1
-      ? (rows.find((r) => r.id === selection.selectedIds[0]) ?? null)
+      ? (filteredRows.find((r) => r.id === selection.selectedIds[0]) ?? null)
       : null;
 
   const allowedKinds = useMemo((): WorkspaceSubunitKind[] => {
@@ -232,6 +245,29 @@ export function SubunitsView() {
             </EmptyHint>
           ) : (
             <>
+              <label style={{ display: "block", marginBottom: 8 }}>
+                <span className="visually-hidden">جستجوی {noun}</span>
+                <input
+                  type="search"
+                  value={listQuery}
+                  onChange={(e) => {
+                    setListQuery(e.target.value);
+                    setShowAllRows(false);
+                  }}
+                  placeholder={`جستجوی نام یا کد ${noun}…`}
+                  autoComplete="off"
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    border: "1px solid var(--line)",
+                    background: "var(--surface)",
+                    color: "inherit",
+                    font: "inherit",
+                  }}
+                />
+              </label>
               <SelectionActionBar
                 selectedCount={selection.selectedCount}
                 idleHint="روی ردیف کلیک کنید یا مربع کنارش را تیک بزنید"
@@ -265,7 +301,7 @@ export function SubunitsView() {
                 ) : null}
               </SelectionActionBar>
               <DataList>
-                {rows.map((row) => (
+                {visibleRows.map((row) => (
                   <div
                     key={row.id}
                     className={selStyles.selectableRow}
@@ -293,6 +329,15 @@ export function SubunitsView() {
                   </div>
                 ))}
               </DataList>
+              {hiddenRowCount > 0 ? (
+                <button
+                  type="button"
+                  className="textButton"
+                  onClick={() => setShowAllRows(true)}
+                >
+                  نمایش {hiddenRowCount.toLocaleString("fa-IR")} {noun} دیگر
+                </button>
+              ) : null}
             </>
           )}
         </SectionCard>

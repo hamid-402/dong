@@ -1,33 +1,42 @@
-import type { SpaceKind } from "@dang/contracts";
-import { formatToman } from "@dang/ui";
+import type { DisplayUnit, SpaceKind } from "@dang/contracts";
+import { formatMoneyFromIrrMinor } from "@dang/ui";
 
 export type NetTone = "credit" | "debt" | "settled";
 
 export type NetInfo = {
+  /** Signed display integer in تومان (legacy aggregate math). */
   toman: number;
+  /** Signed IRR minor. */
+  irrMinor: number;
   label: string;
   tone: NetTone;
 };
 
-/** Actor net in IRR minor → toman display for space/group lists (live dashboard only). */
-export function netFromIrrMinor(amountMinor: string | number): NetInfo {
+/** Actor net in IRR minor → display label for space/group lists (live dashboard only). */
+export function netFromIrrMinor(
+  amountMinor: string | number,
+  unit: DisplayUnit = "rial",
+): NetInfo {
   const minor = typeof amountMinor === "number" ? amountMinor : Number(amountMinor);
-  const toman = Number.isFinite(minor) ? Math.round(minor / 10) : 0;
-  if (toman > 0) {
+  const irr = Number.isFinite(minor) ? Math.trunc(minor) : 0;
+  const toman = Math.round(irr / 10);
+  if (irr > 0) {
     return {
       toman,
-      label: `${formatToman(toman)} طلب`,
+      irrMinor: irr,
+      label: `${formatMoneyFromIrrMinor(irr, unit)} طلب`,
       tone: "credit",
     };
   }
-  if (toman < 0) {
+  if (irr < 0) {
     return {
       toman,
-      label: `${formatToman(Math.abs(toman))} بدهی`,
+      irrMinor: irr,
+      label: `${formatMoneyFromIrrMinor(Math.abs(irr), unit)} بدهی`,
       tone: "debt",
     };
   }
-  return { toman: 0, label: "تسویه", tone: "settled" };
+  return { toman: 0, irrMinor: 0, label: "تسویه", tone: "settled" };
 }
 
 export type SpaceNetRow = {
@@ -117,9 +126,10 @@ export function groupSpaceNetsByKind(
 
 export function sortPeersByAbsNet<T extends { amountMinor: string }>(
   peers: T[],
+  unit: DisplayUnit = "rial",
 ): Array<T & { net: NetInfo }> {
   return peers
-    .map((p) => ({ ...p, net: netFromIrrMinor(p.amountMinor) }))
+    .map((p) => ({ ...p, net: netFromIrrMinor(p.amountMinor, unit) }))
     .filter((p) => p.net.tone !== "settled")
     .sort((a, b) => Math.abs(b.net.toman) - Math.abs(a.net.toman));
 }

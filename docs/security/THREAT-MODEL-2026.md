@@ -35,7 +35,7 @@
 | Repudiation | انکار عمل مالی | audit append-only | SIEM collector بیرونی |
 | Info disclosure | نشت tenant دیگر | RLS + isolation tests | ABAC DSL (R10-05 عمق) |
 | Denial of service | login flood | rate-limit Redis | soak staging |
-| Elevation | guest→finance | role sets · `requireAccess` / `rbac_abac_v1` | ABAC attribute پیشرفته |
+| Elevation | guest→finance | role sets · `requireAccess` / `rbac_abac_v5` + deputy cap | remote PDP / field-level |
 
 ## ۴. Trust boundaries
 

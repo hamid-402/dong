@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import type { MembershipRole, WorkspacePayoutInstructions, WorkspaceSummary } from "@dang/contracts";
-import { personaSettingsSpec, spaceKindForTemplate } from "@dang/contracts";
+import { inspectPayoutDestination, personaSettingsSpec, spaceKindForTemplate } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
 import { FormStack, EmptyHint, SectionCard, StatusLine, StatusPill } from "@/components/ui-blocks";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
@@ -20,17 +20,6 @@ import { t } from "@/lib/i18n";
 import { WorkspaceWebhooksPanel } from "@/components/workspace-webhooks-panel";
 import { WorkspaceDangerZone } from "@/components/shell/workspace-danger-zone";
 import styles from "./settings.module.css";
-
-function normalizePayoutValue(kind: "card" | "iban", raw: string): string {
-  const trimmed = raw.replace(/\s|-/g, "").trim();
-  if (kind === "iban") return trimmed.toUpperCase();
-  return trimmed;
-}
-
-function isValidPayoutValue(kind: "card" | "iban", value: string): boolean {
-  if (kind === "card") return /^\d{16}$/.test(value);
-  return /^IR\d{24}$/.test(value);
-}
 
 function maskPayoutValue(kind: "card" | "iban", value: string): string {
   if (kind === "card" && value.length >= 4) {
@@ -137,6 +126,7 @@ export default function WorkspaceSettingsPage() {
 
   const canEdit =
     (role === "owner" || role === "admin") && !workspace?.archivedAt;
+  const payoutInspection = inspectPayoutDestination(destinationKind, destinationValue);
   const spaceKind = workspace ? spaceKindForTemplate(workspace.template) : null;
   const settingsSpec =
     spaceKind && spaceKind !== "personal"
@@ -178,8 +168,8 @@ export default function WorkspaceSettingsPage() {
 
   function savePayout() {
     if (!workspace || !canEdit || !payoutLive) return;
-    const normalized = normalizePayoutValue(destinationKind, destinationValue);
-    if (!isValidPayoutValue(destinationKind, normalized)) {
+    const inspected = inspectPayoutDestination(destinationKind, destinationValue);
+    if (!inspected.formatOk) {
       setSuccess(null);
       setError(
         destinationKind === "iban"
@@ -188,13 +178,23 @@ export default function WorkspaceSettingsPage() {
       );
       return;
     }
+    if (!inspected.checkOk) {
+      setSuccess(null);
+      setError(
+        destinationKind === "iban"
+          ? t("settings.payoutBadCheckIban")
+          : t("settings.payoutBadCheckCard"),
+      );
+      return;
+    }
+    const typedBank = bankName.trim();
     startTransition(() => {
       void api
         .upsertPayoutInstructions(workspace.id, {
           holderName: holderName.trim(),
           destinationKind,
-          destinationValue: normalized,
-          bankName: bankName.trim() || undefined,
+          destinationValue: inspected.normalized,
+          bankName: typedBank || inspected.bank?.nameFa,
         })
         .then((saved) => {
           setPayout(saved);
@@ -505,6 +505,21 @@ export default function WorkspaceSettingsPage() {
               autoComplete="off"
               inputMode={destinationKind === "card" ? "numeric" : "text"}
             />
+            {payoutInspection.formatOk && payoutInspection.checkOk && payoutInspection.bank ? (
+              <StatusLine>
+                {t("settings.payoutBankDetected", { bank: payoutInspection.bank.nameFa })}
+              </StatusLine>
+            ) : null}
+            {payoutInspection.formatOk && payoutInspection.checkOk && !payoutInspection.bank ? (
+              <StatusLine>{t("settings.payoutCheckOkUnknown")}</StatusLine>
+            ) : null}
+            {payoutInspection.formatOk && !payoutInspection.checkOk ? (
+              <StatusLine>
+                {destinationKind === "iban"
+                  ? t("settings.payoutBadCheckIban")
+                  : t("settings.payoutBadCheckCard")}
+              </StatusLine>
+            ) : null}
             <TextField
               id="payout-bank"
               label={t("settings.payoutBank")}

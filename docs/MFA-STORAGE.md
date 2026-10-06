@@ -13,6 +13,9 @@ Recovery codes use the same `hashToken` pipeline as other secrets (`mfa.service.
 - Helpers: `sealTotpSecret` / `openTotpSecret` / `resolveTotpEncryptionKeyring` in `@dang/contracts`.
 - Runbook: `docs/ops/KEY-ROTATION.md`.
 
-External Vault/KMS provider: still deferred (capabilities stay `env` / `env_with_rotation`, never claim `vault` until wired).
+External Vault/KMS: capabilities never invent a cloud provider string.
+- `providers.secrets` may be `local_vault_v1` when the in-app vault store is wired.
+- External master key is honest only when `providers.masterKeySource === "http_vault"`
+  (`ENABLE_HTTP_VAULT_MASTER_KEY=1` + live `VAULT_*` — see `docs/ops/PHASE5-HARDENING.md`).
 
 Verified against dong-50 item 28 (+ Stage 10 A2 / B2 slice 3).

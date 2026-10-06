@@ -1,20 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { newClientId } from "@/lib/id";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import {
   formatJalaliIso,
   isReadOnlyRole,
   resolveDailyLedgerRange,
   shiftDailyLedgerRange,
+  sumDayFundDeposits,
 } from "@dang/contracts";
 import type {
   DailyLedgerItem,
   DailyLedgerRangePreset,
   DailyLedgerResponse,
   MembershipSummary,
+  PettyCashFundSummary,
   WorkspaceBalancesResponse,
   WorkspaceSummary,
 } from "@dang/contracts";
@@ -32,21 +35,28 @@ import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
 import { useLiveInvalidation } from "@/lib/live-invalidation";
-import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import { displayInputToIrrMinor, irrMinorToDisplayInput } from "@/lib/irr-money";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { moneyFieldLabel, moneyUnitSuffix } from "@/lib/money-labels";
 import { membershipRoleLabel } from "@/lib/status-labels";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { FlashMessages } from "@/lib/use-flash-message";
-import { useIsNarrow } from "@/lib/use-viewport";
 import { DailyLedgerLockPanel } from "@/components/views/daily-ledger/daily-ledger-lock-panel";
 import { DailyLedgerToolbar } from "@/components/views/daily-ledger/daily-ledger-toolbar";
-import { DailyLedgerGrid } from "@/components/views/daily-ledger/daily-ledger-grid";
+import { DailyLedgerOverviewTable } from "@/components/views/daily-ledger/daily-ledger-overview-table";
+import { DailyLedgerDayView } from "@/components/views/daily-ledger/daily-ledger-day-view";
 import { DailyLedgerSidePanels } from "@/components/views/daily-ledger/daily-ledger-side-panels";
-import { DailyTickPanel } from "@/components/views/daily-ledger/daily-tick-panel";
+import { DailyLedgerModal } from "@/components/views/daily-ledger/daily-ledger-modal";
 import { CatalogPicker } from "@/components/catalog-picker";
 import {
   dayItemCount,
+  adjacentLedgerDates,
+  lastIndividualMemberKey,
+  preferIndividualMemberUserId,
+  projectDepositNetMinor,
+  projectFundBalanceAfterDeposit,
   rangeHeadline,
   todayIsoLocal,
   type DraftTarget,
@@ -54,11 +64,15 @@ import {
 import { wPath } from "@/lib/workspace-paths";
 import styles from "./daily-ledger-view.module.css";
 
-/** Professional day×member consumption ledger — API-backed only. */
+/** Professional consumption ledger — range overview ↔ day detail (?date=). */
 export function DailyLedgerView() {
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
+  const unitLabel = moneyUnitSuffix(displayUnit);
   const scope = useOptionalWorkspaceScope();
-  const isNarrow = useIsNarrow();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [preset, setPreset] = useState<DailyLedgerRangePreset>("week");
@@ -73,30 +87,69 @@ export function DailyLedgerView() {
   const [draftColumn, setDraftColumn] = useState<string>("shared");
   const [itemName, setItemName] = useState("");
   const [itemToman, setItemToman] = useState("");
+  /** Line quantity — always editable in the add/edit modal (default 1). */
+  const [itemQuantity, setItemQuantity] = useState("1");
+  /** Unit price in display units; total = quantity × unit price. */
+  const [itemUnitToman, setItemUnitToman] = useState("");
   const [draftCatalog, setDraftCatalog] = useState<{
     catalogItemId: string;
     unitCode: string;
     quantity: number;
     unitPriceMinor: string;
   } | null>(null);
+  const [fundingSourceKind, setFundingSourceKind] = useState<"personal" | "petty_cash">(
+    "personal",
+  );
+  const [fundingRefId, setFundingRefId] = useState("");
+  const [pettyFunds, setPettyFunds] = useState<PettyCashFundSummary[]>([]);
+  const [depositDate, setDepositDate] = useState<string | null>(null);
+  const [depositToman, setDepositToman] = useState("");
+  const [depositFundId, setDepositFundId] = useState("");
+  const [depositCashInBy, setDepositCashInBy] = useState("");
+  const [depositMode, setDepositMode] = useState<"balance" | "gift">("balance");
+  const [depositNote, setDepositNote] = useState("");
   const [dayNote, setDayNote] = useState<{ date: string; note: string } | null>(null);
   const [importCsv, setImportCsv] = useState("");
-  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
-  const [viewModeTouched, setViewModeTouched] = useState(false);
+  const [, setPendingImport] = useState<{
+    paste?: string;
+    xlsxBase64?: string;
+  } | null>(null);
+  const [unmappedColumns, setUnmappedColumns] = useState<string[]>([]);
+  const [columnMap, setColumnMap] = useState<Record<string, string>>({});
+  const [importPreview, setImportPreview] = useState<
+    Array<{
+      date: string;
+      column: string;
+      itemName: string;
+      amountToman: number;
+      resolved: string;
+    }>
+  >([]);
+  const [sheetSource, setSheetSource] = useState<"auto" | "master" | "members">(
+    "auto",
+  );
   const [info, setInfo] = useState<string | null>(null);
   const [showTip, setShowTip] = useState(false);
   const [balances, setBalances] = useState<WorkspaceBalancesResponse | null>(null);
   const [lockReason, setLockReason] = useState("");
   const [showCustomRange, setShowCustomRange] = useState(false);
   const [myRole, setMyRole] = useState("");
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+  const [lastMemberUserId, setLastMemberUserId] = useState<string | null>(null);
   const todayIso = todayIsoLocal();
   const readOnly = isReadOnlyRole(myRole);
 
-  useEffect(() => {
-    if (viewModeTouched) return;
-    setViewMode(isNarrow ? "cards" : "table");
-  }, [isNarrow, viewModeTouched]);
+  const dateFromUrl = searchParams.get("date");
+  const selectedDate =
+    dateFromUrl && /^\d{4}-\d{2}-\d{2}$/.test(dateFromUrl) ? dateFromUrl : null;
+
+  function setDateQuery(next: string | null) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next) params.set("date", next);
+    else params.delete("date");
+    const q = params.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -127,13 +180,24 @@ export function DailyLedgerView() {
   useEffect(() => {
     if (!workspaceId) {
       setMyRole("");
+      setMyUserId(null);
+      setLastMemberUserId(null);
       return;
+    }
+    if (typeof window !== "undefined") {
+      setLastMemberUserId(
+        window.sessionStorage.getItem(lastIndividualMemberKey(workspaceId)),
+      );
     }
     void Promise.all([api.listMembers(workspaceId), api.me()])
       .then(([members, me]: [MembershipSummary[], { actor: { userId: string } }]) => {
+        setMyUserId(me.actor.userId);
         setMyRole(members.find((m) => m.userId === me.actor.userId)?.role ?? "");
       })
-      .catch(() => setMyRole(""));
+      .catch(() => {
+        setMyRole("");
+        setMyUserId(null);
+      });
   }, [workspaceId]);
 
   function applyPreset(next: DailyLedgerRangePreset) {
@@ -166,38 +230,54 @@ export function DailyLedgerView() {
   }
 
   useEffect(() => {
-    if (!draft && !dayNote) return;
+    if (!draft && !dayNote && !depositDate) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setDraft(null);
         setDraftCatalog(null);
         setDayNote(null);
+        setDepositDate(null);
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [draft, dayNote]);
+  }, [draft, dayNote, depositDate]);
 
   function load() {
     if (!workspaceId) return;
     startTransition(() => {
       void (async () => {
         try {
-          const [data, bal] = await Promise.all([
+          const [data, balResult, funds] = await Promise.all([
             api.dailyLedger(workspaceId, { from, to, preset: "custom" }),
-            api.getBalances(workspaceId).catch(() => null),
+            api.getBalances(workspaceId).then(
+              (bal) => ({ ok: true as const, bal }),
+              (err: unknown) => ({ ok: false as const, err }),
+            ),
+            api.listPettyCash(workspaceId).catch(() => [] as PettyCashFundSummary[]),
           ]);
           setLedger(data);
-          setSelectedDate((current) =>
-            current && data.days.some((day) => day.date === current)
-              ? current
-              : data.days[0]?.date ?? null,
-          );
-          setBalances(bal);
-          setError(null);
+          if (balResult.ok) {
+            setBalances(balResult.bal);
+          } else {
+            setBalances(null);
+            const msg = friendlyErrorMessage(balResult.err, "بارگذاری مانده ناموفق");
+            setError(
+              /۵۰۰|500|occurred|schema|migration|مهاجرت/i.test(msg)
+                ? "مانده‌ها در دسترس نیست — احتمالاً دیتابیس عقب است. بعداً «تلاش دوباره» بزنید."
+                : msg,
+            );
+          }
+          setPettyFunds(funds.filter((f) => f.active));
+          if (balResult.ok) setError(null);
           chrome.selectWorkspace(workspaceId);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "بارگذاری دفتر روزانه ناموفق"));
+          const msg = friendlyErrorMessage(err, "بارگذاری دفتر روزانه ناموفق");
+          setError(
+            /۵۰۰|500|occurred|schema|migration|مهاجرت/i.test(msg)
+              ? "بارگذاری دفتر ناموفق — دیتابیس ممکن است عقب باشد. صفحه را تازه کنید یا دوباره تلاش کنید."
+              : msg,
+          );
         }
       })();
     });
@@ -210,35 +290,120 @@ export function DailyLedgerView() {
 
   // Someone else's expense or settlement changes this grid and the balances
   // beside it, so the server tells us to reload instead of us polling.
-  useLiveInvalidation(["expenses", "balances", "settlements"], () => {
+  useLiveInvalidation(["expenses", "balances", "settlements", "payments"], () => {
     if (!chrome.ready || !workspaceId) return;
     load();
   });
 
   function openDraft(target: DraftTarget, item?: DailyLedgerItem) {
     if (readOnly) return;
+    if (target.kind === "member" && workspaceId) {
+      setLastMemberUserId(target.userId);
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem(
+          lastIndividualMemberKey(workspaceId),
+          target.userId,
+        );
+      }
+    }
     setDraft(target);
     setDraftDate(target.date);
     setDraftColumn(target.kind === "member" ? target.userId : "shared");
     setItemName(item?.title ?? "");
-    setItemToman(item ? String(Number(item.amount.amountMinor) / 10) : "");
+    const qty = item?.quantity && item.quantity > 0 ? item.quantity : 1;
+    setItemQuantity(String(qty));
+    const unitMinor =
+      item?.unitPriceMinor && /^\d+$/.test(item.unitPriceMinor)
+        ? item.unitPriceMinor
+        : item
+          ? String(Math.round(Number(item.amount.amountMinor) / qty))
+          : "";
+    setItemUnitToman(
+      unitMinor ? irrMinorToDisplayInput(unitMinor, displayUnit) : "",
+    );
+    setItemToman(
+      item ? irrMinorToDisplayInput(item.amount.amountMinor, displayUnit) : "",
+    );
     setDraftCatalog(
       item?.catalogItemId
         ? {
             catalogItemId: item.catalogItemId,
             unitCode: item.unitCode ?? "piece",
-            quantity: item.quantity ?? 1,
-            unitPriceMinor: item.unitPriceMinor ?? item.amount.amountMinor,
+            quantity: qty,
+            unitPriceMinor: unitMinor || item.amount.amountMinor,
           }
         : null,
     );
+    if (item?.fundingSourceKind === "petty_cash" && item.fundingRefId) {
+      setFundingSourceKind("petty_cash");
+      setFundingRefId(item.fundingRefId);
+    } else {
+      setFundingSourceKind("personal");
+      setFundingRefId(pettyFunds[0]?.id ?? "");
+    }
+  }
+
+  function syncLineTotalFromUnit(qtyRaw: string, unitRaw: string) {
+    const qty = Number(String(qtyRaw).replaceAll(",", "").trim());
+    const unitMoney = displayInputToIrrMinor(unitRaw, displayUnit);
+    if (!Number.isFinite(qty) || qty <= 0 || !unitMoney) {
+      setItemToman("");
+      return;
+    }
+    const totalMinor = String(Math.round(qty * Number(unitMoney.amountMinor)));
+    setItemToman(irrMinorToDisplayInput(totalMinor, displayUnit));
+  }
+
+  function parseDraftQuantity(): number | null {
+    const qty = Number(String(itemQuantity).replaceAll(",", "").trim());
+    if (!Number.isFinite(qty) || qty <= 0 || qty > 1_000_000) return null;
+    return qty;
+  }
+
+  function openDeposit(date: string) {
+    if (readOnly) return;
+    if (!pettyFunds.length) {
+      setError("ابتدا یک صندوق تنخواه در بخش پرداخت‌ها بسازید");
+      return;
+    }
+    const preferredCashIn = preferIndividualMemberUserId(ledger?.members ?? [], {
+      preferUserId: myUserId,
+      lastUserId: lastMemberUserId,
+    });
+    setError(null);
+    setDepositDate(date);
+    setDepositToman("");
+    setDepositFundId(pettyFunds[0]?.id ?? "");
+    setDepositCashInBy(preferredCashIn ?? "");
+    setDepositMode("balance");
+    setDepositNote("");
+  }
+
+  function openDay(date: string) {
+    setDateQuery(date);
+  }
+
+  function closeDay() {
+    setDateQuery(null);
   }
 
   function submitEntry() {
     if (!workspaceId || !draft) return;
-    const amount = tomanInputToIrrMinor(itemToman);
+    const qty = parseDraftQuantity();
+    if (qty == null) {
+      setError("تعداد باید عدد مثبت باشد");
+      return;
+    }
+    const unitMoney = displayInputToIrrMinor(itemUnitToman, displayUnit);
+    const amount =
+      unitMoney != null
+        ? {
+            amountMinor: String(Math.round(qty * Number(unitMoney.amountMinor))),
+            currency: "IRR" as const,
+          }
+        : displayInputToIrrMinor(itemToman, displayUnit);
     if (!itemName.trim() || !amount) {
-      setError("نام کالا و مبلغ (تومان / IRR) لازم است");
+      setError(`نام کالا و مبلغ واحد (${unitLabel}) لازم است`);
       return;
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(draftDate)) {
@@ -246,14 +411,33 @@ export function DailyLedgerView() {
       return;
     }
     const memberUserId = draftColumn === "shared" ? null : draftColumn;
+    const resolvedUnitPriceMinor =
+      unitMoney?.amountMinor ??
+      (qty === 1
+        ? amount.amountMinor
+        : String(Math.round(Number(amount.amountMinor) / qty)));
+    const qtyFields = {
+      quantity: qty,
+      unitPriceMinor: resolvedUnitPriceMinor,
+    };
     const catalogFields = draftCatalog
       ? {
           catalogItemId: draftCatalog.catalogItemId,
           unitCode: draftCatalog.unitCode,
-          quantity: draftCatalog.quantity,
-          unitPriceMinor: draftCatalog.unitPriceMinor,
+          ...qtyFields,
         }
-      : {};
+      : qtyFields;
+    if (fundingSourceKind === "petty_cash" && !fundingRefId.trim()) {
+      setError("برای خرج از تنخواه، صندوق را انتخاب کنید");
+      return;
+    }
+    const fundingFields =
+      fundingSourceKind === "petty_cash" && fundingRefId.trim()
+        ? {
+            fundingSourceKind: "petty_cash" as const,
+            fundingRefId: fundingRefId.trim(),
+          }
+        : { fundingSourceKind: "personal" as const };
     startTransition(() => {
       void (async () => {
         try {
@@ -265,6 +449,7 @@ export function DailyLedgerView() {
               memberUserId,
               idempotencyKey: newClientId(),
               ...catalogFields,
+              ...fundingFields,
             });
           } else {
             await api.createDailyLedgerEntry(workspaceId, {
@@ -274,10 +459,13 @@ export function DailyLedgerView() {
               memberUserId,
               idempotencyKey: newClientId(),
               ...catalogFields,
+              ...fundingFields,
             });
           }
           setDraft(null);
           setDraftCatalog(null);
+          setItemQuantity("1");
+          setItemUnitToman("");
           setError(null);
           load();
         } catch (err: unknown) {
@@ -287,9 +475,47 @@ export function DailyLedgerView() {
     });
   }
 
-  function deleteItem(expenseId: string) {
+  function submitDeposit() {
+    if (!workspaceId || !depositDate) return;
+    const amount = displayInputToIrrMinor(depositToman, displayUnit);
+    if (!amount) {
+      setError(`مبلغ واریز (${unitLabel}) لازم است`);
+      return;
+    }
+    if (!depositFundId.trim()) {
+      setError("صندوق تنخواه را انتخاب کنید");
+      return;
+    }
+    startTransition(() => {
+      void (async () => {
+        try {
+          await api.createDailyLedgerDeposit(workspaceId, {
+            date: depositDate,
+            amountMinor: amount.amountMinor,
+            fundId: depositFundId.trim(),
+            cashInByUserId: depositCashInBy.trim() || undefined,
+            mode: depositMode,
+            note: depositNote.trim() || undefined,
+            idempotencyKey: newClientId(),
+          });
+          setDepositDate(null);
+          setError(null);
+          setInfo(
+            depositMode === "gift"
+              ? "هدیه به صندوق ثبت شد"
+              : "واریز ثبت شد — اعتبار واریزکننده در مانده اعمال شد",
+          );
+          load();
+        } catch (err: unknown) {
+          setError(friendlyErrorMessage(err, "ثبت واریز به صندوق ناموفق"));
+        }
+      })();
+    });
+  }
+
+  function deleteItem(expenseId: string, options?: { skipConfirm?: boolean }) {
     if (!workspaceId) return;
-    if (!window.confirm("این قلم ابطال شود؟")) return;
+    if (!options?.skipConfirm && !window.confirm("این قلم ابطال شود؟")) return;
     startTransition(() => {
       void (async () => {
         try {
@@ -407,19 +633,143 @@ export function DailyLedgerView() {
 
   function runImport() {
     if (!workspaceId || !importCsv.trim()) return;
+    const paste = importCsv;
     startTransition(() => {
       void (async () => {
         try {
           const result = await api.importDailyLedgerCsv(workspaceId, {
-            csv: importCsv,
+            paste,
+            previewOnly: true,
+            columnMap: Object.keys(columnMap).length ? columnMap : undefined,
             idempotencyKey: newClientId(),
           });
-          setInfo(`ورود: ${result.imported} قلم · رد شده: ${result.skipped}`);
+          setPendingImport({ paste });
+          setImportPreview(result.preview ?? []);
+          if (result.unmappedColumns && result.unmappedColumns.length > 0) {
+            setUnmappedColumns(result.unmappedColumns);
+            setColumnMap((prev) => {
+              const next = { ...prev };
+              for (const c of result.unmappedColumns!) {
+                if (!next[c]) next[c] = "";
+              }
+              return next;
+            });
+            setInfo(
+              `پیش‌نمایش: ${result.preview?.length ?? 0} قلم · نگاشت ${result.unmappedColumns.length} ستون لازم است`,
+            );
+          } else {
+            setUnmappedColumns([]);
+            setInfo(
+              `پیش‌نمایش آماده: ${(result.preview ?? []).length} قلم — «تأیید ورود» را بزنید`,
+            );
+          }
+          setError(null);
+        } catch (err: unknown) {
+          setError(friendlyErrorMessage(err, "پیش‌نمایش CSV ناموفق"));
+        }
+      })();
+    });
+  }
+
+  function runImportXlsx(file: File) {
+    if (!workspaceId) return;
+    startTransition(() => {
+      void (async () => {
+        try {
+          const buf = await file.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          let binary = "";
+          for (let i = 0; i < bytes.length; i += 1) {
+            binary += String.fromCharCode(bytes[i]!);
+          }
+          const xlsxBase64 = btoa(binary);
+          const result = await api.importDailyLedgerCsv(workspaceId, {
+            xlsxBase64,
+            previewOnly: true,
+            sheetSource,
+            columnMap: Object.keys(columnMap).length ? columnMap : undefined,
+            idempotencyKey: newClientId(),
+          });
+          setPendingImport({ xlsxBase64 });
+          setImportPreview(result.preview ?? []);
+          if (result.unmappedColumns && result.unmappedColumns.length > 0) {
+            setUnmappedColumns(result.unmappedColumns);
+            setColumnMap((prev) => {
+              const next = { ...prev };
+              for (const c of result.unmappedColumns!) {
+                if (!next[c]) next[c] = "";
+              }
+              return next;
+            });
+            setInfo(
+              `پیش‌نمایش Excel: ${result.preview?.length ?? 0} قلم · نگاشت ${result.unmappedColumns.length} ستون لازم است`,
+            );
+          } else {
+            setUnmappedColumns([]);
+            setInfo(
+              `پیش‌نمایش Excel آماده: ${(result.preview ?? []).length} قلم — «تأیید ورود» را بزنید`,
+            );
+          }
+          setError(null);
+        } catch (err: unknown) {
+          setError(friendlyErrorMessage(err, "پیش‌نمایش فایل Excel ناموفق"));
+        }
+      })();
+    });
+  }
+
+  function confirmMappedImport() {
+    if (!workspaceId) return;
+    if (importPreview.length === 0) {
+      setError("ابتدا پیش‌نمایش بگیرید");
+      return;
+    }
+    const incomplete = unmappedColumns.some((c) => !columnMap[c]?.trim());
+    if (incomplete) {
+      setError("برای همهٔ ستون‌های ناشناس نگاشت انتخاب کنید");
+      return;
+    }
+    startTransition(() => {
+      void (async () => {
+        try {
+          const result = await api.importDailyLedgerCsv(workspaceId, {
+            rows: importPreview.map((r) => ({
+              date: r.date,
+              column: r.column,
+              itemName: r.itemName,
+              amountToman: r.amountToman,
+            })),
+            sheetSource,
+            columnMap: Object.keys(columnMap).length ? columnMap : undefined,
+            previewOnly: false,
+            idempotencyKey: newClientId(),
+          });
+          if (result.unmappedColumns && result.unmappedColumns.length > 0) {
+            setUnmappedColumns(result.unmappedColumns);
+            setImportPreview(result.preview ?? importPreview);
+            setInfo(
+              `هنوز نگاشت ناقص است: ${result.unmappedColumns.join("، ")}`,
+            );
+            return;
+          }
+          const warn =
+            result.warnings && result.warnings.length > 0
+              ? ` · هشدار: ${result.warnings.slice(0, 3).join("؛ ")}`
+              : "";
+          setInfo(
+            `ورود: ${result.imported} قلم · رد شده: ${result.skipped}` +
+              (result.holidays ? ` · تعطیل: ${result.holidays}` : "") +
+              warn,
+          );
           setImportCsv("");
+          setPendingImport(null);
+          setUnmappedColumns([]);
+          setColumnMap({});
+          setImportPreview([]);
           setError(null);
           load();
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "ورود CSV ناموفق"));
+          setError(friendlyErrorMessage(err, "ورود با نگاشت ناموفق"));
         }
       })();
     });
@@ -434,41 +784,168 @@ export function DailyLedgerView() {
         1,
       )
     : 1;
-  const selectedDay = ledger?.days.find((day) => day.date === selectedDate) ?? null;
+  const selectedDay =
+    ledger && selectedDate
+      ? (ledger.days.find((day) => day.date === selectedDate) ?? null)
+      : null;
   const selectedWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
   const settlementsHref = selectedWorkspace
     ? wPath(selectedWorkspace.slug, "settlements")
     : `${hubPathFor("/workspaces")}#settlement-panel`;
+  const fundNameById = Object.fromEntries(pettyFunds.map((f) => [f.id, f.name]));
+  const canDeposit = pettyFunds.length > 0;
+  const dayNeighbors =
+    ledger && selectedDate ? adjacentLedgerDates(ledger, selectedDate) : { prev: null, next: null };
+  const prevDayMeta =
+    ledger && dayNeighbors.prev
+      ? (() => {
+          const row = ledger.days.find((d) => d.date === dayNeighbors.prev);
+          return row ? { date: row.date, weekday: row.weekday } : null;
+        })()
+      : null;
+  const nextDayMeta =
+    ledger && dayNeighbors.next
+      ? (() => {
+          const row = ledger.days.find((d) => d.date === dayNeighbors.next);
+          return row ? { date: row.date, weekday: row.weekday } : null;
+        })()
+      : null;
+  const todayInRange = Boolean(ledger?.days.some((d) => d.date === todayIso));
+  const dayClosed = Boolean(
+    selectedDay && (selectedDay.isHoliday || selectedDay.isRangeLocked),
+  );
+  const expensesHref = selectedWorkspace
+    ? wPath(selectedWorkspace.slug, "expenses")
+    : null;
+  const canAddLedgerItem = Boolean(selectedDay && !readOnly && !dayClosed);
+  const primaryAction = (() => {
+    if (canAddLedgerItem && selectedDay) {
+      return (
+        <Button
+          type="button"
+          onClick={() => openDraft({ kind: "shared", date: selectedDay.date })}
+          disabled={pending}
+        >
+          ثبت قلم
+        </Button>
+      );
+    }
+    if (!selectedDay && selectedWorkspace && todayInRange) {
+      return (
+        <Button type="button" onClick={() => openDay(todayIso)} disabled={pending}>
+          امروز را باز کن
+        </Button>
+      );
+    }
+    return expensesHref ? (
+      <Link href={`${expensesHref}?from=ledger#quick-expense`}>
+        {NAV_LABELS.fullExpense}
+      </Link>
+    ) : null;
+  })();
+  const secondaryActions = (() => {
+    const parts: ReactNode[] = [];
+    // Only when primary is «ثبت قلم» — avoid duplicating the expenses link.
+    if (canAddLedgerItem && expensesHref) {
+      parts.push(
+        <Link key="expenses" href={`${expensesHref}?from=ledger#quick-expense`}>
+          {NAV_LABELS.fullExpense}
+        </Link>,
+      );
+    }
+    if (error) {
+      parts.push(
+        <Button
+          key="retry"
+          type="button"
+          variant="secondary"
+          onClick={() => load()}
+          disabled={pending}
+        >
+          تلاش دوباره
+        </Button>,
+      );
+    }
+    if (parts.length === 0) return null;
+    return <>{parts}</>;
+  })();
+
+  const depositAmountMoney = displayInputToIrrMinor(depositToman, displayUnit);
+  const depositMember = (ledger?.members ?? []).find((m) => m.userId === depositCashInBy);
+  const depositMemberNet =
+    balances?.lines.find((l) => l.userId === depositCashInBy)?.net.amountMinor ?? "0";
+  const depositProjectedNet = depositAmountMoney
+    ? projectDepositNetMinor(
+        depositMemberNet,
+        depositAmountMoney.amountMinor,
+        depositMode,
+      )
+    : depositMemberNet;
+  const selectedFund = pettyFunds.find((f) => f.id === depositFundId);
+  const fundAfterDeposit = depositAmountMoney
+    ? projectFundBalanceAfterDeposit(
+        selectedFund?.balanceMinor ?? "0",
+        depositAmountMoney.amountMinor,
+      )
+    : selectedFund?.balanceMinor ?? "0";
+
+  useEffect(() => {
+    if (!ledger || !selectedDate) return;
+    if (!ledger.days.some((d) => d.date === selectedDate)) {
+      setDateQuery(null);
+    }
+  }, [ledger, selectedDate]);
 
   return (
     <WorkspacePageFrame
       title={NAV_LABELS.ledger}
-      description={"دفتر روزانه از خرج‌های ثبت‌شدهٔ بازه."}
-      primaryAction={selectedWorkspace ? <Link href={wPath(selectedWorkspace.slug, "expenses")}>{NAV_LABELS.addExpense}</Link> : null}
+      description={
+        selectedDay
+          ? `جزئیات ${formatJalaliIso(selectedDay.date)} — ${NAV_LABELS.dailyEntry} و واریز؛ ${NAV_LABELS.fullExpense} همان روز فقط‌خواندنی.`
+          : `${NAV_LABELS.dailyEntry} برای مصرف تکراری؛ برای تقسیم و جزئیات از ${NAV_LABELS.fullExpense} استفاده کنید.`
+      }
+      primaryAction={primaryAction}
+      secondaryActions={secondaryActions}
       state="ready"
     >
       <>
       <FlashMessages error={error} successMessage={info} />
-      <SectionCard title="دفتر روزانه گروه" delayClass="delay1">
+      <SectionCard
+        title={selectedDay ? "جزئیات روز" : "دفتر روزانه گروه"}
+        tone={selectedDay ? "quiet" : "default"}
+        delayClass="delay1"
+        className={selectedDay ? styles.dayModeCard : undefined}
+      >
       <FormStack>
-        <p className="liveHint">
-          دفتر روزانه مصرف روز×عضو را ثبت می‌کند (ویرایش/حذف = برگشت دفترکل).
-          خرج‌های فرم مالی و شارژ تنخواه مسیر جدا دارند — برای شارژ صندوق گروه به{" "}
-          {selectedWorkspace ? (
-            <Link href={wPath(selectedWorkspace.slug, "payments")}>پرداخت‌ها / تنخواه</Link>
-          ) : (
-            "پرداخت‌ها"
-          )}{" "}
-          بروید؛ برای برگشت خرج ثبت‌شده از فرم، فهرست هزینه‌ها را باز کنید.
-        </p>
-        {showTip ? (
+        {!selectedDay ? (
+          <p className="liveHint">
+            خلاصهٔ بازه را ببینید؛ برای ثبت و ویرایش روی «جزئیات» همان روز بزنید.
+            واریز به صندوق جدا از جمع مصرف است. مدیریت صندوق‌ها در{" "}
+            {selectedWorkspace ? (
+              <Link href={wPath(selectedWorkspace.slug, "payments")}>پرداخت‌ها / تنخواه</Link>
+            ) : (
+              "پرداخت‌ها"
+            )}
+            .
+          </p>
+        ) : null}
+        {!selectedDay && showTip ? (
           <div className="dlOnboard" role="note">
-            <b>شروع سریع دفتر روزانه</b>
+            <b>شروع سریع {NAV_LABELS.dailyEntry}</b>
             <ol>
               <li>با دکمه‌های ‹ › بین هفته‌های شمسی جابه‌جا شوید.</li>
-              <li>روی «+ کالا» نام و مبلغ (تومان) را جدا وارد کنید.</li>
-              <li>تاریخ و ستون هر قلم در فرم قابل تغییر است.</li>
-              <li>ویرایش یا حذف قلم، همان خرج را در دفترکل برگشت می‌دهد (حذف سخت نیست).</li>
+              <li>در جدول خلاصه، خرج و واریز هر روز را ببینید.</li>
+              <li>با «جزئیات» وارد همان روز شوید و قلم یا واریز ثبت کنید.</li>
+              <li>منبع پرداخت هر قلم: شخصی یا صندوق تنخواه.</li>
+              <li>واریز پیش‌فرض اعتبار عضو است؛ هدیه را جدا انتخاب کنید.</li>
+              {expensesHref ? (
+                <li>
+                  تقسیم پیچیده؟{" "}
+                  <Link href={`${expensesHref}?from=ledger#quick-expense`}>
+                    {NAV_LABELS.fullExpense}
+                  </Link>
+                </li>
+              ) : null}
             </ol>
             <Button type="button" onClick={dismissTip}>
               متوجه شدم
@@ -476,41 +953,7 @@ export function DailyLedgerView() {
           </div>
         ) : null}
 
-        <div className="dlShell">
-          <DailyLedgerToolbar
-            workspaces={workspaces}
-            workspaceId={workspaceId}
-            settlementsHref={settlementsHref}
-            onWorkspaceChange={setWorkspaceId}
-            preset={preset}
-            from={from}
-            to={to}
-            daysCount={daysCount}
-            showCustomRange={showCustomRange}
-            viewMode={viewMode}
-            pending={pending}
-            hasLedger={!!ledger}
-            onShiftPeriod={shiftPeriod}
-            onGoToday={goTodayPeriod}
-            onApplyPreset={applyPreset}
-            onApplyDaysCount={applyDaysCount}
-            onToggleCustomRange={() => setShowCustomRange((v) => !v)}
-            onCustomFrom={(iso) => {
-              setPreset("custom");
-              setFrom(iso);
-            }}
-            onCustomTo={(iso) => {
-              setPreset("custom");
-              setTo(iso);
-            }}
-            onApplyCustom={load}
-            onSelectViewMode={(mode) => {
-              setViewModeTouched(true);
-              setViewMode(mode);
-            }}
-            onExportCsv={exportCsv}
-          />
-
+        <div className={selectedDay ? `${styles.dayShell}` : "dlShell"}>
           {error && !ledger ? (
             <EmptyHint>
               {error}{" "}
@@ -520,18 +963,22 @@ export function DailyLedgerView() {
             </EmptyHint>
           ) : null}
 
-          {ledger ? (
+          {ledger && !selectedDay ? (
             <div className="dlSummary" aria-label="خلاصه بازه">
               <div>
-                <span>جمع بازه</span>
+                <span>جمع خرج</span>
                 <strong>
                   <Amount irrMinor={ledger.totals.grand.amountMinor} />
                 </strong>
               </div>
               <div>
-                <span>هزینه مشترک</span>
+                <span>جمع واریز</span>
                 <strong>
-                  <Amount irrMinor={ledger.totals.shared.amountMinor} />
+                  <Amount
+                    irrMinor={ledger.days
+                      .reduce((acc, d) => acc + BigInt(sumDayFundDeposits(d)), 0n)
+                      .toString()}
+                  />
                 </strong>
               </div>
               <div>
@@ -547,24 +994,7 @@ export function DailyLedgerView() {
             </div>
           ) : null}
 
-          {workspaceId && selectedDate ? (
-            <DailyTickPanel
-              workspaceId={workspaceId}
-              date={selectedDate}
-              members={ledger?.members ?? []}
-              catalogEnabled={chrome.capabilities?.providers?.catalog === "catalog_v1"}
-              readOnly={readOnly}
-              pending={pending}
-              onPosted={() => {
-                setInfo("مصرف روزانه ثبت شد");
-                setError(null);
-                load();
-              }}
-              onError={(message) => setError(message)}
-            />
-          ) : null}
-
-        {ledger?.canManageLocks ? (
+        {ledger?.canManageLocks && !selectedDay ? (
           <DailyLedgerLockPanel
             rangeLocks={ledger.rangeLocks}
             from={from}
@@ -577,31 +1007,86 @@ export function DailyLedgerView() {
           />
         ) : null}
 
-        <DailyLedgerSidePanels
-          balances={balances}
-          members={ledger?.members ?? []}
-          settlementsHref={settlementsHref}
-          importCsv={importCsv}
-          onImportCsvChange={setImportCsv}
-          onRunImport={runImport}
-          pending={pending}
-          readOnly={readOnly}
-        />
-
         {!ledger && !error ? (
           <ContentSkeleton rows={4} label="در حال بارگذاری دفتر…" />
         ) : null}
 
-        {ledger ? (
-          <>
-            <StatusLine>
-              {rangeHeadline(ledger.from, ledger.to, preset)} · خرج{" "}
-              {ledger.source.expense === "postgres" ? "Postgres" : "حافظه"} · روزها{" "}
-              {ledger.source.dayMeta === "postgres" ? "Postgres" : "حافظه"}
-            </StatusLine>
+        {ledger && selectedDay && workspaceId ? (
+          <DailyLedgerDayView
+            workspaceId={workspaceId}
+            ledger={ledger}
+            day={selectedDay}
+            members={ledger.members}
+            fundNameById={fundNameById}
+            catalogEnabled={chrome.capabilities?.providers?.catalog === "catalog_v1"}
+            readOnly={readOnly}
+            pending={pending}
+            canDeposit={canDeposit}
+            rangeLabel={rangeHeadline(ledger.from, ledger.to, preset)}
+            preferMemberUserId={myUserId}
+            lastMemberUserId={lastMemberUserId}
+            prevDay={prevDayMeta}
+            nextDay={nextDayMeta}
+            onBack={closeDay}
+            onGoDate={openDay}
+            onOpenDraft={openDraft}
+            onOpenDeposit={canDeposit ? () => openDeposit(selectedDay.date) : undefined}
+            onDeleteItem={deleteItem}
+            onEditNote={() => setDayNote({ date: selectedDay.date, note: selectedDay.note ?? "" })}
+            onToggleHoliday={() => toggleHoliday(selectedDay.date, selectedDay.isHoliday)}
+            onPosted={() => {
+              setInfo("مصرف روزانه ثبت شد");
+              setError(null);
+              load();
+            }}
+            onError={(message) => setError(message)}
+            expensesHref={expensesHref}
+          />
+        ) : null}
 
-            <div className="dlTrends">
-              <h3 className="dlTrendsTitle">مصرف اعضا در بازه</h3>
+        {ledger && !selectedDay ? (
+          <div className={styles.overviewStack}>
+            <div className={styles.tableBand}>
+            <DailyLedgerToolbar
+              workspaces={workspaces}
+              workspaceId={workspaceId}
+              settlementsHref={settlementsHref}
+              onWorkspaceChange={setWorkspaceId}
+              preset={preset}
+              from={from}
+              to={to}
+              daysCount={daysCount}
+              showCustomRange={showCustomRange}
+              pending={pending}
+              hasLedger={!!ledger}
+              onShiftPeriod={shiftPeriod}
+              onGoToday={goTodayPeriod}
+              onApplyPreset={applyPreset}
+              onApplyDaysCount={applyDaysCount}
+              onToggleCustomRange={() => setShowCustomRange((v) => !v)}
+              onCustomFrom={(iso) => {
+                setPreset("custom");
+                setFrom(iso);
+              }}
+              onCustomTo={(iso) => {
+                setPreset("custom");
+                setTo(iso);
+              }}
+              onApplyCustom={load}
+              onExportCsv={exportCsv}
+            />
+
+            <DailyLedgerOverviewTable
+              ledger={ledger}
+              todayIso={todayIso}
+              pending={pending}
+              onOpenDay={openDay}
+              onToggleHoliday={readOnly ? undefined : toggleHoliday}
+            />
+            </div>
+
+            <details className={styles.memberTotals}>
+              <summary>مصرف اعضا در بازه</summary>
               <ul className="pfTrendList">
                 {ledger.members.map((m) => {
                   const minor = ledger.totals.members[m.userId]?.amountMinor ?? "0";
@@ -637,67 +1122,38 @@ export function DailyLedgerView() {
                   />
                 </li>
               </ul>
-            </div>
+            </details>
+          </div>
+        ) : null}
 
-            <div className={styles.masterDetail}>
-              <DailyLedgerGrid
-                ledger={ledger}
-                viewMode={viewMode}
-                todayIso={todayIso}
-                pending={pending}
-                readOnly={readOnly}
-                selectedDate={selectedDate}
-                onSelectDay={setSelectedDate}
-                onOpenDraft={openDraft}
-                onDeleteItem={deleteItem}
-                onToggleHoliday={toggleHoliday}
-                onEditNote={(date, note) => setDayNote({ date, note })}
-              />
-              <aside className={styles.inspector} aria-label="جزئیات روز انتخاب‌شده">
-                {selectedDay ? (
-                  <>
-                    <header>
-                      <span>روز انتخاب‌شده</span>
-                      <h3>{formatJalaliIso(selectedDay.date)}</h3>
-                    </header>
-                    <dl>
-                      <div>
-                        <dt>جمع روز</dt>
-                        <dd><Amount irrMinor={selectedDay.dayTotal.amountMinor} /></dd>
-                      </div>
-                      <div>
-                        <dt>قلم‌ها</dt>
-                        <dd>{new Intl.NumberFormat("fa-IR").format(dayItemCount(ledger, selectedDay.date))}</dd>
-                      </div>
-                      <div>
-                        <dt>هزینه مشترک</dt>
-                        <dd><Amount irrMinor={selectedDay.shared.total.amountMinor} /></dd>
-                      </div>
-                      <div>
-                        <dt>وضعیت روز</dt>
-                        <dd>{selectedDay.isHoliday ? "تعطیل" : selectedDay.isRangeLocked ? "قفل بازه" : "عادی"}</dd>
-                      </div>
-                      <div>
-                        <dt>یادداشت</dt>
-                        <dd>{selectedDay.note?.trim() || "ثبت نشده"}</dd>
-                      </div>
-                    </dl>
-                    <section>
-                      <b>توزیع اعضا</b>
-                      {ledger.members.map((member) => (
-                        <div key={member.userId}>
-                          <span>{member.displayName}</span>
-                          <Amount irrMinor={selectedDay.members[member.userId]?.total.amountMinor ?? "0"} />
-                        </div>
-                      ))}
-                    </section>
-                  </>
-                ) : (
-                  <EmptyHint>برای مشاهده جزئیات، یک روز را انتخاب کنید.</EmptyHint>
-                )}
-              </aside>
-            </div>
-          </>
+        {!selectedDay ? (
+        <DailyLedgerSidePanels
+          balances={balances}
+          members={ledger?.members ?? []}
+          settlementsHref={settlementsHref}
+          importCsv={importCsv}
+          onImportCsvChange={(value) => {
+            setImportCsv(value);
+            setUnmappedColumns([]);
+            setPendingImport(null);
+            setColumnMap({});
+            setImportPreview([]);
+          }}
+          onRunImport={runImport}
+          onImportXlsxFile={runImportXlsx}
+          unmappedColumns={unmappedColumns}
+          columnMap={columnMap}
+          onColumnMapChange={(col, value) =>
+            setColumnMap((prev) => ({ ...prev, [col]: value }))
+          }
+          onConfirmMappedImport={confirmMappedImport}
+          importPreview={importPreview}
+          onImportPreviewChange={setImportPreview}
+          sheetSource={sheetSource}
+          onSheetSourceChange={setSheetSource}
+          pending={pending}
+          readOnly={readOnly}
+        />
         ) : null}
         </div>
 
@@ -707,16 +1163,15 @@ export function DailyLedgerView() {
           </StatusLine>
         ) : null}
 
-        {draft && !readOnly ? (
-          <div
-            className="dlOverlay"
-            role="presentation"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setDraft(null);
-            }}
-          >
-            <div className="dlModal" role="dialog" aria-modal="true" aria-label={draft.expenseId ? "ویرایش کالا" : "افزودن کالا"}>
-              <h3>{draft.expenseId ? "ویرایش قلم" : "افزودن قلم"}</h3>
+        <DailyLedgerModal
+          open={Boolean(draft && !readOnly)}
+          ariaLabel={draft?.expenseId ? "ویرایش کالا" : "افزودن کالا"}
+          title={draft?.expenseId ? "ویرایش قلم" : "افزودن قلم"}
+          onClose={() => {
+            setDraft(null);
+            setDraftCatalog(null);
+          }}
+        >
               <JalaliDateField label="تاریخ" value={draftDate} onChange={setDraftDate} />
               <SelectField
                 label="ستون"
@@ -746,30 +1201,121 @@ export function DailyLedgerView() {
                   label="انتخاب از کاتالوگ"
                   onSelect={(sel) => {
                     setItemName(sel.title);
-                    setItemToman(String(Number(sel.amountMinor) / 10));
+                    const qty = sel.quantity > 0 ? sel.quantity : 1;
+                    setItemQuantity(String(qty));
+                    setItemUnitToman(
+                      irrMinorToDisplayInput(sel.unitPriceMinor, displayUnit),
+                    );
+                    const totalMinor = String(
+                      Math.round(qty * Number(sel.unitPriceMinor)),
+                    );
+                    setItemToman(irrMinorToDisplayInput(totalMinor, displayUnit));
                     setDraftCatalog({
                       catalogItemId: sel.catalogItemId,
                       unitCode: sel.unitCode,
-                      quantity: sel.quantity,
+                      quantity: qty,
                       unitPriceMinor: sel.unitPriceMinor,
                     });
                   }}
                 />
               ) : null}
-              {draftCatalog ? (
-                <StatusLine>
-                  کاتالوگ · {draftCatalog.unitCode} · تعداد {draftCatalog.quantity}
-                </StatusLine>
-              ) : null}
               <TextField
-                label="مبلغ (تومان)"
-                value={itemToman}
-                onChange={(e) => setItemToman(e.target.value)}
+                label={
+                  draftCatalog
+                    ? `تعداد (${draftCatalog.unitCode})`
+                    : "تعداد"
+                }
+                inputMode="decimal"
+                value={itemQuantity}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setItemQuantity(next);
+                  setDraftCatalog((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          quantity:
+                            Number(String(next).replaceAll(",", "").trim()) ||
+                            prev.quantity,
+                        }
+                      : prev,
+                  );
+                  syncLineTotalFromUnit(next, itemUnitToman);
+                }}
+                placeholder="1"
+              />
+              <TextField
+                label={moneyFieldLabel("مبلغ واحد", displayUnit)}
+                value={itemUnitToman}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setItemUnitToman(next);
+                  const unitMoney = displayInputToIrrMinor(next, displayUnit);
+                  if (unitMoney) {
+                    setDraftCatalog((prev) =>
+                      prev
+                        ? { ...prev, unitPriceMinor: unitMoney.amountMinor }
+                        : prev,
+                    );
+                  }
+                  syncLineTotalFromUnit(itemQuantity, next);
+                }}
                 placeholder="60000"
               />
+              {(() => {
+                const qty = parseDraftQuantity();
+                const unit = displayInputToIrrMinor(itemUnitToman, displayUnit);
+                if (qty != null && unit) {
+                  return (
+                    <StatusLine>
+                      جمع خط:{" "}
+                      <Amount
+                        irrMinor={String(
+                          Math.round(qty * Number(unit.amountMinor)),
+                        )}
+                      />
+                      {draftCatalog ? " · کاتالوگ" : null}
+                    </StatusLine>
+                  );
+                }
+                return <StatusLine>جمع = تعداد × مبلغ واحد</StatusLine>;
+              })()}
+              <SelectField
+                label="منبع پرداخت"
+                value={
+                  fundingSourceKind === "petty_cash" && fundingRefId
+                    ? `petty:${fundingRefId}`
+                    : "personal"
+                }
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v.startsWith("petty:")) {
+                    setFundingSourceKind("petty_cash");
+                    setFundingRefId(v.slice("petty:".length));
+                  } else {
+                    setFundingSourceKind("personal");
+                    setFundingRefId("");
+                  }
+                }}
+              >
+                <option value="personal">حساب شخصی پرداخت‌کننده</option>
+                {pettyFunds.map((f) => (
+                  <option key={f.id} value={`petty:${f.id}`}>
+                    صندوق تنخواه · {f.name}
+                  </option>
+                ))}
+              </SelectField>
+              {fundingSourceKind === "petty_cash" ? (
+                <StatusLine>
+                  این قلم از موجودی صندوق کم می‌شود (بدهی اعضا طبق تقسیم مصرف همان
+                  قلم است).
+                </StatusLine>
+              ) : (
+                <StatusLine>پرداخت از جیب شخص — بدون برداشت از تنخواه.</StatusLine>
+              )}
               <div className="dlModalActions">
                 <Button type="button" onClick={submitEntry} disabled={pending}>
-                  {draft.expenseId ? "ذخیره" : "ثبت"}
+                  {draft?.expenseId ? "ذخیره" : "ثبت"}
                 </Button>
                 <Button
                   type="button"
@@ -781,24 +1327,124 @@ export function DailyLedgerView() {
                   انصراف
                 </Button>
               </div>
-            </div>
-          </div>
-        ) : null}
+        </DailyLedgerModal>
 
-        {dayNote ? (
-          <div
-            className="dlOverlay"
-            role="presentation"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setDayNote(null);
-            }}
-          >
-            <div className="dlModal" role="dialog" aria-modal="true" aria-label="توضیح روز">
-              <h3>توضیحات {formatJalaliIso(dayNote.date)}</h3>
+        <DailyLedgerModal
+          open={Boolean(depositDate && !readOnly)}
+          ariaLabel="واریز به صندوق تنخواه"
+          title="واریز به صندوق"
+          onClose={() => setDepositDate(null)}
+        >
+              <StatusLine>
+                تاریخ {formatJalaliIso(depositDate ?? todayIso)} ·{" "}
+                {depositMode === "gift"
+                  ? "هدیه: فقط موجودی صندوق بالا می‌رود (مانده اعضا عوض نمی‌شود)."
+                  : "پیش‌فرض: اعتبار واریزکننده — اول بدهی کم می‌شود، مازاد بستانکار می‌شود."}
+              </StatusLine>
+              <SelectField
+                label="نوع واریز"
+                value={depositMode}
+                onChange={(e) =>
+                  setDepositMode(e.target.value === "gift" ? "gift" : "balance")
+                }
+              >
+                <option value="balance">اعتبار عضو (کاهش بدهی / بستانکار)</option>
+                <option value="gift">هدیه به صندوق (بدون اثر روی مانده)</option>
+              </SelectField>
+              <SelectField
+                label="صندوق"
+                value={depositFundId}
+                onChange={(e) => setDepositFundId(e.target.value)}
+              >
+                {pettyFunds.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name} · موجودی{" "}
+                    {irrMinorToDisplayInput(f.balanceMinor, displayUnit) || "0"}{" "}
+                    {unitLabel}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField
+                label="واریزکننده"
+                value={depositCashInBy}
+                onChange={(e) => setDepositCashInBy(e.target.value)}
+              >
+                {(ledger?.members ?? []).map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.displayName}
+                  </option>
+                ))}
+              </SelectField>
+              <TextField
+                label={moneyFieldLabel("مبلغ واریز", displayUnit)}
+                value={depositToman}
+                onChange={(e) => setDepositToman(e.target.value)}
+                placeholder="500000"
+              />
+              <TextField
+                label="یادداشت (اختیاری)"
+                value={depositNote}
+                onChange={(e) => setDepositNote(e.target.value)}
+                placeholder="مثلاً سهم ماهانه صندوق"
+              />
+              {depositMember ? (
+                <StatusLine>
+                  {depositMode === "gift" ? (
+                    <>
+                      ماندهٔ {depositMember.displayName} تغییر نمی‌کند (
+                      <Amount irrMinor={depositMemberNet} />
+                      ).
+                    </>
+                  ) : (
+                    <>
+                      ماندهٔ {depositMember.displayName}:{" "}
+                      <Amount irrMinor={depositMemberNet} />
+                      {" → "}
+                      <Amount irrMinor={depositProjectedNet} />
+                      {balances ? null : " · مانده زنده هنوز بارگذاری نشده"}
+                    </>
+                  )}
+                  {selectedFund ? (
+                    <>
+                      {" · "}موجودی {selectedFund.name}:{" "}
+                      <Amount irrMinor={selectedFund.balanceMinor} />
+                      {" → "}
+                      <Amount irrMinor={fundAfterDeposit} />
+                    </>
+                  ) : null}
+                </StatusLine>
+              ) : (
+                <StatusLine>واریزکننده را انتخاب کنید تا پیش‌نمایش مانده دیده شود.</StatusLine>
+              )}
+              {error ? (
+                <StatusLine>
+                  <span className="liveError">{error}</span>
+                </StatusLine>
+              ) : null}
+              <div className="dlModalActions">
+                <Button type="button" onClick={submitDeposit} disabled={pending}>
+                  ثبت واریز
+                </Button>
+                <Button type="button" onClick={() => setDepositDate(null)}>
+                  انصراف
+                </Button>
+              </div>
+        </DailyLedgerModal>
+
+        <DailyLedgerModal
+          open={Boolean(dayNote)}
+          ariaLabel="توضیح روز"
+          title={dayNote ? `توضیحات ${formatJalaliIso(dayNote.date)}` : "توضیح روز"}
+          onClose={() => setDayNote(null)}
+        >
               <TextField
                 label="یادداشت"
-                value={dayNote.note}
-                onChange={(e) => setDayNote({ ...dayNote, note: e.target.value })}
+                value={dayNote?.note ?? ""}
+                onChange={(e) =>
+                  setDayNote((prev) =>
+                    prev ? { ...prev, note: e.target.value } : prev,
+                  )
+                }
               />
               <div className="dlModalActions">
                 <Button type="button" onClick={saveDayNote} disabled={pending}>
@@ -808,9 +1454,7 @@ export function DailyLedgerView() {
                   انصراف
                 </Button>
               </div>
-            </div>
-          </div>
-        ) : null}
+        </DailyLedgerModal>
       </FormStack>
       </SectionCard>
     </>

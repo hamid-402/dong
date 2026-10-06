@@ -83,10 +83,11 @@ function buildZip(files: ReadonlyArray<{ name: string; data: Buffer }>): Buffer 
 
     const local = Buffer.alloc(30 + nameBuf.length);
     local.writeUInt32LE(0x04034b50, 0);
-    local.writeUInt16LE(method, 4);
-    local.writeUInt16LE(0, 6);
-    local.writeUInt16LE(0, 8);
-    local.writeUInt16LE(0, 10);
+    local.writeUInt16LE(20, 4); // version needed
+    local.writeUInt16LE(0, 6); // flags
+    local.writeUInt16LE(method, 8);
+    local.writeUInt16LE(0, 10); // mod time
+    local.writeUInt16LE(0, 12); // mod date
     local.writeUInt32LE(checksum, 14);
     local.writeUInt32LE(compressed.length, 18);
     local.writeUInt32LE(file.data.length, 22);
@@ -97,21 +98,22 @@ function buildZip(files: ReadonlyArray<{ name: string; data: Buffer }>): Buffer 
 
     const central = Buffer.alloc(46 + nameBuf.length);
     central.writeUInt32LE(0x02014b50, 0);
-    central.writeUInt16LE(20, 4);
-    central.writeUInt16LE(method, 6);
-    central.writeUInt16LE(0, 8);
-    central.writeUInt16LE(0, 10);
-    central.writeUInt16LE(0, 12);
+    central.writeUInt16LE(20, 4); // version made by
+    central.writeUInt16LE(20, 6); // version needed
+    central.writeUInt16LE(0, 8); // flags
+    central.writeUInt16LE(method, 10);
+    central.writeUInt16LE(0, 12); // mod time
+    central.writeUInt16LE(0, 14); // mod date
     central.writeUInt32LE(checksum, 16);
     central.writeUInt32LE(compressed.length, 20);
     central.writeUInt32LE(file.data.length, 24);
     central.writeUInt16LE(nameBuf.length, 28);
-    central.writeUInt16LE(0, 30);
-    central.writeUInt16LE(0, 32);
-    central.writeUInt16LE(0, 34);
-    central.writeUInt16LE(0, 36);
-    central.writeUInt32LE(offset, 38);
-    central.writeUInt32LE(0, 42);
+    central.writeUInt16LE(0, 30); // extra len
+    central.writeUInt16LE(0, 32); // comment len
+    central.writeUInt16LE(0, 34); // disk start
+    central.writeUInt16LE(0, 36); // internal attrs
+    central.writeUInt32LE(0, 38); // external attrs
+    central.writeUInt32LE(offset, 42); // local header offset
     nameBuf.copy(central, 46);
     centralParts.push(central);
 
@@ -132,33 +134,80 @@ function buildZip(files: ReadonlyArray<{ name: string; data: Buffer }>): Buffer 
   return Buffer.concat([...localParts, centralBlob, end]);
 }
 
-/** Minimal OOXML spreadsheet (one sheet) as a ZIP buffer. */
-export function buildXlsxSpreadsheet(rows: string[][]): Buffer {
+/** Minimal OOXML spreadsheet (one or more sheets) as a ZIP buffer. */
+export function buildXlsxWorkbook(
+  sheets: ReadonlyArray<{ name: string; rows: string[][] }>,
+): Buffer {
+  if (sheets.length === 0) {
+    return buildXlsxWorkbook([{ name: "Sheet1", rows: [[]] }]);
+  }
+
+  const safeNames = sheets.map((s, i) => {
+    const cleaned = s.name
+      .replace(/[\\/*?:\[\]]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 31);
+    return cleaned || `Sheet${i + 1}`;
+  });
+
+  const sheetEntries = sheets.map((s, i) => ({
+    path: `xl/worksheets/sheet${i + 1}.xml`,
+    data: Buffer.from(sheetXml(s.rows), "utf8"),
+  }));
+
+  const workbookSheets = safeNames
+    .map(
+      (name, i) =>
+        `<sheet name="${escapeXml(name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`,
+    )
+    .join("");
+
   const workbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>
+  <sheets>${workbookSheets}</sheets>
 </workbook>`;
-  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
-</Relationships>`;
+
   const workbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+${safeNames
+  .map(
+    (_, i) =>
+      `  <Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`,
+  )
+  .join("\n")}
 </Relationships>`;
+
+  const overrides = sheetEntries
+    .map(
+      (e) =>
+        `  <Override PartName="/${e.path}" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`,
+    )
+    .join("\n");
+
   const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+${overrides}
 </Types>`;
+
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
 
   return buildZip([
     { name: "[Content_Types].xml", data: Buffer.from(contentTypes, "utf8") },
     { name: "_rels/.rels", data: Buffer.from(rels, "utf8") },
     { name: "xl/workbook.xml", data: Buffer.from(workbook, "utf8") },
     { name: "xl/_rels/workbook.xml.rels", data: Buffer.from(workbookRels, "utf8") },
-    { name: "xl/worksheets/sheet1.xml", data: Buffer.from(sheetXml(rows), "utf8") },
+    ...sheetEntries.map((e) => ({ name: e.path, data: e.data })),
   ]);
+}
+
+/** Minimal OOXML spreadsheet (one sheet) as a ZIP buffer. */
+export function buildXlsxSpreadsheet(rows: string[][]): Buffer {
+  return buildXlsxWorkbook([{ name: "Sheet1", rows }]);
 }

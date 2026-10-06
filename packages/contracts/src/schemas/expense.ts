@@ -107,6 +107,13 @@ export const createExpenseDraftSchema = z
         path: ["fundingRefId"],
       });
     }
+    if (data.fundingSourceKind === "member" && !data.fundingRefId) {
+      ctx.addIssue({
+        code: "custom",
+        message: "FUNDING_REF_REQUIRED",
+        path: ["fundingRefId"],
+      });
+    }
     if (data.fundingRefId && !data.fundingSourceKind) {
       ctx.addIssue({
         code: "custom",
@@ -185,6 +192,14 @@ export type CreateExpenseDraftInput = z.infer<typeof createExpenseDraftSchema>;
 export type ReverseExpenseRequestInput = z.infer<typeof reverseExpenseRequestSchema>;
 export type ReviseExpenseRequestInput = z.infer<typeof reviseExpenseRequestSchema>;
 
+export const restoreExpenseRequestSchema = z
+  .object({
+    idempotencyKey: z.string().trim().min(8).max(128),
+  })
+  .strict();
+
+export type RestoreExpenseRequestInput = z.infer<typeof restoreExpenseRequestSchema>;
+
 /** Body for POST …/expenses/preview-split */
 export const previewExpenseSplitSchema = z
   .object({
@@ -255,3 +270,32 @@ export const expenseListQuerySchema = z
   });
 
 export type ExpenseListQuery = z.infer<typeof expenseListQuerySchema>;
+
+export const rebuildFundPartyJournalsRequestSchema = z.preprocess(
+  (val) => (val == null || val === "" ? {} : val),
+  z
+    .object({
+      /**
+       * Re-post even when journal already has fund:* lines.
+       * Default false = idempotent migration.
+       */
+      force: z.boolean().optional().default(false),
+    })
+    .strict(),
+);
+
+export type RebuildFundPartyJournalsRequest = z.infer<
+  typeof rebuildFundPartyJournalsRequestSchema
+>;
+
+export const rebuildFundPartyJournalsResultSchema = z
+  .object({
+    rebuilt: z.number().int().nonnegative(),
+    created: z.number().int().nonnegative(),
+    skipped: z.number().int().nonnegative(),
+    totalPosted: z.number().int().nonnegative(),
+    skippedAlreadyFund: z.number().int().nonnegative(),
+    skippedNoFund: z.number().int().nonnegative(),
+    forced: z.boolean(),
+  })
+  .strict();

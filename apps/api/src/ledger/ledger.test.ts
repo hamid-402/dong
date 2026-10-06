@@ -100,3 +100,48 @@ test("ledger rejects posting non-posted expense", async () => {
     /LEDGER_EXPENSE_STATUS/,
   );
 });
+
+test("rebuildExpenseJournal renames legacy then posts fund party lines", async () => {
+  const store = new MemoryLedgerStore();
+  const fundId = "fund-main";
+  const expense = postedExpense({
+    id: "exp-fund",
+    workspaceId: "ws-fund",
+    paidByUserId: "u-payer",
+    fundingSourceKind: "petty_cash",
+    fundingRefId: fundId,
+    total: { amountMinor: "300", currency: "IRR" },
+    paymentLines: [
+      { userId: "u-payer", amount: { amountMinor: "300", currency: "IRR" } },
+    ],
+    participantUserIds: ["u-payer", "u-peer", "u-sara"],
+    splits: [
+      { userId: "u-payer", amount: { amountMinor: "100", currency: "IRR" } },
+      { userId: "u-peer", amount: { amountMinor: "100", currency: "IRR" } },
+      { userId: "u-sara", amount: { amountMinor: "100", currency: "IRR" } },
+    ],
+  });
+
+  const classic = await store.postExpense("u-payer", expense);
+  assert.ok(!classic.lines.some((l) => l.accountCode.startsWith("fund:")));
+
+  const rebuilt = await store.rebuildExpenseJournal("u-payer", expense, {
+    fundAsSettlementParty: true,
+    defaultFundId: fundId,
+  });
+  assert.equal(rebuilt.status, "rebuilt");
+  assert.ok(
+    rebuilt.entry.lines.some((l) => l.accountCode === `fund:${fundId}`),
+  );
+
+  const listed = await store.listForWorkspace("ws-fund", "u-payer");
+  const active = listed.filter((e) => e.status === "posted");
+  assert.equal(active.length, 1);
+  assert.equal(active[0]?.id, rebuilt.entry.id);
+
+  const skip = await store.rebuildExpenseJournal("u-payer", expense, {
+    fundAsSettlementParty: true,
+    defaultFundId: fundId,
+  });
+  assert.equal(skip.status, "skipped");
+});

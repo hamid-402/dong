@@ -1,4 +1,4 @@
-import type { CreateCreditPurchasePaymentRequest, CreateCreditPurchaseRequest, CreateOnBehalfPaymentRequest, CreatePaymentReceiptRequest, CreatePettyCashFundRequest, CreatePettyCashMovementRequest, CreditPurchaseStatus, CreditPurchaseSummary, OnBehalfPaymentStatus, OnBehalfPaymentSummary, PaymentReceiptStatus, PaymentReceiptSummary, PettyCashFundSummary, PettyCashHealthReport, RejectOnBehalfPaymentRequest, RejectPaymentReceiptRequest, SpendPettyCashAsExpenseRequest, SpendPettyCashAsExpenseResponse, TopupPettyCashFromMembersRequest, TopupPettyCashFromMembersResponse } from "@dang/contracts";
+import type { CreateCreditPurchasePaymentRequest, CreateCreditPurchaseRequest, CreateOnBehalfPaymentRequest, CreatePaymentReceiptRequest, CreatePettyCashFundRequest, CreatePettyCashMovementRequest, CreditPurchaseStatus, CreditPurchaseSummary, GiftPettyCashRequest, GiftPettyCashResponse, OnBehalfPaymentStatus, OnBehalfPaymentSummary, PaymentReceiptStatus, PaymentReceiptSummary, PettyCashFundSummary, PettyCashHealthReport, PettyCashLedgerResponse, RejectOnBehalfPaymentRequest, RejectPaymentReceiptRequest, SettlePayRequest, SettlePayResponse, SpendPettyCashAsExpenseRequest, SpendPettyCashAsExpenseResponse, TopupPettyCashFromMembersRequest, TopupPettyCashFromMembersResponse } from "@dang/contracts";
 import { apiFetch } from "./client";
 import { postWithOfflineQueue } from "./offline-post";
 
@@ -48,6 +48,11 @@ export const workspacePaymentsApi = {
       `/workspaces/${workspaceId}/payments/petty-cash`,
     ),
 
+  getPettyCashLedger: (workspaceId: string, fundId: string) =>
+    apiFetch<PettyCashLedgerResponse>(
+      `/workspaces/${workspaceId}/payments/petty-cash/${fundId}/ledger`,
+    ),
+
   pettyCashHealth: (workspaceId: string) =>
     apiFetch<PettyCashHealthReport>(
       `/workspaces/${workspaceId}/payments/petty-cash/health`,
@@ -59,6 +64,35 @@ export const workspacePaymentsApi = {
       body: JSON.stringify(body),
       idempotencyKey: body.idempotencyKey,
       label: body.name?.trim() || "صندوق تنخواه",
+    }),
+
+  ensureDefaultPettyCashFund: (
+    workspaceId: string,
+    body?: { idempotencyKey?: string },
+  ) =>
+    postWithOfflineQueue<{
+      created: boolean;
+      funds: PettyCashFundSummary[];
+      defaultFund: PettyCashFundSummary | null;
+    }>({
+      path: `/workspaces/${workspaceId}/payments/petty-cash/ensure-default`,
+      body: JSON.stringify(body ?? {}),
+      idempotencyKey: body?.idempotencyKey,
+      label: "ایجاد تنخواه اصلی",
+    }),
+
+  closePettyCashFund: (workspaceId: string, fundId: string) =>
+    postWithOfflineQueue<PettyCashFundSummary>({
+      path: `/workspaces/${workspaceId}/payments/petty-cash/${fundId}/close`,
+      body: "{}",
+      label: "بستن صندوق تنخواه",
+    }),
+
+  reopenPettyCashFund: (workspaceId: string, fundId: string) =>
+    postWithOfflineQueue<PettyCashFundSummary>({
+      path: `/workspaces/${workspaceId}/payments/petty-cash/${fundId}/reopen`,
+      body: "{}",
+      label: "بازگشایی صندوق تنخواه",
     }),
 
   createPettyCashMovement: (
@@ -93,6 +127,35 @@ export const workspacePaymentsApi = {
       idempotencyKey: body.idempotencyKey,
       label: "شارژ تنخواه از سهم اعضا",
     }),
+
+  giftPettyCash: (
+    workspaceId: string,
+    fundId: string,
+    body: GiftPettyCashRequest,
+  ) =>
+    postWithOfflineQueue<GiftPettyCashResponse>({
+      path: `/workspaces/${workspaceId}/payments/petty-cash/${fundId}/gift`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "هدیه به صندوق تنخواه",
+    }),
+
+  settlePay: (workspaceId: string, body: SettlePayRequest) => {
+    const path = `/workspaces/${workspaceId}/payments/settle-pay`;
+    const payload = JSON.stringify(body);
+    if (body.previewOnly) {
+      return apiFetch<SettlePayResponse>(path, {
+        method: "POST",
+        body: payload,
+      });
+    }
+    return postWithOfflineQueue<SettlePayResponse>({
+      path,
+      body: payload,
+      idempotencyKey: body.idempotencyKey,
+      label: "تسویه هوشمند",
+    });
+  },
 
   spendPettyCashAsExpense: (
     workspaceId: string,

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import type { ActivityItem } from "@dang/contracts";
-import { spaceKindForTemplate, isFinanceManagerRole, isReadOnlyRole, type PettyCashFundSummary } from "@dang/contracts";
+import { spaceKindForTemplate, isFinanceManagerRole, isReadOnlyRole, primaryCounterpartyEdge, type PettyCashFundSummary } from "@dang/contracts";
 import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
 import { formatMoney, formatMoneyFromIrrMinor, irrMinorToDisplayInteger, type DisplayUnit } from "@dang/ui";
 import { useDisplayUnit } from "@/lib/display-unit";
@@ -15,8 +15,10 @@ import { HomeRootLauncher } from "@/components/shell/home-root-launcher";
 import { HomeBriefingPanel } from "@/components/shell/home-briefing-panel";
 import { TreasuryBalanceCard } from "@/components/shell/treasury-balance-card";
 import { HomeMoneyCommand, rangeForPreset } from "@/components/shell/home-money-command";
+import { MoneyEntryChooser } from "@/components/shell/money-entry-chooser";
 import type { WorkspaceMoneyPulse } from "@dang/contracts";
 import { GroupOpsRail } from "@/components/shell/group-ops-rail";
+import { StructuralSubunitsRail } from "@/components/shell/structural-subunits-rail";
 import { GroupPublicIdCard } from "@/components/shell/group-public-id";
 import { GroupSetupChecklist } from "@/components/shell/group-setup-checklist";
 import { EmptyHint, StatusLine } from "@/components/ui-blocks";
@@ -27,6 +29,7 @@ import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
 import { useLiveInvalidation } from "@/lib/live-invalidation";
 import { wPath } from "@/lib/workspace-paths";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import {
   contextualMosaicSections,
   homeDomainHref,
@@ -127,6 +130,11 @@ type DashboardState = {
   pettyCashFunds: PettyCashFundSummary[];
   savingsBalanceMinor: string | null;
   savingsGoalCount: number;
+  counterparty: {
+    direction: "debt" | "credit";
+    name: string;
+    amountMinor: string;
+  } | null;
 };
 
 export function OverviewView() {
@@ -158,7 +166,8 @@ export function OverviewView() {
   const activityLive = chrome.capabilities?.providers?.activityFeed === "activity_v1";
   const activeWs = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const slug = activeWs?.slug ?? null;
-  const expensesHref = slug ? `${wPath(slug, "expenses")}#quick-expense` : hubPathFor("/workspaces");
+  const expensesHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
+  const recordHref = slug ? wPath(slug, "record") : hubPathFor("/workspaces");
   const financeHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
   const spaceHref = slug ? wPath(slug, "space") : hubPathFor("/group");
   const procurementHref = slug ? wPath(slug, "procurement") : hubPathFor("/workspaces/procurement");
@@ -214,6 +223,22 @@ export function OverviewView() {
           setAllowDemoSeed(Boolean(chrome.demoSeedAllowed));
           const netMinor = Number(dashboard.actorNet.amountMinor);
           const firstExpense = dashboard.activity.recentExpenses[0];
+          const kind = spaceKindForTemplate(workspace.template);
+          const balanceBook =
+            kind === "personal"
+              ? null
+              : await api.getBalances(workspace.id).catch(() => null);
+          const actorId = chrome.actor?.userId ?? "";
+          const edge =
+            balanceBook && actorId
+              ? primaryCounterpartyEdge(balanceBook.lines, actorId)
+              : null;
+          const counterpartyName = edge
+            ? edge.counterpartyId.startsWith("fund:")
+              ? "صندوق تنخواه"
+              : (members.find((member) => member.userId === edge.counterpartyId)
+                  ?.displayName ?? null)
+            : null;
           setData({
             workspaceId: dashboard.workspaceId,
             workspaceName: dashboard.workspaceName,
@@ -258,6 +283,14 @@ export function OverviewView() {
             pettyCashFunds: pettyFunds.filter((f) => f.active),
             savingsBalanceMinor: savingsFund?.balanceMinor ?? null,
             savingsGoalCount: savingsFund?.goalCount ?? 0,
+            counterparty:
+              edge && counterpartyName
+                ? {
+                    direction: edge.direction,
+                    name: counterpartyName,
+                    amountMinor: edge.amountMinor,
+                  }
+                : null,
           });
           setError(null);
         } catch (err: unknown) {
@@ -466,7 +499,7 @@ export function OverviewView() {
                     openNeeds={data?.needCount ?? 0}
                     unreadNotifications={data?.notificationCount ?? 0}
                     settleHref={settlementsHref}
-                    expenseHref={expensesHref}
+                    expenseHref={recordHref}
                     spaceHref={spaceHref}
                     approvalsHref={slug ? wPath(slug, "approvals") : settlementsHref}
                     needsHref={
@@ -478,6 +511,9 @@ export function OverviewView() {
                     spaceKind={spaceKind}
                     persistenceHint={data?.persistence}
                     alerts={feedItems}
+                    counterparty={
+                      spaceKind === "personal" ? null : (data?.counterparty ?? null)
+                    }
                   />
                   {slug &&
                   (spaceKind === "personal" ||
@@ -580,6 +616,13 @@ export function OverviewView() {
               />
             </div>
 
+            {!homeFolder &&
+            slug &&
+            data?.moneyPulse &&
+            !isReadOnlyRole(data?.myRole) ? (
+              <MoneyEntryChooser slug={slug} />
+            ) : null}
+
             {!homeFolder ? (
               <details className="mosaicWorkspace__more">
                 <summary>جزئیات پول، میان‌برها و فعالیت</summary>
@@ -648,6 +691,16 @@ export function OverviewView() {
                     />
                   ) : null}
                   {slug &&
+                  chrome.workspaceId &&
+                  (spaceKind === "building" || spaceKind === "org") ? (
+                    <StructuralSubunitsRail
+                      workspaceId={chrome.workspaceId}
+                      slug={slug}
+                      spaceKind={spaceKind}
+                      myRole={data?.myRole}
+                    />
+                  ) : null}
+                  {slug &&
                   (spaceKind === "group" ||
                     spaceKind === "building" ||
                     spaceKind === "org") ? (
@@ -697,7 +750,7 @@ export function OverviewView() {
                       <p className="homeActivity__empty">
                         {isReadOnlyRole(data?.myRole)
                           ? "هنوز رویدادی نیست — وقتی خرجی ثبت شود اینجا دیده می‌شود."
-                          : "هنوز رویدادی نیست. با ثبت خرج اینجا پر می‌شود."}
+                          : `هنوز رویدادی نیست. با ${NAV_LABELS.addExpense} اینجا پر می‌شود.`}
                       </p>
                     ) : (data?.recentExpenses.length ?? 0) > 0 ||
                       (data?.recentNeeds.length ?? 0) > 0 ? (

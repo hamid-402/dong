@@ -4,10 +4,12 @@ import {
   canActorViewExpense,
   toExpenseSummary,
   validateExpenseDraftInput,
+  type ExpenseReverseOptions,
   type ExpenseStore,
   type ExpenseViewOptions,
   type StoredExpense,
 } from "./expense.types.js";
+import { appendExpenseReverseMeta } from "./expense-reverse-meta.js";
 
 export class MemoryExpenseStore implements ExpenseStore {
   readonly persistence = "memory" as const;
@@ -170,7 +172,7 @@ export class MemoryExpenseStore implements ExpenseStore {
     workspaceId: string,
     expenseId: string,
     actorUserId: string,
-    options?: ExpenseViewOptions,
+    options?: ExpenseReverseOptions,
   ): Promise<StoredExpense> {
     try {
       const existing = this.requireExpense(workspaceId, expenseId);
@@ -178,9 +180,36 @@ export class MemoryExpenseStore implements ExpenseStore {
       if (existing.status === "reversed") {
         return Promise.reject(new Error("EXPENSE_STATUS"));
       }
-      const updated: StoredExpense = { ...existing, status: "reversed" };
+      const updated: StoredExpense = {
+        ...existing,
+        status: "reversed",
+        note: appendExpenseReverseMeta(existing.note, {
+          reversedByUserId: actorUserId,
+          reversedAt: new Date().toISOString(),
+          reverseReason: options?.reverseReason?.trim() || "unspecified",
+        }),
+      };
       this.expenses.set(expenseId, updated);
       return Promise.resolve(updated);
+    } catch (error: unknown) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  hardDelete(
+    workspaceId: string,
+    expenseId: string,
+    actorUserId: string,
+    options?: ExpenseViewOptions,
+  ): Promise<void> {
+    try {
+      const existing = this.requireExpense(workspaceId, expenseId);
+      assertCanMutateExpense(existing, actorUserId, "reverse", options);
+      if (existing.status !== "reversed" && existing.status !== "draft") {
+        throw new Error("EXPENSE_STATUS");
+      }
+      this.expenses.delete(expenseId);
+      return Promise.resolve();
     } catch (error: unknown) {
       return Promise.reject(error instanceof Error ? error : new Error(String(error)));
     }

@@ -13,6 +13,13 @@ import type {
 import { allocateExpenseSplit, allocateItemizedSplit } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { DataList, DataRow, EmptyHint, FormStack } from "@/components/ui-blocks";
+import {
+  RowSelectCheckbox,
+  SelectionActionBar,
+  rowSelectActivateProps,
+} from "@/components/selection/selection-action-bar";
+import { useRowSelection } from "@/components/selection/use-row-selection";
+import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { CatalogPicker } from "@/components/catalog-picker";
 
 export type SplitComposerValue = {
@@ -228,6 +235,8 @@ export function SplitComposer({
   savePresetPending = false,
   allowFormula = false,
 }: Props) {
+  const itemIds = useMemo(() => value.items.map((item) => item.key), [value.items]);
+  const itemSelection = useRowSelection(itemIds);
   const preview = useMemo(() => {
     try {
       if (value.splitMethod === "formula") {
@@ -658,9 +667,60 @@ export function SplitComposer({
               }}
             />
           ) : null}
+          {value.items.length > 1 ? (
+            <SelectionActionBar
+              selectedCount={itemSelection.selectedCount}
+              idleHint="روی ردیف کلیک کنید یا مربع کنار آیتم را تیک بزنید"
+              onClear={itemSelection.clear}
+            >
+              <button
+                type="button"
+                className={selStyles.danger}
+                disabled={itemSelection.selectedCount === 0}
+                onClick={() => {
+                  const ids = new Set(itemSelection.selectedIds);
+                  const label =
+                    ids.size === 1
+                      ? "این آیتم حذف شود؟"
+                      : `${ids.size.toLocaleString("fa-IR")} آیتم حذف شوند؟`;
+                  if (!window.confirm(label)) return;
+                  onChange({
+                    ...value,
+                    items: value.items.filter((row) => !ids.has(row.key)),
+                  });
+                  itemSelection.clear();
+                }}
+              >
+                حذف آیتم
+              </button>
+            </SelectionActionBar>
+          ) : null}
           {value.items.map((item, index) => (
-            <fieldset key={item.key} className="splitComposer__fieldset">
-              <legend className="splitComposer__legend">آیتم {index + 1}</legend>
+            <fieldset
+              key={item.key}
+              className={`splitComposer__fieldset${
+                value.items.length > 1 ? ` ${selStyles.selectableRow}` : ""
+              }`}
+              {...(value.items.length > 1
+                ? rowSelectActivateProps({
+                    onActivate: () => itemSelection.toggle(item.key),
+                  })
+                : {})}
+            >
+              <legend className="splitComposer__legend">
+                {value.items.length > 1 ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <RowSelectCheckbox
+                      checked={itemSelection.isSelected(item.key)}
+                      onChange={() => itemSelection.toggle(item.key)}
+                      label={`انتخاب آیتم ${index + 1}`}
+                    />
+                    آیتم {index + 1}
+                  </span>
+                ) : (
+                  <>آیتم {index + 1}</>
+                )}
+              </legend>
               <FormStack density="compact">
                 <TextField
                   label="عنوان"
@@ -727,18 +787,20 @@ export function SplitComposer({
                     </label>
                   ))}
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() =>
-                    onChange({
-                      ...value,
-                      items: value.items.filter((row) => row.key !== item.key),
-                    })
-                  }
-                >
-                  حذف آیتم
-                </Button>
+                {value.items.length <= 1 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() =>
+                      onChange({
+                        ...value,
+                        items: value.items.filter((row) => row.key !== item.key),
+                      })
+                    }
+                  >
+                    حذف آیتم
+                  </Button>
+                ) : null}
               </FormStack>
             </fieldset>
           ))}

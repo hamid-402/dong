@@ -12,8 +12,10 @@ import {
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { AuthActor, NotificationSummary } from "@dang/contracts";
+import { loadAppEnv } from "@dang/config";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { allowCorsOrigin } from "../common/cors-origin.js";
 import { NotificationsService } from "./notifications.service.js";
 import type { RealtimeEnvelope } from "./realtime-hub.js";
 
@@ -62,13 +64,39 @@ export class NotificationsController {
   ): Promise<void> {
     await this.notifications.requireMember(workspaceId, actor.userId);
 
+    // hijack() skips Nest CORS — echo ACAO when Origin is allowed (direct browser → :3006).
+    const env = loadAppEnv();
+    const originHeader = (req.headers as { origin?: unknown }).origin;
+    const origin =
+      typeof originHeader === "string"
+        ? originHeader
+        : Array.isArray(originHeader) && typeof originHeader[0] === "string"
+          ? originHeader[0]
+          : undefined;
+    const lanOrigins = (process.env.WEB_EXTRA_ORIGINS ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const corsOk = allowCorsOrigin({
+      origin,
+      webOrigin: env.webOrigin,
+      extraOrigins: lanOrigins,
+      nodeEnv: env.nodeEnv,
+    });
+
     reply.hijack();
-    reply.raw.writeHead(200, {
+    const headers: Record<string, string> = {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
-    });
+    };
+    if (corsOk && origin) {
+      headers["Access-Control-Allow-Origin"] = origin;
+      headers["Access-Control-Allow-Credentials"] = "true";
+      headers.Vary = "Origin";
+    }
+    reply.raw.writeHead(200, headers);
     if (typeof reply.raw.flushHeaders === "function") {
       reply.raw.flushHeaders();
     }

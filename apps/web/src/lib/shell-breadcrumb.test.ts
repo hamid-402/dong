@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   breadcrumbForPathname,
   isShellPrimaryPath,
+  domainKeyForPathname,
+  insertDomainCrumb,
+  trailParent,
   trailParentHref,
 } from "@/lib/shell-breadcrumb";
 import { NAV_LABELS } from "@/lib/nav-labels";
@@ -69,6 +72,37 @@ describe("shell-breadcrumb", () => {
     expect(trailParentHref([{ label: "خانه" }], "/spaces")).toBe("/spaces");
   });
 
+  it("shows the domain in the path and skips it for back", () => {
+    const crumbs = insertDomainCrumb(
+      breadcrumbForPathname("/w/acme/charts", "آکمه"),
+      "/w/acme/charts",
+    );
+    expect(crumbs.map((c) => c.label)).toEqual([
+      "آکمه",
+      NAV_LABELS.sectionFinance,
+      NAV_LABELS.charts,
+    ]);
+    expect(crumbs[1]?.group).toBe(true);
+    expect(trailParent(crumbs)).toEqual({ href: "/w/acme", label: "آکمه" });
+    expect(domainKeyForPathname("/w/acme/charts")).toBe("finance");
+    expect(domainKeyForPathname("/w/acme/catalog")).toBe("buy");
+    expect(domainKeyForPathname("/w/acme/space")).toBeNull();
+  });
+
+  it("names the parent the back control returns to", () => {
+    const crumbs = breadcrumbForPathname("/w/acme/settlements", "آکمه");
+    expect(trailParent(crumbs)).toEqual({ href: "/w/acme", label: "آکمه" });
+    const nested = breadcrumbForPathname(
+      "/w/acme",
+      "آکمه",
+      "?folder=finance&group=everyday",
+    );
+    expect(trailParent(nested)).toEqual({
+      href: "/w/acme?folder=finance",
+      label: NAV_LABELS.sectionFinance,
+    });
+  });
+
   it("builds account security crumbs", () => {
     const crumbs = breadcrumbForPathname("/account/security");
     expect(crumbs.map((c) => c.label)).toEqual([NAV_LABELS.account, NAV_LABELS.security]);
@@ -77,7 +111,7 @@ describe("shell-breadcrumb", () => {
   it("builds spaces/new crumbs", () => {
     const crumbs = breadcrumbForPathname("/spaces/new");
     expect(crumbs.map((c) => c.label)).toEqual([
-      NAV_LABELS.spacesList,
+      NAV_LABELS.home,
       NAV_LABELS.createSpace,
     ]);
   });

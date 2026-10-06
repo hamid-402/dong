@@ -1,6 +1,6 @@
 name: dast-zap
 
-# R10-02 — OWASP ZAP baseline (on-demand / scheduled when target configured)
+# R6 / R10-02 — OWASP ZAP baseline with High/Critical hard fail (when target configured)
 on:
   workflow_dispatch:
     inputs:
@@ -45,21 +45,35 @@ jobs:
             echo "url=$url" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Setup Node (High gate script)
+        if: steps.target.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
       - name: ZAP Baseline
         if: steps.target.outputs.skip != 'true'
         uses: zaproxy/action-baseline@v0.14.0
         with:
           target: ${{ steps.target.outputs.url }}
           allow_issue_writing: false
+          # Medium WARN must not fail the job; High/Critical enforced next.
           fail_action: false
-          cmd_options: "-I"
+          rules_file_name: ".zap/rules.tsv"
+          cmd_options: "-I -J report_json.json"
+
+      - name: Fail on High/Critical
+        if: steps.target.outputs.skip != 'true'
+        run: node scripts/security/zap-fail-on-high.mjs report_json.json
 
       - name: Upload ZAP report
         if: steps.target.outputs.skip != 'true' && always()
         uses: actions/upload-artifact@v4
         with:
           name: zap-baseline-report
-          path: report_html.html
+          path: |
+            report_html.html
+            report_json.json
           if-no-files-found: warn
           retention-days: 14
 
@@ -67,9 +81,10 @@ jobs:
         if: steps.target.outputs.skip != 'true' && always()
         run: |
           {
-            echo "## ZAP baseline"
+            echo "## ZAP baseline (R6 High gate)"
             echo "- target: \`${{ steps.target.outputs.url }}\`"
-            echo "- fail_action: false (triage artifact; raise fail_action after staging is stable)"
+            echo "- rules: \`.zap/rules.tsv\`"
+            echo "- hard fail: High/Critical via \`scripts/security/zap-fail-on-high.mjs\`"
             echo "- runbook: \`docs/ops/DAST-ZAP.md\`"
             echo "- ASVS evidence: \`docs/security/ASVS-L2-EVIDENCE.md\`"
           } >> "$GITHUB_STEP_SUMMARY"

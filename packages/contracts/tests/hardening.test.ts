@@ -75,5 +75,10 @@ test("stub OCR completes for png", () => {
     fileName: "bill.png",
   });
   assert.equal(ocr.status, "completed");
-  assert.ok(ocr.merchantHint);
+  assert.equal(ocr.merchantHint, undefined);
+  assert.equal(ocr.amountMinorHint, undefined);
+  assert.equal(ocr.lineItems, undefined);
+  assert.equal(ocr.taxMinor, undefined);
+  assert.equal(ocr.occurredOn, undefined);
+  assert.match(ocr.rawTextPreview ?? "", /^stub-ocr:/);
 });

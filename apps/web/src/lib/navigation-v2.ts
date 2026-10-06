@@ -89,6 +89,10 @@ export type SpaceNavFlags = Partial<
   securityOpsV1?: boolean;
 };
 
+export function spaceNavItemHint(key: string): string | undefined {
+  return CONTEXTUAL_MOSAIC_META[key]?.summary;
+}
+
 function scoped(slug: string | null, page: WorkspacePage, hubFallback: string): string {
   return slug ? wPath(slug, page) : hubFallback;
 }
@@ -129,6 +133,10 @@ const CONTEXTUAL_MOSAIC_META: Readonly<
   statements: {
     summary: "ریز حساب قلم‌به‌قلم اعضا، بازه زمانی و دانلود CSV/JSON",
     intent: "monitor",
+  },
+  payments: {
+    summary: "رسید پرداخت، بررسی دستی و پرداخت به‌جای عضو",
+    intent: "record",
   },
   recurring: {
     summary: "قواعد دوره‌ای، دسته‌بندی و گزارش بازه‌ای",
@@ -174,6 +182,10 @@ const CONTEXTUAL_MOSAIC_META: Readonly<
     summary: "فهرست اعضا، افزودن عضو، تغییر نقش و دعوت",
     intent: "manage",
   },
+  permissions: {
+    summary: "نقش‌ها و اعطای دسترسی همین فضا",
+    intent: "manage",
+  },
   subunits: {
     summary: "واحدهای ساختمان یا بخش‌ها و شرکت‌های زیرمجموعه با اعضای هر کدام",
     intent: "manage",
@@ -188,6 +200,10 @@ const CONTEXTUAL_MOSAIC_META: Readonly<
   },
   audit: {
     summary: "رخدادهای واقعی، نتیجه عملیات، عامل اجرا و فراداده ثبت‌شده",
+    intent: "monitor",
+  },
+  "security-ops": {
+    summary: "رویداد امنیتی، ضدتقلب و چهارچشم همین فضا",
     intent: "monitor",
   },
   metrics: {

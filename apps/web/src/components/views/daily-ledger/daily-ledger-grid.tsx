@@ -1,13 +1,20 @@
 "use client";
 
+import { useMemo } from "react";
 import type { DailyLedgerItem, DailyLedgerResponse } from "@dang/contracts";
 import { formatJalaliIso, weekdayFaSatFirst } from "@dang/contracts";
 import { Amount } from "@dang/ui";
 import { StatusPill } from "@/components/ui-blocks";
 import {
-  formatTomanMinor,
-  type DraftTarget,
-} from "@/components/views/daily-ledger/daily-ledger-utils";
+  RowSelectCheckbox,
+  SelectionActionBar,
+  rowSelectActivateProps,
+} from "@/components/selection/selection-action-bar";
+import { useRowSelection } from "@/components/selection/use-row-selection";
+import selStyles from "@/components/selection/selection-action-bar.module.css";
+import { DailyLedgerDepositStrip } from "@/components/views/daily-ledger/daily-ledger-deposit-strip";
+import { DailyLedgerFundingBadge } from "@/components/views/daily-ledger/daily-ledger-funding-badge";
+import type { DraftTarget } from "@/components/views/daily-ledger/daily-ledger-utils";
 
 type DailyLedgerGridProps = {
   ledger: DailyLedgerResponse;
@@ -17,31 +24,90 @@ type DailyLedgerGridProps = {
   selectedDate?: string | null;
   /** Guest/auditor — hide add/edit/delete and day meta mutators. */
   readOnly?: boolean;
+  fundNameById?: Record<string, string>;
   onSelectDay?: (date: string) => void;
   onOpenDraft: (target: DraftTarget, item?: DailyLedgerItem) => void;
+  onOpenDeposit?: (date: string) => void;
   onDeleteItem: (expenseId: string) => void;
   onToggleHoliday: (date: string, current: boolean) => void;
   onEditNote: (date: string, note: string) => void;
 };
 
-function ItemActions({
+type LocatableItem = {
+  expenseId: string;
+  item: DailyLedgerItem;
+  target: DraftTarget;
+};
+
+function collectItems(ledger: DailyLedgerResponse): LocatableItem[] {
+  const out: LocatableItem[] = [];
+  for (const row of ledger.days) {
+    if (row.isHoliday || row.isRangeLocked) continue;
+    for (const m of ledger.members) {
+      const cell = row.members[m.userId];
+      for (const it of cell?.items ?? []) {
+        out.push({
+          expenseId: it.expenseId,
+          item: it,
+          target: {
+            kind: "member",
+            date: row.date,
+            userId: m.userId,
+            displayName: m.displayName,
+            expenseId: it.expenseId,
+          },
+        });
+      }
+    }
+    for (const it of row.shared.items) {
+      out.push({
+        expenseId: it.expenseId,
+        item: it,
+        target: {
+          kind: "shared",
+          date: row.date,
+          expenseId: it.expenseId,
+        },
+      });
+    }
+  }
+  return out;
+}
+
+function ItemBlock({
+  item,
   readOnly,
-  onEdit,
-  onDelete,
+  fundNameById,
+  selected,
+  onToggle,
 }: {
+  item: DailyLedgerItem;
   readOnly: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
+  fundNameById?: Record<string, string>;
+  selected: boolean;
+  onToggle: () => void;
 }) {
-  if (readOnly) return null;
   return (
-    <div className="dlItemActions">
-      <button type="button" className="dlItemBtn" onClick={onEdit}>
-        ویرایش
-      </button>
-      <button type="button" className="dlItemBtn isDanger" onClick={onDelete}>
-        حذف
-      </button>
+    <div
+      className={`dlItem${!readOnly ? ` ${selStyles.selectableRow}` : ""}`}
+      {...(!readOnly
+        ? rowSelectActivateProps({ onActivate: onToggle })
+        : {})}
+    >
+      <div className="dlItemMain">
+        {!readOnly ? (
+          <RowSelectCheckbox
+            checked={selected}
+            onChange={onToggle}
+            label={`انتخاب ${item.title}`}
+          />
+        ) : null}
+        <span className="dlItemTitle">{item.title}</span>
+        <b className="dlItemAmt">
+          <Amount irrMinor={item.amount.amountMinor} />
+        </b>
+      </div>
+      <DailyLedgerFundingBadge item={item} fundNameById={fundNameById} />
     </div>
   );
 }
@@ -57,14 +123,63 @@ export function DailyLedgerGrid({
   pending,
   selectedDate,
   readOnly = false,
+  fundNameById,
   onSelectDay,
   onOpenDraft,
+  onOpenDeposit,
   onDeleteItem,
   onToggleHoliday,
   onEditNote,
 }: DailyLedgerGridProps) {
+  const locatable = useMemo(() => collectItems(ledger), [ledger]);
+  const selection = useRowSelection(locatable.map((l) => l.expenseId));
+  const canMutate = !readOnly;
+
+  function editSelected() {
+    if (selection.selectedCount !== 1) return;
+    const id = selection.selectedIds[0];
+    const found = locatable.find((l) => l.expenseId === id);
+    if (!found) return;
+    onOpenDraft(found.target, found.item);
+    selection.clear();
+  }
+
+  function deleteSelected() {
+    if (selection.selectedCount === 0) return;
+    const ids = selection.selectedIds;
+    const label =
+      ids.length === 1
+        ? "این قلم حذف شود؟"
+        : `${ids.length.toLocaleString("fa-IR")} قلم حذف شوند؟`;
+    if (!window.confirm(label)) return;
+    for (const id of ids) onDeleteItem(id);
+    selection.clear();
+  }
+
   return (
     <div className={viewMode === "cards" ? "dlCards" : "dlScroll"}>
+      {canMutate && locatable.length > 0 ? (
+        <SelectionActionBar
+          selectedCount={selection.selectedCount}
+          onClear={selection.clear}
+        >
+          <button
+            type="button"
+            disabled={selection.selectedCount !== 1 || pending}
+            onClick={editSelected}
+          >
+            ویرایش
+          </button>
+          <button
+            type="button"
+            className={selStyles.danger}
+            disabled={selection.selectedCount === 0 || pending}
+            onClick={deleteSelected}
+          >
+            حذف
+          </button>
+        </SelectionActionBar>
+      ) : null}
       {viewMode === "cards" ? (
         <div className="dlCardList">
           {ledger.days.map((row) => (
@@ -96,6 +211,10 @@ export function DailyLedgerGrid({
                   </button>
                 ) : null}
               </header>
+              <DailyLedgerDepositStrip
+                deposits={row.fundDeposits ?? []}
+                members={ledger.members}
+              />
               {row.isHoliday || row.isRangeLocked ? (
                 <p className="dlMuted">
                   {row.isHoliday ? "تعطیل — ثبت قلم بسته است" : "قفل بازه — ثبت قلم بسته است"}
@@ -108,28 +227,14 @@ export function DailyLedgerGrid({
                       <div key={m.userId} className="dlCardBlock">
                         <strong>{m.displayName}</strong>
                         {cell?.items.map((it) => (
-                          <div key={it.expenseId} className="dlItem">
-                            <div className="dlItemMain">
-                              <span className="dlItemTitle">{it.title}</span>
-                              <b className="dlItemAmt">{formatTomanMinor(it.amount.amountMinor)}</b>
-                            </div>
-                            <ItemActions
-                              readOnly={readOnly}
-                              onEdit={() =>
-                                onOpenDraft(
-                                  {
-                                    kind: "member",
-                                    date: row.date,
-                                    userId: m.userId,
-                                    displayName: m.displayName,
-                                    expenseId: it.expenseId,
-                                  },
-                                  it,
-                                )
-                              }
-                              onDelete={() => onDeleteItem(it.expenseId)}
-                            />
-                          </div>
+                          <ItemBlock
+                            key={it.expenseId}
+                            item={it}
+                            readOnly={readOnly}
+                            fundNameById={fundNameById}
+                            selected={selection.isSelected(it.expenseId)}
+                            onToggle={() => selection.toggle(it.expenseId)}
+                          />
                         ))}
                         {!readOnly ? (
                           <button
@@ -153,26 +258,14 @@ export function DailyLedgerGrid({
                   <div className="dlCardBlock">
                     <strong>هزینه مشترک</strong>
                     {row.shared.items.map((it) => (
-                      <div key={it.expenseId} className="dlItem">
-                        <div className="dlItemMain">
-                          <span className="dlItemTitle">{it.title}</span>
-                          <b className="dlItemAmt">{formatTomanMinor(it.amount.amountMinor)}</b>
-                        </div>
-                        <ItemActions
-                          readOnly={readOnly}
-                          onEdit={() =>
-                            onOpenDraft(
-                              {
-                                kind: "shared",
-                                date: row.date,
-                                expenseId: it.expenseId,
-                              },
-                              it,
-                            )
-                          }
-                          onDelete={() => onDeleteItem(it.expenseId)}
-                        />
-                      </div>
+                      <ItemBlock
+                        key={it.expenseId}
+                        item={it}
+                        readOnly={readOnly}
+                        fundNameById={fundNameById}
+                        selected={selection.isSelected(it.expenseId)}
+                        onToggle={() => selection.toggle(it.expenseId)}
+                      />
                     ))}
                     {!readOnly ? (
                       <button
@@ -184,8 +277,17 @@ export function DailyLedgerGrid({
                       </button>
                     ) : null}
                   </div>
+                  {!readOnly && onOpenDeposit ? (
+                    <button
+                      type="button"
+                      className="dlAdd dlDepositAdd"
+                      onClick={() => onOpenDeposit(row.date)}
+                    >
+                      + واریز به صندوق
+                    </button>
+                  ) : null}
                   <footer>
-                    جمع: <Amount irrMinor={row.dayTotal.amountMinor} />
+                    جمع مصرف: <Amount irrMinor={row.dayTotal.amountMinor} />
                   </footer>
                 </>
               )}
@@ -242,6 +344,22 @@ export function DailyLedgerGrid({
                     {row.isRangeLocked ? (
                       <small className="dlLockBadge">قفل</small>
                     ) : null}
+                    <DailyLedgerDepositStrip
+                      deposits={row.fundDeposits ?? []}
+                      members={ledger.members}
+                    />
+                    {!readOnly &&
+                    onOpenDeposit &&
+                    !row.isHoliday &&
+                    !row.isRangeLocked ? (
+                      <button
+                        type="button"
+                        className="dlAdd dlDepositAdd"
+                        onClick={() => onOpenDeposit(row.date)}
+                      >
+                        + واریز
+                      </button>
+                    ) : null}
                   </td>
                   {ledger.members.map((m) => {
                     const cell = row.members[m.userId];
@@ -254,28 +372,14 @@ export function DailyLedgerGrid({
                         ) : (
                           <div className="dlCell">
                             {cell?.items.map((it) => (
-                              <div key={it.expenseId} className="dlItem">
-                                <div className="dlItemMain">
-                                  <span className="dlItemTitle">{it.title}</span>
-                                  <b className="dlItemAmt">{formatTomanMinor(it.amount.amountMinor)}</b>
-                                </div>
-                                <ItemActions
-                                  readOnly={readOnly}
-                                  onEdit={() =>
-                                    onOpenDraft(
-                                      {
-                                        kind: "member",
-                                        date: row.date,
-                                        userId: m.userId,
-                                        displayName: m.displayName,
-                                        expenseId: it.expenseId,
-                                      },
-                                      it,
-                                    )
-                                  }
-                                  onDelete={() => onDeleteItem(it.expenseId)}
-                                />
-                              </div>
+                              <ItemBlock
+                                key={it.expenseId}
+                                item={it}
+                                readOnly={readOnly}
+                                fundNameById={fundNameById}
+                                selected={selection.isSelected(it.expenseId)}
+                                onToggle={() => selection.toggle(it.expenseId)}
+                              />
                             ))}
                             {!readOnly ? (
                               <button
@@ -306,26 +410,14 @@ export function DailyLedgerGrid({
                     ) : (
                       <div className="dlCell">
                         {row.shared.items.map((it) => (
-                          <div key={it.expenseId} className="dlItem">
-                            <div className="dlItemMain">
-                              <span className="dlItemTitle">{it.title}</span>
-                              <b className="dlItemAmt">{formatTomanMinor(it.amount.amountMinor)}</b>
-                            </div>
-                            <ItemActions
-                              readOnly={readOnly}
-                              onEdit={() =>
-                                onOpenDraft(
-                                  {
-                                    kind: "shared",
-                                    date: row.date,
-                                    expenseId: it.expenseId,
-                                  },
-                                  it,
-                                )
-                              }
-                              onDelete={() => onDeleteItem(it.expenseId)}
-                            />
-                          </div>
+                          <ItemBlock
+                            key={it.expenseId}
+                            item={it}
+                            readOnly={readOnly}
+                            fundNameById={fundNameById}
+                            selected={selection.isSelected(it.expenseId)}
+                            onToggle={() => selection.toggle(it.expenseId)}
+                          />
                         ))}
                         {!readOnly ? (
                           <button

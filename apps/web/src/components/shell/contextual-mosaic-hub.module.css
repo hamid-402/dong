@@ -18,6 +18,39 @@
     var(--surface);
 }
 
+/* Demoted mosaic — quieter chrome, same tiles/links */
+.hub.secondary:not(.compact) {
+  margin-block: 2px 6px;
+  padding: 10px 12px;
+  border-color: color-mix(in srgb, var(--line) 88%, transparent);
+  background: color-mix(in srgb, var(--surface) 97%, transparent);
+  box-shadow: none;
+}
+
+.hub.secondary .header {
+  margin-bottom: 8px;
+  opacity: 0.88;
+}
+
+.hub.secondary .header h2 {
+  font-size: 1rem;
+  font-weight: 650;
+  color: color-mix(in srgb, var(--text) 82%, var(--muted));
+}
+
+.hub.secondary .header > div > span {
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+.hub.secondary .header p {
+  font-size: 0.76rem;
+}
+
+.hub.secondary .sectionHead h3 {
+  font-weight: 600;
+}
+
 .header {
   margin-bottom: 12px;
   display: flex;
@@ -28,7 +61,7 @@
 
 .header > div > span {
   color: var(--primary);
-  font-size: 10px;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.1em;
 }
@@ -42,7 +75,8 @@
 .header p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 .header > small {
@@ -50,7 +84,7 @@
   border-radius: 999px;
   border: 1px solid var(--line);
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .section + .section {
@@ -58,45 +92,51 @@
 }
 
 .sectionHead {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
 }
 
 .sectionHead h3 {
   margin: 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 750;
 }
 
 .sectionHead p {
-  margin: 4px 0 0;
+  margin: 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.9rem;
+  flex: 1 1 16rem;
+  text-align: end;
 }
 
-/* Prompt model: flex-wrap 3 columns, full row width (no tiny capped gems). */
+/* Equal-width gem grid — same token language as groupOpsRail */
 .grid {
-  --mosaic-cols: 3;
-  --mosaic-gap: 12px;
-  --mosaic-tile-size: calc(
-    (100% - (var(--mosaic-cols) - 1) * var(--mosaic-gap)) / var(--mosaic-cols)
-  );
+  --mosaic-gap: var(--dang-gem-gap, 12px);
   margin: 0;
   padding: 4px 0 8px;
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
   gap: var(--mosaic-gap);
+  align-items: stretch;
   list-style: none;
   animation: mosaic-fade-in 0.22s ease-out;
 }
 
 .grid li {
   position: relative;
-  flex: 0 0 var(--mosaic-tile-size);
-  width: var(--mosaic-tile-size);
-  max-width: none;
-  min-width: 0;
+  display: flex;
+  flex: 1 1 14rem;
+  width: auto;
+  min-width: min(100%, 14rem);
+  max-width: 100%;
 }
 
 .enter {
@@ -132,138 +172,120 @@
   }
 }
 
+/* Daneshban-style path cards — surface from shared .dang-gem */
 .tile {
   position: relative;
+  flex: 1 1 auto;
   width: 100%;
-  aspect-ratio: 1;
-  min-height: 104px;
-  padding: 10px 8px;
+  min-height: var(--dang-gem-tile-h, 9.5rem);
+  height: auto;
+  padding: var(--dang-gem-pad, 14px);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  overflow: hidden;
-  border: none;
-  border-radius: 20px;
-  text-decoration: none;
-  text-align: center;
-  color: var(--tile-gem-ink, #1e293b);
+  justify-content: space-between;
+  gap: 12px;
+  view-transition-name: var(--mosaic-vt-name, none);
+  text-align: start;
   cursor: pointer;
-  transition:
-    transform 160ms ease,
-    box-shadow 160ms ease,
-    filter 160ms ease;
 }
 
 .tilePinned {
   /* room for pin */
 }
 
-.tile > p,
-.tile .intent,
-.tile .available,
-.tile .open,
-.tile .accent {
-  display: none !important;
+.body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+  z-index: 1;
 }
 
-.tile .topline {
-  display: flex;
-  justify-content: center;
+.body > strong {
   margin: 0;
+  font-size: 1.05rem;
+  font-weight: 750;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  color: inherit;
 }
 
-.tile .footer {
+.body > p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 88%, transparent);
+}
+
+.body .intent {
   display: none;
 }
 
-.tile .footer:has(.fact) {
+.tile .footer {
   display: block;
   position: absolute;
-  top: 8px;
-  inset-inline-start: 8px;
+  top: 10px;
+  inset-inline-start: 10px;
   margin: 0;
   padding: 0;
   border: none;
   min-height: 0;
+  z-index: 2;
 }
 
 .tile .fact {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   min-width: 22px;
   height: 22px;
-  padding: 0 6px;
+  padding: 0 7px;
   border-radius: 999px;
   background: color-mix(in srgb, #fff 72%, transparent);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
 .tile .fact b {
-  font-size: 11px;
+  font-size: 0.8rem;
   font-weight: 800;
   color: var(--tile-gem-ink, #0f172a);
 }
 
 .tile .fact small {
-  display: none;
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 70%, transparent);
 }
 
 .tile .fact_attention {
   background: color-mix(in srgb, #fbbf24 55%, #fff);
 }
 
-.gem {
-  border: 2.5px solid var(--tile-gem-edge, #1d4ed8);
-  background: radial-gradient(
-    circle at 35% 28%,
-    var(--tile-gem-center, #dbeafe) 0%,
-    var(--tile-gem-mid, #60a5fa) 52%,
-    var(--tile-gem-edge, #1d4ed8) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
-    0 6px 16px color-mix(in srgb, var(--tile-gem-edge, #1d4ed8) 28%, transparent);
-}
-
-.gem::before,
-.gem::after {
+/* Decorative facet rings only — fill comes from .dang-gem */
+.tile::before,
+.tile::after {
   content: "";
   position: absolute;
   border-radius: 50%;
   pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 35%, transparent);
 }
 
-.gem::before {
-  width: 70%;
-  height: 70%;
-  inset-block-start: -38%;
-  inset-inline-start: -32%;
-  border: 1px solid color-mix(in srgb, #fff 45%, transparent);
-  opacity: 0.45;
+.tile::before {
+  width: 88px;
+  height: 88px;
+  inset-block-start: -48px;
+  inset-inline-start: -36px;
+  opacity: 0.55;
 }
 
-.gem::after {
-  width: 48%;
-  height: 48%;
-  inset-block-end: -28%;
-  inset-inline-end: -22%;
-  border: 1px solid color-mix(in srgb, #fff 30%, transparent);
-  opacity: 0.3;
-}
-
-.tile:hover {
-  transform: translateY(-3px) scale(1.02);
-  filter: saturate(1.06);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 60%, transparent),
-    0 12px 26px color-mix(in srgb, var(--tile-gem-edge, #1d4ed8) 34%, transparent);
-}
-
-.tile:active {
-  transform: translateY(0) scale(0.98);
+.tile::after {
+  width: 56px;
+  height: 56px;
+  inset-block-start: -28px;
+  inset-inline-start: -20px;
+  opacity: 0.35;
 }
 
 .tile:focus-visible {
@@ -271,37 +293,35 @@
   outline-offset: 3px;
 }
 
+:global(html[data-motion="full"]) .tile:active {
+  transform: scale(0.94);
+  transition: transform 120ms ease;
+}
+
+:global(html[data-motion="full"]) .tile:hover {
+  transform: translateY(-3px);
+  transition: transform 180ms ease;
+}
+
 .icon {
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, #fff 35%, transparent);
-  background: color-mix(in srgb, #fff 28%, transparent);
-  color: var(--tile-gem-ink, #0f172a);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 50%, transparent);
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  z-index: 1;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-.tile > strong {
-  margin: 0;
-  max-width: 100%;
-  font-size: 0.82rem;
-  font-weight: 750;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-  color: inherit;
+  width: auto;
+  height: auto;
 }
 
 .pin {
   position: absolute;
-  top: 6px;
-  inset-inline-end: 6px;
+  top: 8px;
+  inset-inline-end: 8px;
   z-index: 2;
   width: 24px;
   height: 24px;
@@ -312,7 +332,7 @@
   background: color-mix(in srgb, #fff 55%, transparent);
   color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 70%, transparent);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 0.8rem;
   opacity: 0.85;
 }
 
@@ -349,90 +369,141 @@
   padding-top: 4px;
 }
 
-/* Desktop / tablet: denser mosaic, still full-bleed columns */
 @media (min-width: 700px) {
   .grid {
-    --mosaic-cols: 4;
-    --mosaic-gap: 14px;
+    --mosaic-gap: var(--dang-gem-gap, 12px);
+  }
+
+  .grid li {
+    flex-basis: 15rem;
   }
 
   .tile {
-    min-height: 118px;
-    border-radius: 22px;
+    min-height: var(--dang-gem-tile-h, 132px);
+    padding: var(--dang-gem-pad, 14px);
   }
 
   .icon {
-    width: 50px;
-    height: 50px;
+    width: auto;
+    height: auto;
   }
 
-  .tile > strong {
-    font-size: 0.88rem;
+  .body > strong {
+    font-size: 1.02rem;
   }
 }
 
 @media (min-width: 1024px) {
-  .grid {
-    --mosaic-cols: 5;
-    --mosaic-gap: 16px;
+  .grid li {
+    flex-basis: 16rem;
   }
 
   .tile {
-    min-height: 124px;
+    min-height: var(--dang-gem-tile-h, 132px);
+  }
+}
+
+@media (min-width: 1200px) {
+  .grid {
+    --mosaic-gap: var(--dang-gem-gap, 12px);
+  }
+
+  .grid li {
+    flex-basis: 16rem;
+  }
+}
+
+@media (max-width: 699px) {
+  .grid {
+    --mosaic-cols: 2;
+    --mosaic-gap: 10px;
+  }
+
+  .tile {
+    min-height: 120px;
+    padding: 12px;
   }
 }
 
 @media (max-width: 380px) {
   .grid {
+    --mosaic-cols: 2;
     --mosaic-gap: 8px;
   }
 
   .tile {
-    min-height: 92px;
-    border-radius: 16px;
+    min-height: 112px;
+    padding: 12px;
   }
 
-  .tile > strong {
-    font-size: 0.72rem;
+  .body > strong {
+    font-size: 0.9rem;
   }
 
   .icon {
-    width: 38px;
-    height: 38px;
+    width: auto;
+    height: auto;
   }
 }
 
-:global(html[data-theme="dark"]) .gem,
-:global(html[data-theme="dusk"]) .gem,
-:global(html[data-theme="linear"]) .gem {
-  color: #f8fafc;
-  background: radial-gradient(
-    circle at 32% 26%,
-    color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 42%, #222831) 0%,
-    color-mix(in srgb, var(--tile-gem-edge, var(--primary)) 48%, #14181e) 60%,
-    #0c0f13 120%
-  );
-  border-color: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 50%, #334155);
+/* Theme text / chips — surface comes from shared .dang-gem */
+:global(html[data-theme="dark"]) .tile::before,
+:global(html[data-theme="dusk"]) .tile::before,
+:global(html[data-theme="dark"]) .tile::after,
+:global(html[data-theme="dusk"]) .tile::after {
+  border-color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 55%, transparent);
+  opacity: 0.65;
 }
 
-:global(html[data-theme="dark"]) .icon,
-:global(html[data-theme="dusk"]) .icon,
-:global(html[data-theme="linear"]) .icon {
-  color: #f8fafc;
-  background: color-mix(in srgb, #fff 10%, transparent);
-  border-color: color-mix(in srgb, #fff 14%, transparent);
+:global(html[data-theme="dark"]) .body > p,
+:global(html[data-theme="dusk"]) .body > p,
+:global(html[data-theme="linear"]) .body > p {
+  color: color-mix(in srgb, #f8fafc 82%, transparent);
+}
+
+:global(html[data-theme="linear"]) .body > p {
+  color: color-mix(in srgb, #f4f4f5 80%, transparent);
 }
 
 :global(html[data-theme="dark"]) .tile .fact,
-:global(html[data-theme="dusk"]) .tile .fact,
-:global(html[data-theme="linear"]) .tile .fact {
-  background: color-mix(in srgb, #0f172a 70%, transparent);
+:global(html[data-theme="dusk"]) .tile .fact {
+  background: color-mix(in srgb, #0f0f12 70%, var(--tile-gem-edge, #000) 12%);
+  border: 1px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 35%, transparent);
 }
 
 :global(html[data-theme="dark"]) .tile .fact b,
 :global(html[data-theme="dusk"]) .tile .fact b,
-:global(html[data-theme="linear"]) .tile .fact b {
+:global(html[data-theme="dark"]) .tile .fact small,
+:global(html[data-theme="dusk"]) .tile .fact small {
   color: #f8fafc;
+}
+
+:global(html[data-theme="dark"]) .pin,
+:global(html[data-theme="dusk"]) .pin {
+  background: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 28%, transparent);
+  color: #e4e4e7;
+  border-color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 40%, transparent);
+}
+
+:global(html[data-theme="linear"]) .tile::before,
+:global(html[data-theme="linear"]) .tile::after {
+  border-color: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 42%, transparent);
+  opacity: 0.45;
+}
+
+:global(html[data-theme="linear"]) .tile .fact {
+  background: color-mix(in srgb, #0f0f12 78%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 10%, transparent);
+}
+
+:global(html[data-theme="linear"]) .tile .fact b,
+:global(html[data-theme="linear"]) .tile .fact small {
+  color: #f4f4f5;
+}
+
+:global(html[data-theme="linear"]) .pin {
+  background: color-mix(in srgb, #fff 8%, transparent);
+  color: #a1a1aa;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -441,5 +512,13 @@
   .grid {
     animation: none !important;
     transition: none !important;
+    view-transition-name: none !important;
   }
+}
+
+/* Soft morph when browser supports View Transitions (Chromium / Safari 18+). */
+:global(::view-transition-old(root)),
+:global(::view-transition-new(root)) {
+  animation-duration: 180ms;
+  animation-timing-function: ease;
 }

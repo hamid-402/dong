@@ -4,6 +4,13 @@ import type { DailyLedgerResponse } from "@dang/contracts";
 import { formatJalaliIso } from "@dang/contracts";
 import { Button, TextField } from "@dang/ui";
 import { StatusLine } from "@/components/ui-blocks";
+import {
+  RowSelectCheckbox,
+  SelectionActionBar,
+  rowSelectActivateProps,
+} from "@/components/selection/selection-action-bar";
+import { useRowSelection } from "@/components/selection/use-row-selection";
+import selStyles from "@/components/selection/selection-action-bar.module.css";
 
 type DailyLedgerLockPanelProps = {
   rangeLocks: DailyLedgerResponse["rangeLocks"];
@@ -31,6 +38,20 @@ export function DailyLedgerLockPanel({
   pending,
 }: DailyLedgerLockPanelProps) {
   const activeLocks = rangeLocks.filter((l) => l.active);
+  const selection = useRowSelection(activeLocks.map((l) => l.id));
+
+  function unlockSelected() {
+    if (selection.selectedCount === 0) return;
+    const ids = selection.selectedIds;
+    const label =
+      ids.length === 1
+        ? "این قفل بازه باز شود؟"
+        : `${ids.length.toLocaleString("fa-IR")} قفل باز شوند؟`;
+    if (!window.confirm(label)) return;
+    for (const id of ids) onUnlock(id);
+    selection.clear();
+  }
+
   return (
     <details className="reportDetails">
       <summary>
@@ -53,19 +74,43 @@ export function DailyLedgerLockPanel({
           </Button>
         </div>
         {activeLocks.length > 0 ? (
-          <ul className="dlLockList">
-            {activeLocks.map((l) => (
-              <li key={l.id}>
-                <span>
-                  {formatJalaliIso(l.from)} → {formatJalaliIso(l.to)}
-                  {l.reason ? ` · ${l.reason}` : ""}
-                </span>
-                <button type="button" className="dlItemBtn" onClick={() => onUnlock(l.id)}>
-                  باز کردن
-                </button>
-              </li>
-            ))}
-          </ul>
+          <>
+            <SelectionActionBar
+              selectedCount={selection.selectedCount}
+              idleHint="روی ردیف کلیک کنید یا مربع کنارش را تیک بزنید"
+              onClear={selection.clear}
+            >
+              <button
+                type="button"
+                className={selStyles.danger}
+                disabled={selection.selectedCount === 0 || pending}
+                onClick={unlockSelected}
+              >
+                باز کردن
+              </button>
+            </SelectionActionBar>
+            <ul className="dlLockList">
+              {activeLocks.map((l) => (
+                <li
+                  key={l.id}
+                  className={selStyles.selectableRow}
+                  {...rowSelectActivateProps({
+                    onActivate: () => selection.toggle(l.id),
+                  })}
+                >
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <RowSelectCheckbox
+                      checked={selection.isSelected(l.id)}
+                      onChange={() => selection.toggle(l.id)}
+                      label={`انتخاب قفل ${formatJalaliIso(l.from)} تا ${formatJalaliIso(l.to)}`}
+                    />
+                    {formatJalaliIso(l.from)} → {formatJalaliIso(l.to)}
+                    {l.reason ? ` · ${l.reason}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
         ) : null}
       </div>
     </details>

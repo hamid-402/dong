@@ -46,12 +46,26 @@ async function proxy(
   headers.delete("host");
   headers.delete("connection");
 
+  // SSE/long-poll must not use the short proxy timeout — AbortSignal.timeout(12s)
+  // was closing notification streams and surfacing ERR_INCOMPLETE_CHUNKED_ENCODING.
+  const wantsSse =
+    path[path.length - 1] === "stream" ||
+    (req.headers.get("accept") ?? "").includes("text/event-stream");
+  // Exports / CSV / large downloads need a longer budget than ordinary JSON.
+  const wantsLong =
+    path.includes("exports") ||
+    path.includes("download") ||
+    path.some((seg) => seg === "export.csv" || seg.endsWith(".csv")) ||
+    path.includes("import-csv") ||
+    path.includes("data-export");
   const init: RequestInit & { duplex?: "half" } = {
     method: req.method,
     headers,
     redirect: "manual",
-    // Avoid hung landing/status when upstream accepts TCP but never responds.
-    signal: AbortSignal.timeout(12_000),
+    // Short timeout for normal JSON; long for exports; SSE follows client abort only.
+    signal: wantsSse
+      ? req.signal
+      : AbortSignal.timeout(wantsLong ? 120_000 : 12_000),
   };
 
   if (req.method !== "GET" && req.method !== "HEAD") {
@@ -78,6 +92,14 @@ async function proxy(
     } else {
       const single = upstream.headers.get("set-cookie");
       if (single) out.append("set-cookie", sanitizeSetCookie(single));
+    }
+
+    if (wantsSse) {
+      // Keep stream headers honest when something still hits the proxy.
+      out.set("Cache-Control", "no-cache, no-transform");
+      out.set("X-Accel-Buffering", "no");
+      out.set("Content-Type", "text/event-stream; charset=utf-8");
+      out.delete("content-length");
     }
 
     return new NextResponse(upstream.body, {

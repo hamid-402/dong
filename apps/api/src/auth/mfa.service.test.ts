@@ -86,6 +86,9 @@ test("login challenge path: MFA enabled returns challenge without session", asyn
 });
 
 test("assertMfaEnrolledForFinanceAction blocks until MFA enabled", async () => {
+  const prev = process.env.REQUIRE_MFA;
+  process.env.REQUIRE_MFA = "1";
+  try {
   const { accounts, iam, mfa } = makeMfaService();
   const passwordHash = await hashPassword("StrongPass1!");
   const user = await accounts.createLocalUser({
@@ -112,4 +115,8 @@ test("assertMfaEnrolledForFinanceAction blocks until MFA enabled", async () => {
   await accounts.enableTotp(user.userId);
   assert.equal(await mfa.userNeedsMfaEnrollment(user.userId), false);
   await mfa.assertMfaEnrolledForFinanceAction(user.userId);
+  } finally {
+    if (prev === undefined) delete process.env.REQUIRE_MFA;
+    else process.env.REQUIRE_MFA = prev;
+  }
 });

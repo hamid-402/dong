@@ -5,8 +5,8 @@ import {
   evaluateAccessPolicy,
 } from "../src/index.js";
 
-test("policy version is rbac_abac_v4", () => {
-  assert.equal(ACCESS_POLICY_VERSION, "rbac_abac_v4");
+test("policy version is rbac_abac_v5", () => {
+  assert.equal(ACCESS_POLICY_VERSION, "rbac_abac_v5");
 });
 
 test("matrix: expense.approve deny/allow", () => {

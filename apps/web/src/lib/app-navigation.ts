@@ -180,8 +180,8 @@ export function resolveStack(
 }
 
 export const HUB_BOTTOM_TABS = [
-  { key: "home", path: "/hub", label: "خانه", icon: "home" as const },
-  { key: "space", path: "/hub/spaces", label: "فضا", icon: "partners" as const },
-  { key: "finance", path: "/hub/finance", label: "خرج‌ها", icon: "wallet" as const },
-  { key: "more", path: "/hub/manage", label: "حساب من", icon: "settings" as const },
+  { key: "home", path: "/home", label: "خانه", icon: "home" as const },
+  { key: "space", path: "/home", label: "فضا", icon: "partners" as const },
+  { key: "finance", path: "/me/finance", label: "خرج‌ها", icon: "wallet" as const },
+  { key: "more", path: "/account", label: "حساب من", icon: "settings" as const },
 ];

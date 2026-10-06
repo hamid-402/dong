@@ -5,30 +5,43 @@ import {
   Injectable,
 } from "@nestjs/common";
 import {
+  computeBalancesFromJournal,
   isZeroSumBalances,
+  journalAsOfDay,
   readProductFeatureFlags,
   settlementSuggestionsSatisfyGoldenRules,
   suggestMinimalSettlements,
   type AuthActor,
   type DebtSimplifySuggestionsResponse,
+  type JournalEntrySummary,
   type RemindDebtResponse,
   type WorkspaceBalancesResponse,
 } from "@dang/contracts";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
+import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { LEDGER_STORE, type LedgerStore } from "../ledger/ledger.types.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
+
+function filterEntriesAsOf(
+  entries: readonly JournalEntrySummary[],
+  asOf: string,
+): JournalEntrySummary[] {
+  return entries.filter((entry) => journalAsOfDay(entry) <= asOf);
+}
 
 @Injectable()
 export class BalancesService {
   constructor(
     @Inject(LEDGER_STORE) private readonly ledger: LedgerStore,
     @Inject(IAM_STORE) private readonly iam: IamStore,
+    @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
     @Inject(NotificationsService) private readonly notifications: NotificationsService,
   ) {}
 
   async getProvisional(
     actor: AuthActor,
     workspaceId: string,
+    asOf?: string,
   ): Promise<WorkspaceBalancesResponse> {
     const membership = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
     if (!membership) {
@@ -39,11 +52,23 @@ export class BalancesService {
       });
     }
 
-    const lines = await this.ledger.balancesForWorkspace(workspaceId, actor.userId);
+    if (asOf && !/^\d{4}-\d{2}-\d{2}$/.test(asOf)) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "asOf must be YYYY-MM-DD",
+        status: 400,
+      });
+    }
 
-    void this.notifications
-      .notifyGroupDebtAlerts(workspaceId, actor.userId, lines)
-      .catch(() => undefined);
+    const entries = await this.ledger.listForWorkspace(workspaceId, actor.userId);
+    const sliced = asOf ? filterEntriesAsOf(entries, asOf) : entries;
+    const lines = computeBalancesFromJournal(sliced);
+
+    if (!asOf) {
+      void this.notifications
+        .notifyGroupDebtAlerts(workspaceId, actor.userId, lines)
+        .catch(() => undefined);
+    }
 
     return {
       workspaceId,
@@ -52,6 +77,7 @@ export class BalancesService {
       currency: "IRR",
       lines,
       zeroSum: isZeroSumBalances(lines),
+      ...(asOf ? { asOf } : {}),
     };
   }
 
@@ -60,14 +86,7 @@ export class BalancesService {
     workspaceId: string,
     targetUserId: string,
   ): Promise<RemindDebtResponse> {
-    const membership = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
-    if (!membership) {
-      throw new ForbiddenException({
-        type: "https://dang.local/problems/forbidden",
-        title: "Not a workspace member",
-        status: 403,
-      });
-    }
+    await this.access.requireFinanceManager(workspaceId, actor.userId);
     const targetMembership = await this.iam.getWorkspaceForUser(workspaceId, targetUserId);
     if (!targetMembership) {
       throw new BadRequestException({
@@ -106,26 +125,20 @@ export class BalancesService {
 
   /**
    * Scheduled settle.remind (G11 #4): remind every debtor once (same daily skip as manual).
-   * Actor must be a workspace member (typically finance/owner via jobs ACL).
+   * Actor must be finance/owner (same ACL as manual remind).
    */
   async runSettleRemindSweep(
     actor: AuthActor,
     workspaceId: string,
   ): Promise<{ reminded: number; skipped: number }> {
-    const membership = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
-    if (!membership) {
-      throw new ForbiddenException({
-        type: "https://dang.local/problems/forbidden",
-        title: "Not a workspace member",
-        status: 403,
-      });
-    }
+    await this.access.requireFinanceManager(workspaceId, actor.userId);
     const lines = await this.ledger.balancesForWorkspace(workspaceId, actor.userId);
     let reminded = 0;
     let skipped = 0;
     for (const line of lines) {
       const net = BigInt(line.net.amountMinor);
       if (net >= 0n || line.userId === actor.userId) continue;
+      if (line.userId.startsWith("fund:")) continue;
       const result = await this.notifications.notifyDebtReminder(
         workspaceId,
         actor.userId,

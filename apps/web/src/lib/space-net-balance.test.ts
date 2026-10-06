@@ -9,14 +9,15 @@ import {
 
 describe("netFromIrrMinor", () => {
   it("marks positive as credit", () => {
-    const n = netFromIrrMinor(10_000);
+    const n = netFromIrrMinor(10_000, "toman");
     expect(n.tone).toBe("credit");
     expect(n.toman).toBe(1000);
+    expect(n.irrMinor).toBe(10_000);
     expect(n.label).toContain("طلب");
   });
 
   it("marks negative as debt", () => {
-    const n = netFromIrrMinor("-5000");
+    const n = netFromIrrMinor("-5000", "rial");
     expect(n.tone).toBe("debt");
     expect(n.label).toContain("بدهی");
   });

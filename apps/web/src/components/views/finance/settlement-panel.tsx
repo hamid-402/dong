@@ -21,6 +21,7 @@ import {
   suggestedPairwiseSettleMinor,
 } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { BankSmsPaste } from "@/components/bank-sms-paste";
 import {
   DataList,
   DataRow,
@@ -411,6 +412,14 @@ export function SettlementPanel({
             label={moneyFieldLabel("مبلغ پرداخت", displayUnit)}
             value={settleAmountToman}
             onChange={(event) => onSettleAmountTomanChange(event.target.value)}
+          />
+          <BankSmsPaste
+            onApply={(parsed) => {
+              if (!parsed.amountMinor) return;
+              onSettleAmountTomanChange(
+                irrMinorToDisplayInput(parsed.amountMinor, displayUnit),
+              );
+            }}
           />
           {balances && settleToUserId && settleToUserId !== currentUserId ? (
             <div className="dataRowActions">

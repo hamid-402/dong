@@ -49,12 +49,33 @@ test("Law 9 finance quorum: bootstrap allows one owner", () => {
   );
 });
 
-test("Law 9: second member must be finance manager when only one exists", () => {
+test("Law 9: one finance manager is enough to invite a regular member", () => {
   assert.equal(
     inviteSatisfiesFinanceQuorum({
       spaceKind: "group",
       currentMemberCount: 1,
       currentFinanceManagerCount: 1,
+      inviteRole: "member",
+    }).ok,
+    true,
+  );
+  assert.equal(
+    inviteSatisfiesFinanceQuorum({
+      spaceKind: "group",
+      currentMemberCount: 1,
+      currentFinanceManagerCount: 1,
+      inviteRole: "finance",
+    }).ok,
+    true,
+  );
+});
+
+test("Law 9: cannot invite regular member with zero finance managers once growing", () => {
+  assert.equal(
+    inviteSatisfiesFinanceQuorum({
+      spaceKind: "group",
+      currentMemberCount: 1,
+      currentFinanceManagerCount: 0,
       inviteRole: "member",
     }).ok,
     false,
@@ -63,7 +84,7 @@ test("Law 9: second member must be finance manager when only one exists", () => 
     inviteSatisfiesFinanceQuorum({
       spaceKind: "group",
       currentMemberCount: 1,
-      currentFinanceManagerCount: 1,
+      currentFinanceManagerCount: 0,
       inviteRole: "finance",
     }).ok,
     true,
@@ -101,12 +122,20 @@ test("product flags: production unset → off; development unset → on", () => 
     planAdmin: false,
     approvalSteps: false,
     makerChecker: false,
+    settlementEvidence: false,
   };
   assert.deepEqual(readProductFeatureFlags({ NODE_ENV: "production" }), allOff);
   const allOn = Object.fromEntries(
-    Object.keys(allOff).map((k) => [k, true]),
+    Object.keys(allOff).map((k) => [k, k === "settlementEvidence" ? false : true]),
   );
   assert.deepEqual(readProductFeatureFlags({ NODE_ENV: "development" }), allOn);
+  assert.equal(
+    readProductFeatureFlags({
+      NODE_ENV: "development",
+      ENABLE_SETTLEMENT_EVIDENCE: "1",
+    }).settlementEvidence,
+    true,
+  );
   assert.equal(
     readProductFeatureFlags({
       NODE_ENV: "development",

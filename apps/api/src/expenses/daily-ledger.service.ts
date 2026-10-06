@@ -4,19 +4,29 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
+  forwardRef,
 } from "@nestjs/common";
 import {
   buildDailyLedgerCsv,
   buildDailyLedgerMatrix,
   moneySchema,
   parseDailyLedgerImportCsv,
+  parseLedgerImportText,
+  parseDongToWorkbook,
   resolveDailyLedgerRange,
+  resolveLedgerColumnTarget,
   assertAmountMatchesQuantity,
+  pettyCashAllowedForKind,
+  spaceKindForTemplate,
   type AuthActor,
+  type CreateDailyLedgerDepositRequest,
+  type CreateDailyLedgerDepositResponse,
   type CreateDailyLedgerEntryRequest,
   type CreateExpenseDraftRequest,
   type CreateWorkspaceRangeLockRequest,
   type DailyLedgerDayTemplateResponse,
+  type DailyLedgerFundDeposit,
   type DailyLedgerRangePreset,
   type DailyLedgerResponse,
   type MembershipSummary,
@@ -26,10 +36,13 @@ import {
   type UpsertWorkspaceDayResponse,
   type WorkspaceRangeLockSummary,
 } from "@dang/contracts";
+import { readXlsxMatrices } from "../reports/xlsx-read.js";
 import { RANGE_LOCK_ROLES } from "@dang/contracts";
 import { CatalogService } from "../catalog/catalog.service.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
+import { WorkspacePaymentsService } from "../payments/workspace-payments.service.js";
+import { parsePettyCashNoteMeta } from "../payments/petty-cash-note.js";
 import { resolveExpenseListOptions } from "./expense-list-options.js";
 import { EXPENSE_STORE, type ExpenseStore } from "./expense.types.js";
 import { ExpensesService } from "./expenses.service.js";
@@ -56,6 +69,9 @@ export class DailyLedgerService {
     @Inject(WORKSPACE_RANGE_LOCK_STORE) private readonly locks: WorkspaceRangeLockStore,
     @Inject(ExpensesService) private readonly expenseService: ExpensesService,
     @Inject(CatalogService) private readonly catalog: CatalogService,
+    @Optional()
+    @Inject(forwardRef(() => WorkspacePaymentsService))
+    private readonly payments?: WorkspacePaymentsService,
   ) {}
 
   /** Per-request/method cache so listMembers is not hit repeatedly in one flow. */
@@ -225,47 +241,177 @@ export class DailyLedgerService {
   async importCsv(
     actor: AuthActor,
     workspaceId: string,
-    body: { csv: string; idempotencyKey?: string },
-  ): Promise<{ imported: number; skipped: number; ledger: DailyLedgerResponse }> {
+    body: {
+      csv?: string;
+      paste?: string;
+      xlsxBase64?: string;
+      rows?: Array<{
+        date: string;
+        column: string;
+        itemName: string;
+        amountToman: number;
+      }>;
+      holidays?: string[];
+      columnMap?: Record<string, string>;
+      sheetSource?: "auto" | "master" | "members";
+      previewOnly?: boolean;
+      idempotencyKey?: string;
+    },
+  ): Promise<{
+    imported: number;
+    skipped: number;
+    holidays: number;
+    warnings: string[];
+    unmappedColumns: string[];
+    preview?: Array<{
+      date: string;
+      column: string;
+      itemName: string;
+      amountToman: number;
+      resolved: "shared" | "member" | "skip" | "unmapped";
+      memberUserId?: string;
+    }>;
+    ledger: DailyLedgerResponse;
+  }> {
     const role = await this.access.requireMemberRole(workspaceId, actor.userId);
     this.access.assertNotReadOnly(role);
-    if (!body.csv?.trim()) {
-      throw new BadRequestException({ detail: "متن CSV لازم است" });
+
+    const text = (body.paste ?? body.csv ?? "").trim();
+    const xlsxB64 = body.xlsxBase64?.trim();
+    let parsed =
+      text.length > 0
+        ? parseLedgerImportText(text)
+        : {
+            rows: [] as ReturnType<typeof parseDailyLedgerImportCsv>,
+            holidays: [] as string[],
+            warnings: [] as string[],
+          };
+
+    if (body.rows && body.rows.length > 0) {
+      parsed = {
+        rows: body.rows.map((r) => ({
+          date: r.date,
+          column: r.column,
+          itemName: r.itemName,
+          amountToman: r.amountToman,
+        })),
+        holidays: body.holidays ?? [],
+        warnings: [],
+      };
+    } else if (xlsxB64) {
+      const buf = Buffer.from(xlsxB64.replace(/^data:[^;]+;base64,/, ""), "base64");
+      const sheets = readXlsxMatrices(buf);
+      if (sheets.length === 0) {
+        throw new BadRequestException({ detail: "شیت معتبری در فایل Excel نبود" });
+      }
+      parsed = parseDongToWorkbook(sheets, { source: body.sheetSource ?? "auto" });
+    } else if (text.length > 0 && parsed.rows.length === 0) {
+      const legacy = parseDailyLedgerImportCsv(text);
+      parsed = { rows: legacy, holidays: [], warnings: parsed.warnings };
     }
-    const rows = parseDailyLedgerImportCsv(body.csv);
-    if (rows.length === 0) {
-      throw new BadRequestException({ detail: "هیچ ردیف معتبری در CSV نبود" });
+
+    if (parsed.rows.length === 0 && parsed.holidays.length === 0) {
+      throw new BadRequestException({
+        detail: parsed.warnings[0] ?? "هیچ ردیف معتبری برای ورود نبود",
+      });
     }
-    if (rows.length > 500) {
+    if (parsed.rows.length > 500) {
       throw new BadRequestException({ detail: "حداکثر ۵۰۰ ردیف در هر import" });
     }
+
     const cache: MembersCache = new Map();
     const members = await this.loadMembers(workspaceId, actor.userId, cache);
-    const byName = new Map(
-      members.map((m) => [m.displayName.trim().toLowerCase(), m.userId]),
-    );
+    const columnMap = body.columnMap;
+
+    const uniqueColumns = [
+      ...new Set(parsed.rows.map((r) => r.column.trim()).filter(Boolean)),
+    ];
+    const unmappedColumns: string[] = [];
+    for (const col of uniqueColumns) {
+      const resolved = resolveLedgerColumnTarget(col, members, columnMap);
+      if (resolved.kind === "unmapped") unmappedColumns.push(col);
+    }
+
+    const preview = parsed.rows.slice(0, 80).map((row) => {
+      const resolved = resolveLedgerColumnTarget(row.column, members, columnMap);
+      return {
+        date: row.date,
+        column: row.column,
+        itemName: row.itemName,
+        amountToman: row.amountToman,
+        resolved: resolved.kind,
+        memberUserId: resolved.kind === "member" ? resolved.userId : undefined,
+      };
+    });
+
+    const rangeFrom = parsed.rows[0]?.date ?? parsed.holidays[0]!;
+    const rangeTo =
+      parsed.rows[parsed.rows.length - 1]?.date ??
+      parsed.holidays[parsed.holidays.length - 1]!;
+
+    if (body.previewOnly) {
+      const ledger = await this.buildLedger(
+        actor,
+        workspaceId,
+        rangeFrom,
+        rangeTo,
+        cache,
+      );
+      return {
+        imported: 0,
+        skipped: 0,
+        holidays: 0,
+        warnings: [
+          ...parsed.warnings,
+          `پیش‌نمایش: ${parsed.rows.length} قلم · ${parsed.holidays.length} تعطیل`,
+        ].slice(0, 20),
+        unmappedColumns,
+        preview,
+        ledger,
+      };
+    }
+
+    if (unmappedColumns.length > 0) {
+      const ledger = await this.buildLedger(
+        actor,
+        workspaceId,
+        rangeFrom,
+        rangeTo,
+        cache,
+      );
+      return {
+        imported: 0,
+        skipped: parsed.rows.length,
+        holidays: 0,
+        warnings: [
+          ...parsed.warnings,
+          `ستون‌های بدون نگاشت عضو: ${unmappedColumns.join("، ")} — نگاشت کنید و دوباره بفرستید`,
+        ].slice(0, 20),
+        unmappedColumns,
+        preview,
+        ledger,
+      };
+    }
 
     let imported = 0;
     let skipped = 0;
-    let minDate = rows[0]!.date;
-    let maxDate = rows[0]!.date;
+    const warnings = [...parsed.warnings];
+    let minDate = rangeFrom;
+    let maxDate = rangeFrom;
     const batchKey = body.idempotencyKey?.trim() || crypto.randomUUID();
 
-    for (let i = 0; i < rows.length; i += 1) {
-      const row = rows[i]!;
+    for (let i = 0; i < parsed.rows.length; i += 1) {
+      const row = parsed.rows[i]!;
       minDate = row.date < minDate ? row.date : minDate;
       maxDate = row.date > maxDate ? row.date : maxDate;
       try {
         await this.assertDayOpen(workspaceId, actor.userId, row.date);
-        const col = row.column.trim().toLowerCase();
-        const memberId =
-          col === "shared" || col === "هزینه مشترک" || col === "مشترک"
-            ? null
-            : byName.get(col) ?? null;
-        if (memberId === null && !(col === "shared" || col === "هزینه مشترک" || col === "مشترک")) {
+        const resolved = resolveLedgerColumnTarget(row.column, members, columnMap);
+        if (resolved.kind === "skip") {
           skipped += 1;
           continue;
         }
+        const memberId = resolved.kind === "member" ? resolved.userId : null;
         const amountMinor = String(Math.round(row.amountToman) * 10);
         const draft = this.buildDraft(
           actor,
@@ -288,8 +434,28 @@ export class DailyLedgerService {
       }
     }
 
+    let holidaysSet = 0;
+    for (const holiday of parsed.holidays) {
+      minDate = holiday < minDate ? holiday : minDate;
+      maxDate = holiday > maxDate ? holiday : maxDate;
+      try {
+        await this.upsertDay(actor, workspaceId, holiday, { isHoliday: true });
+        holidaysSet += 1;
+      } catch {
+        skipped += 1;
+      }
+    }
+
     const ledger = await this.buildLedger(actor, workspaceId, minDate, maxDate, cache);
-    return { imported, skipped, ledger };
+    return {
+      imported,
+      skipped,
+      holidays: holidaysSet,
+      warnings: [...new Set(warnings)].slice(0, 20),
+      unmappedColumns: [],
+      preview,
+      ledger,
+    };
   }
 
   async updateEntry(
@@ -367,6 +533,13 @@ export class DailyLedgerService {
         unitCode: body.unitCode,
         quantity: body.quantity,
         unitPriceMinor: body.unitPriceMinor,
+        fundingSourceKind:
+          body.fundingSourceKind ??
+          (current.fundingSourceKind === "petty_cash" ||
+          current.fundingSourceKind === "personal"
+            ? current.fundingSourceKind
+            : undefined),
+        fundingRefId: body.fundingRefId ?? current.fundingRefId,
       },
       members.map((m) => m.userId),
       memberId,
@@ -413,6 +586,18 @@ export class DailyLedgerService {
     if (!body.idempotencyKey?.trim()) {
       throw new BadRequestException({ detail: "idempotencyKey لازم است" });
     }
+    if (body.fundingSourceKind === "petty_cash" && !body.fundingRefId?.trim()) {
+      throw new BadRequestException({
+        detail: "برای خرج از تنخواه، صندوق را انتخاب کنید",
+        code: "FUNDING_REF_REQUIRED",
+      });
+    }
+    if (body.fundingRefId?.trim() && !body.fundingSourceKind) {
+      throw new BadRequestException({
+        detail: "نوع منبع پرداخت لازم است",
+        code: "FUNDING_KIND_REQUIRED",
+      });
+    }
     try {
       assertAmountMatchesQuantity({
         amountMinor: body.amount.amountMinor,
@@ -444,6 +629,15 @@ export class DailyLedgerService {
       quantity: body.quantity,
       unitPriceMinor: body.unitPriceMinor,
     };
+    const funding =
+      body.fundingSourceKind === "petty_cash" && body.fundingRefId?.trim()
+        ? {
+            fundingSourceKind: "petty_cash" as const,
+            fundingRefId: body.fundingRefId.trim(),
+          }
+        : body.fundingSourceKind === "personal"
+          ? { fundingSourceKind: "personal" as const }
+          : {};
     if (memberId) {
       if (!allMemberIds.includes(memberId)) {
         throw new BadRequestException({ detail: "عضو انتخاب‌شده در گروه نیست" });
@@ -461,6 +655,7 @@ export class DailyLedgerService {
         visibility: "shared",
         source: "daily_ledger",
         ...catalogFields,
+        ...funding,
       };
     }
     return {
@@ -475,6 +670,7 @@ export class DailyLedgerService {
       visibility: "shared",
       source: "daily_ledger",
       ...catalogFields,
+      ...funding,
     };
   }
 
@@ -508,6 +704,8 @@ export class DailyLedgerService {
         unitCode: line.unitCode,
         quantity: line.quantity,
         unitPriceMinor: line.unitPriceMinor,
+        fundingSourceKind: line.fundingSourceKind,
+        fundingRefId: line.fundingRefId,
       };
       this.validateEntryBody(entry);
       const memberId = line.memberUserId?.trim() || null;
@@ -686,10 +884,11 @@ export class DailyLedgerService {
     const members = await this.loadMembers(workspaceId, actor.userId, cache);
     const me = members.find((m) => m.userId === actor.userId);
     const canManageLocks = Boolean(me && LOCK_ROLES.has(me.role));
-    const [expenses, dayMeta, rangeLocks] = await Promise.all([
+    const [expenses, dayMeta, rangeLocks, fundDeposits] = await Promise.all([
       this.listVisibleExpenses(workspaceId, actor.userId),
       this.days.listDays(workspaceId, actor.userId, from, to),
       this.locks.list(workspaceId, actor.userId, { activeOnly: true }),
+      this.listFundDeposits(actor, workspaceId, from, to),
     ]);
     const matrix = buildDailyLedgerMatrix({
       workspaceId,
@@ -709,8 +908,187 @@ export class DailyLedgerService {
       canManageLocks,
       expensePersistence: this.expenses.persistence,
       dayMetaPersistence: this.days.persistence,
+      fundDeposits,
     });
-    return { ...matrix, rangeLocks, canManageLocks };
+
+    const relatedByDate = new Map<string, typeof matrix.days[0]["relatedExpenses"]>();
+    for (const expense of expenses) {
+      if (expense.status === "reversed") continue;
+      if (expense.source === "daily_ledger") continue;
+      if (expense.occurredOn < from || expense.occurredOn > to) continue;
+      const list = relatedByDate.get(expense.occurredOn) ?? [];
+      list.push({
+        id: expense.id,
+        title: expense.title,
+        amount: expense.total,
+        status: expense.status,
+        visibility: expense.visibility,
+      });
+      relatedByDate.set(expense.occurredOn, list);
+    }
+    const days = matrix.days.map((day) => {
+      const related = relatedByDate.get(day.date);
+      if (!related || related.length === 0) return day;
+      return { ...day, relatedExpenses: related };
+    });
+
+    return { ...matrix, days, rangeLocks, canManageLocks };
+  }
+
+  /**
+   * Record member cash-in to petty cash for a day.
+   * Default `balance`: fund ↑ + shared expense so depositor net improves.
+   * Optional `gift`: fund ↑ only (no member balance change).
+   */
+  async createDeposit(
+    actor: AuthActor,
+    workspaceId: string,
+    body: CreateDailyLedgerDepositRequest,
+  ): Promise<CreateDailyLedgerDepositResponse> {
+    if (!this.payments) {
+      throw new BadRequestException({
+        detail: "سرویس تنخواه در این فرآیند در دسترس نیست",
+        code: "PETTY_CASH_UNAVAILABLE",
+      });
+    }
+    const role = await this.access.requireMemberRole(workspaceId, actor.userId);
+    this.access.assertNotReadOnly(role);
+    await this.assertDayOpen(workspaceId, actor.userId, body.date);
+
+    const workspace = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
+    const kind = spaceKindForTemplate(workspace?.template);
+    if (!pettyCashAllowedForKind(kind)) {
+      throw new BadRequestException({
+        detail: "فضای شخصی تنخواه مشترک ندارد",
+        code: "PETTY_CASH_PERSONAL_FORBIDDEN",
+      });
+    }
+
+    const cashInBy = body.cashInByUserId?.trim() || actor.userId;
+    const occurredAt = `${body.date}T12:00:00.000Z`;
+    const mode = body.mode === "gift" ? "gift" : "balance";
+    const note =
+      body.note?.trim() ||
+      (mode === "gift"
+        ? `هدیه به صندوق — ${body.date}`
+        : `واریز دفتر روزانه — ${body.date}`);
+
+    if (mode === "gift") {
+      const gifted = await this.payments.giftPettyCash(actor, workspaceId, body.fundId, {
+        amountMinor: body.amountMinor,
+        cashInByUserId: cashInBy,
+        note: `${note} (cashInBy:${cashInBy} ledgerDate:${body.date})`,
+        occurredAt,
+        idempotencyKey: body.idempotencyKey,
+      });
+
+      const deposit: DailyLedgerFundDeposit = {
+        movementId: gifted.movement.id,
+        fundId: gifted.fund.id,
+        fundName: gifted.fund.name,
+        kind: "gift",
+        amountMinor: gifted.movement.amountMinor,
+        actorUserId: gifted.movement.actorUserId,
+        cashInByUserId: cashInBy,
+        occurredOn: body.date,
+        occurredAt: gifted.movement.occurredAt,
+        note: gifted.movement.note,
+      };
+
+      return {
+        workspaceId,
+        deposit,
+        balanceMinor: gifted.balanceMinor,
+      };
+    }
+
+    const credited = await this.payments.depositPettyCashMemberCredit(
+      actor,
+      workspaceId,
+      body.fundId,
+      {
+        amountMinor: body.amountMinor,
+        cashInByUserId: cashInBy,
+        note: `${note} (cashInBy:${cashInBy} ledgerDate:${body.date})`,
+        occurredOn: body.date,
+        occurredAt,
+        idempotencyKey: body.idempotencyKey,
+      },
+    );
+
+    const deposit: DailyLedgerFundDeposit = {
+      movementId: credited.movement.id,
+      fundId: credited.fund.id,
+      fundName: credited.fund.name,
+      kind: "topup",
+      amountMinor: credited.movement.amountMinor,
+      actorUserId: credited.movement.actorUserId,
+      cashInByUserId: cashInBy,
+      occurredOn: body.date,
+      occurredAt: credited.movement.occurredAt,
+      note: credited.movement.note,
+    };
+
+    return {
+      workspaceId,
+      deposit,
+      balanceMinor: credited.balanceMinor,
+    };
+  }
+
+  private async listFundDeposits(
+    actor: AuthActor,
+    workspaceId: string,
+    from: string,
+    to: string,
+  ): Promise<DailyLedgerFundDeposit[]> {
+    if (!this.payments) return [];
+    const workspace = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
+    const kind = spaceKindForTemplate(workspace?.template);
+    if (!pettyCashAllowedForKind(kind)) return [];
+
+    let funds: Awaited<ReturnType<WorkspacePaymentsService["listPettyCash"]>>;
+    try {
+      funds = await this.payments.listPettyCash(actor, workspaceId);
+    } catch {
+      return [];
+    }
+
+    const out: DailyLedgerFundDeposit[] = [];
+    for (const fund of funds) {
+      let ledger: Awaited<ReturnType<WorkspacePaymentsService["getPettyCashLedger"]>>;
+      try {
+        ledger = await this.payments.getPettyCashLedger(actor, workspaceId, fund.id);
+      } catch {
+        continue;
+      }
+      for (const row of ledger.rows) {
+        if (row.kind !== "gift" && row.kind !== "topup" && row.kind !== "return") {
+          continue;
+        }
+        const noteMeta = parsePettyCashNoteMeta(row.note);
+        const occurredOn =
+          noteMeta.ledgerDate ||
+          row.occurredAt.slice(0, 10);
+        if (occurredOn < from || occurredOn > to) continue;
+        out.push({
+          movementId: row.id,
+          fundId: fund.id,
+          fundName: fund.name,
+          kind: row.kind,
+          amountMinor: row.amountMinor,
+          actorUserId: row.actorUserId,
+          cashInByUserId:
+            row.cashInByUserId ?? noteMeta.cashInByUserId ?? row.actorUserId,
+          occurredOn,
+          occurredAt: row.occurredAt,
+          note: row.note,
+          expenseId: row.expenseId,
+        });
+      }
+    }
+    out.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+    return out;
   }
 
   resolveRange(

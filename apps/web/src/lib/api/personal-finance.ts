@@ -1,14 +1,21 @@
 import type {
+  AllocationPlanSummary,
   CreateIncomeSourceRequest,
+  CreatePaycheckRequest,
   CreatePersonalCategoryRequest,
   CreatePersonalFinanceExportRequest,
   CreatePersonalMoneyAccountRequest,
   CreatePersonalMoneyTxnRequest,
   CreatePersonalTransferRequest,
   CreateSavingsGoalContributionRequest,
+  CreateMoneyIntentRequest,
   CreateSavingsGoalRequest,
+  DepositPersonalSavingsFundRequest,
+  EnsurePersonalSavingsFundRequest,
   IncomeSourceSummary,
+  MonthLifestyleSnapshot,
   MonthlyCloseSummary,
+  PaycheckSummary,
   PersonalBudgetSummary,
   PersonalCategorySummary,
   PersonalDashboardResponse,
@@ -19,13 +26,17 @@ import type {
   PersonalMoneyAccountSummary,
   PersonalMoneyTxnSummary,
   PersonalResourcesSummary,
+  PersonalSavingsFundSummary,
+  PutAllocationPlanRequest,
   PutSpendingAlertsRequest,
   SavingsGoalContributionSummary,
+  MoneyIntentSummary,
   SavingsGoalSummary,
   SpendingAlertSummary,
   UpdateIncomeSourceRequest,
   UpdatePersonalCategoryRequest,
   UpdatePersonalMoneyAccountRequest,
+  UpdateMoneyIntentRequest,
   UpdateSavingsGoalRequest,
   UpsertPersonalBudgetRequest,
 } from "@dang/contracts";
@@ -176,6 +187,20 @@ export const personalFinanceApi = {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+  listMoneyIntents: () =>
+    apiFetch<MoneyIntentSummary[]>("/me/finance/money-intents"),
+  createMoneyIntent: (body: CreateMoneyIntentRequest) =>
+    postWithOfflineQueue<MoneyIntentSummary>({
+      path: "/me/finance/money-intents",
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: body.name?.trim() || "ایجاد قاعده مالی",
+    }),
+  updateMoneyIntent: (intentId: string, body: UpdateMoneyIntentRequest) =>
+    apiFetch<MoneyIntentSummary>(`/me/finance/money-intents/${intentId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
   listSavingsGoals: () =>
     apiFetch<SavingsGoalSummary[]>("/me/finance/savings-goals"),
   createSavingsGoal: (body: CreateSavingsGoalRequest) =>
@@ -203,6 +228,33 @@ export const personalFinanceApi = {
       idempotencyKey: body.idempotencyKey,
       label: "واریز به هدف پس‌انداز",
     }),
+
+  getSavingsFund: () =>
+    apiFetch<PersonalSavingsFundSummary>("/me/finance/savings-fund"),
+
+  ensureDefaultSavingsFund: (body?: EnsurePersonalSavingsFundRequest) =>
+    postWithOfflineQueue<{
+      created: boolean;
+      fund: PersonalSavingsFundSummary;
+    }>({
+      path: "/me/finance/savings-fund/ensure-default",
+      body: JSON.stringify(body ?? {}),
+      idempotencyKey: body?.idempotencyKey,
+      label: "ایجاد صندوق پس‌انداز",
+    }),
+
+  depositSavingsFund: (body: DepositPersonalSavingsFundRequest) =>
+    postWithOfflineQueue<{
+      fund: PersonalSavingsFundSummary;
+      goal: SavingsGoalSummary;
+      contribution: SavingsGoalContributionSummary;
+    }>({
+      path: "/me/finance/savings-fund/deposit",
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "واریز به صندوق پس‌انداز",
+    }),
+
   listSpendingAlerts: () => apiFetch<SpendingAlertSummary[]>("/me/finance/alerts"),
   putSpendingAlerts: (body: PutSpendingAlertsRequest) =>
     apiFetch<SpendingAlertSummary[]>("/me/finance/alerts", {
@@ -218,4 +270,64 @@ export const personalFinanceApi = {
       method: "POST",
       body: JSON.stringify({ yearMonth }),
     }),
+
+  getAllocationPlan: () =>
+    apiFetch<AllocationPlanSummary>("/me/finance/allocation-plan"),
+  putAllocationPlan: (body: PutAllocationPlanRequest) =>
+    apiFetch<AllocationPlanSummary>("/me/finance/allocation-plan", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  listPaychecks: (yearMonth?: string) => {
+    const q = yearMonth ? `?yearMonth=${encodeURIComponent(yearMonth)}` : "";
+    return apiFetch<PaycheckSummary[]>(`/me/finance/paychecks${q}`);
+  },
+  createPaycheck: (body: CreatePaycheckRequest) =>
+    postWithOfflineQueue<PaycheckSummary>({
+      path: "/me/finance/paychecks",
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "ثبت حقوق ماهانه",
+    }),
+  lifestyleSnapshot: (opts?: { yearMonth?: string; from?: string; to?: string }) => {
+    const params = new URLSearchParams();
+    if (opts?.yearMonth) params.set("yearMonth", opts.yearMonth);
+    if (opts?.from) params.set("from", opts.from);
+    if (opts?.to) params.set("to", opts.to);
+    const q = params.toString();
+    return apiFetch<MonthLifestyleSnapshot>(
+      `/me/finance/lifestyle${q ? `?${q}` : ""}`,
+    );
+  },
+  downloadPersonalAnnualStatement: async (opts: {
+    jalaliYear: number;
+    format: "csv" | "html_print";
+  }) => {
+    const res = await fetch(`${API_BASE.replace(/\/$/, "")}/me/finance/statements/annual`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", Accept: "*/*" },
+      body: JSON.stringify({
+        jalaliYear: opts.jalaliYear,
+        format: opts.format,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(text || `annual_statement_${res.status}`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download =
+      opts.format === "csv"
+        ? `personal-annual-${opts.jalaliYear}.csv`
+        : `personal-annual-${opts.jalaliYear}.html`;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };

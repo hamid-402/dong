@@ -1,5 +1,6 @@
 import type {
   CreateWorkspaceWebhookRequest,
+  WorkspaceWebhookDeliverySummary,
   WorkspaceWebhookSummary,
 } from "@dang/contracts";
 
@@ -19,6 +20,18 @@ export type WorkspaceWebhookStore = {
     eventType: string,
   ): Promise<WorkspaceWebhookRecord[]>;
   deactivate(workspaceId: string, webhookId: string): Promise<WorkspaceWebhookSummary | null>;
+  recordDelivery(input: {
+    workspaceId: string;
+    webhookId: string;
+    eventType: string;
+    ok: boolean;
+    statusCode?: number;
+    detail: string;
+  }): Promise<WorkspaceWebhookDeliverySummary>;
+  listDeliveries(
+    workspaceId: string,
+    opts?: { webhookId?: string; limit?: number },
+  ): Promise<WorkspaceWebhookDeliverySummary[]>;
 };
 
 export const WORKSPACE_WEBHOOK_STORE = Symbol("WORKSPACE_WEBHOOK_STORE");

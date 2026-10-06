@@ -1,21 +1,52 @@
-import type { Money } from "@dang/contracts";
+import type { DisplayUnit, Money } from "@dang/contracts";
+import { displayIntegerToIrrMinor, irrMinorToDisplayInteger } from "@dang/contracts";
 
-/** Canonical UI money: IRR minor only (تومان × ۱۰). Rejects non-IRR / empty. */
-export function tomanInputToIrrMinor(toman: string): Money | null {
-  const n = Number(String(toman).replaceAll(",", "").replaceAll("/", "").trim());
+/**
+ * Parse a display-unit integer string into IRR minor Money.
+ * `unit` must match what the user typed (profile/workspace preference).
+ */
+export function displayInputToIrrMinor(
+  raw: string,
+  unit: DisplayUnit,
+): Money | null {
+  const n = Number(String(raw).replaceAll(",", "").replaceAll("/", "").trim());
   if (!Number.isFinite(n) || n <= 0) return null;
-  return { amountMinor: String(Math.round(n) * 10), currency: "IRR" };
+  try {
+    return {
+      amountMinor: displayIntegerToIrrMinor(Math.round(n), unit),
+      currency: "IRR",
+    };
+  } catch {
+    return null;
+  }
 }
 
-/** Display IRR minor as تومان integer string for inputs/labels. */
-export function irrMinorToTomanInput(amountMinor: string): string {
+/** Display IRR minor as an integer string in the chosen unit (for inputs). */
+export function irrMinorToDisplayInput(
+  amountMinor: string,
+  unit: DisplayUnit,
+): string {
   try {
-    const minor = BigInt(amountMinor);
-    if (minor <= 0n) return "";
-    return (minor / 10n).toString();
+    const value = irrMinorToDisplayInteger(amountMinor, unit);
+    if (value <= 0n) return "";
+    return value.toString();
   } catch {
     return "";
   }
+}
+
+/**
+ * @deprecated Prefer displayInputToIrrMinor(raw, unit). Kept for legacy toman-only forms.
+ */
+export function tomanInputToIrrMinor(toman: string): Money | null {
+  return displayInputToIrrMinor(toman, "toman");
+}
+
+/**
+ * @deprecated Prefer irrMinorToDisplayInput(minor, unit).
+ */
+export function irrMinorToTomanInput(amountMinor: string): string {
+  return irrMinorToDisplayInput(amountMinor, "toman");
 }
 
 export function assertIrrMoney(money: Money | null | undefined): money is Money {

@@ -105,8 +105,19 @@ export type PaymentOpsStore = {
     createdByUserId: string,
     input: CreatePettyCashFundRequest & { custodianUserId: string },
   ): Promise<StoredPettyCashFund>;
-  listMovements(fundId: string): Promise<StoredPettyCashMovement[]>;
+  /** Soft-close / reopen — never hard-delete; ledger history stays. */
+  setFundActive(
+    workspaceId: string,
+    fundId: string,
+    active: boolean,
+  ): Promise<StoredPettyCashFund>;
+  /** Requires workspaceId so Postgres RLS (FORCE) can see fund-scoped rows. */
+  listMovements(
+    workspaceId: string,
+    fundId: string,
+  ): Promise<StoredPettyCashMovement[]>;
   createMovement(
+    workspaceId: string,
     fundId: string,
     actorUserId: string,
     input: CreatePettyCashMovementRequest & { occurredAt: string },

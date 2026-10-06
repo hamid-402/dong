@@ -48,7 +48,7 @@ export function RouteErrorState({
         action={
           <div className="routeErrorState__actions">
             {action ?? (
-              <Link href="/spaces" className="routeErrorState__link">
+              <Link href="/home" className="routeErrorState__link">
                 بازگشت به فضاها
               </Link>
             )}

@@ -23,13 +23,13 @@ const base: CSSProperties = {
 };
 
 const sizes: Record<ButtonSize, CSSProperties> = {
-  md: { padding: "12px 18px", fontSize: 14 },
-  sm: { padding: "8px 14px", fontSize: 13, minHeight: 36 },
+  md: { padding: "0.8125rem 1.25rem", fontSize: "0.9375rem" },
+  sm: { padding: "0.5625rem 0.875rem", fontSize: "0.875rem", minHeight: "2.5rem" },
 };
 
 const variants: Record<ButtonVariant, CSSProperties> = {
   primary: {
-    background: "linear-gradient(135deg, var(--dang-primary), var(--dang-primary-deep))",
+    background: "var(--dang-primary)",
     color: "var(--dang-primary-ink)",
   },
   secondary: {

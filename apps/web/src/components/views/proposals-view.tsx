@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { newClientId } from "@/lib/id";
 
@@ -13,6 +13,7 @@ import type {
 import { spaceKindForTemplate, isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
+import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import {
   EmptyHint,
   FormStack,
@@ -21,7 +22,6 @@ import {
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
-import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
@@ -39,25 +39,25 @@ function statusTone(status: string): "neutral" | "ok" | "warn" | "danger" | "gol
 }
 
 function kindLabel(kind: ProposalKind): string {
-  return kind === "service" ? "????" : "????";
+  return kind === "service" ? "خدمت" : "کالا";
 }
 
 function requiredYesLabel(required: number, members: number, percent: number): string {
-  return `${required} ??? ????? ?? ${members} ??? (?????? ${percent}%)`;
+  return `${required} رأی موافق از ${members} عضو (حدنصاب ${percent}٪)`;
 }
 
 function ProposalProgress({ yes, required }: { yes: number; required: number }) {
   const pct = required > 0 ? Math.min(100, Math.round((yes / required) * 100)) : 0;
   return (
-    <div className="proposalProgress" aria-label={`?????? ?????? ${pct} ????`}>
+    <div className="proposalProgress" aria-label={`پیشرفت حدنصاب ${pct} درصد`}>
       <div className="proposalProgress__track">
         <span className="proposalProgress__fill" style={{ width: `${pct}%` }} />
       </div>
       <div className="proposalProgress__meta">
         <span>
-          ????? {yes.toLocaleString("fa-IR")} / {required.toLocaleString("fa-IR")}
+          موافق {yes.toLocaleString("fa-IR")} / {required.toLocaleString("fa-IR")}
         </span>
-        <span>{pct.toLocaleString("fa-IR")}%</span>
+        <span>{pct.toLocaleString("fa-IR")}٪</span>
       </div>
     </div>
   );
@@ -95,7 +95,7 @@ export function ProposalsView() {
   );
 
   function memberName(userId: string): string {
-    return members.find((m) => m.userId === userId)?.displayName ?? "???";
+    return members.find((m) => m.userId === userId)?.displayName ?? "عضو";
   }
 
   async function refresh(workspaceId: string) {
@@ -123,7 +123,7 @@ export function ProposalsView() {
     setLoading(true);
     void refresh(chrome.workspaceId)
       .then(() => setError(null))
-      .catch((err: unknown) => setError(friendlyErrorMessage(err, "???")))
+      .catch((err: unknown) => setError(friendlyErrorMessage(err, "خطا")))
       .finally(() => setLoading(false));
   }, [chrome.workspaceId, chrome.ready]);
 
@@ -131,7 +131,7 @@ export function ProposalsView() {
     if (!chrome.workspaceId) return;
     const name = title.trim();
     if (name.length < 2) {
-      setError("????? ??????? ?? ???? ????");
+      setError("عنوان پیشنهاد را وارد کنید");
       return;
     }
     const tomanNum = toman.trim() ? tomanInputToIrrMinor(toman) : null;
@@ -149,10 +149,10 @@ export function ProposalsView() {
           setTitle("");
           setDescription("");
           setToman("");
-          flashSuccess("??????? ??? ?? ? ???? ??? ???? ??? ???");
+          flashSuccess("پیشنهاد ثبت شد و برای رأی اعضا باز است");
           await refresh(chrome.workspaceId);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "??? ??????? ??????"));
+          setError(friendlyErrorMessage(err, "ثبت پیشنهاد ناموفق"));
         }
       })();
     });
@@ -166,14 +166,14 @@ export function ProposalsView() {
           const updated = await api.castProposalVote(chrome.workspaceId, proposalId, { choice });
           await refresh(chrome.workspaceId);
           if (updated.status === "accepted") {
-            flashSuccess("?????? ????? ?? � ??????? ?? ???? ?????? ????? ??");
+            flashSuccess("حدنصاب تأمین شد — پیشنهاد به لیست نیازها منتقل شد");
           } else if (updated.status === "rejected") {
-            flashSuccess("???????? ???? ??? ??????? ?? ?????? ?????");
+            flashSuccess("رأی‌گیری کامل شد؛ پیشنهاد به حدنصاب نرسید");
           } else {
-            flashSuccess(choice === "yes" ? "??? ????? ??? ??? ??" : "??? ????? ??? ??? ??");
+            flashSuccess(choice === "yes" ? "رأی موافق شما ثبت شد" : "رأی مخالف شما ثبت شد");
           }
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "??? ??? ??????"));
+          setError(friendlyErrorMessage(err, "ثبت رأی ناموفق"));
         }
       })();
     });
@@ -185,10 +185,10 @@ export function ProposalsView() {
       void (async () => {
         try {
           await api.withdrawProposal(chrome.workspaceId, proposalId);
-          flashSuccess("??????? ??? ??");
+          flashSuccess("پیشنهاد لغو شد");
           await refresh(chrome.workspaceId);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "??? ??????"));
+          setError(friendlyErrorMessage(err, "لغو ناموفق"));
         }
       })();
     });
@@ -204,9 +204,9 @@ export function ProposalsView() {
             quorumPercent: pct,
           });
           setSettings(next);
-          flashSuccess(`?????? ${next.quorumPercent}% ???? ?????????? ???? ????? ??`);
+          flashSuccess(`حدنصاب ${next.quorumPercent}٪ برای پیشنهادهای بعدی اعمال شد`);
         } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "????? ?????? ??????"));
+          setError(friendlyErrorMessage(err, "ذخیره حدنصاب ناموفق"));
         }
       })();
     });
@@ -221,29 +221,56 @@ export function ProposalsView() {
     >
       {error ? <p className="liveError">{error}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
-      {loading ? <ContentSkeleton rows={3} label="?? ??? ???????? ?????????�" /> : null}
+      {chrome.workspaceId && workspace ? (
+        <OperationsModuleHeader
+          ariaLabel="عملیات پیشنهاد و رأی"
+          destinations={[
+            { key: "procurement", label: "تدارکات", href: wPath(workspace.slug, "procurement"), active: false },
+            { key: "proposals", label: "پیشنهاد و رأی", href: wPath(workspace.slug, "proposals"), active: true },
+            { key: "assets", label: "تجهیزات", href: wPath(workspace.slug, "assets"), active: false },
+            { key: "members", label: "اعضا", href: wPath(workspace.slug, "members"), active: false },
+          ]}
+          metrics={[
+            { label: "باز", value: String(open.length), detail: "در صف رأی", tone: open.length > 0 ? "attention" : "positive" },
+            { label: "پذیرفته", value: String(accepted.length), detail: "منتقل‌شده به نیاز خرید" },
+            { label: "بسته", value: String(closedOther.length), detail: "رد یا پس‌گرفته‌شده" },
+            { label: "حدنصاب", value: settings ? `${settings.quorumPercent}٪` : "—", detail: `${members.length} عضو فعال` },
+          ]}
+          roleLabel={myRole ? membershipRoleLabel(myRole) : null}
+          persistenceLabel={chrome.persistenceLabel}
+          pending={pending || loading}
+          onRefresh={() => {
+            startTransition(() => {
+              void refresh(chrome.workspaceId).catch((reason: unknown) =>
+                setError(friendlyErrorMessage(reason, "تازه‌سازی پیشنهادها ناموفق")),
+              );
+            });
+          }}
+        />
+      ) : null}
+      {loading ? <EmptyHint>در حال بارگذاری پیشنهادها…</EmptyHint> : null}
 
       {!chrome.workspaceId && !loading ? (
-        <EmptyHint>????? ?? ???? ????? ?? ??????? ?????? ????.</EmptyHint>
+        <EmptyHint>ابتدا یک فضای گروهی یا سازمانی انتخاب کنید.</EmptyHint>
       ) : null}
 
       {chrome.workspaceId && !loading ? (
         <ProductGrid>
           <SectionCard
-            title="????? ????????"
+            title="وضعیت رأی‌گیری"
             badge={open.length}
             delayClass="delay1"
           >
             <StatusLine>
-              ???: <b>{open.length.toLocaleString("fa-IR")}</b>
-              {" � "}
-              ???????: <b>{accepted.length.toLocaleString("fa-IR")}</b>
-              {" � "}
-              ????: <b>{members.length.toLocaleString("fa-IR")}</b>
+              باز: <b>{open.length.toLocaleString("fa-IR")}</b>
+              {" · "}
+              پذیرفته: <b>{accepted.length.toLocaleString("fa-IR")}</b>
+              {" · "}
+              اعضا: <b>{members.length.toLocaleString("fa-IR")}</b>
               {settings ? (
                 <>
-                  {" � "}
-                  ??????: <b>{settings.quorumPercent.toLocaleString("fa-IR")}%</b>
+                  {" · "}
+                  حدنصاب: <b>{settings.quorumPercent.toLocaleString("fa-IR")}٪</b>
                 </>
               ) : null}
             </StatusLine>
@@ -259,45 +286,45 @@ export function ProposalsView() {
 
             <details className="reportDetails">
               <summary>
-                <span>??? ??????? ????</span>
+                <span>ثبت پیشنهاد جدید</span>
                 <span>{kindLabel(kind)}</span>
               </summary>
               <div className="reportDetails__body">
                 {readOnly ? (
                   <StatusLine>
-                    ??? {membershipRoleLabel(myRole)} ??? ?????? ???? � ??? ??????? ???? ????.
+                    نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ثبت پیشنهاد فعال نیست.
                   </StatusLine>
                 ) : (
                 <FormStack density="compact">
                   <SelectField
-                    label="???"
+                    label="نوع"
                     value={kind}
                     onChange={(e) => setKind(e.target.value as ProposalKind)}
                   >
-                    <option value="goods">????</option>
-                    <option value="service">????</option>
+                    <option value="goods">کالا</option>
+                    <option value="service">خدمت</option>
                   </SelectField>
                   <TextField
-                    label="?????"
+                    label="عنوان"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    hint="????? ???? ???????? ?? ????? ????? ??????"
+                    hint="مثلاً خرید پروژکتور یا سرویس نظافت ماهانه"
                   />
                   <TextField
-                    label="?????"
+                    label="توضیح"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    hint="??????? � ???? ?? ??????"
+                    hint="اختیاری — دلیل یا مشخصات"
                   />
                   <TextField
-                    label="?????? (?????)"
+                    label="برآورد (تومان)"
                     value={toman}
                     onChange={(e) => setToman(e.target.value)}
                     inputMode="numeric"
-                    hint="??????? � ????? ?? ???? ???? ???? ??????"
+                    hint="اختیاری — بعداً در نیاز خرید دیده می‌شود"
                   />
                   <Button type="button" disabled={pending} onClick={onCreate}>
-                    ????? ???? ????????
+                    ارسال برای رأی‌گیری
                   </Button>
                 </FormStack>
                 )}
@@ -307,17 +334,17 @@ export function ProposalsView() {
             {canEditSettings && settings ? (
               <details className="reportDetails">
                 <summary>
-                  <span>????? ??????</span>
-                  <span>{settings.quorumPercent}%</span>
+                  <span>تنظیم حدنصاب</span>
+                  <span>{settings.quorumPercent}٪</span>
                 </summary>
                 <div className="reportDetails__body">
                   <FormStack density="compact">
                     <TextField
-                      label="???? ?????? (? ?? ???)"
+                      label="درصد حدنصاب (۱ تا ۱۰۰)"
                       value={quorumDraft}
                       onChange={(e) => setQuorumDraft(e.target.value)}
                       inputMode="numeric"
-                      hint="??? owner/admin � ??? ?????????? ??? ???? ????? ??????"
+                      hint="فقط owner/admin — روی پیشنهادهای باز بعدی اعمال می‌شود"
                     />
                     <Button
                       type="button"
@@ -326,7 +353,7 @@ export function ProposalsView() {
                       disabled={pending}
                       onClick={onSaveQuorum}
                     >
-                      ????? ??????
+                      ذخیره حدنصاب
                     </Button>
                   </FormStack>
                 </div>
@@ -334,9 +361,9 @@ export function ProposalsView() {
             ) : null}
           </SectionCard>
 
-          <SectionCard title="?? ?? ???" badge={open.length} delayClass="delay1">
+          <SectionCard title="در صف رأی" badge={open.length} delayClass="delay1">
             {open.length === 0 ? (
-              <EmptyHint>??????? ???? ????. ?? ??? ???? ??? ??? ????.</EmptyHint>
+              <EmptyHint>پیشنهاد بازی نیست. از بخش بالا یکی ثبت کنید.</EmptyHint>
             ) : (
               <div className="proposalList">
                 {open.map((item) => {
@@ -354,15 +381,15 @@ export function ProposalsView() {
                           </div>
                           <h3>{item.title}</h3>
                           <p className="proposalCard__by">
-                            ????????????: {memberName(item.createdByUserId)}
+                            پیشنهاددهنده: {memberName(item.createdByUserId)}
                             {item.tally.myVote
-                              ? ` � ??? ???: ${item.tally.myVote === "yes" ? "?????" : "?????"}`
-                              : " � ???? ??? ?????????"}
+                              ? ` · رأی شما: ${item.tally.myVote === "yes" ? "موافق" : "مخالف"}`
+                              : " · هنوز رأی نداده‌اید"}
                           </p>
                         </div>
                         {item.estimatedAmount ? (
                           <div className="proposalCard__amount">
-                            <span>??????</span>
+                            <span>برآورد</span>
                             <Amount irrMinor={item.estimatedAmount.amountMinor} />
                           </div>
                         ) : null}
@@ -377,7 +404,7 @@ export function ProposalsView() {
                         required={item.tally.requiredYes}
                       />
                       <p className="proposalCard__tallyHint">
-                        ????? {item.tally.noCount.toLocaleString("fa-IR")} �{" "}
+                        مخالف {item.tally.noCount.toLocaleString("fa-IR")} ·{" "}
                         {requiredYesLabel(
                           item.tally.requiredYes,
                           item.tally.activeMemberCount,
@@ -388,7 +415,7 @@ export function ProposalsView() {
                       <div className="proposalCard__actions">
                         {readOnly ? (
                           <StatusLine>
-                            ??? {membershipRoleLabel(myRole)} ??? ?????? � ??? ???? ????.
+                            نقش {membershipRoleLabel(myRole)} فقط مشاهده — رأی فعال نیست.
                           </StatusLine>
                         ) : (
                           <>
@@ -399,7 +426,7 @@ export function ProposalsView() {
                           disabled={pending}
                           onClick={() => onVote(item.id, "yes")}
                         >
-                          ?????
+                          موافق
                         </Button>
                         <Button
                           type="button"
@@ -408,7 +435,7 @@ export function ProposalsView() {
                           disabled={pending}
                           onClick={() => onVote(item.id, "no")}
                         >
-                          ?????
+                          مخالف
                         </Button>
                         {canWithdraw ? (
                           <Button
@@ -418,7 +445,7 @@ export function ProposalsView() {
                             disabled={pending}
                             onClick={() => onWithdraw(item.id)}
                           >
-                            ???
+                            لغو
                           </Button>
                         ) : null}
                           </>
@@ -431,9 +458,9 @@ export function ProposalsView() {
             )}
           </SectionCard>
 
-          <SectionCard title="??????????????" badge={accepted.length} tone="quiet" delayClass="delay2">
+          <SectionCard title="پذیرفته‌شده‌ها" badge={accepted.length} tone="quiet" delayClass="delay2">
             {accepted.length === 0 ? (
-              <EmptyHint>???? ???????? ?? ?????? ?????? ???.</EmptyHint>
+              <EmptyHint>هنوز پیشنهادی به حدنصاب نرسیده است.</EmptyHint>
             ) : (
               <div className="proposalList">
                 {accepted.map((item) => (
@@ -446,14 +473,14 @@ export function ProposalsView() {
                         </div>
                         <h3>{item.title}</h3>
                         <p className="proposalCard__by">
-                          ????????????: {memberName(item.createdByUserId)} � ?????{" "}
+                          پیشنهاددهنده: {memberName(item.createdByUserId)} · موافق{" "}
                           {item.tally.yesCount.toLocaleString("fa-IR")}/
                           {item.tally.requiredYes.toLocaleString("fa-IR")}
                         </p>
                       </div>
                       {item.estimatedAmount ? (
                         <div className="proposalCard__amount">
-                          <span>??????</span>
+                          <span>برآورد</span>
                           <Amount irrMinor={item.estimatedAmount.amountMinor} />
                         </div>
                       ) : null}
@@ -461,10 +488,10 @@ export function ProposalsView() {
                     {item.acceptedNeedId ? (
                       <div className="proposalCard__actions">
                         <StatusLine>
-                          ?? ???? ?????? ????? ??
+                          به لیست نیازها منتقل شد
                           {kindSpace === "org" ? (
                             <>
-                              {" � "}
+                              {" · "}
                               <Link
                                 href={
                                   workspace
@@ -472,7 +499,7 @@ export function ProposalsView() {
                                     : hubPathFor("/workspaces/procurement")
                                 }
                               >
-                                ????? ?? ???????
+                                ادامه در تدارکات
                               </Link>
                             </>
                           ) : null}
@@ -487,7 +514,7 @@ export function ProposalsView() {
 
           {closedOther.length > 0 ? (
             <SectionCard
-              title="?? / ??? ???"
+              title="رد / لغو شده"
               badge={closedOther.length}
               tone="quiet"
               delayClass="delay2"
@@ -505,7 +532,7 @@ export function ProposalsView() {
                         </div>
                         <h3>{item.title}</h3>
                         <p className="proposalCard__by">
-                          ????? {item.tally.yesCount.toLocaleString("fa-IR")} � ?????{" "}
+                          موافق {item.tally.yesCount.toLocaleString("fa-IR")} · مخالف{" "}
                           {item.tally.noCount.toLocaleString("fa-IR")}
                         </p>
                       </div>

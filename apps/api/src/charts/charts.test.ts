@@ -188,7 +188,7 @@ test("S11-11 ChartsService personal income/goal from real stores", async () => {
   void income;
 });
 
-test("G07 kindAggregate skips workspaces without analytics plan", async () => {
+test("G07 kindAggregate includes free workspaces for reports charts", async () => {
   const expenses = new MemoryExpenseStore();
   const wsPro = "11111111-1111-4111-8111-111111111111";
   const wsFree = "22222222-2222-4222-8222-222222222222";
@@ -203,6 +203,18 @@ test("G07 kindAggregate skips workspaces without analytics plan", async () => {
     idempotencyKey: "kind-pro",
   });
   await expenses.post(wsPro, draft.id, alice);
+
+  const draftFree = await expenses.createDraft(alice, {
+    workspaceId: wsFree,
+    title: "نان",
+    total: irrMoney(50_000n),
+    paidByUserId: alice,
+    splitMethod: "equal",
+    participantUserIds: [alice],
+    occurredOn: "2026-09-13",
+    idempotencyKey: "kind-free",
+  });
+  await expenses.post(wsFree, draftFree.id, alice);
 
   const iam = {
     persistence: "memory",
@@ -224,11 +236,17 @@ test("G07 kindAggregate skips workspaces without analytics plan", async () => {
   } as unknown as IamStore;
 
   const plans = {
-    requirePlanFeature: async (_actor: unknown, workspaceId: string) => {
-      if (workspaceId === wsFree) {
+    requirePlanFeature: async (_actor: unknown, workspaceId: string, feature: string) => {
+      // reports is free; only analytics would 403 on free — charts use reports.
+      if (feature === "analytics" && workspaceId === wsFree) {
         throw new ForbiddenException({ status: 403, code: "plan_required" });
       }
-      return { workspaceId, plan: "pro" as const, seatsLimit: null, features: [] };
+      return {
+        workspaceId,
+        plan: workspaceId === wsFree ? ("free" as const) : ("pro" as const),
+        seatsLimit: null,
+        features: [],
+      };
     },
   } as unknown as WaveFSettingsService;
 
@@ -244,9 +262,11 @@ test("G07 kindAggregate skips workspaces without analytics plan", async () => {
   );
 
   const agg = await service.kindAggregate(actor, "group", 3);
-  assert.equal(agg.spaces.length, 1);
-  assert.equal(agg.spaces[0]?.workspaceId, wsPro);
-  assert.equal(agg.expenseTrend.points.find((p) => p.key === "2026-09")?.valueMinor, "100000");
+  assert.equal(agg.spaces.length, 2);
+  assert.equal(
+    agg.expenseTrend.points.find((p) => p.key === "2026-09")?.valueMinor,
+    "150000",
+  );
 });
 
 test("G14 memberShare rejects partial date range with CHART_RANGE", async () => {
@@ -303,14 +323,17 @@ test("G14 expenseTrend prefers analytics_daily_facts over expenses", async () =>
   assert.equal(trend.points.find((p) => p.key === "2026-09")?.valueMinor, "150000");
 });
 
-test("G14 workspace expenseTrend Forbidden when plan lacks analytics", async () => {
+test("G14 workspace expenseTrend Forbidden when plan lacks reports", async () => {
   const plans = {
-    requirePlanFeature: async () => {
-      throw new ForbiddenException({
-        status: 403,
-        code: "plan_required",
-        detail: "قابلیت «analytics» در پلن free فعال نیست",
-      });
+    requirePlanFeature: async (_a: unknown, _w: unknown, feature: string) => {
+      if (feature === "reports") {
+        throw new ForbiddenException({
+          status: 403,
+          code: "plan_required",
+          detail: "قابلیت «reports» در پلن فعلی فعال نیست",
+        });
+      }
+      return { workspaceId, plan: "free" as const, seatsLimit: null, features: [] };
     },
   } as unknown as WaveFSettingsService;
   const service = buildService(

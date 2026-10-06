@@ -10,7 +10,7 @@ describe("kind aggregate chart feed", () => {
         slug: "a",
         name: "A",
         spaceKind: "group",
-        net: { toman: 100_000, label: "طلب", tone: "credit" },
+        net: { toman: 100_000, irrMinor: 1_000_000, label: "طلب", tone: "credit" },
         openSettlements: 0,
       },
       {
@@ -18,7 +18,7 @@ describe("kind aggregate chart feed", () => {
         slug: "b",
         name: "B",
         spaceKind: "group",
-        net: { toman: -250_000, label: "بدهی", tone: "debt" },
+        net: { toman: -250_000, irrMinor: -2_500_000, label: "بدهی", tone: "debt" },
         openSettlements: 1,
       },
     ];

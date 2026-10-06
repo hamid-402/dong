@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { WorkspaceBalancesResponse } from "@dang/contracts";
+import { isFundPartyId } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
 import { DataList, DataRow, EmptyHint, SectionCard } from "@/components/ui-blocks";
 import { memberStatementHref } from "@/lib/statement-links";
@@ -12,6 +13,14 @@ function balancePhrase(amountMinor: string) {
   if (value > 0n) return "طلبکار";
   if (value < 0n) return "بدهکار";
   return "تسویه";
+}
+
+function partyTitle(
+  userId: string,
+  memberLabel: (userId: string) => string,
+): string {
+  if (isFundPartyId(userId)) return "صندوق تنخواه";
+  return memberLabel(userId);
 }
 
 type FinanceSummaryCardProps = {
@@ -42,8 +51,34 @@ export function FinanceSummaryCard({
   pending = false,
   readOnly = false,
 }: FinanceSummaryCardProps) {
+  const equalDebtorHint = (() => {
+    if (!balances || balances.lines.length < 2) return null;
+    const debtors = balances.lines.filter(
+      (l) => !isFundPartyId(l.userId) && BigInt(l.net.amountMinor) < 0n,
+    );
+    if (debtors.length < 2) return null;
+    const amounts = new Set(
+      debtors.map((l) =>
+        l.net.amountMinor.startsWith("-")
+          ? l.net.amountMinor.slice(1)
+          : l.net.amountMinor,
+      ),
+    );
+    if (amounts.size !== 1) return null;
+    return "چند بدهکار ماندهٔ یکسان دارند — معمولاً به‌خاطر تقسیم مساوی خرج‌های مشترک است (منطقی و درست است).";
+  })();
+
   return (
-    <SectionCard title="مانده اعضا" badge={balances?.lines.length ?? 0} delayClass="delay2">
+    <SectionCard
+      title="مانده اعضا و صندوق"
+      badge={balances?.lines.length ?? 0}
+      delayClass="delay2"
+    >
+      {equalDebtorHint ? <p className="liveHint">{equalDebtorHint}</p> : null}
+      <p className="liveHint">
+        ماندهٔ مثبت = طلب از دیگران/صندوق؛ منفی = بدهی. وقتی خرج از تنخواه باشد بدهی به
+        صندوق است؛ جبران خرج شخصی هم از مسیر صندوق دیده می‌شود.
+      </p>
       <DataList>
         {!balances || balances.lines.length === 0 ? (
           <EmptyHint>ماندهٔ باز نیست.</EmptyHint>
@@ -51,8 +86,10 @@ export function FinanceSummaryCard({
           balances.lines.map((line) => {
             const net = BigInt(line.net.amountMinor);
             const isDebtor = net < 0n;
+            const isFund = isFundPartyId(line.userId);
             const debtAbs = isDebtor ? (-net).toString() : "0";
             const showSettleLink =
+              !isFund &&
               paymentsLive &&
               !readOnly &&
               Boolean(onCreateSettleLink) &&
@@ -61,8 +98,14 @@ export function FinanceSummaryCard({
             return (
               <DataRow
                 key={line.userId}
-                title={memberLabel(line.userId)}
-                meta={balancePhrase(line.net.amountMinor)}
+                title={partyTitle(line.userId, memberLabel)}
+                meta={
+                  isFund
+                    ? net > 0n
+                      ? "طلب صندوق از اعضا"
+                      : "بدهی صندوق به اعضا (جبران)"
+                    : balancePhrase(line.net.amountMinor)
+                }
                 trailing={
                   <Amount
                     irrMinor={
@@ -73,7 +116,7 @@ export function FinanceSummaryCard({
                   />
                 }
                 actions={
-                  showSettleLink || slug ? (
+                  !isFund && (showSettleLink || slug) ? (
                     <>
                       {slug ? (
                         <Link

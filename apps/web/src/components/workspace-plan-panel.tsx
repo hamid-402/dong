@@ -149,9 +149,10 @@ export function WorkspacePlanPanel({
   }
 
   return (
-    <SectionCard title="پلن و اشتراک فضا" tone="quiet">
+    <SectionCard title="پلن فضا (اداری)" tone="quiet">
       <StatusLine>
-        مصرف از دادهٔ واقعی (اعضا + خرج posted) — پرداخت آنلاین با LocalPSP یا زرین‌پال زنده.
+        همهٔ قابلیت‌های محصول رایگان‌اند — پلن فقط برچسب مدیریتی است؛ قفل پرمیوم
+        اعمال نمی‌شود.
       </StatusLine>
 
       {showPlanAdmin ? (

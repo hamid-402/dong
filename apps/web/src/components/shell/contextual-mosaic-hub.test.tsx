@@ -2,18 +2,23 @@
  * @vitest-environment jsdom
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ContextualMosaicHub } from "./contextual-mosaic-hub";
 import { contextualMosaicSections } from "@/lib/navigation-v2";
 
+const prefetch = vi.fn();
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch }),
   usePathname: () => "/w/me",
   useSearchParams: () => new URLSearchParams(),
 }));
 
 describe("ContextualMosaicHub", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    prefetch.mockClear();
+  });
 
   it("renders only destinations supplied by the canonical gated model", () => {
     const sections = contextualMosaicSections(
@@ -39,7 +44,6 @@ describe("ContextualMosaicHub", () => {
       .getAllByRole("link")
       .map((link) => link.getAttribute("href"));
     expect(rendered.sort()).toEqual([...modelHrefs].sort());
-    // Personal spaces have no procurement/approval gates open, so no tile may appear.
     expect(rendered.some((href) => href?.includes("/procurement"))).toBe(false);
     expect(rendered.some((href) => href?.includes("/approvals"))).toBe(false);
   });
@@ -71,7 +75,35 @@ describe("ContextualMosaicHub", () => {
 
     expect(screen.getByText("۱۲")).toBeTruthy();
     expect(screen.getByText("خرج ثبت‌شده در بازه")).toBeTruthy();
-    // Tiles without a fact fall back to the neutral open affordance — never a fake number.
-    expect(screen.getAllByText("باز کردن").length).toBe(items.length - 1);
+    expect(screen.queryAllByText("باز کردن").length).toBe(0);
+  });
+
+  it("prefetches tile href on mouse enter and touch start", () => {
+    const sections = contextualMosaicSections(
+      "personal",
+      "me",
+      undefined,
+      "home",
+    );
+    const href = sections.flatMap((s) => s.items.map((i) => i.href))[0];
+    expect(href).toBeTruthy();
+
+    render(
+      <ContextualMosaicHub
+        sections={sections}
+        title="ماموریت‌ها"
+        description="مسیرهای واقعی"
+      />,
+    );
+
+    const target = screen
+      .getAllByRole("link")
+      .find((el) => el.getAttribute("href") === href);
+    expect(target).toBeTruthy();
+    fireEvent.mouseEnter(target!);
+    expect(prefetch).toHaveBeenCalledWith(href);
+    prefetch.mockClear();
+    fireEvent.touchStart(target!);
+    expect(prefetch).toHaveBeenCalledWith(href);
   });
 });

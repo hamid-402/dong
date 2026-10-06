@@ -40,7 +40,14 @@ export function friendlyErrorMessage(err: unknown, fallback: string): string {
       err.code === "plan_required" ||
       /Plan upgrade required|در پلن .+ فعال نیست/i.test(err.message)
     ) {
-      return "این نمودار روی پلن فعلی فعال نیست — پلن را ارتقا دهید یا از گزارش تجمیعی حوزه استفاده کنید.";
+      return "این قابلیت الان در دسترس نیست — بعداً دوباره تلاش کنید.";
+    }
+    if (
+      /mfa-enrollment-required|احراز هویت دو مرحله‌ای را در حساب فعال کنید/i.test(
+        err.message,
+      )
+    ) {
+      return "برای ثبت نهایی خرج و تسویه، ابتدا MFA را از «حساب → امنیت» فعال کنید.";
     }
     const detail = err.message.trim();
     if (
@@ -48,7 +55,7 @@ export function friendlyErrorMessage(err: unknown, fallback: string): string {
         detail,
       )
     ) {
-      return "قبل از افزودن عضو عادی، حداقل دو مادرخرج لازم است. نقش را روی «مادرخرج / مدیر مالی» بگذارید و دوباره اضافه کنید.";
+      return "قبل از افزودن عضو عادی، حداقل یک مادرخرج (مدیر مالی) فعال لازم است. نقش را روی «مادرخرج / مدیر مالی» بگذارید و دوباره اضافه کنید.";
     }
     if (/PERIOD_SCHEMA_OUTDATED|cadence|auto_rollover|اسکیمای دوره/i.test(detail)) {
       return "اسکیمای دوره‌های مالی قدیمی است — migration 0073 را روی دیتابیس اعمال کنید، بعد صفحه را تازه کنید.";
@@ -67,6 +74,24 @@ export function friendlyErrorMessage(err: unknown, fallback: string): string {
     }
     if (/MEMBERSHIP_FORBIDDEN|forbidden/i.test(detail)) {
       return "نقش شما اجازهٔ این کار را ندارد — مالک، ادمین یا مادرخرج لازم است.";
+    }
+    if (/OWNER_MUST_TRANSFER/i.test(detail)) {
+      return "مالک باید اول مالکیت را منتقل کند، بعد می‌تواند خارج شود.";
+    }
+    if (/LAST_FINANCE_MANAGER/i.test(detail)) {
+      return "آخرین مدیر مالی نمی‌تواند خارج شود — اول نقش را به شخص دیگری بسپارید.";
+    }
+    if (/PERSONAL_WORKSPACE_PROTECTED/i.test(detail)) {
+      return "دفتر شخصی قابل ترک، بایگانی یا حذف نیست.";
+    }
+    if (/WORKSPACE_ARCHIVED/i.test(detail)) {
+      return "این فضا بایگانی شده — اول بازگردانی کنید.";
+    }
+    if (/WORKSPACE_SLUG_MISMATCH/i.test(detail)) {
+      return "شناسهٔ تأیید با شناسهٔ فضا یکی نیست.";
+    }
+    if (/PETTY_CASH_FUND_NOT_FOUND|صندوق تنخواه یافت نشد/i.test(detail)) {
+      return "صندوق تنخواه پیدا نشد — از پرداخت‌ها یک صندوق فعال بسازید یا صفحه را تازه کنید.";
     }
     if (/user.*not found|یافت نشد|DIRECTORY|LOOKUP/i.test(detail)) {
       return "کاربر در سامانه پیدا نشد — اول باید ثبت‌نام کرده باشد؛ بعد با نام‌کاربری اضافه‌اش کنید.";

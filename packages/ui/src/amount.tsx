@@ -1,3 +1,5 @@
+"use client";
+
 import type { CSSProperties, HTMLAttributes } from "react";
 import {
   displayUnitLabel,
@@ -5,16 +7,21 @@ import {
   formatMoneyFromIrrMinor,
   type DisplayUnit,
 } from "./format.js";
+import { useDisplayUnit } from "./display-unit-context.js";
 
 export type AmountProps = HTMLAttributes<HTMLSpanElement> & {
   /**
    * @deprecated Prefer irrMinor. Value is interpreted in `displayUnit`
-   * (default rial). Legacy callers that passed تومان should set displayUnit="toman".
+   * (context or explicit prop). Legacy callers that passed تومان integers
+   * should set displayUnit="toman" or pass irrMinor instead.
    */
   toman?: number;
   /** Canonical minor IRR units as string/number. */
   irrMinor?: string | number;
-  /** Effective display unit — defaults to rial (S11-05). */
+  /**
+   * Effective display unit. When omitted, uses DisplayUnitProvider context
+   * (default rial when no provider).
+   */
   displayUnit?: DisplayUnit;
   showUnit?: boolean;
 };
@@ -22,11 +29,13 @@ export type AmountProps = HTMLAttributes<HTMLSpanElement> & {
 export function Amount({
   toman,
   irrMinor,
-  displayUnit = "rial",
+  displayUnit: displayUnitProp,
   showUnit = true,
   style,
   ...rest
 }: AmountProps) {
+  const contextUnit = useDisplayUnit();
+  const displayUnit = displayUnitProp ?? contextUnit;
   const formatted =
     irrMinor !== undefined
       ? formatMoneyFromIrrMinor(irrMinor, displayUnit)

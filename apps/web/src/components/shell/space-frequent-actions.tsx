@@ -69,16 +69,22 @@ export function SpaceFrequentActions({
     items.push({
       key: "expense",
       href: `${wPath(slug, "expenses")}#quick-expense`,
-      label: NAV_LABELS.addExpense,
-      hint: "ثبت سریع",
+      label: NAV_LABELS.fullExpense,
+      hint: "تقسیم و جزئیات",
       primary: !showApprovals,
+    });
+    items.push({
+      key: "daily",
+      href: wPath(slug, "ledger"),
+      label: NAV_LABELS.dailyEntry,
+      hint: "تیک روز×عضو",
     });
   }
   items.push({
     key: "expenses-hub",
     href: wPath(slug, "expenses"),
     label: NAV_LABELS.expenses,
-    hint: "فهرست، فیلتر، برگشت",
+    hint: "فهرست همه مسیرها",
     primary: !canAddExpense && !showApprovals,
   });
   if (showSettlements) {
@@ -137,8 +143,8 @@ export function SpaceFrequentActions({
         <h2 className={styles.title}>اقدام‌های پرتکرار</h2>
         <p className={styles.lead}>
           {mobile
-            ? `ثبت سریع یا «${NAV_LABELS.expenses}» برای مدیریت کامل — بقیه از منو.`
-            : `«${NAV_LABELS.expenses}» مرکز مدیریت است؛ ثبت سریع هم اینجاست.`}
+            ? `${NAV_LABELS.fullExpense} یا ${NAV_LABELS.dailyEntry}؛ فهرست همه در «${NAV_LABELS.expenses}».`
+            : `«${NAV_LABELS.expenses}» مرکز مدیریت است؛ ${NAV_LABELS.fullExpense} و ${NAV_LABELS.dailyEntry} جدا هستند.`}
         </p>
       </header>
       <ul className={styles.list}>

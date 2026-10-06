@@ -1,0 +1,180 @@
+.rail {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--m-r-md, 12px);
+  background: color-mix(in srgb, var(--surface) 92%, var(--primary) 4%);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 750;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.head a {
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.count,
+.meta {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.error,
+.empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cta {
+  justify-self: start;
+  color: var(--primary);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.quick {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.quickRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 4px;
+  align-items: center;
+}
+
+.quickMain {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.quickMain:hover {
+  background: var(--primary-soft);
+}
+
+.quickMain b {
+  font-size: 13px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quickMain small,
+.list small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.pin,
+.charge,
+.more {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+}
+
+.pin {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.pinOn,
+.pin:hover {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.charge {
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.charge:hover {
+  background: var(--primary-soft);
+}
+
+.search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.list a {
+  display: grid;
+  gap: 2px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.list a:hover {
+  background: var(--primary-soft);
+}
+
+.list b {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.more {
+  justify-self: start;
+  padding: 6px 0;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 650;
+}

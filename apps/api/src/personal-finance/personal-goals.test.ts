@@ -172,3 +172,30 @@ test("S11-10 markAlertFired persists lastFiredAt", async () => {
   const listed = await store.listAlerts("u-alert");
   assert.equal(listed[0]?.lastFiredAt, "2026-09-10T08:00:00.000Z");
 });
+
+test("money intents: create catalog kinds and toggle active", async () => {
+  const store = new MemoryPersonalGoalsStore();
+  const userId = "u-intent-1";
+  const cap = await store.createMoneyIntent(userId, {
+    name: "سقف قسط",
+    kind: "installment_pay_cap",
+    targetMinor: "5000000",
+    idempotencyKey: "ik-inst-1",
+  });
+  assert.equal(cap.kind, "installment_pay_cap");
+  assert.equal(cap.targetMinor, "5000000");
+
+  const floor = await store.createMoneyIntent(userId, {
+    name: "کف سرمایه",
+    kind: "investment_floor",
+    targetMinor: "10000000",
+    idempotencyKey: "ik-inv-1",
+  });
+  assert.equal(floor.kind, "investment_floor");
+
+  const off = await store.updateMoneyIntent(userId, cap.id, { active: false });
+  assert.equal(off.active, false);
+
+  const listed = await store.listMoneyIntents(userId);
+  assert.equal(listed.length, 2);
+});

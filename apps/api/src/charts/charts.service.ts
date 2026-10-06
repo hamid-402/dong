@@ -249,7 +249,7 @@ export class ChartsService {
     for (const workspace of workspaces) {
       try {
         await this.access.requireMember(workspace.id, actor.userId);
-        await this.plans.requirePlanFeature(actor, workspace.id, "analytics");
+        await this.plans.requirePlanFeature(actor, workspace.id, "reports");
       } catch (err) {
         if (err instanceof ForbiddenException) continue;
         throw err;
@@ -298,13 +298,13 @@ export class ChartsService {
     };
   }
 
-  /** Workspace BI charts are pro/business (`analytics`); personal charts stay free. */
+  /** Workspace charts from live expenses use free `reports`; warehouse ETL stays on `analytics`. */
   private async requireWorkspaceCharts(
     actor: AuthActor,
     workspaceId: string,
   ): Promise<void> {
     await this.access.requireMember(workspaceId, actor.userId);
-    await this.plans.requirePlanFeature(actor, workspaceId, "analytics");
+    await this.plans.requirePlanFeature(actor, workspaceId, "reports");
   }
 
   private resolveRange(from?: string, to?: string): { from: string; to: string } {

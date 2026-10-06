@@ -1149,6 +1149,7 @@ export const pettyCashMovementKind = finance.enum("petty_cash_movement_kind", [
   "spend",
   "return",
   "adjust",
+  "gift",
 ]);
 
 export const pettyCashFund = finance.table(

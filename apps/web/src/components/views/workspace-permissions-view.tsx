@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { isFinanceManagerRole } from "@dang/contracts";
+import { isFinanceManagerRole, ACCESS_POLICY_VERSION } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
@@ -27,6 +27,7 @@ import { NAV_LABELS } from "@/lib/nav-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { membershipRoleLabel } from "@/lib/status-labels";
+import { tomanInputToIrrMinor, irrMinorToTomanInput } from "@/lib/irr-money";
 import { wPath } from "@/lib/workspace-paths";
 
 const EDITABLE_ROLES = ["admin", "finance", "deputy_finance", "member", "approver", "buyer"];
@@ -43,6 +44,7 @@ export function WorkspacePermissionsView() {
   const [effect, setEffect] = useState<"allow" | "deny">("allow");
   const [deputyUserId, setDeputyUserId] = useState("");
   const [deputyReason, setDeputyReason] = useState("");
+  const [deputyCapToman, setDeputyCapToman] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [myRole, setMyRole] = useState("");
@@ -131,6 +133,13 @@ export function WorkspacePermissionsView() {
     if (!workspaceId || !canDeputy || !deputyUserId.trim()) return;
     const startsAt = new Date().toISOString();
     const endsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const capMoney = deputyCapToman.trim()
+      ? tomanInputToIrrMinor(deputyCapToman)
+      : null;
+    if (deputyCapToman.trim() && !capMoney) {
+      setError("سقف تأیید باید عدد تومان معتبر باشد (یا خالی برای بدون سقف)");
+      return;
+    }
     startTransition(() => {
       void permissionsApi
         .createDeputyWindow(workspaceId, {
@@ -138,10 +147,12 @@ export function WorkspacePermissionsView() {
           startsAt,
           endsAt,
           reason: deputyReason.trim() || "جانشینی موقت",
+          approvalCapMinor: capMoney?.amountMinor,
         })
         .then(() => {
           setDeputyUserId("");
           setDeputyReason("");
+          setDeputyCapToman("");
           refresh();
         })
         .catch((err: unknown) => setError(friendlyErrorMessage(err, "ایجاد بازه ناموفق")));
@@ -168,7 +179,7 @@ export function WorkspacePermissionsView() {
       <WorkspacePageFrame
       title={NAV_LABELS.permissions}
       description={"grant نقش و جانشینی از accessPolicy واقعی."}
-      primaryAction={scope?.slug ? <Link href={wPath(scope.slug, "members")}>{NAV_LABELS.members}</Link> : <Link href="/spaces">{NAV_LABELS.spacesList}</Link>}
+      primaryAction={scope?.slug ? <Link href={wPath(scope.slug, "members")}>{NAV_LABELS.members}</Link> : <Link href="/home">{NAV_LABELS.spacesList}</Link>}
       state="ready"
     >
       <SectionCard title="سطح دسترسی قابل‌ویرایش" badge={accessPolicy ?? "—"}>
@@ -244,6 +255,10 @@ export function WorkspacePermissionsView() {
             <SectionCard title="جانشین مالی" badge={data.deputyWindows.length}>
               {canDeputy ? (
                 <FormStack>
+                  <StatusLine>
+                    سقف تأیید اختیاری است (تومان). خالی = بدون سقف عددی. ارزیابی دسترسی:{" "}
+                    {ACCESS_POLICY_VERSION}.
+                  </StatusLine>
                   <TextField
                     label="شناسه کاربر (UUID)"
                     value={deputyUserId}
@@ -253,6 +268,13 @@ export function WorkspacePermissionsView() {
                     label="دلیل"
                     value={deputyReason}
                     onChange={(e) => setDeputyReason(e.target.value)}
+                  />
+                  <TextField
+                    label="سقف تأیید (تومان، اختیاری)"
+                    value={deputyCapToman}
+                    onChange={(e) => setDeputyCapToman(e.target.value)}
+                    inputMode="numeric"
+                    hint="بالای این مبلغ برای جانشین DENY_ATTRIBUTE می‌شود"
                   />
                   <Button type="button" disabled={pending} onClick={createDeputy}>
                     بازه ۷روزه بساز
@@ -267,7 +289,11 @@ export function WorkspacePermissionsView() {
                     <DataRow
                       key={w.id}
                       title={w.userId}
-                      meta={`${w.active ? "فعال" : "غیرفعال"} · ${w.reason || "—"}`}
+                      meta={`${w.active ? "فعال" : "غیرفعال"} · ${w.reason || "—"} · سقف: ${
+                        w.approvalCapMinor
+                          ? `${irrMinorToTomanInput(w.approvalCapMinor)} تومان`
+                          : "بدون سقف"
+                      }`}
                       actions={
                         canDeputy && !w.revokedAt ? (
                           <Button type="button" disabled={pending} onClick={() => revoke(w.id)}>

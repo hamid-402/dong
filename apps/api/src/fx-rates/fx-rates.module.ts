@@ -3,6 +3,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Inject,
   Injectable,
   Module,
   NotFoundException,
@@ -10,7 +11,6 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { createDatabase, desc, fxRate, type AppDatabase } from "@dang/db";
-import { loadAppEnv } from "@dang/config";
 import {
   createFxRateSchema,
   fxConvertPreviewSchema,
@@ -121,7 +121,7 @@ export function pickFxRateForPreview(
 }
 
 @Injectable()
-class FxRatesService {
+export class FxRatesService {
   private readonly db?: AppDatabase;
   constructor() {
     if (process.env.DATABASE_URL) this.db = createDatabase(process.env.DATABASE_URL).db;
@@ -130,6 +130,12 @@ class FxRatesService {
   async list() {
     if (!this.db) return [];
     return (await this.db.select().from(fxRate).orderBy(desc(fxRate.asOf))).map(map);
+  }
+
+  /** True when at least one rate row exists — drives capabilities.conversionLive. */
+  async hasRates(): Promise<boolean> {
+    const rows = await this.list();
+    return rows.length > 0;
   }
 
   async create(input: CreateFxRateRequest) {
@@ -209,7 +215,7 @@ class FxRatesService {
    */
   async convertPreview(input: FxConvertPreviewRequest): Promise<FxConvertPreviewResponse> {
     const rows = await this.list();
-    const live = Boolean(loadAppEnv().databaseUrl);
+    const live = rows.length > 0;
     return buildFxConvertPreviewResult(rows, input, { live });
   }
 }
@@ -217,7 +223,7 @@ class FxRatesService {
 @Controller("fx-rates")
 @UseGuards(AuthGuard)
 class FxRatesController {
-  constructor(private service: FxRatesService) {}
+  constructor(@Inject(FxRatesService) private service: FxRatesService) {}
   @Get() list() {
     return this.service.list();
   }

@@ -57,6 +57,9 @@ export type AttachmentSummary = {
     status: "completed" | "failed" | "skipped";
     merchantHint?: string;
     amountMinorHint?: string;
+    lineItems?: Array<{ title: string; quantity?: string; amountMinor?: string }>;
+    taxMinor?: string;
+    occurredOn?: string;
     rawTextPreview?: string;
     completedAt: string;
   };

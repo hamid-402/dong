@@ -24,6 +24,7 @@ import {
   DEBT_SIMPLIFY_CLAIM_NOTE,
   isDebtSimplifyClaimNote,
   isFinanceManagerRole,
+  isFundPartyId,
   isZeroSumBalances,
   evaluateSettlementAnomaly,
   previewBalancesAfterTransfers,
@@ -82,16 +83,19 @@ export class SettlementsService {
       workspaceId,
       actor.userId,
       "settlement.claim",
+      { amountMinor: body.amount.amountMinor },
     );
     await Promise.all([
-      this.access.requireMember(workspaceId, body.fromUserId),
-      this.access.requireMember(workspaceId, body.toUserId),
+      this.requireSettlementParty(workspaceId, body.fromUserId),
+      this.requireSettlementParty(workspaceId, body.toUserId),
     ]);
-    if (body.fromUserId !== actor.userId) {
+    if (isFundPartyId(body.fromUserId) || body.fromUserId !== actor.userId) {
       if (!isFinanceManagerRole(role)) {
         throw new ForbiddenException({
           type: "https://dang.local/problems/forbidden",
-          title: "ثبت تسویه فقط از حساب خودتان مجاز است",
+          title: isFundPartyId(body.fromUserId)
+            ? "تسویه از صندوق فقط برای مدیر مالی مجاز است"
+            : "ثبت تسویه فقط از حساب خودتان مجاز است",
           status: 403,
         });
       }
@@ -653,8 +657,8 @@ export class SettlementsService {
         });
       }
       await Promise.all([
-        this.access.requireMember(workspaceId, t.fromUserId),
-        this.access.requireMember(workspaceId, t.toUserId),
+        this.requireSettlementParty(workspaceId, t.fromUserId),
+        this.requireSettlementParty(workspaceId, t.toUserId),
       ]);
     }
 
@@ -670,6 +674,24 @@ export class SettlementsService {
       zeroSumBefore: isZeroSumBalances(before),
       zeroSumAfter: isZeroSumBalances(after),
     };
+  }
+
+  private async requireSettlementParty(
+    workspaceId: string,
+    partyId: string,
+  ): Promise<void> {
+    if (isFundPartyId(partyId)) {
+      if (!readProductFeatureFlags(process.env).fundAsSettlementParty) {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/validation",
+          title: "Fund settlement party disabled",
+          status: 400,
+          detail: "طرف صندوق تنخواه در این محیط فعال نیست",
+        });
+      }
+      return;
+    }
+    await this.access.requireMember(workspaceId, partyId);
   }
 
   private async requireSettlement(

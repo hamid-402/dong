@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useMemo } from "react";
 import type { SpaceKind } from "@dang/contracts";
 import { ProChart } from "@/components/charts/pro-chart";
+import { EmptyStateBlock } from "@/components/ui-blocks";
+import { KindMoodBadge } from "@/components/visual/kind-mood-badge";
+import { stickerForSpaceKind } from "@/components/visual/stickers";
 import { NAV_LABELS, spaceTabLabel } from "@/lib/nav-labels";
 import { netsToShareSeries } from "@/lib/chart-format";
 import type { SpaceNetRow } from "@/lib/space-net-balance";
@@ -23,7 +26,7 @@ const KIND_AGG_HINT: Record<SpaceKind, string> = {
 };
 
 /**
- * Kind-level aggregate strip on `/spaces?kind=…`.
+ * Kind-level aggregate strip on `/home?kind=…`.
  * Cross-space reports only — day-to-day ops stay inside each workspace.
  */
 export function KindAggregatePanel({
@@ -46,15 +49,25 @@ export function KindAggregatePanel({
     return (
       <section className="kindAggregate" aria-labelledby={titleId}>
         <header className="kindAggregate__head">
-          <h2 id={titleId}>نمای کلی · {label}</h2>
-          <p>{KIND_AGG_HINT[kind]}</p>
+          <div className="kindAggregate__titleRow">
+            <KindMoodBadge kind={kind} size={24} />
+            <div>
+              <h2 id={titleId}>نمای کلی · {label}</h2>
+              <p>{KIND_AGG_HINT[kind]}</p>
+            </div>
+          </div>
         </header>
-        <p className="kindAggregate__empty">
-          هنوز فضایی در این حوزه نیست. بعد از ساخت، گزارش و نمودار تجمیعی اینجا می‌آید.
-        </p>
-        <Link className="shell-v2__cta" href={`/spaces/new?kind=${kind}`}>
-          ساخت فضای {label}
-        </Link>
+        <EmptyStateBlock
+          title="هنوز فضایی در این حوزه نیست"
+          description="بعد از ساخت، گزارش و نمودار تجمیعی اینجا می‌آید."
+          sticker={stickerForSpaceKind(kind)}
+          stickerSize={64}
+          action={
+            <Link className="shell-v2__cta" href={`/spaces/new?kind=${kind}`}>
+              ساخت فضای {label}
+            </Link>
+          }
+        />
       </section>
     );
   }
@@ -69,8 +82,13 @@ export function KindAggregatePanel({
     <section className="kindAggregate" aria-labelledby={titleId}>
       <header className="kindAggregate__head">
         <p className="kindAggregate__eyebrow">گزارش تجمیعی حوزه</p>
-        <h2 id={titleId}>نمای کلی · {label}</h2>
-        <p>{KIND_AGG_HINT[kind]}</p>
+        <div className="kindAggregate__titleRow">
+          <KindMoodBadge kind={kind} size={24} />
+          <div>
+            <h2 id={titleId}>نمای کلی · {label}</h2>
+            <p>{KIND_AGG_HINT[kind]}</p>
+          </div>
+        </div>
         <div className="kindAggregate__actions">
           <Link className="shell-v2__cta" href={reportsHref}>
             گزارش کامل و نمودارها

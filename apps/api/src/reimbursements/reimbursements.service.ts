@@ -8,8 +8,8 @@ import { REIMBURSEMENT_STORE, type ReimbursementStore } from "./reimbursements.t
 export class ReimbursementsService {
   constructor(
     @Inject(REIMBURSEMENT_STORE) private readonly store: ReimbursementStore,
-    private readonly access: WorkspaceAccessService,
-    private readonly expenses: ExpensesService,
+    @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
+    @Inject(ExpensesService) private readonly expenses: ExpensesService,
   ) {}
   private enabled() {
     if (!readProductFeatureFlags(process.env).reimbursement) throw new ForbiddenException({ detail: "Set ENABLE_REIMBURSEMENT=1" });

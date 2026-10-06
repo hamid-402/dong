@@ -15,6 +15,7 @@ import {
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { newClientId } from "@/lib/id";
+import { LinkQrCode } from "@/components/link-qr-code";
 
 /**
  * Create/list guest placeholders + share claim link (G04 product surface).
@@ -35,6 +36,11 @@ export function GuestPlaceholdersPanel({
   const [phone, setPhone] = useState("");
   const [lastClaimPath, setLastClaimPath] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const lastClaimAbsolute =
+    lastClaimPath && typeof window !== "undefined"
+      ? `${window.location.origin}${lastClaimPath}`
+      : lastClaimPath;
 
   function reload() {
     return api
@@ -110,12 +116,20 @@ export function GuestPlaceholdersPanel({
         </FormStack>
       ) : null}
       {lastClaimPath ? (
-        <p className="liveHint">
-          آخرین لینک claim:{" "}
-          <a href={lastClaimPath} target="_blank" rel="noreferrer">
-            {lastClaimPath}
-          </a>
-        </p>
+        <FormStack density="compact">
+          <p className="liveHint">
+            آخرین لینک claim:{" "}
+            <a href={lastClaimPath} target="_blank" rel="noreferrer">
+              {lastClaimPath}
+            </a>
+          </p>
+          {lastClaimAbsolute ? (
+            <>
+              <StatusLine>QR claim مهمان — با دوربین گوشی اسکن کنید</StatusLine>
+              <LinkQrCode value={lastClaimAbsolute} alt="QR claim مهمان" size={160} />
+            </>
+          ) : null}
+        </FormStack>
       ) : null}
       {rows.length === 0 ? (
         <EmptyHint>مهمانی ثبت نشده.</EmptyHint>

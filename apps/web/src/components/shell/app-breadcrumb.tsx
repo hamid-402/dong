@@ -7,6 +7,8 @@ import { t } from "@/lib/i18n";
 export type BreadcrumbCrumb = {
   label: string;
   href?: string;
+  /** Domain grouping. Shown in the path, skipped by the back control. */
+  group?: boolean;
 };
 
 export function AppBreadcrumb({ items }: { items: BreadcrumbCrumb[] }) {

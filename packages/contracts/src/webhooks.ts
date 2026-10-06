@@ -27,6 +27,18 @@ export type WorkspaceWebhookDeliveryResult = {
   detail: string;
 };
 
+/** Persisted delivery row for UI / audit (R8). */
+export type WorkspaceWebhookDeliverySummary = {
+  id: string;
+  workspaceId: string;
+  webhookId: string;
+  eventType: string;
+  ok: boolean;
+  statusCode?: number;
+  detail: string;
+  createdAt: string;
+};
+
 export function signWebhookBody(secret: string, timestamp: string, body: string): string {
   return createHmac("sha256", secret)
     .update(`${timestamp}.${body}`)

@@ -1,33 +1,35 @@
-# DAST — OWASP ZAP Baseline (R10-02)
+# DAST — OWASP ZAP Baseline (R10-02 / R6)
 
 ## هدف
 
-اسکن baseline روی سطح حملهٔ HTTP API/web بدون ادعای «نفوذ کامل». یافته‌های High/Critical باید triage شوند؛ بستن رسمی با R10-22.
+اسکن baseline روی سطح حملهٔ HTTP API/web بدون ادعای «نفوذ کامل».
+**High/Critical سخت fail می‌شوند** (وقتی target تنظیم شده). Medium برای triage در artifact می‌ماند.
 
 ## اجرای محلی
 
 پیش‌نیاز: Docker.
 
 ```bash
-# API در حال اجرا، مثلاً http://127.0.0.1:3006
 docker run --rm -v "%cd%:/zap/wrk:rw" -t ghcr.io/zaproxy/zaproxy:stable \
-  zap-baseline.py -t http://host.docker.internal:3006 -r zap-report.html -I
+  zap-baseline.py -t http://host.docker.internal:3006 \
+  -r zap-report.html -J report_json.json -c .zap/rules.tsv -I
+node scripts/security/zap-fail-on-high.mjs report_json.json
 ```
 
 روی Linux به‌جای `host.docker.internal` از IP میزبان یا `--network host` استفاده کنید.
-
-خروجی: `zap-report.html` در ریشهٔ repo (gitignore اگر لازم).
 
 ## GitHub Actions
 
 Workflow: [`.github/workflows/dast-zap.yml`](../../.github/workflows/dast-zap.yml)
 
-- `workflow_dispatch` با ورودی `target_url` (پیش‌فرض از secret `ZAP_TARGET_URL`)
+- `workflow_dispatch` با ورودی `target_url` (یا secret `ZAP_TARGET_URL`)
 - اگر URL خالی باشد job با پیام صریح **skip** می‌شود (شکست جعلی نیست)
-- با `-I` (info) fail نمی‌کند؛ WARN/FAIL سطح ZAP برای High+ باید در گزارش بررسی شود
-- artifact گزارش HTML آپلود می‌شود
+- `fail_action: false` روی خود action — تا Medium WARN کل job را نسوزاند
+- قوانین نویز Low/INFO در `.zap/rules.tsv`
+- **Hard gate:** `node scripts/security/zap-fail-on-high.mjs report_json.json` (riskcode ≥ 3)
+- artifact: HTML + JSON
 
-Secret پیشنهادی: `ZAP_TARGET_URL=https://staging.example/api` (بدون مسیر مخرب).
+Secret پیشنهادی: `ZAP_TARGET_URL=https://staging.example` (بدون مسیر مخرب).
 
 ## قوانین صداقت
 

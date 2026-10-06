@@ -33,8 +33,8 @@ class MemoryStore implements Store {
 class Service {
   constructor(
     @Inject(STORE) private store:Store,
-    private access:WorkspaceAccessService,
-    private plans:WaveFSettingsService,
+    @Inject(WorkspaceAccessService) private access:WorkspaceAccessService,
+    @Inject(WaveFSettingsService) private plans:WaveFSettingsService,
   ){}
   private enabled(){if(!readProductFeatureFlags(process.env).categoryBudget)throw new ForbiddenException({detail:"Set ENABLE_CATEGORY_BUDGET=1"});}
   async list(a:AuthActor,w:string){this.enabled();await this.access.requireMember(w,a.userId);return this.store.list(w,a.userId);}
@@ -47,7 +47,7 @@ class Service {
 }
 @Controller("workspaces/:workspaceId/category-budgets") @UseGuards(AuthGuard)
 class CategoryBudgetsController {
-  constructor(private service:Service){}
+  constructor(@Inject(Service) private service:Service){}
   @Get() list(@CurrentActor()a:AuthActor,@Param("workspaceId")w:string){return this.service.list(a,w);}
   @Get("usage") usage(@CurrentActor()a:AuthActor,@Param("workspaceId")w:string){return this.service.list(a,w);}
   @Post() create(@CurrentActor()a:AuthActor,@Param("workspaceId")w:string,@Body(new ZodValidationPipe(createCategoryBudgetSchema))b:CreateCategoryBudgetRequest){return this.service.create(a,w,b);}

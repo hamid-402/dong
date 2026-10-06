@@ -125,7 +125,7 @@ export function GroupOpsRail({
     key: "expenses",
     href: wPath(slug, "expenses"),
     label: NAV_LABELS.expenses,
-    hint: "مرکز مدیریت — فهرست، برگشت و اصلاح",
+    hint: `فهرست همه · ${NAV_LABELS.fullExpense} و ${NAV_LABELS.dailyEntry}`,
     icon: "wallet",
     gemKey: ROUTE_GEM.expenses ?? "teal",
     primary: true,
@@ -154,7 +154,7 @@ export function GroupOpsRail({
       key: "ledger",
       href: wPath(slug, "ledger"),
       label: NAV_LABELS.ledger,
-      hint: "دفتر روزانه و قلم‌های روز",
+      hint: `${NAV_LABELS.dailyEntry} · تیک روز×عضو`,
       icon: "receipt",
       gemKey: ROUTE_GEM.ledger ?? "cyan",
     });
@@ -215,7 +215,8 @@ export function GroupOpsRail({
           <div>
             <h2 className="groupOpsRail__title">امکانات مالی · {kindLabel}</h2>
             <p className="groupOpsRail__lead">
-              ثبت خرج، دفتر، تسویه و صورتحساب — مستقیم، بدون رفتن داخل پوشه‌ها.
+              {NAV_LABELS.fullExpense}، {NAV_LABELS.dailyEntry}، تسویه و صورتحساب — مستقیم، بدون
+              رفتن داخل پوشه‌ها.
             </p>
           </div>
         </div>

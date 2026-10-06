@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
-    "test:a11y": "playwright test e2e/a11y-login.spec.ts e2e/a11y-shell.spec.ts",
+    "test:a11y": "playwright test e2e/a11y-login.spec.ts e2e/a11y-shell.spec.ts e2e/a11y-finance.spec.ts e2e/a11y-themes.spec.ts e2e/keyboard-journey.spec.ts",
     "test:visual": "playwright test e2e/visual-shell.spec.ts"
   },
   "dependencies": {

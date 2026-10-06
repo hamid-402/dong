@@ -1,0 +1,89 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 44px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  background: color-mix(in srgb, var(--surface, #fff) 92%, var(--bg, #f4f6f8));
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.barActive {
+  border-color: color-mix(in srgb, var(--accent, #2a6f97) 35%, var(--line));
+  background: color-mix(in srgb, var(--accent, #2a6f97) 8%, var(--surface, #fff));
+  color: var(--text);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.count {
+  flex: 1 1 auto;
+  min-width: 8rem;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+}
+
+.actions :is(button, a):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.danger {
+  color: color-mix(in srgb, #b42318 85%, var(--text)) !important;
+  border-color: color-mix(in srgb, #b42318 28%, var(--line)) !important;
+}
+
+.clear {
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.check input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--accent, #2a6f97);
+  cursor: pointer;
+}
+
+/** Clickable selectable row — use with rowSelectActivateProps */
+.selectableRow {
+  cursor: pointer;
+}
+
+.selectableRow:hover {
+  background: color-mix(in srgb, var(--accent, #2a6f97) 5%, transparent);
+}
+
+:global(tr).selectableRow:hover > td,
+:global(tr.selectableRow):hover > td {
+  background: color-mix(in srgb, var(--accent, #2a6f97) 5%, transparent);
+}
+

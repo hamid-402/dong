@@ -1,11 +1,12 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module.js";
 import { IdempotencyModule } from "../common/idempotency.module.js";
+import { SettlementsModule } from "../settlements/settlements.module.js";
 import { WorkspacesController } from "./workspaces.controller.js";
 import { WorkspacesService } from "./workspaces.service.js";
 
 @Module({
-  imports: [AuthModule, IdempotencyModule],
+  imports: [AuthModule, IdempotencyModule, SettlementsModule],
   controllers: [WorkspacesController],
   providers: [WorkspacesService],
 })

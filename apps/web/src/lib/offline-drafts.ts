@@ -1,4 +1,4 @@
-﻿import { newClientId } from "@/lib/id";
+import { newClientId } from "@/lib/id";
 export type OfflineExpenseDraft = {
   id: string;
   workspaceId: string;
@@ -11,6 +11,7 @@ export type OfflineExpenseDraft = {
   note?: string;
   periodId?: string;
   visibility?: "shared" | "private" | "company";
+  outingId?: string;
   updatedAt: string;
 };
 

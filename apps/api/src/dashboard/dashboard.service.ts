@@ -147,6 +147,8 @@ export class DashboardService {
 
     let personalIncomeMinor = 0n;
     let personalExpenseMinor = 0n;
+    let personalInvestmentMinor = 0n;
+    let personalInstallmentMinor = 0n;
     let goalsContributedMinor = 0n;
     let personalPersistence: "memory" | "postgres" | undefined;
 
@@ -190,16 +192,54 @@ export class DashboardService {
             occurredOn: txn.occurredOn,
             hrefHint: "me-finance",
           });
+        } else if (txn.kind === "investment") {
+          personalInvestmentMinor += BigInt(txn.amount.amountMinor);
+          movements.push({
+            id: txn.id,
+            kind: "investment",
+            title: txn.note?.trim() || txn.categoryName || "سرمایه‌گذاری",
+            amount: txn.amount,
+            direction: "out",
+            occurredOn: txn.occurredOn,
+            hrefHint: "me-finance",
+          });
+        } else if (txn.kind === "installment") {
+          personalInstallmentMinor += BigInt(txn.amount.amountMinor);
+          movements.push({
+            id: txn.id,
+            kind: "installment",
+            title: txn.note?.trim() || txn.categoryName || "قسط",
+            amount: txn.amount,
+            direction: "out",
+            occurredOn: txn.occurredOn,
+            hrefHint: "me-finance",
+          });
         }
       }
     }
 
+    const goalSnaps: Array<{
+      id: string;
+      name: string;
+      target: { amountMinor: string; currency: "IRR" };
+      contributed: { amountMinor: string; currency: "IRR" };
+      progressPercent: number;
+      status: "active" | "reached" | "archived";
+    }> = [];
     if (this.personalGoals) {
       personalPersistence = personalPersistence ?? this.personalGoals.persistence;
       const goals = await this.personalGoals.listSavingsGoals(actor.userId);
       for (const goal of goals) {
         if (goal.status === "archived") continue;
         goalsContributedMinor += BigInt(goal.contributed.amountMinor);
+        goalSnaps.push({
+          id: goal.id,
+          name: goal.name,
+          target: goal.target,
+          contributed: goal.contributed,
+          progressPercent: goal.progressPercent,
+          status: goal.status,
+        });
         if (BigInt(goal.contributed.amountMinor) > 0n) {
           movements.push({
             id: goal.id,
@@ -214,13 +254,31 @@ export class DashboardService {
       }
     }
 
+    let liquidBalanceMinor = 0n;
+    if (this.personalResources) {
+      personalPersistence = personalPersistence ?? this.personalResources.persistence;
+      const yearMonth = to.slice(0, 7);
+      const resources = await this.personalResources.resourcesSummary(
+        actor.userId,
+        yearMonth,
+      );
+      liquidBalanceMinor = BigInt(resources.totalBalance.amountMinor);
+    }
+
     const moneyPulse = buildWorkspaceMoneyPulse({
       spaceKind,
       postedSpend: spend.postedTotal,
       openSettlementTotal: irrMoney(openTotal),
       personalIncomeMinor,
       personalExpenseMinor,
+      personalInvestmentMinor,
+      personalInstallmentMinor,
       goalsContributedMinor,
+      liquidBalanceMinor,
+      goals: goalSnaps,
+      moneyIntents: this.personalGoals
+        ? await this.personalGoals.listMoneyIntents(actor.userId)
+        : [],
       movements,
     });
 

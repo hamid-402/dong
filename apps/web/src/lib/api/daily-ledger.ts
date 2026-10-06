@@ -1,4 +1,6 @@
 import type {
+  CreateDailyLedgerDepositRequest,
+  CreateDailyLedgerDepositResponse,
   CreateDailyLedgerEntryRequest,
   CreateWorkspaceRangeLockRequest,
   DailyLedgerDayTemplateResponse,
@@ -54,6 +56,16 @@ export const dailyLedgerApi = {
       idempotencyKey: body.idempotencyKey,
       label: body.itemName?.trim() || "ثبت ردیف دفترروزانه",
     }),
+  createDailyLedgerDeposit: (
+    workspaceId: string,
+    body: CreateDailyLedgerDepositRequest,
+  ) =>
+    postWithOfflineQueue<CreateDailyLedgerDepositResponse>({
+      path: `/workspaces/${workspaceId}/daily-ledger/deposits`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "واریز به صندوق تنخواه",
+    }),
   updateDailyLedgerEntry: (
     workspaceId: string,
     expenseId: string,
@@ -73,13 +85,43 @@ export const dailyLedgerApi = {
     ),
   importDailyLedgerCsv: (
     workspaceId: string,
-    body: { csv: string; idempotencyKey?: string },
+    body: {
+      csv?: string;
+      paste?: string;
+      xlsxBase64?: string;
+      rows?: Array<{
+        date: string;
+        column: string;
+        itemName: string;
+        amountToman: number;
+      }>;
+      holidays?: string[];
+      columnMap?: Record<string, string>;
+      sheetSource?: "auto" | "master" | "members";
+      previewOnly?: boolean;
+      idempotencyKey?: string;
+    },
   ) =>
-    postWithOfflineQueue<{ imported: number; skipped: number; ledger: DailyLedgerResponse }>({
+    postWithOfflineQueue<{
+      imported: number;
+      skipped: number;
+      holidays?: number;
+      warnings?: string[];
+      unmappedColumns?: string[];
+      preview?: Array<{
+        date: string;
+        column: string;
+        itemName: string;
+        amountToman: number;
+        resolved: "shared" | "member" | "skip" | "unmapped";
+        memberUserId?: string;
+      }>;
+      ledger: DailyLedgerResponse;
+    }>({
       path: `/workspaces/${workspaceId}/daily-ledger/import`,
       body: JSON.stringify(body),
       idempotencyKey: body.idempotencyKey,
-      label: "واردات CSV دفترروزانه",
+      label: "واردات دفترروزانه",
     }),
   listDailyLedgerRangeLocks: (workspaceId: string, activeOnly = true) =>
     apiFetch<WorkspaceRangeLockSummary[]>(

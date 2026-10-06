@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button, TextField } from "@dang/ui";
 import { FormStack } from "@/components/ui-blocks";
+import { AppModal } from "@/components/ui/app-modal";
 
 const REASON_PRESETS = [
   { id: "mistaken_entry", label: "ثبت اشتباه" },
@@ -14,12 +15,15 @@ const REASON_PRESETS = [
 export function ReverseExpenseDialog({
   expenseTitle,
   pending,
+  intent = "revise",
   onCancel,
   onConfirm,
   onConfirmRevise,
 }: {
   expenseTitle?: string;
   pending?: boolean;
+  /** revise = edit+replace; void = soft-delete only. */
+  intent?: "revise" | "void";
   onCancel: () => void;
   /** Soft-void only. */
   onConfirm: (reason: string) => void;
@@ -41,101 +45,66 @@ export function ReverseExpenseDialog({
   }
 
   const canSubmit = !(preset === "other" && !detail.trim());
+  const voidOnly = intent === "void" || !onConfirmRevise;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="reverse-expense-title"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 80,
-        display: "grid",
-        placeItems: "center",
-        background: "color-mix(in srgb, #0b1210 72%, transparent)",
-        padding: 16,
-      }}
+    <AppModal
+      open
+      ariaLabel={voidOnly ? "حذف / ابطال خرج" : "ویرایش خرج"}
+      title={voidOnly ? "حذف / ابطال خرج" : "ویرایش خرج"}
+      onClose={onCancel}
     >
-      <div
-        style={{
-          width: "min(440px, 100%)",
-          background: "var(--surface, #fff)",
-          borderRadius: 14,
-          border: "1px solid var(--line)",
-          padding: 20,
-          display: "grid",
-          gap: 14,
-        }}
-      >
-        <div>
-          <h2 id="reverse-expense-title" style={{ margin: 0, fontSize: "1.1rem" }}>
-            برگشت یا اصلاح خرج
-          </h2>
-          <p style={{ margin: "6px 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
-            {expenseTitle
-              ? `«${expenseTitle}» از دفترکل برگشت می‌خورد؛ حذف سخت نیست.`
-              : "اثر مالی خنثی می‌شود؛ حذف سخت انجام نمی‌شود."}
-            {` اگر به تنخواه لینک بوده، موجودی صندوق هم جبران می‌شود.`}
-          </p>
-        </div>
-        <FormStack>
-          <label style={{ display: "grid", gap: 6, fontSize: "0.9rem" }}>
-            دلیل
-            <select
-              value={preset}
-              onChange={(e) =>
-                setPreset(e.target.value as (typeof REASON_PRESETS)[number]["id"])
-              }
-              style={{
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid var(--line)",
-              }}
-            >
-              {REASON_PRESETS.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <TextField
-            label={preset === "other" ? "توضیح (لازم)" : "توضیح اختیاری"}
-            value={detail}
-            onChange={(e) => setDetail(e.target.value)}
-          />
-        </FormStack>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            justifyContent: "flex-end",
-          }}
+      <p className="appModalLead">
+        {expenseTitle ? `«${expenseTitle}» ` : null}
+        {voidOnly
+          ? "اثر مالی‌اش از مانده خنثی می‌شود؛ حذف سخت از دیتابیس نیست. اگر به تنخواه لینک بوده، موجودی صندوق هم جبران می‌شود."
+          : "اثر فعلی خنثی می‌شود و فرم بالای صفحه برای ثبت جایگزین پر می‌شود. اگر فقط ابطال می‌خواهید، «فقط حذف از مانده» را بزنید."}
+      </p>
+      <FormStack>
+        <label className="appModalFieldLabel">
+          دلیل
+          <select
+            className="appModalSelect"
+            value={preset}
+            onChange={(e) =>
+              setPreset(e.target.value as (typeof REASON_PRESETS)[number]["id"])
+            }
+          >
+            {REASON_PRESETS.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <TextField
+          label={preset === "other" ? "توضیح (لازم)" : "توضیح اختیاری"}
+          value={detail}
+          onChange={(e) => setDetail(e.target.value)}
+        />
+      </FormStack>
+      <div className="appModalActions">
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={pending}>
+          انصراف
+        </Button>
+        <Button
+          type="button"
+          variant={voidOnly ? "danger" : "ghost"}
+          onClick={() => onConfirm(buildReason())}
+          disabled={pending || !canSubmit}
         >
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={pending}>
-            انصراف
-          </Button>
+          {voidOnly ? "حذف از مانده" : "فقط حذف از مانده"}
+        </Button>
+        {!voidOnly && onConfirmRevise ? (
           <Button
             type="button"
-            variant="ghost"
-            onClick={() => onConfirm(buildReason())}
+            onClick={() => onConfirmRevise(buildReason())}
             disabled={pending || !canSubmit}
           >
-            فقط برگشت
+            ویرایش و ثبت دوباره
           </Button>
-          {onConfirmRevise ? (
-            <Button
-              type="button"
-              onClick={() => onConfirmRevise(buildReason())}
-              disabled={pending || !canSubmit}
-            >
-              اصلاح و ثبت دوباره
-            </Button>
-          ) : null}
-        </div>
+        ) : null}
       </div>
-    </div>
+    </AppModal>
   );
 }

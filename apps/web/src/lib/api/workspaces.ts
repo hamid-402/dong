@@ -1,4 +1,4 @@
-import type { AddWorkspaceMemberBody, ApproveJoinRequestBody, ClaimGuestPlaceholderRequest, ClaimGuestPlaceholderResponse, CreateGuestPlaceholderRequest, CreateInviteRequest, CreateInviteResponse, CreateJoinRequestBody, CreateOutingRequest, CreateSplitPresetRequest, CreateWorkspaceRequest, CreateWorkspaceSubunitBody, DisableWorkspaceMemberBody, GuestPlaceholderSummary, JoinRequestSummary, MembershipSummary, OutingSummary, OwnershipTransferSummary, ProposeOwnershipTransferBody, SplitPresetSummary, UpdateWorkspaceMemberBody, UpdateWorkspaceRequest, UpdateWorkspaceSubunitBody, WorkspaceJoinPreview, WorkspaceSubunitSummary, WorkspaceSummary, WorkspaceTemplateCatalogItem } from "@dang/contracts";
+import type { AddWorkspaceMemberBody, ApproveJoinRequestBody, ClaimGuestPlaceholderRequest, ClaimGuestPlaceholderResponse, CreateGuestPlaceholderRequest, CreateInviteRequest, CreateInviteResponse, CreateJoinRequestBody, CreateOutingRequest, CreateSplitPresetRequest, CreateWorkspaceRequest, CreateWorkspaceSubunitBody, DisableWorkspaceMemberBody, GuestPlaceholderSummary, JoinRequestSummary, LeaveWorkspaceRequest, MembershipSummary, OutingSummary, OwnershipTransferSummary, ProposeOwnershipTransferBody, SoftDeleteWorkspaceRequest, SplitPresetSummary, UpdateWorkspaceMemberBody, UpdateWorkspaceRequest, UpdateWorkspaceSubunitBody, WorkspaceDirectoryResponse, WorkspaceJoinPreview, WorkspaceSubunitSummary, WorkspaceSummary, WorkspaceTemplateCatalogItem } from "@dang/contracts";
 import { apiFetch } from "./client";
 import { postWithOfflineQueue } from "./offline-post";
 
@@ -6,6 +6,10 @@ import { postWithOfflineQueue } from "./offline-post";
 export const workspacesApi = {
   templates: () => apiFetch<WorkspaceTemplateCatalogItem[]>("/workspaces/templates"),
   listWorkspaces: () => apiFetch<WorkspaceSummary[]>("/workspaces"),
+  listWorkspaceDirectory: (opts?: { metrics?: boolean }) => {
+    const q = opts?.metrics ? "?metrics=1" : "";
+    return apiFetch<WorkspaceDirectoryResponse>(`/workspaces/directory${q}`);
+  },
   getWorkspace: (workspaceId: string) =>
     apiFetch<WorkspaceSummary>(`/workspaces/${workspaceId}`),
   createWorkspace: (body: CreateWorkspaceRequest, idempotencyKey?: string) =>
@@ -54,6 +58,28 @@ export const workspacesApi = {
     apiFetch<WorkspaceSummary>(`/workspaces/${workspaceId}`, {
       method: "PATCH",
       body: JSON.stringify(body),
+    }),
+  leaveWorkspace: (workspaceId: string, body: LeaveWorkspaceRequest = {}) =>
+    postWithOfflineQueue<MembershipSummary>({
+      path: `/workspaces/${workspaceId}/leave`,
+      body: JSON.stringify(body),
+      label: "خروج از فضا",
+    }),
+  archiveWorkspace: (workspaceId: string) =>
+    postWithOfflineQueue<WorkspaceSummary>({
+      path: `/workspaces/${workspaceId}/archive`,
+      label: "بایگانی فضا",
+    }),
+  unarchiveWorkspace: (workspaceId: string) =>
+    postWithOfflineQueue<WorkspaceSummary>({
+      path: `/workspaces/${workspaceId}/unarchive`,
+      label: "بازگردانی فضا",
+    }),
+  softDeleteWorkspace: (workspaceId: string, body: SoftDeleteWorkspaceRequest) =>
+    postWithOfflineQueue<WorkspaceSummary>({
+      path: `/workspaces/${workspaceId}/soft-delete`,
+      body: JSON.stringify(body),
+      label: "حذف فضا",
     }),
   listMembers: (workspaceId: string) =>
     apiFetch<MembershipSummary[]>(`/workspaces/${workspaceId}/members`),

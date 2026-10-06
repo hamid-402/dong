@@ -277,7 +277,7 @@ export function FriendsGroupView() {
         primaryAction={
           frameActions?.primaryAction ??
           (slug && !readOnlySpace ? (
-            <Link href={`${expensesHref}#quick-expense`}>{NAV_LABELS.addExpense}</Link>
+            <Link href={wPath(slug, "record")}>{NAV_LABELS.addExpense}</Link>
           ) : slug ? (
             <Link href={overviewHref}>مرکز فضای کاری</Link>
           ) : (
@@ -329,7 +329,8 @@ export function FriendsGroupView() {
                     amountMinor: l.net.amountMinor,
                   }))}
                 settleHref={settlementsHref}
-                expenseHref={`${expensesHref}#quick-expense`}
+                expenseHref={expensesHref}
+                recordHref={slug ? wPath(slug, "record") : undefined}
                 simplifyHref={settlementsHref}
                 simplifyAvailable={Boolean(
                   chrome.capabilities?.productFlags?.debtSimplifyApi,

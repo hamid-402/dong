@@ -17,6 +17,28 @@ export type DailyLedgerItem = CatalogLineFields & {
   amount: Money;
   visibility: "shared" | "private" | "company";
   status: ExpenseSummary["status"];
+  /** Where cash came from — personal pocket or petty cash fund. */
+  fundingSourceKind?: "personal" | "petty_cash" | "member" | "credit";
+  fundingRefId?: string;
+};
+
+/** Member cash-in to petty cash for a calendar day (not consumption). */
+export type DailyLedgerFundDeposit = {
+  movementId: string;
+  fundId: string;
+  fundName: string;
+  /** gift = voluntary no-debt; topup = may be linked to shared charge. */
+  kind: "gift" | "topup" | "return" | "adjust" | "spend";
+  amountMinor: string;
+  /** Who recorded the movement. */
+  actorUserId: string;
+  /** Who physically put cash in (defaults to actor when omitted). */
+  cashInByUserId?: string;
+  /** YYYY-MM-DD from movement occurredAt. */
+  occurredOn: string;
+  occurredAt: string;
+  note?: string;
+  expenseId?: string;
 };
 
 export type DailyLedgerMemberColumn = {
@@ -42,6 +64,25 @@ export type DailyLedgerDayRow = {
   /** Shared / company house column. */
   shared: DailyLedgerCell;
   dayTotal: Money;
+  /**
+   * Petty-cash inflows on this day (gift/topup). Excluded from dayTotal —
+   * cash-box truth, not consumption.
+   */
+  fundDeposits: DailyLedgerFundDeposit[];
+  /**
+   * Full expenses (non–daily_ledger) on the same calendar day — read-only
+   * cross-links for visibility symmetry. Omit when empty.
+   */
+  relatedExpenses?: DailyLedgerRelatedExpense[];
+};
+
+/** Classic / full expense on the same day as a ledger matrix (not editable here). */
+export type DailyLedgerRelatedExpense = {
+  id: string;
+  title: string;
+  amount: Money;
+  status: ExpenseSummary["status"];
+  visibility: ExpenseSummary["visibility"];
 };
 
 export type DailyLedgerResponse = {
@@ -114,7 +155,37 @@ export type CreateDailyLedgerEntryRequest = CatalogLineFields & {
    * Member consumption column — omit (or null) for shared house column.
    */
   memberUserId?: string | null;
+  /**
+   * Cash source for this consumption line.
+   * Default omit = personal (payer’s pocket), same as classic finance.
+   */
+  fundingSourceKind?: "personal" | "petty_cash";
+  /** Required when fundingSourceKind is petty_cash (fund id). */
+  fundingRefId?: string;
   idempotencyKey: string;
+};
+
+/** POST /daily-ledger/deposits — cash-in to petty cash for a ledger day. */
+export type CreateDailyLedgerDepositRequest = {
+  /** YYYY-MM-DD business date of the cash-in. */
+  date: string;
+  amountMinor: string;
+  fundId: string;
+  /** Who put cash in; defaults to actor. */
+  cashInByUserId?: string;
+  /**
+   * `balance` (default): fund ↑ + shared expense so depositor net improves
+   * (debt down / credit up). `gift`: fund ↑ only, no member balance change.
+   */
+  mode?: "balance" | "gift";
+  note?: string;
+  idempotencyKey: string;
+};
+
+export type CreateDailyLedgerDepositResponse = {
+  workspaceId: string;
+  deposit: DailyLedgerFundDeposit;
+  balanceMinor: string;
 };
 
 /** One line in a batch day post — shared (equal) or personal (S11-07). */
@@ -125,6 +196,8 @@ export type LedgerDayLineInput = CatalogLineFields & {
    * null/omit = shared equal-split column; set = that member’s personal column.
    */
   memberUserId?: string | null;
+  fundingSourceKind?: "personal" | "petty_cash";
+  fundingRefId?: string;
 };
 
 /** POST /workspaces/:id/ledger/day — shared + personal lines in one request. */
@@ -162,6 +235,8 @@ export type UpdateDailyLedgerEntryRequest = CatalogLineFields & {
    * Omit to keep current column.
    */
   memberUserId?: string | null;
+  fundingSourceKind?: "personal" | "petty_cash";
+  fundingRefId?: string;
 };
 
 /** Gregorian YYYY-MM-DD parts → Jalali parts (civil calendar). */
@@ -614,6 +689,8 @@ export function buildDailyLedgerMatrix(input: {
     | "unitCode"
     | "quantity"
     | "unitPriceMinor"
+    | "fundingSourceKind"
+    | "fundingRefId"
   >[];
   dayMeta: readonly { date: string; isHoliday: boolean; note?: string }[];
   /** Active locks overlapping the range (optional). */
@@ -621,6 +698,8 @@ export function buildDailyLedgerMatrix(input: {
   canManageLocks?: boolean;
   expensePersistence: "memory" | "postgres";
   dayMetaPersistence: "memory" | "postgres";
+  /** Optional fund deposits to attach by occurredOn day (excluded from totals). */
+  fundDeposits?: readonly DailyLedgerFundDeposit[];
 }): DailyLedgerResponse {
   const dates = eachDateInclusive(input.from, input.to);
   const metaByDate = new Map(input.dayMeta.map((d) => [d.date, d]));
@@ -643,6 +722,7 @@ export function buildDailyLedgerMatrix(input: {
       members,
       shared: emptyCell(),
       dayTotal: zeroIrr(),
+      fundDeposits: [],
     };
   });
   const dayByDate = new Map(days.map((d) => [d.date, d]));
@@ -665,6 +745,8 @@ export function buildDailyLedgerMatrix(input: {
       unitCode: expense.unitCode,
       quantity: expense.quantity,
       unitPriceMinor: expense.unitPriceMinor,
+      fundingSourceKind: expense.fundingSourceKind,
+      fundingRefId: expense.fundingRefId,
     };
 
     const isSharedBucket =
@@ -718,6 +800,17 @@ export function buildDailyLedgerMatrix(input: {
     row.dayTotal = irrMoney(daySum);
   }
 
+  for (const dep of input.fundDeposits ?? []) {
+    if (dep.occurredOn < input.from || dep.occurredOn > input.to) continue;
+    // Only inflows belong in the deposit strip (not spends).
+    if (dep.kind !== "gift" && dep.kind !== "topup" && dep.kind !== "return") {
+      continue;
+    }
+    const target = dayByDate.get(dep.occurredOn);
+    if (!target) continue;
+    target.fundDeposits.push(dep);
+  }
+
   const memberTotals: Record<string, Money> = {};
   for (const id of memberIds) memberTotals[id] = zeroIrr();
   let sharedTotal = 0n;
@@ -751,4 +844,89 @@ export function buildDailyLedgerMatrix(input: {
       dayMeta: input.dayMetaPersistence,
     },
   };
+}
+
+/** One flattened consumption line for day-detail UI (not a deposit). */
+export type DailyLedgerFlatLine = {
+  expenseId: string;
+  title: string;
+  amount: Money;
+  column: "shared" | "member";
+  memberUserId?: string;
+  memberDisplayName?: string;
+  fundingSourceKind?: DailyLedgerItem["fundingSourceKind"];
+  fundingRefId?: string;
+  status: DailyLedgerItem["status"];
+  catalogItemId?: string;
+  unitCode?: string;
+  quantity?: number;
+  unitPriceMinor?: string;
+};
+
+/** Flatten member + shared cells into a single ordered line list. */
+export function flattenDailyLedgerDay(
+  row: DailyLedgerDayRow,
+  members: readonly DailyLedgerMemberColumn[],
+): DailyLedgerFlatLine[] {
+  const lines: DailyLedgerFlatLine[] = [];
+  for (const m of members) {
+    const cell = row.members[m.userId];
+    if (!cell) continue;
+    for (const it of cell.items) {
+      lines.push({
+        expenseId: it.expenseId,
+        title: it.title,
+        amount: it.amount,
+        column: "member",
+        memberUserId: m.userId,
+        memberDisplayName: m.displayName,
+        fundingSourceKind: it.fundingSourceKind,
+        fundingRefId: it.fundingRefId,
+        status: it.status,
+        catalogItemId: it.catalogItemId,
+        unitCode: it.unitCode,
+        quantity: it.quantity,
+        unitPriceMinor: it.unitPriceMinor,
+      });
+    }
+  }
+  for (const it of row.shared.items) {
+    lines.push({
+      expenseId: it.expenseId,
+      title: it.title,
+      amount: it.amount,
+      column: "shared",
+      fundingSourceKind: it.fundingSourceKind,
+      fundingRefId: it.fundingRefId,
+      status: it.status,
+      catalogItemId: it.catalogItemId,
+      unitCode: it.unitCode,
+      quantity: it.quantity,
+      unitPriceMinor: it.unitPriceMinor,
+    });
+  }
+  return lines;
+}
+
+/** Sum gift/topup/return deposits for a day (IRR minor). */
+export function sumDayFundDeposits(row: DailyLedgerDayRow): string {
+  let total = 0n;
+  for (const dep of row.fundDeposits ?? []) {
+    if (dep.kind !== "gift" && dep.kind !== "topup" && dep.kind !== "return") continue;
+    try {
+      total += BigInt(dep.amountMinor);
+    } catch {
+      /* skip bad */
+    }
+  }
+  return total.toString();
+}
+
+/** Count consumption items (shared + members). */
+export function countDayItems(row: DailyLedgerDayRow): number {
+  let n = row.shared.items.length;
+  for (const cell of Object.values(row.members)) {
+    n += cell.items.length;
+  }
+  return n;
 }

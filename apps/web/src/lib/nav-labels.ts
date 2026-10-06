@@ -44,6 +44,8 @@ export type NavLabelKey =
   | "audit"
   | "jobs"
   | "addExpense"
+  | "fullExpense"
+  | "dailyEntry"
   | "approvals"
   | "orgFinance"
   | "settings"
@@ -99,6 +101,8 @@ const NAV_KEYS: readonly NavLabelKey[] = [
   "audit",
   "jobs",
   "addExpense",
+  "fullExpense",
+  "dailyEntry",
   "approvals",
   "orgFinance",
   "settings",

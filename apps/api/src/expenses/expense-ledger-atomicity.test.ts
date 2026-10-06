@@ -35,6 +35,7 @@ function failingLedger(inner: LedgerStore): LedgerStore {
       throw new Error("LEDGER_INJECTED_FAILURE");
     },
     reverseExpense: async (...args) => inner.reverseExpense(...args),
+    rebuildExpenseJournal: async (...args) => inner.rebuildExpenseJournal(...args),
     postSettlement: async () => {
       throw new Error("LEDGER_INJECTED_FAILURE");
     },

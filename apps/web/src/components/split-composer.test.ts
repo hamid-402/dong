@@ -95,16 +95,16 @@ describe("buildSplitPayloadFromComposer", () => {
         items: [
           {
             title: "پیش‌غذا",
-            amount: { amountMinor: "20000", currency: "IRR" },
+            amount: { amountMinor: "20000" },
             assigneeUserIds: ["a", "b"],
           },
           {
             title: "غذای a",
-            amount: { amountMinor: "50000", currency: "IRR" },
+            amount: { amountMinor: "50000" },
             assigneeUserIds: ["a"],
           },
         ],
-        tip: { amountMinor: "10000", currency: "IRR" },
+        tip: { amountMinor: "10000" },
       },
       (minor) => String(Math.round(Number(minor) / 10)),
     );

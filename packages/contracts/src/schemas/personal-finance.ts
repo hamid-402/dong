@@ -42,7 +42,7 @@ export type UpdatePersonalMoneyAccountRequestInput = z.infer<
 export const createPersonalMoneyTxnRequestSchema = z
   .object({
     accountId: entityIdSchema,
-    kind: z.enum(["income", "expense", "adjustment"]),
+    kind: z.enum(["income", "expense", "adjustment", "investment", "installment"]),
     amount: moneySchema,
     occurredOn: isoDateSchema,
     note: z.string().max(2000).optional(),
@@ -219,6 +219,39 @@ export type CreateSavingsGoalContributionRequestInput = z.infer<
   typeof createSavingsGoalContributionRequestSchema
 >;
 
+export const ensurePersonalSavingsFundRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    targetMinor: z
+      .string()
+      .regex(/^\d+$/)
+      .refine((v) => BigInt(v) > 0n, { message: "target_RANGE" })
+      .optional(),
+    idempotencyKey: idempotencyKeySchema.optional(),
+  })
+  .strict();
+
+export type EnsurePersonalSavingsFundRequestInput = z.infer<
+  typeof ensurePersonalSavingsFundRequestSchema
+>;
+
+export const depositPersonalSavingsFundRequestSchema = z
+  .object({
+    amountMinor: z
+      .string()
+      .regex(/^\d+$/)
+      .refine((v) => BigInt(v) > 0n, { message: "amount_RANGE" }),
+    occurredAt: z.string().trim().min(1).max(40).optional(),
+    note: z.string().max(2000).optional(),
+    goalId: entityIdSchema.optional(),
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict();
+
+export type DepositPersonalSavingsFundRequestInput = z.infer<
+  typeof depositPersonalSavingsFundRequestSchema
+>;
+
 export const spendingAlertScopeSchema = z.enum([
   "total",
   "category",
@@ -269,3 +302,92 @@ export const personalFinanceOverviewScopeSchema = z.enum([
   "group",
   "combined",
 ]);
+
+export const lifeDomainSchema = z.enum([
+  "solo",
+  "group",
+  "building",
+  "org",
+  "savings",
+]);
+
+export const putAllocationPlanRequestSchema = z
+  .object({
+    percents: z
+      .object({
+        solo: z.number().int().min(0).max(100),
+        group: z.number().int().min(0).max(100),
+        building: z.number().int().min(0).max(100),
+        org: z.number().int().min(0).max(100),
+        savings: z.number().int().min(0).max(100),
+      })
+      .strict(),
+  })
+  .strict()
+  .superRefine((body, ctx) => {
+    const p = body.percents;
+    const sum = p.solo + p.group + p.building + p.org + p.savings;
+    if (sum !== 100) {
+      ctx.addIssue({
+        code: "custom",
+        message: "ALLOCATION_SUM",
+        path: ["percents"],
+      });
+    }
+  });
+
+export type PutAllocationPlanRequestInput = z.infer<
+  typeof putAllocationPlanRequestSchema
+>;
+
+export const createPaycheckRequestSchema = z
+  .object({
+    amountMinor: z
+      .string()
+      .regex(/^\d+$/)
+      .refine((v) => BigInt(v) > 0n, { message: "amount_RANGE" }),
+    occurredOn: isoDateSchema,
+    incomeSourceId: entityIdSchema.optional(),
+    note: z.string().max(500).optional(),
+    yearMonth: yearMonthSchema.optional(),
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict();
+
+export type CreatePaycheckRequestInput = z.infer<
+  typeof createPaycheckRequestSchema
+>;
+
+export const lifestyleQuerySchema = z
+  .object({
+    yearMonth: yearMonthSchema.optional(),
+    from: isoDateSchema.optional(),
+    to: isoDateSchema.optional(),
+  })
+  .strict()
+  .superRefine((q, ctx) => {
+    if (q.from && q.to && q.from > q.to) {
+      ctx.addIssue({ code: "custom", message: "FROM_AFTER_TO", path: ["from"] });
+    }
+    if ((q.from && !q.to) || (!q.from && q.to)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "FROM_AND_TO",
+        path: ["from"],
+      });
+    }
+  });
+
+export type LifestyleQueryInput = z.infer<typeof lifestyleQuerySchema>;
+
+export const createPersonalAnnualStatementRequestSchema = z
+  .object({
+    jalaliYear: z.number().int().min(1300).max(1699),
+    format: z.enum(["csv", "html_print"]).default("html_print"),
+    idempotencyKey: idempotencyKeySchema.optional(),
+  })
+  .strict();
+
+export type CreatePersonalAnnualStatementRequestInput = z.infer<
+  typeof createPersonalAnnualStatementRequestSchema
+>;

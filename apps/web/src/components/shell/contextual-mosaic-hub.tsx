@@ -3,15 +3,36 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CSSProperties, MouseEvent } from "react";
+import type { SpaceKind } from "@dang/contracts";
 import { ShellIconSvg } from "@/components/shell/shell-icons";
+import {
+  StickerSvg,
+  stickerForSpaceKind,
+} from "@/components/visual/stickers";
 import type {
   ContextualMosaicIntent,
   ContextualMosaicSection,
 } from "@/lib/navigation-v2";
 import { rememberDestination } from "@/lib/recent-destinations";
-import { TILE_GEM_PALETTES } from "@/lib/tile-gem-palettes";
+import {
+  softTileHaptic,
+  prefetchRoute,
+  navigateWithViewTransition,
+} from "@/lib/tile-press";
+import { gemCssVars } from "@/lib/tile-gem-palettes";
 import { t } from "@/lib/i18n";
 import styles from "./contextual-mosaic-hub.module.css";
+
+const SPACE_KIND_KEYS = new Set<string>([
+  "personal",
+  "group",
+  "building",
+  "org",
+]);
+
+function isSpaceKindKey(key: string): key is SpaceKind {
+  return SPACE_KIND_KEYS.has(key);
+}
 
 export type ContextualMosaicFact = {
   label: string;
@@ -32,46 +53,41 @@ function intentLabel(intent: ContextualMosaicIntent): string {
   }
 }
 
-function gemStyle(gemKey?: string): CSSProperties | undefined {
-  const gem = TILE_GEM_PALETTES[gemKey ?? ""] ?? TILE_GEM_PALETTES.teal;
-  if (!gem) return undefined;
-  return {
-    "--tile-gem-edge": gem.edge,
-    "--tile-gem-mid": gem.mid,
-    "--tile-gem-center": gem.center,
-    "--tile-gem-ink": gem.ink,
-  } as CSSProperties;
-}
-
 export function ContextualMosaicHub({
   sections,
   title,
   description,
   facts = {},
   compact = false,
+  weight = "primary",
   headingId = "contextual-mosaic-title",
   reduceMotion = false,
   pinnedHrefs,
   onTogglePin,
+  onDestinationRemembered,
 }: {
   sections: ContextualMosaicSection[];
   title: string;
   description: string;
   facts?: Partial<Record<string, ContextualMosaicFact>>;
   compact?: boolean;
+  /** Visual hierarchy only — never hides tiles or links. */
+  weight?: "primary" | "secondary";
   headingId?: string;
   /** Honor prefers-reduced-motion / overview motion toggle. */
   reduceMotion?: boolean;
   pinnedHrefs?: ReadonlySet<string>;
   onTogglePin?: (item: { key: string; label: string; href: string }) => void;
+  onDestinationRemembered?: () => void;
 }) {
   const router = useRouter();
   if (sections.length === 0) return null;
 
   return (
     <section
-      className={`${styles.hub}${compact ? ` ${styles.compact}` : ""}${reduceMotion ? ` ${styles.noMotion}` : ""}`}
+      className={`${styles.hub}${compact ? ` ${styles.compact}` : ""}${weight === "secondary" ? ` ${styles.secondary}` : ""}${reduceMotion ? ` ${styles.noMotion}` : ""}`}
       aria-labelledby={headingId}
+      data-weight={weight}
     >
       {compact ? (
         <h2 id={headingId} className="visually-hidden">
@@ -114,26 +130,58 @@ export function ContextualMosaicHub({
                 >
                   <Link
                     href={item.href}
-                    className={`${styles.tile} ${styles.gem} ${styles.enter}${onTogglePin ? ` ${styles.tilePinned}` : ""}`}
-                    style={gemStyle(item.gemKey)}
-                    onMouseEnter={() => router.prefetch(item.href)}
-                    onFocus={() => router.prefetch(item.href)}
-                    onClick={() =>
+                    className={`dang-gem ${styles.tile} ${styles.enter}${onTogglePin ? ` ${styles.tilePinned}` : ""}`}
+                    style={
+                      {
+                        ...gemCssVars(item.gemKey),
+                        ["--mosaic-vt-name" as string]: reduceMotion
+                          ? "none"
+                          : `mosaic-${item.key}`,
+                      }
+                    }
+                    onMouseEnter={() => prefetchRoute(router, item.href)}
+                    onFocus={() => prefetchRoute(router, item.href)}
+                    onTouchStart={() => prefetchRoute(router, item.href)}
+                    onPointerDown={() => softTileHaptic(reduceMotion)}
+                    onClick={(event) => {
                       rememberDestination({
                         key: item.key,
                         label: item.label,
                         href: item.href,
-                      })
-                    }
+                      });
+                      onDestinationRemembered?.();
+                      // Client transition when possible; allow default if modifier click.
+                      if (
+                        event.metaKey ||
+                        event.ctrlKey ||
+                        event.shiftKey ||
+                        event.altKey ||
+                        event.button !== 0
+                      ) {
+                        return;
+                      }
+                      event.preventDefault();
+                      navigateWithViewTransition(() => {
+                        router.push(item.href);
+                      }, reduceMotion);
+                    }}
                   >
-                    <span className={styles.topline}>
-                      <span className={styles.icon} aria-hidden>
-                        <ShellIconSvg name={item.icon} />
-                      </span>
+                    <span className={styles.body}>
+                      <strong>{item.label}</strong>
+                      <p>{item.summary}</p>
                       <span className={styles.intent}>{intentLabel(item.intent)}</span>
                     </span>
-                    <strong>{item.label}</strong>
-                    <p>{item.summary}</p>
+                    <span className={`dang-gem__icon dang-gem__icon--sticker ${styles.icon}`} aria-hidden>
+                      {isSpaceKindKey(item.key) ? (
+                        <StickerSvg
+                          name={stickerForSpaceKind(item.key)}
+                          size={compact ? 34 : 42}
+                          animated={false}
+                        />
+                      ) : (
+                        <ShellIconSvg name={item.icon} />
+                      )}
+                    </span>
                     <span className={styles.footer}>
                       {fact ? (
                         <span
@@ -142,12 +190,7 @@ export function ContextualMosaicHub({
                           <b>{fact.value}</b>
                           <small>{fact.label}</small>
                         </span>
-                      ) : (
-                        <span className={styles.available}>{t("shell.open")}</span>
-                      )}
-                      <span className={styles.open} aria-hidden>
-                        ←
-                      </span>
+                      ) : null}
                     </span>
                   </Link>
                   {onTogglePin ? (

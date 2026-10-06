@@ -10,7 +10,11 @@ import type { IamStore } from "../iam/iam.types.js";
 import type { ExpensesService } from "../expenses/expenses.service.js";
 import type { BillingStore } from "../billing/billing.types.js";
 import { MemorySettlementStore } from "../settlements/memory-settlement.store.js";
-import type { SettlementStore } from "../settlements/settlement.types.js";
+import {
+  toSettlementSummary,
+  type SettlementStore,
+} from "../settlements/settlement.types.js";
+import type { SettlementsService } from "../settlements/settlements.service.js";
 import { InvoiceEventsService } from "../billing/invoice-events.service.js";
 import { MemoryOutboxStore } from "../outbox/memory-outbox.store.js";
 import { OutboxRelay } from "../outbox/outbox.relay.js";
@@ -121,6 +125,25 @@ function buildService(settlements?: SettlementStore) {
       throw new Error("unused");
     } } as unknown as ExpensesService,
     settlementStore,
+    {
+      createClaim: async (
+        actor: { userId: string },
+        wsId: string,
+        body: {
+          fromUserId: string;
+          toUserId: string;
+          amount: { amountMinor: string; currency: "IRR" };
+          note?: string;
+          idempotencyKey: string;
+        },
+      ) =>
+        toSettlementSummary(
+          await settlementStore.createClaim(actor.userId, {
+            workspaceId: wsId,
+            ...body,
+          }),
+        ),
+    } as unknown as SettlementsService,
     ledger,
     billingStub(),
     new InvoiceEventsService(new MemoryOutboxStore()),

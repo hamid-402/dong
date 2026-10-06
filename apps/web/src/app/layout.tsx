@@ -50,13 +50,13 @@ export const viewport: Viewport = {
   ],
 };
 
-const themeBootScript = `(function(){try{var t=localStorage.getItem("dang-theme");if(t!=="dark"&&t!=="light"&&t!=="dusk"&&t!=="mist"&&t!=="linear")t="dark";var a=localStorage.getItem("dang-atmosphere");if(a!=="deep"&&a!=="forest"&&a!=="sand"&&a!=="ember")a="deep";var d=localStorage.getItem("dang-density");if(d!=="comfortable"&&d!=="compact")d="comfortable";document.documentElement.setAttribute("data-theme",t);document.documentElement.setAttribute("data-atmosphere",a);document.documentElement.setAttribute("data-density",d);}catch(e){document.documentElement.setAttribute("data-theme","dark");document.documentElement.setAttribute("data-atmosphere","deep");document.documentElement.setAttribute("data-density","comfortable");}})();`;
+const themeBootScript = `(function(){try{var t=localStorage.getItem("dang-theme");if(t!=="dark"&&t!=="light"&&t!=="dusk"&&t!=="mist"&&t!=="linear")t="dark";var a=localStorage.getItem("dang-atmosphere");if(a!=="deep"&&a!=="forest"&&a!=="sand"&&a!=="ember")a="deep";var d=localStorage.getItem("dang-density");if(d!=="comfortable"&&d!=="compact")d="comfortable";var m=localStorage.getItem("dang-motion");if(m!=="full"&&m!=="essential"&&m!=="off")m="full";if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches&&m!=="off")m="essential";document.documentElement.setAttribute("data-theme",t);document.documentElement.setAttribute("data-atmosphere",a);document.documentElement.setAttribute("data-density",d);document.documentElement.setAttribute("data-motion",m);}catch(e){document.documentElement.setAttribute("data-theme","dark");document.documentElement.setAttribute("data-atmosphere","deep");document.documentElement.setAttribute("data-density","comfortable");document.documentElement.setAttribute("data-motion","full");}})();`;
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fa" dir="rtl" className={vazirmatn.variable} data-theme="dark" data-atmosphere="deep" data-density="comfortable" suppressHydrationWarning>
+    <html lang="fa" dir="rtl" className={vazirmatn.variable} data-theme="dark" data-atmosphere="deep" data-density="comfortable" data-motion="full" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>

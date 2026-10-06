@@ -41,6 +41,7 @@ import {
   type AuditEventDto,
 } from "@/lib/api";
 import { hubPathFor } from "@/lib/hub-links";
+import { newClientId } from "@/lib/id";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import {
   readUnitPrefillFromUrl,
@@ -269,7 +270,6 @@ export function FinanceView({
                   from: expenseFrom,
                   to: expenseTo,
                   catalogItemId: expenseCatalogItemId,
-                  q: expenseSearchQ,
                   paidByUserId: expensePaidByUserId,
                   categoryId: expenseCategoryId,
                   tagId: expenseTagId,
@@ -345,7 +345,6 @@ export function FinanceView({
               from: expenseFrom,
               to: expenseTo,
               catalogItemId: expenseCatalogItemId,
-              q: expenseSearchQ,
               paidByUserId: expensePaidByUserId,
               categoryId: expenseCategoryId,
               tagId: expenseTagId,
@@ -417,24 +416,6 @@ export function FinanceView({
       },
       (href) => router.replace(href, { scroll: false }),
     );
-    startTransition(() => {
-      void api
-        .listExpenses(
-          selectedId,
-          expenseQueryFromState({
-            filter: expenseFilter,
-            from: expenseFrom,
-            to: expenseTo,
-            catalogItemId: expenseCatalogItemId,
-            q: expenseSearchQ,
-            paidByUserId: expensePaidByUserId,
-            categoryId: expenseCategoryId,
-            tagId: expenseTagId,
-          }),
-        )
-        .then((rows) => setExpenses(rows))
-        .catch((err: unknown) => setError(friendlyErrorMessage(err, "بارگذاری خرج‌ها ناموفق بود")));
-    });
   }, [
     expenseFilter,
     expenseFrom,
@@ -449,6 +430,38 @@ export function FinanceView({
     section,
     pathname,
     router,
+  ]);
+
+  useEffect(() => {
+    if (!selectedId || !chrome.ready || section !== "expenses") return;
+    startTransition(() => {
+      void api
+        .listExpenses(
+          selectedId,
+          expenseQueryFromState({
+            filter: expenseFilter,
+            from: expenseFrom,
+            to: expenseTo,
+            catalogItemId: expenseCatalogItemId,
+            paidByUserId: expensePaidByUserId,
+            categoryId: expenseCategoryId,
+            tagId: expenseTagId,
+          }),
+        )
+        .then((rows) => setExpenses(rows))
+        .catch((err: unknown) => setError(friendlyErrorMessage(err, "بارگذاری خرج‌ها ناموفق بود")));
+    });
+  }, [
+    expenseFilter,
+    expenseFrom,
+    expenseTo,
+    expenseCatalogItemId,
+    expensePaidByUserId,
+    expenseCategoryId,
+    expenseTagId,
+    selectedId,
+    chrome.ready,
+    section,
   ]);
 
   useEffect(() => {
@@ -531,6 +544,8 @@ export function FinanceView({
     onPostExpense,
     onPromoteCompany,
     onReverseExpense,
+    onRestoreExpense,
+    onPurgeExpense,
     onCancelRevise,
     onCreatePeriod,
     onGenerateInvoices,
@@ -911,6 +926,42 @@ export function FinanceView({
           onApplyOcr={(hints) => {
             if (hints.title) setTitle(hints.title);
             if (hints.amountToman) setAmountToman(hints.amountToman);
+            if (hints.occurredOn) setExpenseDate(hints.occurredOn);
+            const lines = hints.lineItems;
+            const taxToman = hints.taxMinor
+              ? irrMinorToDisplayInput(hints.taxMinor, "toman")
+              : "";
+            if ((lines && lines.length > 0) || taxToman) {
+              setSplit((prev) => {
+                const assignees =
+                  prev.participantUserIds.length > 0
+                    ? prev.participantUserIds
+                    : members.map((member) => member.userId);
+                return {
+                  ...prev,
+                  splitMethod: "itemized",
+                  taxToman: taxToman || prev.taxToman,
+                  items:
+                    lines && lines.length > 0
+                      ? lines.map((line) => {
+                          const quantity = line.quantity ? Number(line.quantity) : undefined;
+                          return {
+                            key: newClientId(),
+                            title: line.title,
+                            toman: line.amountMinor
+                              ? irrMinorToDisplayInput(line.amountMinor, "toman")
+                              : "",
+                            assigneeUserIds: assignees,
+                            quantity:
+                              quantity != null && Number.isFinite(quantity) && quantity > 0
+                                ? quantity
+                                : undefined,
+                          };
+                        })
+                      : prev.items,
+                };
+              });
+            }
             showSuccess("پیشنهاد OCR روی فرم اعمال شد");
           }}
           supportsCompany={supportsCompany}
@@ -921,6 +972,8 @@ export function FinanceView({
           onPostExpense={onPostExpense}
           onPromoteCompany={onPromoteCompany}
           onReverseExpense={onReverseExpense}
+          onRestoreExpense={onRestoreExpense}
+          onPurgeExpense={onPurgeExpense}
           onBeginReviseExpense={onBeginReviseExpense}
           myMembershipRole={myMembershipRole}
           title={title}

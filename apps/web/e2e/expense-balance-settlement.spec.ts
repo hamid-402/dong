@@ -60,7 +60,7 @@ test.describe("expense → balance → settlement journey", () => {
 
     await page.goto(`/w/${slug}/ledger`);
     await expectShellReady(page);
-    await expect(page.getByText(/دفتر روزانه|بازه/).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/دفتر روزانه|بازه|خرج روز/).first()).toBeVisible({ timeout: 20_000 });
 
     await page.goto(`/w/${slug}/settlements`);
     await expectShellReady(page);

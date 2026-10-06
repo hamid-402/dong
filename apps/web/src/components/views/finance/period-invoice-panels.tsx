@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type {
   ExpensePeriodSummary,
+  FundingSourceKind,
   MemberInvoiceAdjustmentSummary,
   MemberInvoiceSummary,
   PaymentLinkSummary,
   PeriodKind,
   SessionSummary,
 } from "@dang/contracts";
-import { isInvoiceLocked } from "@dang/contracts";
+import { fundingSourceKindLabelFa, isInvoiceLocked } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import {
@@ -21,11 +22,18 @@ import {
   SectionCard,
   StatusPill,
 } from "@/components/ui-blocks";
+import {
+  RowSelectCheckbox,
+  SelectionActionBar,
+  rowSelectActivateProps,
+} from "@/components/selection/selection-action-bar";
+import { useRowSelection } from "@/components/selection/use-row-selection";
 import { formatFaDate } from "@/lib/fa-datetime";
 import { invoiceStatusLabel, periodKindLabel, periodStatusLabel } from "@/lib/status-labels";
 import { memberStatementHref } from "@/lib/statement-links";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import styles from "./period-invoice-panels.module.css";
+import selStyles from "@/components/selection/selection-action-bar.module.css";
 
 type PeriodInvoicePanelsProps = {
   periods: ExpensePeriodSummary[];
@@ -72,6 +80,13 @@ type PeriodInvoicePanelsProps = {
     mode: "live_invoice_sweep_v1" | "live_invoice_v1";
     reconcile?: "off" | "expense_invoice_v1" | "expense_ledger_invoice_v1";
   } | null;
+  /**
+   * Live funding source per expense id (from workspace expenses) — shown in
+   * the inspector so members see تنخواه vs جیب شخصی without a schema change.
+   */
+  expenseFundingById?: Readonly<
+    Record<string, FundingSourceKind | undefined>
+  >;
 };
 
 /**
@@ -109,12 +124,18 @@ export function PeriodInvoicePanels({
   onIssueInvoice,
   onMarkInvoicePaid,
   canManageInvoices = false,
+  expenseFundingById,
 }: PeriodInvoicePanelsProps) {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
+  const selection = useRowSelection(invoices.map((i) => i.id));
   const selectedInvoice =
     invoices.find((invoice) => invoice.id === selectedInvoiceId) ??
     invoices[0] ??
     null;
+  const barInvoice =
+    selection.selectedCount === 1
+      ? (invoices.find((i) => i.id === selection.selectedIds[0]) ?? null)
+      : null;
   const selectedAdjustments = selectedInvoice
     ? invoiceAdjustments.filter(
         (adjustment) => adjustment.invoiceId === selectedInvoice.id,
@@ -266,6 +287,142 @@ export function PeriodInvoicePanels({
           </p>
         ) : null}
         <div className={styles.masterDetail}>
+        <div>
+        {invoices.length > 0 ? (
+          <SelectionActionBar
+            selectedCount={selection.selectedCount}
+            idleHint="روی ردیف کلیک کنید یا مربع کنار صورتحساب را تیک بزنید"
+            onClear={selection.clear}
+          >
+            <button
+              type="button"
+              disabled={!barInvoice}
+              onClick={() => barInvoice && setSelectedInvoiceId(barInvoice.id)}
+            >
+              جزئیات
+            </button>
+            {barInvoice && slug ? (
+              <Link
+                className="textButton"
+                href={memberStatementHref(
+                  slug,
+                  barInvoice.memberUserId,
+                  statementRange,
+                )}
+              >
+                {NAV_LABELS.statements}
+              </Link>
+            ) : null}
+            {barInvoice &&
+            session?.actor?.userId === barInvoice.memberUserId &&
+            barInvoice.status === "pending_approval" ? (
+              <>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    onApproveInvoice(barInvoice.id);
+                    selection.clear();
+                  }}
+                >
+                  تأیید
+                </button>
+                <button
+                  type="button"
+                  className={selStyles.danger}
+                  disabled={pending}
+                  onClick={() => {
+                    onDisputeInvoice(barInvoice.id);
+                    selection.clear();
+                  }}
+                >
+                  اعتراض
+                </button>
+              </>
+            ) : null}
+            {barInvoice &&
+            canManageInvoices &&
+            barInvoice.status === "disputed" ? (
+              <>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    onResolveInvoiceDispute(barInvoice.id, "accepted");
+                    selection.clear();
+                  }}
+                >
+                  پذیرش اعتراض
+                </button>
+                <button
+                  type="button"
+                  className={selStyles.danger}
+                  disabled={pending}
+                  onClick={() => {
+                    onResolveInvoiceDispute(barInvoice.id, "rejected");
+                    selection.clear();
+                  }}
+                >
+                  رد اعتراض
+                </button>
+              </>
+            ) : null}
+            {barInvoice &&
+            canManageInvoices &&
+            (barInvoice.status === "approved" ||
+              barInvoice.status === "pending_approval" ||
+              barInvoice.status === "draft") ? (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  onIssueInvoice(barInvoice.id);
+                  selection.clear();
+                }}
+              >
+                ارسال / صدور
+              </button>
+            ) : null}
+            {barInvoice && barInvoice.status === "issued"
+              ? (() => {
+                  const isMine =
+                    session?.actor?.userId === barInvoice.memberUserId;
+                  const invoicePaymentLink = paymentLinks.find(
+                    (link) => link.invoiceId === barInvoice.id,
+                  );
+                  return (
+                    <>
+                      {(isMine || canManageInvoices) &&
+                      invoicePaymentLink &&
+                      paymentsLive ? (
+                        <a
+                          href={invoicePaymentLink.checkoutUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          پرداخت آنلاین
+                        </a>
+                      ) : (isMine || canManageInvoices) && invoicePaymentLink ? (
+                        <span className="liveHint">پرداخت آنلاین منتظر PSP واقعی</span>
+                      ) : null}
+                      {canManageInvoices ? (
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => {
+                            onMarkInvoicePaid(barInvoice.id);
+                            selection.clear();
+                          }}
+                        >
+                          پرداخت شد
+                        </button>
+                      ) : null}
+                    </>
+                  );
+                })()
+              : null}
+          </SelectionActionBar>
+        ) : null}
         <DataList>
           {invoices.length === 0 ? (
             <EmptyHint>
@@ -274,172 +431,92 @@ export function PeriodInvoicePanels({
                 : "هنوز صورتحسابی برای شما ارسال نشده."}
             </EmptyHint>
           ) : null}
-          {invoices.map((invoice) => {
-            const isMine = session?.actor?.userId === invoice.memberUserId;
-            const invoicePaymentLink = paymentLinks.find(
-              (link) => link.invoiceId === invoice.id,
-            );
-            return (
-              <DataRow
-                key={invoice.id}
-                title={memberLabel(invoice.memberUserId)}
-                meta={
-                  <>
-                    <StatusPill
-                      tone={
-                        invoice.status === "issued" || invoice.status === "approved"
-                          ? "ok"
-                          : invoice.status === "disputed"
-                            ? "warn"
-                            : "gold"
+          {invoices.map((invoice) => (
+            <div
+              key={invoice.id}
+              className={selStyles.selectableRow}
+              {...rowSelectActivateProps({
+                onActivate: () => {
+                  if (selection.isSelected(invoice.id)) selection.clear();
+                  else {
+                    selection.selectOnly(invoice.id);
+                    setSelectedInvoiceId(invoice.id);
+                  }
+                },
+              })}
+            >
+            <DataRow
+              title={
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <RowSelectCheckbox
+                    checked={selection.isSelected(invoice.id)}
+                    onChange={() => {
+                      if (selection.isSelected(invoice.id)) selection.clear();
+                      else {
+                        selection.selectOnly(invoice.id);
+                        setSelectedInvoiceId(invoice.id);
                       }
-                    >
-                      {invoiceStatusLabel(invoice.status)}
-                    </StatusPill>
-                    <span style={{ color: "var(--muted)", fontSize: 12 }}>
-                      عمومی <Amount irrMinor={invoice.sharedTotal.amountMinor} /> · خصوصی{" "}
-                      <Amount irrMinor={invoice.privateTotal.amountMinor} />
+                    }}
+                    label={`انتخاب صورتحساب ${memberLabel(invoice.memberUserId)}`}
+                  />
+                  {memberLabel(invoice.memberUserId)}
+                </span>
+              }
+              meta={
+                <>
+                  <StatusPill
+                    tone={
+                      invoice.status === "issued" || invoice.status === "approved"
+                        ? "ok"
+                        : invoice.status === "disputed"
+                          ? "warn"
+                          : "gold"
+                    }
+                  >
+                    {invoiceStatusLabel(invoice.status)}
+                  </StatusPill>
+                  <span style={{ color: "var(--muted)", fontSize: 12 }}>
+                    عمومی <Amount irrMinor={invoice.sharedTotal.amountMinor} /> · خصوصی{" "}
+                    <Amount irrMinor={invoice.privateTotal.amountMinor} />
+                  </span>
+                  {isInvoiceLocked(invoice.status) ? (
+                    <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
+                      سند قفل‌شده — تغییرات بعدی به‌صورت اعلامیهٔ اصلاحی ثبت می‌شود
                     </span>
-                    {isInvoiceLocked(invoice.status) ? (
-                      <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
-                        سند قفل‌شده — تغییرات بعدی به‌صورت اعلامیهٔ اصلاحی ثبت می‌شود
-                      </span>
-                    ) : invoice.recalculatedAt ? (
-                      <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
-                        پیش‌نویس زنده · آخرین به‌روزرسانی {formatFaDate(invoice.recalculatedAt)}
-                        {invoice.version ? ` · نسخهٔ ${invoice.version}` : ""}
-                      </span>
-                    ) : null}
-                    {invoice.pendingTotal &&
-                    invoice.pendingTotal.amountMinor !== "0" ? (
-                      <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
-                        در انتظار ثبت نهایی (خارج از جمع سند){" "}
-                        <Amount irrMinor={invoice.pendingTotal.amountMinor} />
-                      </span>
-                    ) : null}
-                    {invoice.lines.length > 0 ? (
-                      <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
-                        {invoice.lines
-                          .map(
-                            (line) =>
-                              `${line.title} (${line.visibility === "private" ? "خصوصی" : "عمومی"})`,
-                          )
-                          .join(" · ")}
-                      </span>
-                    ) : null}
-                  </>
-                }
-                trailing={<Amount irrMinor={invoice.total.amountMinor} />}
-                actions={
-                  <>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      aria-pressed={selectedInvoice?.id === invoice.id}
-                      onClick={() => setSelectedInvoiceId(invoice.id)}
-                    >
-                      جزئیات
-                    </Button>
-                    {slug ? (
-                      <Link
-                        className="textButton"
-                        href={memberStatementHref(
-                          slug,
-                          invoice.memberUserId,
-                          statementRange,
-                        )}
-                      >
-                        {NAV_LABELS.statements}
-                      </Link>
-                    ) : null}
-                    {isMine && invoice.status === "pending_approval" ? (
-                      <>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => onApproveInvoice(invoice.id)}
-                          disabled={pending}
-                        >
-                          تأیید
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => onDisputeInvoice(invoice.id)}
-                          disabled={pending}
-                        >
-                          اعتراض
-                        </Button>
-                      </>
-                    ) : null}
-                    {canManageInvoices && invoice.status === "disputed" ? (
-                      <>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => onResolveInvoiceDispute(invoice.id, "accepted")}
-                          disabled={pending}
-                        >
-                          پذیرش اعتراض
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => onResolveInvoiceDispute(invoice.id, "rejected")}
-                          disabled={pending}
-                        >
-                          رد اعتراض
-                        </Button>
-                      </>
-                    ) : null}
-                    {canManageInvoices &&
-                    (invoice.status === "approved" ||
-                      invoice.status === "pending_approval" ||
-                      invoice.status === "draft") ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => onIssueInvoice(invoice.id)}
-                        disabled={pending}
-                      >
-                        ارسال / صدور
-                      </Button>
-                    ) : null}
-                    {invoice.status === "issued" ? (
-                      <>
-                        {(isMine || canManageInvoices) && invoicePaymentLink && paymentsLive ? (
-                          <a
-                            href={invoicePaymentLink.checkoutUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="ghostLink"
-                          >
-                            پرداخت آنلاین
-                          </a>
-                        ) : (isMine || canManageInvoices) && invoicePaymentLink ? (
-                          <span className="liveHint">پرداخت آنلاین منتظر PSP واقعی</span>
-                        ) : null}
-                        {canManageInvoices ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => onMarkInvoicePaid(invoice.id)}
-                            disabled={pending}
-                          >
-                            پرداخت شد
-                          </Button>
-                        ) : null}
-                      </>
-                    ) : null}
-                  </>
-                }
-              />
-            );
-          })}
+                  ) : invoice.recalculatedAt ? (
+                    <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
+                      پیش‌نویس زنده · آخرین به‌روزرسانی {formatFaDate(invoice.recalculatedAt)}
+                      {invoice.version ? ` · نسخهٔ ${invoice.version}` : ""}
+                    </span>
+                  ) : null}
+                  {invoice.pendingTotal &&
+                  invoice.pendingTotal.amountMinor !== "0" ? (
+                    <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
+                      در انتظار ثبت نهایی (خارج از جمع سند){" "}
+                      <Amount irrMinor={invoice.pendingTotal.amountMinor} />
+                    </span>
+                  ) : null}
+                  {invoice.lines.length > 0 ? (
+                    <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
+                      {invoice.lines
+                        .map(
+                          (line) =>
+                            `${line.title} (${line.visibility === "private" ? "خصوصی" : "عمومی"})`,
+                        )
+                        .join(" · ")}
+                    </span>
+                  ) : null}
+                </>
+              }
+              trailing={<Amount irrMinor={invoice.total.amountMinor} />}
+            />
+            </div>
+          ))}
         </DataList>
+        </div>
         {selectedInvoice ? (
-          <aside className={styles.inspector} aria-label="جزئیات صورتحساب انتخاب‌شده">
-            <span>INVOICE INSPECTOR</span>
+            <aside className={styles.inspector} aria-label="جزئیات صورتحساب انتخاب‌شده">
+            <span>جزئیات صورتحساب</span>
             <h3>{memberLabel(selectedInvoice.memberUserId)}</h3>
             <Amount irrMinor={selectedInvoice.total.amountMinor} />
             <dl>
@@ -458,6 +535,47 @@ export function PeriodInvoicePanels({
                 </dd>
               </div>
             </dl>
+            {selectedInvoice.lines.length > 0 ? (
+              <div>
+                <b>ردیف‌ها و منبع پرداخت</b>
+                <ul className={styles.fundingList}>
+                  {selectedInvoice.lines.map((line) => {
+                    const funding = expenseFundingById?.[line.expenseId];
+                    const fundingLabel =
+                      funding != null
+                        ? fundingSourceKindLabelFa(funding)
+                        : null;
+                    return (
+                      <li key={line.id}>
+                        <span>
+                          {line.title} ·{" "}
+                          <Amount irrMinor={line.amount.amountMinor} />
+                        </span>
+                        {fundingLabel ? (
+                          <span className={styles.fundingList__meta}>
+                            منبع: {fundingLabel}
+                            {line.visibility === "private" ? " · خصوصی" : " · عمومی"}
+                          </span>
+                        ) : (
+                          <span className={styles.fundingList__meta}>
+                            {line.visibility === "private" ? "خصوصی" : "عمومی"}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {selectedInvoice.lines.some((line) => {
+                  const f = expenseFundingById?.[line.expenseId];
+                  return f === "petty_cash" || f === "personal";
+                }) ? (
+                  <div className={styles.fundingHint}>
+                    بدهی/بستانکاری نسبت به تنخواه در مانده و پیشنهاد تسویه دیده
+                    می‌شود؛ شرح کامل در صورتحساب سهم‌محور (چاپ و Excel).
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {priorPeriodLines.length > 0 ? (
               <div>
                 <b>اقلام دوره‌های گذشته</b>

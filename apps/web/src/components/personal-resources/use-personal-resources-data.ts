@@ -11,6 +11,7 @@ import type {
   PersonalMoneyAccountSummary,
   PersonalMoneyTxnSummary,
   PersonalResourcesSummary,
+  SavingsGoalSummary,
   SettlementSummary,
   WorkspaceSummary,
 } from "@dang/contracts";
@@ -42,6 +43,7 @@ export function accountKindLabel(kind: PersonalMoneyAccountKind): string {
   if (kind === "cash") return "نقد";
   if (kind === "bank") return "بانک";
   if (kind === "card") return "کارت";
+  if (kind === "investment") return "سرمایه‌گذاری";
   return "سایر";
 }
 
@@ -51,6 +53,8 @@ export function txnKindLabel(kind: string): string {
   if (kind === "transfer_in") return "انتقال ورودی";
   if (kind === "transfer_out") return "انتقال خروجی";
   if (kind === "adjustment") return "تعدیل";
+  if (kind === "investment") return "سرمایه‌گذاری";
+  if (kind === "installment") return "قسط";
   return kind;
 }
 
@@ -88,7 +92,7 @@ export function usePersonalResourcesData() {
   const [renameValue, setRenameValue] = useState("");
 
   const [txnAccountId, setTxnAccountId] = useState("");
-  const [txnKind, setTxnKind] = useState<"income" | "expense" | "adjustment">("expense");
+  const [txnKind, setTxnKind] = useState<"income" | "expense" | "adjustment" | "investment" | "installment">("expense");
   const [txnToman, setTxnToman] = useState("");
   const [txnNote, setTxnNote] = useState("");
   const [txnDate, setTxnDate] = useState(todayIso);
@@ -113,9 +117,11 @@ export function usePersonalResourcesData() {
   const [txnFilterAccountId, setTxnFilterAccountId] = useState("");
   const [txnFilterFrom, setTxnFilterFrom] = useState(monthStart);
   const [txnFilterTo, setTxnFilterTo] = useState(todayIso);
+  const [goals, setGoals] = useState<SavingsGoalSummary[]>([]);
+  const [contributeGoalId, setContributeGoalId] = useState("");
 
   async function refresh() {
-    const [s, a, t, b, c, e] = await Promise.all([
+    const [s, a, t, b, c, e, g] = await Promise.all([
       api.personalResourcesSummary({ yearMonth: currentYearMonth() }),
       api.listPersonalAccounts(showArchived),
       api.listPersonalTransactions({
@@ -127,6 +133,7 @@ export function usePersonalResourcesData() {
       api.listPersonalBudgets(),
       api.listPersonalCategories(),
       api.listPersonalFinanceExports(10),
+      api.listSavingsGoals().catch(() => [] as SavingsGoalSummary[]),
     ]);
     setSummary(s);
     setAccounts(a);
@@ -134,10 +141,12 @@ export function usePersonalResourcesData() {
     setBudgets(b);
     setCategories(c);
     setExportsList(e);
+    setGoals(g);
     const active = a.filter((x) => !x.archived);
     if (!txnAccountId && active[0]) setTxnAccountId(active[0].id);
     if (!fromAccountId && active[0]) setFromAccountId(active[0].id);
     if (!toAccountId && active[1]) setToAccountId(active[1].id);
+    if (!contributeGoalId && g[0]) setContributeGoalId(g[0].id);
   }
 
   useEffect(() => {
@@ -352,6 +361,26 @@ export function usePersonalResourcesData() {
     });
   }
 
+  function onContributeTxnToGoal(txn: PersonalMoneyTxnSummary) {
+    if (!contributeGoalId) {
+      setError("ابتدا یک هدف پس‌انداز بسازید یا انتخاب کنید");
+      return;
+    }
+    if (txn.kind !== "income" && txn.kind !== "expense") {
+      setError("فقط تراکنش درآمد/خرج به هدف واریز می‌شود");
+      return;
+    }
+    run("واریز از تراکنش ثبت شد", async () => {
+      await api.addSavingsGoalContribution(contributeGoalId, {
+        amountMinor: txn.amount.amountMinor,
+        occurredAt: `${txn.occurredOn}T12:00:00.000Z`,
+        txnId: txn.id,
+        note: txn.note?.trim() || `از تراکنش ${txn.kind}`,
+        idempotencyKey: newClientId(),
+      });
+    });
+  }
+
   const activeAccounts = accounts.filter((a) => !a.archived);
 
   return {
@@ -362,6 +391,10 @@ export function usePersonalResourcesData() {
     budgets,
     categories,
     exportsList,
+    goals,
+    contributeGoalId,
+    setContributeGoalId,
+    onContributeTxnToGoal,
     linkWorkspaces,
     linkExpenses,
     linkSettlements,
@@ -437,5 +470,6 @@ export function usePersonalResourcesData() {
     onDeleteCategory,
     onExportTxns,
     onApplyTxnFilter,
+    onContributeTxnToGoal,
   };
 }

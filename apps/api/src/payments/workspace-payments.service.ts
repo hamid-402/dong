@@ -13,7 +13,10 @@ import {
   assertNoCustodyPayload,
   isFinanceManagerRole,
   meetsMakerCheckerThreshold,
+  pettyCashAllowedForKind,
   signedPettyCashDelta,
+  spaceKindForTemplate,
+  treasuryLabelsForKind,
   type AuthActor,
   type CreateCreditPurchasePaymentRequest,
   type CreateCreditPurchaseRequest,
@@ -30,14 +33,25 @@ import {
   type PaymentReceiptStatus,
   type PaymentReceiptSummary,
   type PettyCashFundSummary,
+  type PettyCashHealthReport,
+  type PettyCashLedgerResponse,
+  type PettyCashLedgerRow,
   type PettyCashMovementSummary,
   type RejectOnBehalfPaymentRequest,
   type RejectPaymentReceiptRequest,
+  type GiftPettyCashRequest,
+  type GiftPettyCashResponse,
+  type SettlePayRequest,
+  type SettlePayResponse,
   type SpendPettyCashAsExpenseRequest,
   type SpendPettyCashAsExpenseResponse,
-  type PettyCashHealthReport,
   type TopupPettyCashFromMembersRequest,
   type TopupPettyCashFromMembersResponse,
+  computeBalancesFromJournal,
+  journalAsOfDay,
+  moneyIrr,
+  netForUser,
+  planSettlePay,
 } from "@dang/contracts";
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
@@ -52,6 +66,8 @@ import { MakerCheckerService } from "../maker-checker/maker-checker.service.js";
 import { MfaService } from "../auth/mfa.service.js";
 import { OutboxRelay } from "../outbox/outbox.relay.js";
 import { OUTBOX_STORE, type OutboxStore } from "../outbox/outbox.types.js";
+import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
+import { SettlementsService } from "../settlements/settlements.service.js";
 import {
   SETTLEMENT_STORE,
   toSettlementSummary,
@@ -66,6 +82,10 @@ import {
   type PaymentOpsStore,
   type StoredPaymentReceipt,
 } from "./payment-ops.types.js";
+import {
+  appendPettyCashNoteMeta,
+  parsePettyCashNoteMeta,
+} from "./petty-cash-note.js";
 
 @Injectable()
 export class WorkspacePaymentsService {
@@ -76,6 +96,8 @@ export class WorkspacePaymentsService {
     @Inject(forwardRef(() => ExpensesService))
     private readonly expenses: ExpensesService,
     @Inject(SETTLEMENT_STORE) private readonly settlements: SettlementStore,
+    @Inject(forwardRef(() => SettlementsService))
+    private readonly settlementsService: SettlementsService,
     @Inject(LEDGER_STORE) private readonly ledger: LedgerStore,
     @Inject(BILLING_STORE) private readonly billing: BillingStore,
     @Inject(InvoiceEventsService)
@@ -86,6 +108,7 @@ export class WorkspacePaymentsService {
     @Optional() @Inject(OUTBOX_STORE) private readonly outbox?: OutboxStore,
     @Optional() @Inject(OutboxRelay) private readonly outboxRelay?: OutboxRelay,
     @Optional() @Inject(MfaService) private readonly mfa?: MfaService,
+    @Optional() @Inject(AUDIT_STORE) private readonly audit?: AuditStore,
   ) {}
 
   persistence(): "memory" | "postgres" {
@@ -135,7 +158,7 @@ export class WorkspacePaymentsService {
     if (body.method === "card_to_card" && !body.referenceNo?.trim()) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "کد پیگیری کارت‌به‌کارت الزامی است",
+        title: "Ú©Ø¯ Ù¾ÛŒÚ¯ÛŒØ±ÛŒ Ú©Ø§Ø±Øªâ€ŒØ¨Ù‡â€ŒÚ©Ø§Ø±Øª Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª",
         status: 400,
         code: "CARD_TRANSFER_REF_REQUIRED",
       });
@@ -150,7 +173,7 @@ export class WorkspacePaymentsService {
       if (!settlement) {
         throw new NotFoundException({
           type: "https://dang.local/problems/not-found",
-          title: "تسویه یافت نشد",
+          title: "ØªØ³ÙˆÛŒÙ‡ ÛŒØ§ÙØª Ù†Ø´Ø¯",
           status: 404,
         });
       }
@@ -170,7 +193,7 @@ export class WorkspacePaymentsService {
     if (!existing) {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
-        title: "رسید یافت نشد",
+        title: "Ø±Ø³ÛŒØ¯ ÛŒØ§ÙØª Ù†Ø´Ø¯",
         status: 404,
         code: "RECEIPT_NOT_FOUND",
       });
@@ -178,7 +201,7 @@ export class WorkspacePaymentsService {
     if (existing.status !== "submitted") {
       throw new ConflictException({
         type: "https://dang.local/problems/conflict",
-        title: "رسید قبلاً بررسی شده",
+        title: "Ø±Ø³ÛŒØ¯ Ù‚Ø¨Ù„Ø§Ù‹ Ø¨Ø±Ø±Ø³ÛŒ Ø´Ø¯Ù‡",
         status: 409,
         code: "RECEIPT_ALREADY_REVIEWED",
       });
@@ -186,7 +209,7 @@ export class WorkspacePaymentsService {
     if (existing.payerUserId === actor.userId) {
       throw new ForbiddenException({
         type: "https://dang.local/problems/forbidden",
-        title: "بررسی رسید توسط خود پرداخت‌کننده مجاز نیست",
+        title: "Ø¨Ø±Ø±Ø³ÛŒ Ø±Ø³ÛŒØ¯ ØªÙˆØ³Ø· Ø®ÙˆØ¯ Ù¾Ø±Ø¯Ø§Ø®Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡ Ù…Ø¬Ø§Ø² Ù†ÛŒØ³Øª",
         status: 403,
         code: "RECEIPT_SELF_REVIEW",
       });
@@ -205,7 +228,7 @@ export class WorkspacePaymentsService {
       if (!settlement) {
         throw new NotFoundException({
           type: "https://dang.local/problems/not-found",
-          title: "تسویهٔ متصل یافت نشد",
+          title: "ØªØ³ÙˆÛŒÙ‡Ù” Ù…ØªØµÙ„ ÛŒØ§ÙØª Ù†Ø´Ø¯",
           status: 404,
         });
       }
@@ -229,7 +252,7 @@ export class WorkspacePaymentsService {
       } else {
         throw new BadRequestException({
           type: "https://dang.local/problems/validation",
-          title: "تسویهٔ لینک‌شده قابل تأیید نیست",
+          title: "ØªØ³ÙˆÛŒÙ‡Ù” Ù„ÛŒÙ†Ú©â€ŒØ´Ø¯Ù‡ Ù‚Ø§Ø¨Ù„ ØªØ£ÛŒÛŒØ¯ Ù†ÛŒØ³Øª",
           status: 400,
         });
       }
@@ -291,7 +314,7 @@ export class WorkspacePaymentsService {
     if (!existing) {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
-        title: "رسید یافت نشد",
+        title: "Ø±Ø³ÛŒØ¯ ÛŒØ§ÙØª Ù†Ø´Ø¯",
         status: 404,
         code: "RECEIPT_NOT_FOUND",
       });
@@ -299,7 +322,7 @@ export class WorkspacePaymentsService {
     if (existing.payerUserId === actor.userId) {
       throw new ForbiddenException({
         type: "https://dang.local/problems/forbidden",
-        title: "بررسی رسید توسط خود پرداخت‌کننده مجاز نیست",
+        title: "Ø¨Ø±Ø±Ø³ÛŒ Ø±Ø³ÛŒØ¯ ØªÙˆØ³Ø· Ø®ÙˆØ¯ Ù¾Ø±Ø¯Ø§Ø®Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡ Ù…Ø¬Ø§Ø² Ù†ÛŒØ³Øª",
         status: 403,
         code: "RECEIPT_SELF_REVIEW",
       });
@@ -325,7 +348,7 @@ export class WorkspacePaymentsService {
     const funds = await this.ops.listFunds(workspaceId);
     const out: PettyCashFundSummary[] = [];
     for (const fund of funds) {
-      const movements = await this.ops.listMovements(fund.id);
+      const movements = await this.ops.listMovements(workspaceId, fund.id);
       const balance = this.computeFundBalance(fund.openingBalanceMinor, movements);
       out.push(
         toFundSummary(
@@ -347,6 +370,145 @@ export class WorkspacePaymentsService {
       );
     }
     return out;
+  }
+
+  /**
+   * Full petty-cash ledger for one fund — running balance, actor names,
+   * and for topups the cash-in person + each member's contribution share.
+   */
+  async getPettyCashLedger(
+    actor: AuthActor,
+    workspaceId: string,
+    fundId: string,
+  ): Promise<PettyCashLedgerResponse> {
+    await this.access.requireMemberRole(workspaceId, actor.userId);
+    const fund = await this.ops.getFund(workspaceId, fundId);
+    if (!fund) {
+      throw new NotFoundException({
+        type: "https://dang.local/problems/not-found",
+        title: "صندوق تنخواه یافت نشد",
+        status: 404,
+      });
+    }
+    const members =
+      (await this.iam.listMembers(workspaceId, actor.userId)) ?? [];
+    const nameOf = (userId: string) =>
+      members.find((m) => m.userId === userId)?.displayName?.trim() ||
+      userId.slice(0, 8);
+
+    const movements = await this.ops.listMovements(workspaceId, fundId);
+    const sorted = [...movements].sort((a, b) => {
+      const ta = a.occurredAt || a.createdAt;
+      const tb = b.occurredAt || b.createdAt;
+      const c = ta.localeCompare(tb);
+      if (c !== 0) return c;
+      return a.createdAt.localeCompare(b.createdAt);
+    });
+
+    const expenseIds = [
+      ...new Set(
+        sorted
+          .map((m) => m.expenseId?.trim())
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const expenseById = new Map<
+      string,
+      {
+        paidByUserId?: string;
+        occurredOn?: string;
+        splits: Array<{ userId: string; amountMinor: string }>;
+        title?: string;
+      }
+    >();
+    if (expenseIds.length > 0) {
+      try {
+        const expenses = await this.expenses.list(actor, workspaceId, {});
+        for (const exp of expenses) {
+          if (!expenseIds.includes(exp.id)) continue;
+          expenseById.set(exp.id, {
+            paidByUserId: exp.paidByUserId,
+            occurredOn: exp.occurredOn,
+            title: exp.title,
+            splits: (exp.splits ?? []).map((s) => ({
+              userId: s.userId,
+              amountMinor: s.amount.amountMinor,
+            })),
+          });
+        }
+      } catch {
+        // Ledger still works without expense enrichment
+      }
+    }
+
+    let running = BigInt(fund.openingBalanceMinor || "0");
+    const rows: PettyCashLedgerRow[] = [];
+    for (const m of sorted) {
+      const delta = signedPettyCashDelta(m.kind, m.amountMinor);
+      running += delta;
+      const linked = m.expenseId ? expenseById.get(m.expenseId) : undefined;
+      const isInflow = m.kind === "topup" || m.kind === "return" || m.kind === "gift";
+      const noteMeta = parsePettyCashNoteMeta(m.note);
+      const cashInBy =
+        (isInflow
+          ? linked?.paidByUserId?.trim() ||
+            noteMeta.cashInByUserId ||
+            (m.kind === "gift" ? m.actorUserId : undefined)
+          : undefined) || (isInflow ? m.actorUserId : undefined);
+      const occurredAtRaw = m.occurredAt || m.createdAt;
+      const ledgerDate =
+        noteMeta.ledgerDate ||
+        linked?.occurredOn ||
+        occurredAtRaw.slice(0, 10);
+      rows.push({
+        id: m.id,
+        fundId: m.fundId,
+        kind: m.kind,
+        amountMinor: m.amountMinor,
+        signedDeltaMinor: delta.toString(),
+        balanceAfterMinor: running.toString(),
+        // Prefer calendar ledger day (Iran-facing date) over UTC clock skew.
+        occurredAt:
+          /^\d{4}-\d{2}-\d{2}$/.test(ledgerDate) && !noteMeta.ledgerDate && !linked?.occurredOn
+            ? occurredAtRaw
+            : `${ledgerDate}T12:00:00.000Z`,
+        createdAt: m.createdAt,
+        actorUserId: m.actorUserId,
+        actorDisplayName: nameOf(m.actorUserId),
+        note: m.note || linked?.title,
+        expenseId: m.expenseId,
+        ...(cashInBy
+          ? {
+              cashInByUserId: cashInBy,
+              cashInByDisplayName: nameOf(cashInBy),
+            }
+          : {}),
+        ...(isInflow && linked?.splits?.length
+          ? {
+              memberContributions: linked.splits.map((s) => ({
+                userId: s.userId,
+                displayName: nameOf(s.userId),
+                amountMinor: s.amountMinor,
+              })),
+            }
+          : {}),
+      });
+    }
+
+    return {
+      fundId: fund.id,
+      fundName: fund.name,
+      custodianUserId: fund.custodianUserId,
+      custodianDisplayName: nameOf(fund.custodianUserId),
+      fundCreatedAt: fund.createdAt,
+      createdByUserId: fund.createdByUserId,
+      createdByDisplayName: nameOf(fund.createdByUserId),
+      fundActive: fund.active,
+      openingBalanceMinor: fund.openingBalanceMinor,
+      closingBalanceMinor: running.toString(),
+      currency: "IRR",
+      rows,
+    };
   }
 
   async pettyCashHealth(
@@ -396,12 +558,130 @@ export class WorkspacePaymentsService {
   ): Promise<PettyCashFundSummary> {
     await this.access.requireFinanceManager(workspaceId, actor.userId);
     if (this.mfa) await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
+    const workspace = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
+    const kind = spaceKindForTemplate(workspace?.template);
+    if (!pettyCashAllowedForKind(kind)) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "ÙØ¶Ø§ÛŒ Ø´Ø®ØµÛŒ ØªÙ†Ø®ÙˆØ§Ù‡ Ù…Ø´ØªØ±Ú© Ù†Ø¯Ø§Ø±Ø¯",
+        status: 400,
+        code: "PETTY_CASH_PERSONAL_FORBIDDEN",
+        detail: "Ø¨Ø±Ø§ÛŒ ÙØ¶Ø§ÛŒ Ø´Ø®ØµÛŒ Ø§Ø² Ù¾Ø³â€ŒØ§Ù†Ø¯Ø§Ø² Ø´Ø®ØµÛŒ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ú©Ù†ÛŒØ¯ â€” ØµÙ†Ø¯ÙˆÙ‚ Ù…Ø´ØªØ±Ú© ÙÙ‚Ø· Ø¨Ø±Ø§ÛŒ Ú¯Ø±ÙˆÙ‡/Ø³Ø§Ø²Ù…Ø§Ù†/Ø³Ø§Ø®ØªÙ…Ø§Ù† Ø§Ø³Øª.",
+      });
+    }
     const custodianUserId = body.custodianUserId?.trim() || actor.userId;
     const fund = await this.ops.createFund(workspaceId, actor.userId, {
       ...body,
       custodianUserId,
     });
     return toFundSummary(fund, fund.openingBalanceMinor);
+  }
+
+  /**
+   * Soft-close petty cash â€” ledger retained; no further topup/spend until reopen.
+   */
+  async closePettyCashFund(
+    actor: AuthActor,
+    workspaceId: string,
+    fundId: string,
+  ): Promise<PettyCashFundSummary> {
+    await this.access.requireFinanceManager(workspaceId, actor.userId);
+    if (this.mfa) await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
+    const fund = await this.ops.getFund(workspaceId, fundId);
+    if (!fund) {
+      throw new NotFoundException({
+        type: "https://dang.local/problems/not-found",
+        title: "ØµÙ†Ø¯ÙˆÙ‚ ØªÙ†Ø®ÙˆØ§Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯",
+        status: 404,
+      });
+    }
+    if (!fund.active) {
+      const movements = await this.ops.listMovements(workspaceId, fundId);
+      const balance = this.computeFundBalance(fund.openingBalanceMinor, movements);
+      return toFundSummary(fund, balance.toString(), undefined);
+    }
+    const closed = await this.ops.setFundActive(workspaceId, fundId, false);
+    const movements = await this.ops.listMovements(workspaceId, fundId);
+    const balance = this.computeFundBalance(closed.openingBalanceMinor, movements);
+    return toFundSummary(closed, balance.toString());
+  }
+
+  /** Reopen a soft-closed petty cash fund (finance only). */
+  async reopenPettyCashFund(
+    actor: AuthActor,
+    workspaceId: string,
+    fundId: string,
+  ): Promise<PettyCashFundSummary> {
+    await this.access.requireFinanceManager(workspaceId, actor.userId);
+    if (this.mfa) await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
+    const fund = await this.ops.getFund(workspaceId, fundId);
+    if (!fund) {
+      throw new NotFoundException({
+        type: "https://dang.local/problems/not-found",
+        title: "ØµÙ†Ø¯ÙˆÙ‚ ØªÙ†Ø®ÙˆØ§Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯",
+        status: 404,
+      });
+    }
+    if (fund.active) {
+      const movements = await this.ops.listMovements(workspaceId, fundId);
+      const balance = this.computeFundBalance(fund.openingBalanceMinor, movements);
+      return toFundSummary(fund, balance.toString());
+    }
+    const opened = await this.ops.setFundActive(workspaceId, fundId, true);
+    const movements = await this.ops.listMovements(workspaceId, fundId);
+    const balance = this.computeFundBalance(opened.openingBalanceMinor, movements);
+    return toFundSummary(opened, balance.toString());
+  }
+
+  /**
+   * Ensure at least one active default petty-cash fund exists (finance only).
+   * Idempotent: returns existing active funds without creating duplicates.
+   */
+  async ensureDefaultPettyCashFund(
+    actor: AuthActor,
+    workspaceId: string,
+    body?: { idempotencyKey?: string },
+  ): Promise<{
+    created: boolean;
+    funds: PettyCashFundSummary[];
+    defaultFund: PettyCashFundSummary | null;
+  }> {
+    await this.access.requireFinanceManager(workspaceId, actor.userId);
+    const workspace = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
+    const kind = spaceKindForTemplate(workspace?.template);
+    if (!pettyCashAllowedForKind(kind)) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "ÙØ¶Ø§ÛŒ Ø´Ø®ØµÛŒ ØªÙ†Ø®ÙˆØ§Ù‡ Ù…Ø´ØªØ±Ú© Ù†Ø¯Ø§Ø±Ø¯",
+        status: 400,
+        code: "PETTY_CASH_PERSONAL_FORBIDDEN",
+      });
+    }
+    const existing = await this.listPettyCash(actor, workspaceId);
+    const active = existing.filter((f) => f.active);
+    if (active.length > 0) {
+      return {
+        created: false,
+        funds: existing,
+        defaultFund: active[0] ?? null,
+      };
+    }
+    if (this.mfa) await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
+    const labels = treasuryLabelsForKind(kind);
+    const fund = await this.ops.createFund(workspaceId, actor.userId, {
+      name: labels.defaultFundName,
+      custodianUserId: actor.userId,
+      openingBalanceMinor: "0",
+      idempotencyKey:
+        body?.idempotencyKey?.trim() ||
+        `ensure-default-petty:${workspaceId}`,
+    });
+    const summary = toFundSummary(fund, fund.openingBalanceMinor);
+    return {
+      created: true,
+      funds: [summary],
+      defaultFund: summary,
+    };
   }
 
   async createPettyCashMovement(
@@ -415,28 +695,37 @@ export class WorkspacePaymentsService {
     if (body.kind === "spend" && !body.expenseId?.trim()) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "برداشت تنخواه نیاز به خرج لینک‌شده دارد",
+        title: "Ø¨Ø±Ø¯Ø§Ø´Øª ØªÙ†Ø®ÙˆØ§Ù‡ Ù†ÛŒØ§Ø² Ø¨Ù‡ Ø®Ø±Ø¬ Ù„ÛŒÙ†Ú©â€ŒØ´Ø¯Ù‡ Ø¯Ø§Ø±Ø¯",
         status: 400,
         code: "PETTY_CASH_SPEND_NEEDS_EXPENSE",
         detail:
-          "برداشت تنخواه باید به خرج لینک شود — از spend-as-expense یا funding_source روی خرج استفاده کنید.",
+          "Ø¨Ø±Ø¯Ø§Ø´Øª ØªÙ†Ø®ÙˆØ§Ù‡ Ø¨Ø§ÛŒØ¯ Ø¨Ù‡ Ø®Ø±Ø¬ Ù„ÛŒÙ†Ú© Ø´ÙˆØ¯ â€” Ø§Ø² spend-as-expense ÛŒØ§ funding_source Ø±ÙˆÛŒ Ø®Ø±Ø¬ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ú©Ù†ÛŒØ¯.",
       });
     }
     const fund = await this.ops.getFund(workspaceId, fundId);
     if (!fund) {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
-        title: "صندوق تنخواه یافت نشد",
+        title: "ØµÙ†Ø¯ÙˆÙ‚ ØªÙ†Ø®ÙˆØ§Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯",
         status: 404,
       });
     }
-    const movements = await this.ops.listMovements(fundId);
+    if (!fund.active) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "ØµÙ†Ø¯ÙˆÙ‚ ØªÙ†Ø®ÙˆØ§Ù‡ Ø¨Ø³ØªÙ‡ Ø§Ø³Øª",
+        status: 400,
+        code: "PETTY_CASH_FUND_CLOSED",
+        detail: "Ø¨Ø±Ø§ÛŒ ÙˆØ§Ø±ÛŒØ²/Ø¨Ø±Ø¯Ø§Ø´ØªØŒ ØµÙ†Ø¯ÙˆÙ‚ Ø±Ø§ Ø¯ÙˆØ¨Ø§Ø±Ù‡ Ø¨Ø§Ø² Ú©Ù†ÛŒØ¯.",
+      });
+    }
+    const movements = await this.ops.listMovements(workspaceId, fundId);
     const balance = this.computeFundBalance(fund.openingBalanceMinor, movements);
     const delta = signedPettyCashDelta(body.kind, body.amountMinor);
     if (body.kind === "spend" && balance + delta < 0n) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "ماندهٔ تنخواه منفی می‌شود",
+        title: "Ù…Ø§Ù†Ø¯Ù‡Ù” ØªÙ†Ø®ÙˆØ§Ù‡ Ù…Ù†ÙÛŒ Ù…ÛŒâ€ŒØ´ÙˆØ¯",
         status: 400,
         code: "PETTY_CASH_INSUFFICIENT",
       });
@@ -444,13 +733,13 @@ export class WorkspacePaymentsService {
     if (body.kind === "adjust" && balance + delta < 0n) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "ماندهٔ تنخواه منفی می‌شود",
+        title: "Ù…Ø§Ù†Ø¯Ù‡Ù” ØªÙ†Ø®ÙˆØ§Ù‡ Ù…Ù†ÙÛŒ Ù…ÛŒâ€ŒØ´ÙˆØ¯",
         status: 400,
         code: "PETTY_CASH_INSUFFICIENT",
       });
     }
 
-    const movement = await this.ops.createMovement(fundId, actor.userId, {
+    const movement = await this.ops.createMovement(workspaceId, fundId, actor.userId, {
       ...body,
       occurredAt: body.occurredAt ?? new Date().toISOString(),
     });
@@ -473,7 +762,432 @@ export class WorkspacePaymentsService {
   }
 
   /**
-   * شارژ تنخواه با سهم اعضا: خرج مشترک (مانده) + حرکت topup لینک‌شده.
+   * Gift / donation to petty cash â€” fund balance only.
+   * No shared expense and no debt for other members.
+   * Any mutable member may gift; cashInBy defaults to actor.
+   */
+  async giftPettyCash(
+    actor: AuthActor,
+    workspaceId: string,
+    fundId: string,
+    body: GiftPettyCashRequest,
+  ): Promise<GiftPettyCashResponse> {
+    await this.access.requireMutableMember(workspaceId, actor.userId);
+    const cashInBy = body.cashInByUserId?.trim() || actor.userId;
+    await this.access.requireMember(workspaceId, cashInBy);
+
+    const workspace = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
+    const kind = spaceKindForTemplate(workspace?.template);
+    if (!pettyCashAllowedForKind(kind)) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "ÙØ¶Ø§ÛŒ Ø´Ø®ØµÛŒ ØªÙ†Ø®ÙˆØ§Ù‡ Ù…Ø´ØªØ±Ú© Ù†Ø¯Ø§Ø±Ø¯",
+        status: 400,
+        code: "PETTY_CASH_PERSONAL_FORBIDDEN",
+      });
+    }
+
+    const fund = await this.ops.getFund(workspaceId, fundId);
+    if (!fund || !fund.active) {
+      throw new NotFoundException({
+        type: "https://dang.local/problems/not-found",
+        title: "ØµÙ†Ø¯ÙˆÙ‚ ØªÙ†Ø®ÙˆØ§Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯",
+        status: 404,
+      });
+    }
+
+    const amount = BigInt(body.amountMinor);
+    if (amount <= 0n) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "Ù…Ø¨Ù„Øº Ù‡Ø¯ÛŒÙ‡ Ø¨Ø§ÛŒØ¯ Ù…Ø«Ø¨Øª Ø¨Ø§Ø´Ø¯",
+        status: 400,
+      });
+    }
+
+    const movements = await this.ops.listMovements(workspaceId, fundId);
+    const balance = this.computeFundBalance(fund.openingBalanceMinor, movements);
+    const baseNote =
+      body.note?.trim() || "هدیه به صندوق — بدون بدهی برای اعضا";
+    const occurredOnGift =
+      body.occurredAt?.trim().slice(0, 10) ||
+      new Date().toISOString().slice(0, 10);
+    const note = appendPettyCashNoteMeta(baseNote, {
+      cashInByUserId: cashInBy,
+      ledgerDate: /^\d{4}-\d{2}-\d{2}$/.test(occurredOnGift)
+        ? occurredOnGift
+        : undefined,
+    });
+
+    const movement = await this.ops.createMovement(workspaceId, fundId, actor.userId, {
+      kind: "gift",
+      amountMinor: body.amountMinor,
+      note,
+      occurredAt: body.occurredAt ?? new Date().toISOString(),
+      idempotencyKey: body.idempotencyKey,
+    });
+    const nextBalance = balance + amount;
+    const movementSummary = {
+      id: movement.id,
+      fundId: movement.fundId,
+      kind: movement.kind,
+      amountMinor: movement.amountMinor,
+      expenseId: movement.expenseId,
+      settlementId: movement.settlementId,
+      actorUserId: movement.actorUserId,
+      occurredAt: movement.occurredAt,
+      note: movement.note,
+      createdAt: movement.createdAt,
+    };
+
+    if (this.audit) {
+      await this.audit.append({
+        workspaceId,
+        actorUserId: actor.userId,
+        action: "petty_cash.gift",
+        targetType: "petty_cash_fund",
+        targetId: fundId,
+        result: "success",
+        metadata: {
+          movementId: movement.id,
+          amountMinor: body.amountMinor,
+          cashInByUserId: cashInBy,
+        },
+      });
+    }
+
+    return {
+      fund: toFundSummary(fund, nextBalance.toString()),
+      movement: movementSummary,
+      balanceMinor: nextBalance.toString(),
+    };
+  }
+
+  /**
+   * Member cash-in that raises fund balance AND credits the depositor's net
+   * by the full amount (expense paid by depositor, split only among others —
+   * or self-only when workspace has a single member).
+   */
+  async depositPettyCashMemberCredit(
+    actor: AuthActor,
+    workspaceId: string,
+    fundId: string,
+    body: {
+      amountMinor: string;
+      cashInByUserId?: string;
+      note?: string;
+      occurredOn?: string;
+      occurredAt?: string;
+      idempotencyKey: string;
+    },
+  ): Promise<TopupPettyCashFromMembersResponse> {
+    await this.access.requireMutableMember(workspaceId, actor.userId);
+    const cashInBy = body.cashInByUserId?.trim() || actor.userId;
+    await this.access.requireMember(workspaceId, cashInBy);
+
+    const workspace = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
+    const kind = spaceKindForTemplate(workspace?.template);
+    if (!pettyCashAllowedForKind(kind)) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "فضای شخصی تنخواه مشترک ندارد",
+        status: 400,
+        code: "PETTY_CASH_PERSONAL_FORBIDDEN",
+      });
+    }
+
+    const fund = await this.ops.getFund(workspaceId, fundId);
+    if (!fund || !fund.active) {
+      throw new NotFoundException({
+        type: "https://dang.local/problems/not-found",
+        title: "صندوق تنخواه یافت نشد",
+        status: 404,
+      });
+    }
+
+    const amount = BigInt(body.amountMinor);
+    if (amount <= 0n) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "مبلغ واریز باید مثبت باشد",
+        status: 400,
+      });
+    }
+
+    const members = (await this.iam.listMembers(workspaceId, actor.userId)) ?? [];
+    const ids = [
+      ...new Set(
+        members.filter((m) => !m.disabledAt).map((m) => m.userId),
+      ),
+    ];
+    if (!ids.includes(cashInBy)) {
+      ids.push(cashInBy);
+    }
+    if (ids.length === 0) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "عضوی برای ثبت اعتبار واریز نیست",
+        status: 400,
+      });
+    }
+
+    // Full credit to depositor: others share the expense; solo → self-only (net 0).
+    const others = ids.filter((id) => id !== cashInBy);
+    const participantUserIds = others.length > 0 ? others : [cashInBy];
+
+    const total = { amountMinor: body.amountMinor, currency: "IRR" as const };
+    let previewSplits: ExpenseSplitLine[];
+    try {
+      previewSplits = allocateExpenseSplit({
+        total,
+        splitMethod: "equal",
+        participantUserIds,
+      });
+    } catch (error: unknown) {
+      const code = error instanceof Error ? error.message : "SPLIT_ERROR";
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "تقسیم اعتبار واریز نامعتبر است",
+        status: 400,
+        detail: code,
+      });
+    }
+
+    const occurredOn =
+      body.occurredOn?.trim() ||
+      (body.occurredAt?.trim().slice(0, 10) ||
+        new Date().toISOString().slice(0, 10));
+    const title = `واریز صندوق — ${fund.name}`;
+    const baseNote =
+      body.note?.trim() ||
+      "واریز به صندوق: اعتبار واریزکننده (کاهش بدهی / افزایش بستانکاری)";
+    const note = appendPettyCashNoteMeta(baseNote, {
+      cashInByUserId: cashInBy,
+      ledgerDate: occurredOn,
+    });
+
+    const expense = await this.expenses.createDraft(actor, workspaceId, {
+      workspaceId,
+      title,
+      note,
+      total,
+      paidByUserId: cashInBy,
+      splitMethod: "equal",
+      participantUserIds,
+      occurredOn,
+      visibility: "shared",
+      requiresApproval: false,
+      commit: "auto",
+      idempotencyKey: body.idempotencyKey,
+    });
+
+    if (expense.status !== "posted") {
+      throw new ConflictException({
+        type: "https://dang.local/problems/conflict",
+        title: "خرج اعتبار واریز ثبت نشد",
+        status: 409,
+        code: "FUND_DEPOSIT_CREDIT_NOT_POSTED",
+        expenseId: expense.id,
+        expenseStatus: expense.status,
+      });
+    }
+
+    const movements = await this.ops.listMovements(workspaceId, fundId);
+    const balance = this.computeFundBalance(fund.openingBalanceMinor, movements);
+    const movement = await this.ops.createMovement(workspaceId, fundId, actor.userId, {
+      kind: "topup",
+      amountMinor: body.amountMinor,
+      expenseId: expense.id,
+      note,
+      occurredAt: body.occurredAt ?? `${occurredOn}T12:00:00.000Z`,
+      idempotencyKey: `${body.idempotencyKey}:topup`,
+    });
+    const nextBalance = balance + amount;
+
+    if (this.audit) {
+      await this.audit.append({
+        workspaceId,
+        actorUserId: actor.userId,
+        action: "petty_cash.deposit_credit",
+        targetType: "petty_cash_fund",
+        targetId: fundId,
+        result: "success",
+        metadata: {
+          movementId: movement.id,
+          expenseId: expense.id,
+          amountMinor: body.amountMinor,
+          cashInByUserId: cashInBy,
+        },
+      });
+    }
+
+    return {
+      fund: toFundSummary(fund, nextBalance.toString()),
+      expense,
+      movement: {
+        id: movement.id,
+        fundId: movement.fundId,
+        kind: movement.kind,
+        amountMinor: movement.amountMinor,
+        expenseId: movement.expenseId,
+        settlementId: movement.settlementId,
+        actorUserId: movement.actorUserId,
+        occurredAt: movement.occurredAt,
+        note: movement.note,
+        createdAt: movement.createdAt,
+      },
+      balanceMinor: nextBalance.toString(),
+      splits: expense.splits.length > 0 ? expense.splits : previewSplits,
+    };
+  }
+
+  /**
+   * Smart settle-pay: plan + optional write (settlement claim Â± fund gift).
+   * Live journal nets are truth; optional asOf only shapes suggestion / gift split.
+   */
+  async settlePay(
+    actor: AuthActor,
+    workspaceId: string,
+    body: SettlePayRequest,
+  ): Promise<SettlePayResponse> {
+    await this.access.requireMutableMember(workspaceId, actor.userId);
+    const counterparty = body.counterpartyUserId.trim();
+    if (counterparty === actor.userId) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "Ø·Ø±Ù Ù…Ù‚Ø§Ø¨Ù„ Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø®ÙˆØ¯ØªØ§Ù† Ø¨Ø§Ø´Ø¯",
+        status: 400,
+        code: "SETTLE_SELF",
+      });
+    }
+    await this.access.requireMember(workspaceId, counterparty);
+
+    const entries = await this.ledger.listForWorkspace(workspaceId, actor.userId);
+    const liveLines = computeBalancesFromJournal(entries);
+    const livePayer = netForUser(liveLines, actor.userId);
+    const liveCp = netForUser(liveLines, counterparty);
+
+    const suggestEntries =
+      body.asOf && /^\d{4}-\d{2}-\d{2}$/.test(body.asOf)
+        ? entries.filter((e) => journalAsOfDay(e) <= body.asOf!)
+        : entries;
+    const suggestLines = body.asOf
+      ? computeBalancesFromJournal(suggestEntries)
+      : liveLines;
+    const suggestPayer = netForUser(suggestLines, actor.userId);
+    const suggestCp = netForUser(suggestLines, counterparty);
+
+    let plan;
+    try {
+      plan = planSettlePay({
+        intent: body.intent,
+        payAmountMinor: body.amountMinor,
+        payerNetMinor: suggestPayer.toString(),
+        counterpartyNetMinor: suggestCp.toString(),
+      });
+    } catch {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "Ù…Ø¨Ù„Øº Ù¾Ø±Ø¯Ø§Ø®Øª Ù†Ø§Ù…Ø¹ØªØ¨Ø± Ø§Ø³Øª",
+        status: 400,
+      });
+    }
+
+    plan = {
+      ...plan,
+      payerNetAfterSettlementMinor: (
+        livePayer + BigInt(plan.settlementAmountMinor)
+      ).toString(),
+    };
+
+    const previewOnly = body.previewOnly === true;
+    if (previewOnly) {
+      return {
+        workspaceId,
+        previewOnly: true,
+        plan,
+        payerNetBeforeMinor: livePayer.toString(),
+        counterpartyNetBeforeMinor: liveCp.toString(),
+      };
+    }
+
+    let settlement: SettlePayResponse["settlement"];
+    let gift: GiftPettyCashResponse | undefined;
+
+    const settleAmt = BigInt(plan.settlementAmountMinor);
+    const giftAmt = BigInt(plan.giftAmountMinor);
+
+    // Gift first: if claim later fails, gift is already correct and idempotent to retry.
+    // Claim-first left orphaned claims when gift failed; cancel was best-effort only.
+    if (giftAmt > 0n) {
+      const fundId = body.fundId?.trim();
+      if (!fundId) {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/validation",
+          title: "Ø¨Ø±Ø§ÛŒ Ù‡Ø¯ÛŒÙ‡ Ø¨Ù‡ ØµÙ†Ø¯ÙˆÙ‚ØŒ fundId Ù„Ø§Ø²Ù… Ø§Ø³Øª",
+          status: 400,
+          code: "FUND_ID_REQUIRED_FOR_GIFT",
+        });
+      }
+      gift = await this.giftPettyCash(actor, workspaceId, fundId, {
+        amountMinor: plan.giftAmountMinor,
+        cashInByUserId: actor.userId,
+        note:
+          body.note?.trim() ||
+          (settleAmt > 0n
+            ? "Ù…Ø§Ø²Ø§Ø¯ Ù¾Ø±Ø¯Ø§Ø®Øª â†’ Ù‡Ø¯ÛŒÙ‡ Ø¨Ù‡ ØµÙ†Ø¯ÙˆÙ‚ (Ø¨Ø¯ÙˆÙ† Ø¨Ø¯Ù‡ÛŒ Ø§Ø¹Ø¶Ø§)"
+            : "Ù‡Ø¯ÛŒÙ‡ Ø¨Ù‡ ØµÙ†Ø¯ÙˆÙ‚ (Ø¨Ø¯ÙˆÙ† Ø¨Ø¯Ù‡ÛŒ Ø§Ø¹Ø¶Ø§)"),
+        idempotencyKey: `${body.idempotencyKey}:gift`,
+      });
+    }
+
+    if (settleAmt > 0n) {
+      settlement = await this.settlementsService.createClaim(actor, workspaceId, {
+        workspaceId,
+        fromUserId: actor.userId,
+        toUserId: counterparty,
+        amount: moneyIrr(plan.settlementAmountMinor),
+        note:
+          body.note?.trim() ||
+          (body.intent === "settle_and_fund_gift"
+            ? "ØªØ³ÙˆÛŒÙ‡ Ù‡ÙˆØ´Ù…Ù†Ø¯ (Ø¨Ø®Ø´ ØªØ³ÙˆÛŒÙ‡)"
+            : "ØªØ³ÙˆÛŒÙ‡ Ù‡ÙˆØ´Ù…Ù†Ø¯"),
+        idempotencyKey: `${body.idempotencyKey}:settle`,
+      });
+    }
+
+    if (this.audit) {
+      await this.audit.append({
+        workspaceId,
+        actorUserId: actor.userId,
+        action: "payments.settle_pay",
+        targetType: "workspace",
+        targetId: workspaceId,
+        result: "success",
+        metadata: {
+          intent: body.intent,
+          settlementId: settlement?.id ?? null,
+          giftMovementId: gift?.movement.id ?? null,
+          settlementAmountMinor: plan.settlementAmountMinor,
+          giftAmountMinor: plan.giftAmountMinor,
+          asOf: body.asOf ?? null,
+        },
+      });
+    }
+
+    return {
+      workspaceId,
+      previewOnly: false,
+      plan,
+      payerNetBeforeMinor: livePayer.toString(),
+      counterpartyNetBeforeMinor: liveCp.toString(),
+      settlement,
+      gift,
+    };
+  }
+
+  /**
+   * Ø´Ø§Ø±Ú˜ ØªÙ†Ø®ÙˆØ§Ù‡ Ø¨Ø§ Ø³Ù‡Ù… Ø§Ø¹Ø¶Ø§: Ø®Ø±Ø¬ Ù…Ø´ØªØ±Ú© (Ù…Ø§Ù†Ø¯Ù‡) + Ø­Ø±Ú©Øª topup Ù„ÛŒÙ†Ú©â€ŒØ´Ø¯Ù‡.
    */
   async topupPettyCashFromMembers(
     actor: AuthActor,
@@ -487,7 +1201,7 @@ export class WorkspacePaymentsService {
     if (!fund || !fund.active) {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
-        title: "صندوق تنخواه یافت نشد",
+        title: "ØµÙ†Ø¯ÙˆÙ‚ ØªÙ†Ø®ÙˆØ§Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯",
         status: 404,
       });
     }
@@ -498,7 +1212,7 @@ export class WorkspacePaymentsService {
       if (!memberIds.has(uid)) {
         throw new BadRequestException({
           type: "https://dang.local/problems/validation",
-          title: "شرکت‌کننده عضو فضای کاری نیست",
+          title: "Ø´Ø±Ú©Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡ Ø¹Ø¶Ùˆ ÙØ¶Ø§ÛŒ Ú©Ø§Ø±ÛŒ Ù†ÛŒØ³Øª",
           status: 400,
           code: "PARTICIPANT_NOT_MEMBER",
           detail: uid,
@@ -511,7 +1225,7 @@ export class WorkspacePaymentsService {
     if (!memberIds.has(paidByUserId)) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "پرداخت‌کننده عضو فضای کاری نیست",
+        title: "Ù¾Ø±Ø¯Ø§Ø®Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡ Ø¹Ø¶Ùˆ ÙØ¶Ø§ÛŒ Ú©Ø§Ø±ÛŒ Ù†ÛŒØ³Øª",
         status: 400,
         code: "PAYER_NOT_MEMBER",
       });
@@ -556,7 +1270,7 @@ export class WorkspacePaymentsService {
       const code = error instanceof Error ? error.message : "SPLIT_ERROR";
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "تقسیم شارژ صندوق نامعتبر است",
+        title: "ØªÙ‚Ø³ÛŒÙ… Ø´Ø§Ø±Ú˜ ØµÙ†Ø¯ÙˆÙ‚ Ù†Ø§Ù…Ø¹ØªØ¨Ø± Ø§Ø³Øª",
         status: 400,
         detail: code,
       });
@@ -564,12 +1278,12 @@ export class WorkspacePaymentsService {
 
     const occurredOn =
       body.occurredOn?.trim() || new Date().toISOString().slice(0, 10);
-    const title = `شارژ تنخواه — ${fund.name}`;
+    const title = `Ø´Ø§Ø±Ú˜ ØªÙ†Ø®ÙˆØ§Ù‡ â€” ${fund.name}`;
 
     const expense = await this.expenses.createDraft(actor, workspaceId, {
       workspaceId,
       title,
-      note: body.note?.trim() || "شارژ صندوق تنخواه از سهم اعضا",
+      note: body.note?.trim() || "Ø´Ø§Ø±Ú˜ ØµÙ†Ø¯ÙˆÙ‚ ØªÙ†Ø®ÙˆØ§Ù‡ Ø§Ø² Ø³Ù‡Ù… Ø§Ø¹Ø¶Ø§",
       total,
       paidByUserId,
       splitMethod,
@@ -593,11 +1307,11 @@ export class WorkspacePaymentsService {
     if (expense.status !== "posted") {
       throw new ConflictException({
         type: "https://dang.local/problems/conflict",
-        title: "خرج شارژ صندوق ثبت نشد",
+        title: "Ø®Ø±Ø¬ Ø´Ø§Ø±Ú˜ ØµÙ†Ø¯ÙˆÙ‚ Ø«Ø¨Øª Ù†Ø´Ø¯",
         status: 409,
         code: "FUND_TOPUP_NOT_POSTED",
         detail:
-          "خرج شارژ تنخواه ثبت نهایی نشد؛ صندوق افزایش داده نشد تا مانده و سهم‌ها جدا نمانند.",
+          "Ø®Ø±Ø¬ Ø´Ø§Ø±Ú˜ ØªÙ†Ø®ÙˆØ§Ù‡ Ø«Ø¨Øª Ù†Ù‡Ø§ÛŒÛŒ Ù†Ø´Ø¯Ø› ØµÙ†Ø¯ÙˆÙ‚ Ø§ÙØ²Ø§ÛŒØ´ Ø¯Ø§Ø¯Ù‡ Ù†Ø´Ø¯ ØªØ§ Ù…Ø§Ù†Ø¯Ù‡ Ùˆ Ø³Ù‡Ù…â€ŒÙ‡Ø§ Ø¬Ø¯Ø§ Ù†Ù…Ø§Ù†Ù†Ø¯.",
         expenseId: expense.id,
         expenseStatus: expense.status,
       });
@@ -631,7 +1345,7 @@ export class WorkspacePaymentsService {
   }
 
   /**
-   * برداشت از تنخواه با سهم: خرج مشترک (funding=petty_cash) + حرکت spend.
+   * Ø¨Ø±Ø¯Ø§Ø´Øª Ø§Ø² ØªÙ†Ø®ÙˆØ§Ù‡ Ø¨Ø§ Ø³Ù‡Ù…: Ø®Ø±Ø¬ Ù…Ø´ØªØ±Ú© (funding=petty_cash) + Ø­Ø±Ú©Øª spend.
    */
   async spendPettyCashAsExpense(
     actor: AuthActor,
@@ -645,18 +1359,18 @@ export class WorkspacePaymentsService {
     if (!fund || !fund.active) {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
-        title: "صندوق تنخواه یافت نشد",
+        title: "ØµÙ†Ø¯ÙˆÙ‚ ØªÙ†Ø®ÙˆØ§Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯",
         status: 404,
       });
     }
 
-    const movements = await this.ops.listMovements(fundId);
+    const movements = await this.ops.listMovements(workspaceId, fundId);
     const balance = this.computeFundBalance(fund.openingBalanceMinor, movements);
     const amount = BigInt(body.amountMinor);
     if (balance < amount) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "ماندهٔ تنخواه منفی می‌شود",
+        title: "Ù…Ø§Ù†Ø¯Ù‡Ù” ØªÙ†Ø®ÙˆØ§Ù‡ Ù…Ù†ÙÛŒ Ù…ÛŒâ€ŒØ´ÙˆØ¯",
         status: 400,
         code: "PETTY_CASH_INSUFFICIENT",
       });
@@ -668,7 +1382,7 @@ export class WorkspacePaymentsService {
       if (!memberIds.has(uid)) {
         throw new BadRequestException({
           type: "https://dang.local/problems/validation",
-          title: "شرکت‌کننده عضو فضای کاری نیست",
+          title: "Ø´Ø±Ú©Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡ Ø¹Ø¶Ùˆ ÙØ¶Ø§ÛŒ Ú©Ø§Ø±ÛŒ Ù†ÛŒØ³Øª",
           status: 400,
           code: "PARTICIPANT_NOT_MEMBER",
           detail: uid,
@@ -681,7 +1395,7 @@ export class WorkspacePaymentsService {
     if (!memberIds.has(paidByUserId)) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "پرداخت‌کننده عضو فضای کاری نیست",
+        title: "Ù¾Ø±Ø¯Ø§Ø®Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡ Ø¹Ø¶Ùˆ ÙØ¶Ø§ÛŒ Ú©Ø§Ø±ÛŒ Ù†ÛŒØ³Øª",
         status: 400,
         code: "PAYER_NOT_MEMBER",
       });
@@ -726,7 +1440,7 @@ export class WorkspacePaymentsService {
       const code = error instanceof Error ? error.message : "SPLIT_ERROR";
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "تقسیم برداشت صندوق نامعتبر است",
+        title: "ØªÙ‚Ø³ÛŒÙ… Ø¨Ø±Ø¯Ø§Ø´Øª ØµÙ†Ø¯ÙˆÙ‚ Ù†Ø§Ù…Ø¹ØªØ¨Ø± Ø§Ø³Øª",
         status: 400,
         detail: code,
       });
@@ -734,12 +1448,12 @@ export class WorkspacePaymentsService {
 
     const occurredOn =
       body.occurredOn?.trim() || new Date().toISOString().slice(0, 10);
-    const title = body.title?.trim() || `برداشت تنخواه — ${fund.name}`;
+    const title = body.title?.trim() || `Ø¨Ø±Ø¯Ø§Ø´Øª ØªÙ†Ø®ÙˆØ§Ù‡ â€” ${fund.name}`;
 
     const expense = await this.expenses.createDraft(actor, workspaceId, {
       workspaceId,
       title,
-      note: body.note?.trim() || "خرید از صندوق تنخواه",
+      note: body.note?.trim() || "Ø®Ø±ÛŒØ¯ Ø§Ø² ØµÙ†Ø¯ÙˆÙ‚ ØªÙ†Ø®ÙˆØ§Ù‡",
       total,
       paidByUserId,
       splitMethod,
@@ -765,11 +1479,11 @@ export class WorkspacePaymentsService {
     if (expense.status !== "posted") {
       throw new ConflictException({
         type: "https://dang.local/problems/conflict",
-        title: "خرج برداشت صندوق ثبت نشد",
+        title: "Ø®Ø±Ø¬ Ø¨Ø±Ø¯Ø§Ø´Øª ØµÙ†Ø¯ÙˆÙ‚ Ø«Ø¨Øª Ù†Ø´Ø¯",
         status: 409,
         code: "FUND_SPEND_NOT_POSTED",
         detail:
-          "خرج برداشت تنخواه ثبت نهایی نشد؛ موجودی صندوق کم نشد تا دفتر و صندوق جدا نمانند.",
+          "Ø®Ø±Ø¬ Ø¨Ø±Ø¯Ø§Ø´Øª ØªÙ†Ø®ÙˆØ§Ù‡ Ø«Ø¨Øª Ù†Ù‡Ø§ÛŒÛŒ Ù†Ø´Ø¯Ø› Ù…ÙˆØ¬ÙˆØ¯ÛŒ ØµÙ†Ø¯ÙˆÙ‚ Ú©Ù… Ù†Ø´Ø¯ ØªØ§ Ø¯ÙØªØ± Ùˆ ØµÙ†Ø¯ÙˆÙ‚ Ø¬Ø¯Ø§ Ù†Ù…Ø§Ù†Ù†Ø¯.",
         expenseId: expense.id,
         expenseStatus: expense.status,
       });
@@ -777,7 +1491,7 @@ export class WorkspacePaymentsService {
 
     // funding_source on createDraft/post should already have debited the fund;
     // create a linked spend only if that path did not run (e.g. older test stubs).
-    let movement = (await this.ops.listMovements(fundId)).find(
+    let movement = (await this.ops.listMovements(workspaceId, fundId)).find(
       (m) => m.expenseId === expense.id && m.kind === "spend",
     );
     let balanceMinor: string;
@@ -797,7 +1511,7 @@ export class WorkspacePaymentsService {
       movement = movementResult.movement;
       balanceMinor = movementResult.balanceMinor;
     } else {
-      const all = await this.ops.listMovements(fundId);
+      const all = await this.ops.listMovements(workspaceId, fundId);
       balanceMinor = this.computeFundBalance(
         fund.openingBalanceMinor,
         all,
@@ -829,17 +1543,17 @@ export class WorkspacePaymentsService {
     if (!fund || !fund.active) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "صندوق تأمین تنخواه یافت نشد",
+        title: "ØµÙ†Ø¯ÙˆÙ‚ ØªØ£Ù…ÛŒÙ† ØªÙ†Ø®ÙˆØ§Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯",
         status: 400,
         code: "FUNDING_FUND_NOT_FOUND",
       });
     }
-    const movements = await this.ops.listMovements(fundId);
+    const movements = await this.ops.listMovements(workspaceId, fundId);
     const balance = this.computeFundBalance(fund.openingBalanceMinor, movements);
     if (balance < BigInt(amountMinor)) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "ماندهٔ تنخواه منفی می‌شود",
+        title: "Ù…Ø§Ù†Ø¯Ù‡Ù” ØªÙ†Ø®ÙˆØ§Ù‡ Ù…Ù†ÙÛŒ Ù…ÛŒâ€ŒØ´ÙˆØ¯",
         status: 400,
         code: "PETTY_CASH_INSUFFICIENT",
       });
@@ -847,7 +1561,7 @@ export class WorkspacePaymentsService {
   }
 
   /**
-   * After expense post with fundingSourceKind=petty_cash — debit the fund once.
+   * After expense post with fundingSourceKind=petty_cash â€” debit the fund once.
    * Uses ops directly so any member who can post the expense can fund from petty cash
    * (fund must exist and have balance).
    */
@@ -870,12 +1584,12 @@ export class WorkspacePaymentsService {
     if (!fund || !fund.active) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "صندوق تأمین تنخواه یافت نشد",
+        title: "ØµÙ†Ø¯ÙˆÙ‚ ØªØ£Ù…ÛŒÙ† ØªÙ†Ø®ÙˆØ§Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯",
         status: 400,
         code: "FUNDING_FUND_NOT_FOUND",
       });
     }
-    const existing = await this.ops.listMovements(fundId);
+    const existing = await this.ops.listMovements(workspaceId, fundId);
     const prior = existing.find(
       (m) => m.expenseId === expense.id && m.kind === "spend",
     );
@@ -886,26 +1600,78 @@ export class WorkspacePaymentsService {
     if (balance < amount) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "ماندهٔ تنخواه منفی می‌شود",
+        title: "Ù…Ø§Ù†Ø¯Ù‡Ù” ØªÙ†Ø®ÙˆØ§Ù‡ Ù…Ù†ÙÛŒ Ù…ÛŒâ€ŒØ´ÙˆØ¯",
         status: 400,
         code: "PETTY_CASH_INSUFFICIENT",
       });
     }
 
-    return this.ops.createMovement(fundId, actor.userId, {
+    return this.ops.createMovement(workspaceId, fundId, actor.userId, {
       kind: "spend",
       amountMinor: expense.total.amountMinor,
       expenseId: expense.id,
-      note: expense.title ? `خرج از تنخواه — ${expense.title}` : "خرج از تنخواه",
+      note: expense.title ? `Ø®Ø±Ø¬ Ø§Ø² ØªÙ†Ø®ÙˆØ§Ù‡ â€” ${expense.title}` : "Ø®Ø±Ø¬ Ø§Ø² ØªÙ†Ø®ÙˆØ§Ù‡",
       occurredAt: new Date().toISOString(),
       idempotencyKey: `funding-spend:${expense.id}`,
     });
   }
 
   /**
+   * After expense post with fundingSourceKind=credit â€” open a linked credit purchase
+   * (idempotent). Any member who can post the expense can trigger this; repayments
+   * stay finance-gated via createCreditPurchasePayment.
+   */
+  async applyFundingCreditForPostedExpense(
+    actor: AuthActor,
+    workspaceId: string,
+    expense: {
+      id: string;
+      total: { amountMinor: string };
+      fundingSourceKind?: string;
+      title?: string;
+      occurredOn?: string;
+    },
+  ): Promise<CreditPurchaseSummary | null> {
+    if (expense.fundingSourceKind !== "credit") return null;
+    await this.access.requireMemberRole(workspaceId, actor.userId);
+
+    const existing = await this.ops.listCreditPurchases(workspaceId);
+    const prior = existing.find((p) => p.expenseId === expense.id);
+    if (prior) {
+      const payments = await this.ops.listCreditPayments(prior.id);
+      return toCreditSummary(prior, payments);
+    }
+
+    const purchasedAt = expense.occurredOn?.trim()
+      ? `${expense.occurredOn.trim()}T12:00:00.000Z`
+      : new Date().toISOString();
+    const due = new Date(purchasedAt);
+    if (Number.isNaN(due.getTime())) {
+      due.setTime(Date.now());
+    }
+    due.setUTCDate(due.getUTCDate() + 30);
+    const dueDate = due.toISOString().slice(0, 10);
+
+    const purchase = await this.ops.createCreditPurchase(
+      workspaceId,
+      actor.userId,
+      {
+        supplierRef: (expense.title?.trim() || "Ø®Ø±ÛŒØ¯ Ø§Ø¹ØªØ¨Ø§Ø±ÛŒ / Ù‚Ø³Ø·ÛŒ").slice(0, 200),
+        amountMinor: expense.total.amountMinor,
+        purchasedAt,
+        dueDate,
+        expenseId: expense.id,
+        note: "Ø«Ø¨Øª Ø®ÙˆØ¯Ú©Ø§Ø± Ø§Ø² Ù…Ù†Ø¨Ø¹ Ù¾Ø±Ø¯Ø§Ø®Øª Ø§Ø¹ØªØ¨Ø§Ø±ÛŒ Ø±ÙˆÛŒ Ø®Ø±Ø¬",
+        idempotencyKey: `funding-credit:${expense.id}`,
+      },
+    );
+    return toCreditSummary(purchase, []);
+  }
+
+  /**
    * When an expense is reversed, reverse linked petty-cash movements
-   * (topup→spend, spend→topup) so fund balance stays consistent with the ledger.
-   * Uses ops directly — caller already authorized expense.reverse.
+   * (topupâ†’spend, spendâ†’topup) so fund balance stays consistent with the ledger.
+   * Uses ops directly â€” caller already authorized expense.reverse.
    */
   async compensateMovementsForReversedExpense(
     actor: AuthActor,
@@ -915,7 +1681,7 @@ export class WorkspacePaymentsService {
     const funds = await this.ops.listFunds(workspaceId);
     const created: PettyCashMovementSummary[] = [];
     for (const fund of funds) {
-      const movements = await this.ops.listMovements(fund.id);
+      const movements = await this.ops.listMovements(workspaceId, fund.id);
       const linked = movements.filter((m) => m.expenseId === expenseId);
       for (const m of linked) {
         const alreadyCompensated = movements.some(
@@ -948,11 +1714,11 @@ export class WorkspacePaymentsService {
           amountMinor = `-${amountMinor}`;
         }
 
-        const movement = await this.ops.createMovement(fund.id, actor.userId, {
+        const movement = await this.ops.createMovement(workspaceId, fund.id, actor.userId, {
           kind: compensateKind,
           amountMinor,
           expenseId,
-          note: `جبران برگشت خرج (reverse:${m.id})`,
+          note: `Ø¬Ø¨Ø±Ø§Ù† Ø¨Ø±Ú¯Ø´Øª Ø®Ø±Ø¬ (reverse:${m.id})`,
           occurredAt: new Date().toISOString(),
           idempotencyKey:
             compensateKind === "adjust"
@@ -1005,7 +1771,7 @@ export class WorkspacePaymentsService {
     if (!purchase) {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
-        title: "خرید اعتباری یافت نشد",
+        title: "Ø®Ø±ÛŒØ¯ Ø§Ø¹ØªØ¨Ø§Ø±ÛŒ ÛŒØ§ÙØª Ù†Ø´Ø¯",
         status: 404,
       });
     }
@@ -1018,7 +1784,7 @@ export class WorkspacePaymentsService {
     if (next > BigInt(purchase.amountMinor)) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "مبلغ پرداخت بیش از خرید اعتباری است",
+        title: "Ù…Ø¨Ù„Øº Ù¾Ø±Ø¯Ø§Ø®Øª Ø¨ÛŒØ´ Ø§Ø² Ø®Ø±ÛŒØ¯ Ø§Ø¹ØªØ¨Ø§Ø±ÛŒ Ø§Ø³Øª",
         status: 400,
         code: "CREDIT_OVERPAY",
       });
@@ -1071,7 +1837,7 @@ export class WorkspacePaymentsService {
     if (body.debtorUserId === body.payerUserId) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "بدهکار و پرداخت‌کننده باید متفاوت باشند",
+        title: "Ø¨Ø¯Ù‡Ú©Ø§Ø± Ùˆ Ù¾Ø±Ø¯Ø§Ø®Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡ Ø¨Ø§ÛŒØ¯ Ù…ØªÙØ§ÙˆØª Ø¨Ø§Ø´Ù†Ø¯",
         status: 400,
         code: "ON_BEHALF_SAME_PARTY",
       });
@@ -1088,14 +1854,14 @@ export class WorkspacePaymentsService {
       if (!settlement) {
         throw new NotFoundException({
           type: "https://dang.local/problems/not-found",
-          title: "تسویه یافت نشد",
+          title: "ØªØ³ÙˆÛŒÙ‡ ÛŒØ§ÙØª Ù†Ø´Ø¯",
           status: 404,
         });
       }
       if (settlement.fromUserId !== body.debtorUserId) {
         throw new BadRequestException({
           type: "https://dang.local/problems/validation",
-          title: "بدهکار تسویه مطابقت ندارد",
+          title: "Ø¨Ø¯Ù‡Ú©Ø§Ø± ØªØ³ÙˆÛŒÙ‡ Ù…Ø·Ø§Ø¨Ù‚Øª Ù†Ø¯Ø§Ø±Ø¯",
           status: 400,
           code: "ON_BEHALF_SETTLEMENT_DEBTOR",
         });
@@ -1103,7 +1869,7 @@ export class WorkspacePaymentsService {
       if (settlement.amount.amountMinor !== body.amountMinor) {
         throw new BadRequestException({
           type: "https://dang.local/problems/validation",
-          title: "مبلغ پرداخت به‌جای باید با تسویه برابر باشد",
+          title: "Ù…Ø¨Ù„Øº Ù¾Ø±Ø¯Ø§Ø®Øª Ø¨Ù‡â€ŒØ¬Ø§ÛŒ Ø¨Ø§ÛŒØ¯ Ø¨Ø§ ØªØ³ÙˆÛŒÙ‡ Ø¨Ø±Ø§Ø¨Ø± Ø¨Ø§Ø´Ø¯",
           status: 400,
           code: "ON_BEHALF_AMOUNT_MISMATCH",
         });
@@ -1124,7 +1890,7 @@ export class WorkspacePaymentsService {
     if (!existing) {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
-        title: "پرداخت به‌جای یافت نشد",
+        title: "Ù¾Ø±Ø¯Ø§Ø®Øª Ø¨Ù‡â€ŒØ¬Ø§ÛŒ ÛŒØ§ÙØª Ù†Ø´Ø¯",
         status: 404,
         code: "ON_BEHALF_NOT_FOUND",
       });
@@ -1132,7 +1898,7 @@ export class WorkspacePaymentsService {
     if (existing.status !== "pending") {
       throw new ConflictException({
         type: "https://dang.local/problems/conflict",
-        title: "پرداخت به‌جای قبلاً بررسی شده",
+        title: "Ù¾Ø±Ø¯Ø§Ø®Øª Ø¨Ù‡â€ŒØ¬Ø§ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø¨Ø±Ø±Ø³ÛŒ Ø´Ø¯Ù‡",
         status: 409,
         code: "ON_BEHALF_ALREADY_REVIEWED",
       });
@@ -1143,7 +1909,7 @@ export class WorkspacePaymentsService {
     if (!isFinance && !isPayer) {
       throw new ForbiddenException({
         type: "https://dang.local/problems/forbidden",
-        title: "فقط مادرخرج یا تأمین‌کننده می‌تواند تأیید کند",
+        title: "ÙÙ‚Ø· Ù…Ø§Ø¯Ø±Ø®Ø±Ø¬ ÛŒØ§ ØªØ£Ù…ÛŒÙ†â€ŒÚ©Ù†Ù†Ø¯Ù‡ Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ ØªØ£ÛŒÛŒØ¯ Ú©Ù†Ø¯",
         status: 403,
         code: "ON_BEHALF_UNAUTHORIZED",
       });
@@ -1158,7 +1924,7 @@ export class WorkspacePaymentsService {
     ) {
       throw new ForbiddenException({
         type: "https://dang.local/problems/forbidden",
-        title: "بدهکار نمی‌تواند پرداخت‌های بزرگ به‌جای خود را تأیید کند",
+        title: "Ø¨Ø¯Ù‡Ú©Ø§Ø± Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ù¾Ø±Ø¯Ø§Ø®Øªâ€ŒÙ‡Ø§ÛŒ Ø¨Ø²Ø±Ú¯ Ø¨Ù‡â€ŒØ¬Ø§ÛŒ Ø®ÙˆØ¯ Ø±Ø§ ØªØ£ÛŒÛŒØ¯ Ú©Ù†Ø¯",
         status: 403,
         code: "ON_BEHALF_DEBTOR_SELF_APPROVE",
       });
@@ -1170,7 +1936,7 @@ export class WorkspacePaymentsService {
         actorUserId: actor.userId,
         makerUserId: existing.initiatedByUserId,
         amountMinor: existing.amount.amountMinor,
-        actionLabel: "پرداخت از حساب دیگری",
+        actionLabel: "Ù¾Ø±Ø¯Ø§Ø®Øª Ø§Ø² Ø­Ø³Ø§Ø¨ Ø¯ÛŒÚ¯Ø±ÛŒ",
       });
       const tierGate = await this.makerChecker.applyTierGate({
         workspaceId,
@@ -1201,14 +1967,14 @@ export class WorkspacePaymentsService {
       if (!settlement) {
         throw new NotFoundException({
           type: "https://dang.local/problems/not-found",
-          title: "تسویهٔ متصل یافت نشد",
+          title: "ØªØ³ÙˆÛŒÙ‡Ù” Ù…ØªØµÙ„ ÛŒØ§ÙØª Ù†Ø´Ø¯",
           status: 404,
         });
       }
       if (settlement.amount.amountMinor !== existing.amount.amountMinor) {
         throw new BadRequestException({
           type: "https://dang.local/problems/validation",
-          title: "مبلغ پرداخت به‌جای باید با تسویه برابر باشد",
+          title: "Ù…Ø¨Ù„Øº Ù¾Ø±Ø¯Ø§Ø®Øª Ø¨Ù‡â€ŒØ¬Ø§ÛŒ Ø¨Ø§ÛŒØ¯ Ø¨Ø§ ØªØ³ÙˆÛŒÙ‡ Ø¨Ø±Ø§Ø¨Ø± Ø¨Ø§Ø´Ø¯",
           status: 400,
           code: "ON_BEHALF_AMOUNT_MISMATCH",
         });
@@ -1224,7 +1990,7 @@ export class WorkspacePaymentsService {
       } else if (settlement.status !== "confirmed") {
         throw new BadRequestException({
           type: "https://dang.local/problems/validation",
-          title: "تسویهٔ لینک‌شده قابل تأیید نیست",
+          title: "ØªØ³ÙˆÛŒÙ‡Ù” Ù„ÛŒÙ†Ú©â€ŒØ´Ø¯Ù‡ Ù‚Ø§Ø¨Ù„ ØªØ£ÛŒÛŒØ¯ Ù†ÛŒØ³Øª",
           status: 400,
         });
       }
@@ -1313,7 +2079,7 @@ export class WorkspacePaymentsService {
     if (!existing) {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
-        title: "پرداخت به‌جای یافت نشد",
+        title: "Ù¾Ø±Ø¯Ø§Ø®Øª Ø¨Ù‡â€ŒØ¬Ø§ÛŒ ÛŒØ§ÙØª Ù†Ø´Ø¯",
         status: 404,
         code: "ON_BEHALF_NOT_FOUND",
       });
@@ -1323,7 +2089,7 @@ export class WorkspacePaymentsService {
     if (!isFinance && !isPayer) {
       throw new ForbiddenException({
         type: "https://dang.local/problems/forbidden",
-        title: "فقط مادرخرج یا تأمین‌کننده می‌تواند رد کند",
+        title: "ÙÙ‚Ø· Ù…Ø§Ø¯Ø±Ø®Ø±Ø¬ ÛŒØ§ ØªØ£Ù…ÛŒÙ†â€ŒÚ©Ù†Ù†Ø¯Ù‡ Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø±Ø¯ Ú©Ù†Ø¯",
         status: 403,
         code: "ON_BEHALF_UNAUTHORIZED",
       });
@@ -1359,7 +2125,7 @@ export class WorkspacePaymentsService {
     if (!/^[0-9]{4}$/.test(destLast4)) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "فقط ۴ رقم آخر حساب/کارت مقصد مجاز است",
+        title: "ÙÙ‚Ø· Û´ Ø±Ù‚Ù… Ø¢Ø®Ø± Ø­Ø³Ø§Ø¨/Ú©Ø§Ø±Øª Ù…Ù‚ØµØ¯ Ù…Ø¬Ø§Ø² Ø§Ø³Øª",
         status: 400,
       });
     }
@@ -1388,7 +2154,7 @@ export class WorkspacePaymentsService {
 
     throw new ForbiddenException({
       type: "https://dang.local/problems/forbidden",
-      title: "فقط مدیر مالی یا طلبکار تسویه می‌تواند فیش را بررسی کند",
+      title: "ÙÙ‚Ø· Ù…Ø¯ÛŒØ± Ù…Ø§Ù„ÛŒ ÛŒØ§ Ø·Ù„Ø¨Ú©Ø§Ø± ØªØ³ÙˆÛŒÙ‡ Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ ÙÛŒØ´ Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ú©Ù†Ø¯",
       status: 403,
       code: "RECEIPT_REVIEW_UNAUTHORIZED",
     });
@@ -1412,7 +2178,7 @@ export class WorkspacePaymentsService {
     if (detail === "RECEIPT_ALREADY_REVIEWED") {
       throw new ConflictException({
         type: "https://dang.local/problems/conflict",
-        title: "رسید قبلاً بررسی شده",
+        title: "Ø±Ø³ÛŒØ¯ Ù‚Ø¨Ù„Ø§Ù‹ Ø¨Ø±Ø±Ø³ÛŒ Ø´Ø¯Ù‡",
         status: 409,
         code: "RECEIPT_ALREADY_REVIEWED",
       });
@@ -1420,7 +2186,7 @@ export class WorkspacePaymentsService {
     if (detail === "RECEIPT_NOT_FOUND") {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
-        title: "رسید یافت نشد",
+        title: "Ø±Ø³ÛŒØ¯ ÛŒØ§ÙØª Ù†Ø´Ø¯",
         status: 404,
         code: "RECEIPT_NOT_FOUND",
       });
@@ -1433,7 +2199,7 @@ export class WorkspacePaymentsService {
     if (detail === "ON_BEHALF_ALREADY_REVIEWED") {
       throw new ConflictException({
         type: "https://dang.local/problems/conflict",
-        title: "پرداخت به‌جای قبلاً بررسی شده",
+        title: "Ù¾Ø±Ø¯Ø§Ø®Øª Ø¨Ù‡â€ŒØ¬Ø§ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø¨Ø±Ø±Ø³ÛŒ Ø´Ø¯Ù‡",
         status: 409,
         code: "ON_BEHALF_ALREADY_REVIEWED",
       });
@@ -1441,7 +2207,7 @@ export class WorkspacePaymentsService {
     if (detail === "ON_BEHALF_NOT_FOUND") {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
-        title: "پرداخت به‌جای یافت نشد",
+        title: "Ù¾Ø±Ø¯Ø§Ø®Øª Ø¨Ù‡â€ŒØ¬Ø§ÛŒ ÛŒØ§ÙØª Ù†Ø´Ø¯",
         status: 404,
         code: "ON_BEHALF_NOT_FOUND",
       });

@@ -2,11 +2,17 @@ import {
   isOcrLive,
   isOcrHttpConfigured,
 } from "@dang/config";
-import { runStubOcr, type OcrReceiptResult } from "@dang/contracts";
+import {
+  normalizeOcrReceiptDate,
+  normalizeOcrReceiptLines,
+  normalizeOcrReceiptTax,
+  runStubOcr,
+  type OcrReceiptResult,
+} from "@dang/contracts";
 
 /**
  * OCR provider adapter: stub by default; HTTP JSON endpoint when OCR_ENABLED=1.
- * Expected response: { merchantHint?, amountMinorHint?, rawTextPreview?, status? }
+ * Expected response: merchantHint, amountMinorHint, lineItems, taxMinor, occurredOn, rawTextPreview, status.
  */
 export async function runReceiptOcr(input: {
   attachmentId: string;
@@ -46,16 +52,33 @@ export async function runReceiptOcr(input: {
   const body = (await response.json()) as {
     merchantHint?: string;
     amountMinorHint?: string;
+    lineItems?: unknown;
+    taxMinor?: unknown;
+    tax?: unknown;
+    occurredOn?: unknown;
+    isoDate?: unknown;
+    date?: unknown;
     rawTextPreview?: string;
     status?: "completed" | "failed" | "skipped";
   };
+  const status = body.status ?? "completed";
+  const completed = status === "completed";
   return {
     attachmentId: input.attachmentId,
     workspaceId: input.workspaceId,
     jobId: input.jobId,
-    status: body.status ?? "completed",
-    merchantHint: body.merchantHint,
-    amountMinorHint: body.amountMinorHint,
+    status,
+    merchantHint: completed ? body.merchantHint : undefined,
+    amountMinorHint: completed ? body.amountMinorHint : undefined,
+    lineItems: completed ? normalizeOcrReceiptLines(body.lineItems) : undefined,
+    taxMinor: completed
+      ? (normalizeOcrReceiptTax(body.taxMinor) ?? normalizeOcrReceiptTax(body.tax))
+      : undefined,
+    occurredOn: completed
+      ? (normalizeOcrReceiptDate(body.occurredOn) ??
+        normalizeOcrReceiptDate(body.isoDate) ??
+        normalizeOcrReceiptDate(body.date))
+      : undefined,
     rawTextPreview: body.rawTextPreview,
     completedAt: new Date().toISOString(),
   };

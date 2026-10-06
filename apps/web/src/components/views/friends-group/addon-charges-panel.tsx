@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type { MembershipSummary, PersonalAddonChargeSummary } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import {
@@ -11,6 +11,13 @@ import {
   SectionCard,
   StatusPill,
 } from "@/components/ui-blocks";
+import {
+  RowSelectCheckbox,
+  SelectionActionBar,
+  rowSelectActivateProps,
+} from "@/components/selection/selection-action-bar";
+import { useRowSelection } from "@/components/selection/use-row-selection";
+import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { formatFaDateTime } from "@/lib/fa-datetime";
@@ -159,12 +166,17 @@ export function AddonChargesPanel({
   }
 
   const selected = charges.find((charge) => charge.id === selectedId) ?? null;
-  const canActOnSelected =
+  const chargeIds = useMemo(() => charges.map((c) => c.id), [charges]);
+  const selection = useRowSelection(chargeIds);
+  const barCharge =
+    selection.selectedCount === 1
+      ? (charges.find((c) => c.id === selection.selectedIds[0]) ?? null)
+      : null;
+  const canActOnBar =
     !readOnly &&
-    selected?.status === "pending_ack" &&
+    barCharge?.status === "pending_ack" &&
     actorUserId &&
-    (actorUserId === selected.targetMemberUserId ||
-      actorUserId === selected.createdByUserId);
+    actorUserId === barCharge.targetMemberUserId;
 
   return (
     <SectionCard
@@ -224,53 +236,91 @@ export function AddonChargesPanel({
         <EmptyHint>هنوز اضافه‌ای ثبت نشده.</EmptyHint>
       ) : (
         <div className={styles.masterDetail}>
+          <div>
+          <SelectionActionBar
+            selectedCount={selection.selectedCount}
+            idleHint="روی ردیف کلیک کنید یا مربع کنارش را تیک بزنید"
+            onClear={selection.clear}
+          >
+            <button
+              type="button"
+              disabled={!barCharge}
+              onClick={() => barCharge && setSelectedId(barCharge.id)}
+            >
+              جزئیات
+            </button>
+            {canActOnBar ? (
+              <>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    if (!barCharge) return;
+                    onConfirm(barCharge.id);
+                    selection.clear();
+                  }}
+                >
+                  تأیید
+                </button>
+                <button
+                  type="button"
+                  className={selStyles.danger}
+                  disabled={pending}
+                  onClick={() => {
+                    if (!barCharge) return;
+                    onDispute(barCharge.id);
+                    selection.clear();
+                  }}
+                >
+                  اعتراض
+                </button>
+              </>
+            ) : null}
+          </SelectionActionBar>
           <DataList>
             {charges.map((charge) => (
               <div
                 key={charge.id}
-                className={charge.id === selectedId ? styles.selectedRow : undefined}
+                className={[
+                  selStyles.selectableRow,
+                  charge.id === selectedId ? styles.selectedRow : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                {...rowSelectActivateProps({
+                  onActivate: () => {
+                    if (selection.isSelected(charge.id)) selection.clear();
+                    else {
+                      selection.selectOnly(charge.id);
+                      setSelectedId(charge.id);
+                    }
+                  },
+                })}
               >
                 <DataRow
-                  title={charge.title}
-                  meta={`${memberName(charge.targetMemberUserId)} · ${statusFa[charge.status]}`}
-                  trailing={
-                    <>
-                      <Amount irrMinor={charge.amount.amountMinor} />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setSelectedId(charge.id)}
-                      >
-                        جزئیات
-                      </Button>
-                      {!readOnly &&
-                      charge.status === "pending_ack" &&
-                      actorUserId &&
-                      actorUserId === charge.targetMemberUserId ? (
-                        <span className="dataRowActions">
-                          <Button
-                            type="button"
-                            onClick={() => onConfirm(charge.id)}
-                            disabled={pending}
-                          >
-                            تأیید
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={() => onDispute(charge.id)}
-                            disabled={pending}
-                          >
-                            اعتراض
-                          </Button>
-                        </span>
-                      ) : null}
-                    </>
+                  title={
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      <RowSelectCheckbox
+                        checked={selection.isSelected(charge.id)}
+                        onChange={() => {
+                          if (selection.isSelected(charge.id)) selection.clear();
+                          else {
+                            selection.selectOnly(charge.id);
+                            setSelectedId(charge.id);
+                          }
+                        }}
+                        label={`انتخاب ${charge.title}`}
+                      />
+                      {charge.title}
+                    </span>
                   }
+                  meta={`${memberName(charge.targetMemberUserId)} · ${statusFa[charge.status]}`}
+                  trailing={<Amount irrMinor={charge.amount.amountMinor} />}
                 />
               </div>
             ))}
           </DataList>
+          </div>
 
           <aside className={styles.inspector} aria-label="جزئیات اضافه انتخاب‌شده">
             {selected ? (
@@ -317,25 +367,6 @@ export function AddonChargesPanel({
                     <dd>{selected.note?.trim() || "ثبت نشده"}</dd>
                   </div>
                 </dl>
-                {canActOnSelected && actorUserId === selected.targetMemberUserId ? (
-                  <div className={styles.inspectorActions}>
-                    <Button
-                      type="button"
-                      onClick={() => onConfirm(selected.id)}
-                      disabled={pending}
-                    >
-                      تأیید
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => onDispute(selected.id)}
-                      disabled={pending}
-                    >
-                      اعتراض
-                    </Button>
-                  </div>
-                ) : null}
                 {readOnly ? (
                   <p className="liveHint">نقش فقط‌خواندنی — اقدام تغییر غیرفعال است.</p>
                 ) : null}

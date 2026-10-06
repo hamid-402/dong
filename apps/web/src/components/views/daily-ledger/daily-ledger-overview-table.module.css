@@ -1,0 +1,419 @@
+.root {
+  display: grid;
+  gap: clamp(8px, 1.5vw, 12px);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.scroll {
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 50%, transparent) transparent;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  border-radius: clamp(10px, 1.5vw, 14px);
+  background: var(--surface);
+  max-width: 100%;
+  max-height: min(42rem, max(16rem, calc(100dvh - 18rem - env(safe-area-inset-bottom, 0px))));
+}
+
+.table {
+  display: block;
+  width: 100%;
+  font-size: clamp(0.84rem, 2vw, 0.92rem);
+}
+
+.table thead,
+.table tbody {
+  display: block;
+  width: 100%;
+}
+
+.table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: color-mix(in srgb, var(--surface-2, var(--surface)) 78%, var(--surface));
+}
+
+.table tr {
+  display: grid;
+  grid-template-columns:
+    minmax(9rem, 1.6fr)
+    minmax(5.5rem, 0.8fr)
+    minmax(7rem, 1fr)
+    minmax(7rem, 1fr)
+    minmax(4rem, 0.55fr)
+    auto;
+  align-items: center;
+  width: 100%;
+}
+
+.table th,
+.table td {
+  padding: clamp(10px, 1.8vw, 14px) clamp(10px, 1.8vw, 16px);
+  text-align: start;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  vertical-align: middle;
+  min-width: 0;
+}
+
+.table thead th {
+  position: static;
+  font-size: clamp(0.66rem, 1.6vw, 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface-2, var(--surface)) 78%, var(--surface));
+  white-space: nowrap;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--line) 80%, transparent);
+}
+
+.moreAbove .table thead {
+  box-shadow: 0 10px 16px color-mix(in srgb, #020617 28%, transparent);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.row {
+  cursor: pointer;
+}
+
+.row:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  outline-offset: -2px;
+}
+
+.table tbody tr:hover {
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+.noteHint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  max-width: min(16rem, 48vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dockFooter .footer {
+  padding: 0;
+}
+
+.dockFooter {
+  margin-top: -6px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  border-top: 0;
+  border-radius: 0 0 clamp(10px, 1.5vw, 14px) clamp(10px, 1.5vw, 14px);
+  background: color-mix(in srgb, var(--surface-2, var(--surface)) 78%, var(--surface));
+}
+
+.scroll {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.moreBelow {
+  box-shadow: inset 0 -14px 16px -12px color-mix(in srgb, #020617 55%, transparent);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  text-align: end !important;
+  white-space: nowrap;
+}
+
+.actions {
+  text-align: end !important;
+  width: 1%;
+  white-space: nowrap;
+}
+
+.dayBtn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+}
+
+.dayBtn:hover .jalali {
+  color: var(--primary);
+}
+
+.weekday {
+  font-weight: 700;
+  min-width: 2.5rem;
+}
+
+.jalali {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.todayMark {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--primary);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--line));
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.relatedMark {
+  display: inline-block;
+  margin-inline-start: 4px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.today td,
+.today {
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+
+.holiday td,
+.holiday {
+  opacity: 0.9;
+}
+
+.locked td {
+  opacity: 0.85;
+}
+
+.statusBtn {
+  margin: 0;
+  padding: 4px 8px;
+  min-height: 36px;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.detailBtn {
+  margin: 0;
+  padding: 8px 12px;
+  min-height: 36px;
+  border: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.detailBtn:hover {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.cardList {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 8px;
+  max-height: min(42rem, max(16rem, calc(100dvh - 16rem - env(safe-area-inset-bottom, 0px))));
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 50%, transparent) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dayCard {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.dayCard:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.dayCardMain {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  width: 100%;
+}
+
+.dayCardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dayCardHead strong {
+  font-size: clamp(0.88rem, 3.4vw, 1rem);
+}
+
+.dayCardMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.dayCardMetrics b {
+  display: block;
+  margin-top: 2px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.dayCardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 14px;
+  padding: 12px 4px 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.footerNums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mobileFooter {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .hideMd {
+    display: none;
+  }
+
+  .table tr {
+    grid-template-columns:
+      minmax(8rem, 1.5fr)
+      minmax(5.5rem, 0.8fr)
+      minmax(6.5rem, 1fr)
+      minmax(6.5rem, 1fr)
+      auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .hideSm {
+    display: none;
+  }
+
+  .table tr {
+    grid-template-columns: minmax(7.5rem, 1.5fr) minmax(5rem, 0.7fr) minmax(6rem, 1fr) auto;
+  }
+
+  .table th,
+  .table td {
+    padding: 10px 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  .scroll,
+  .dockFooter {
+    display: none;
+  }
+
+  .cardList {
+    display: grid;
+  }
+
+  .mobileFooter {
+    display: block;
+  }
+
+  .dayCardMetrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 380px) {
+  .dayCardMetrics {
+    grid-template-columns: 1fr;
+  }
+
+  .dayCardActions {
+    flex-direction: column;
+  }
+
+  .dayCardActions > * {
+    width: 100%;
+  }
+}

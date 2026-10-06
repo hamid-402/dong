@@ -29,6 +29,11 @@ export type ProductFeatureFlags = {
   makerChecker: boolean;
   /** Require receipt or cash-ack evidence on settlement confirm. */
   settlementEvidence: boolean;
+  /**
+   * Petty-cash fund is a journal settlement party (`fund:{id}`).
+   * Spend-from-fund → members owe fund; personal advance → fund clearing + reimbursable payer.
+   */
+  fundAsSettlementParty: boolean;
 };
 
 export const PRODUCT_FLAG_ENV = {
@@ -50,6 +55,7 @@ export const PRODUCT_FLAG_ENV = {
   approvalSteps: "ENABLE_APPROVAL_STEPS",
   makerChecker: "ENABLE_MAKER_CHECKER",
   settlementEvidence: "ENABLE_SETTLEMENT_EVIDENCE",
+  fundAsSettlementParty: "ENABLE_FUND_AS_SETTLEMENT_PARTY",
 } as const;
 
 function parseTriState(
@@ -131,6 +137,10 @@ export function readProductFeatureFlags(
       // Opt-in until confirm UI always sends evidence (avoids breaking store-level flows).
       env[PRODUCT_FLAG_ENV.settlementEvidence],
       false,
+    ),
+    fundAsSettlementParty: parseTriState(
+      env[PRODUCT_FLAG_ENV.fundAsSettlementParty],
+      unsetDefault,
     ),
   };
 }

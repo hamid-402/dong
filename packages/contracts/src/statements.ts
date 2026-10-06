@@ -1,4 +1,5 @@
 import type { ExpenseSummary, SplitMethod } from "./finance.js";
+import { statementFundingNoteFa } from "./finance.js";
 import { weekdayFaSatFirst, weekdayUtc } from "./daily-ledger.js";
 import { actorExpenseSlice, sumActorExpensesInRange } from "./personal-finance.js";
 
@@ -16,8 +17,8 @@ export function parseMinorBigInt(
 /** Statement list granularity (S11-08). */
 export type StatementGranularity = "day" | "period";
 
-/** Export file formats — PDF is browser print, not a server format. */
-export type StatementExportFormat = "csv" | "json";
+/** Export file formats — PDF is formal HTML print pack (browser Save as PDF) or future binary. */
+export type StatementExportFormat = "csv" | "json" | "xlsx" | "html_print" | "pdf";
 
 export type StatementExportStatus = "pending" | "ready" | "failed";
 
@@ -63,6 +64,10 @@ export type StatementLine = {
   splitMethod: SplitMethod;
   /** Payer user id (expense.paidByUserId). */
   paidBy: string;
+  /** Funding source when present (petty_cash / personal / …). */
+  fundingSourceKind?: "petty_cash" | "personal" | "member" | "credit";
+  /** Transparent settlement note for this line (fund-party explain). */
+  fundingNoteFa?: string;
 };
 
 /**
@@ -126,6 +131,18 @@ export type CreateStatementExportRequest = {
   from: string;
   to: string;
   format: StatementExportFormat;
+};
+
+/** Workspace-wide statement pack (master + per-member sheets). */
+export type CreateStatementPackExportRequest = {
+  from: string;
+  to: string;
+  format: "xlsx" | "csv" | "html_print" | "pdf";
+  documentNo?: string;
+  kindDocumentTitle?: string;
+  letterheadNote?: string;
+  footerNote?: string;
+  sealLabel?: string;
 };
 
 export type StatementExportSummary = {
@@ -226,6 +243,8 @@ export function buildMemberStatementLines(
   }
 
   const paidBy = expense.paidByUserId;
+  const fundingSourceKind = expense.fundingSourceKind;
+  const fundingNoteFa = statementFundingNoteFa(expense, userId);
   const lines: StatementLine[] = [];
 
   if (
@@ -251,6 +270,8 @@ export function buildMemberStatementLines(
         expenseId: expense.id,
         splitMethod: expense.splitMethod,
         paidBy,
+        fundingSourceKind,
+        fundingNoteFa,
       });
     }
 
@@ -283,6 +304,8 @@ export function buildMemberStatementLines(
         expenseId: expense.id,
         splitMethod: expense.splitMethod,
         paidBy,
+        fundingSourceKind,
+        fundingNoteFa,
       });
     }
   } else {
@@ -301,6 +324,8 @@ export function buildMemberStatementLines(
       expenseId: expense.id,
       splitMethod: expense.splitMethod,
       paidBy,
+      fundingSourceKind,
+      fundingNoteFa,
     });
   }
 

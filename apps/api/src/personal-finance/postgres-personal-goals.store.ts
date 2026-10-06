@@ -1,9 +1,12 @@
 import {
   and,
+  allocationPlan,
   createDatabase,
   eq,
   incomeSource,
+  moneyIntent,
   monthlyClose,
+  paycheck,
   savingsGoal,
   savingsGoalContribution,
   spendingAlert,
@@ -11,18 +14,27 @@ import {
   type AppDatabase,
 } from "@dang/db";
 import {
+  assertAllocationPercents,
+  assertMoneyIntentPayload,
   enrichSavingsGoalSummary,
   irrMoney,
+  type AllocationPlanSummary,
   type CreateIncomeSourceRequest,
+  type CreateMoneyIntentRequest,
+  type CreatePaycheckRequest,
   type CreateSavingsGoalContributionRequest,
   type CreateSavingsGoalRequest,
   type IncomeSourceSummary,
+  type MoneyIntentSummary,
   type MonthlyCloseSummary,
+  type PaycheckSummary,
+  type PutAllocationPlanRequest,
   type PutSpendingAlertsRequest,
   type SavingsGoalContributionSummary,
   type SavingsGoalSummary,
   type SpendingAlertSummary,
   type UpdateIncomeSourceRequest,
+  type UpdateMoneyIntentRequest,
   type UpdateSavingsGoalRequest,
 } from "@dang/contracts";
 import type { PersonalGoalsStore } from "./personal-goals.types.js";
@@ -529,4 +541,312 @@ export class PostgresPersonalGoalsStore implements PersonalGoalsStore {
       return toClose(stored, row.empty, row.emptyReason);
     });
   }
+
+  private toMoneyIntent(row: typeof moneyIntent.$inferSelect): MoneyIntentSummary {
+    return {
+      id: row.id,
+      name: row.name,
+      kind: row.kind,
+      period: row.period,
+      targetMinor: row.targetMinor != null ? row.targetMinor.toString() : undefined,
+      targetPercent: row.targetPercent ?? undefined,
+      goalId: row.goalId ?? undefined,
+      active: row.active,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  listMoneyIntents(userId: string): Promise<MoneyIntentSummary[]> {
+    return withTenantContext(this.db, { userId }, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(moneyIntent)
+        .where(eq(moneyIntent.userId, userId));
+      return rows
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+        .map((r) => this.toMoneyIntent(r));
+    });
+  }
+
+  createMoneyIntent(
+    userId: string,
+    input: CreateMoneyIntentRequest,
+  ): Promise<MoneyIntentSummary> {
+    return withTenantContext(this.db, { userId }, async (tx) => {
+      const key = input.idempotencyKey?.trim();
+      if (!key) throw new Error("IDEMPOTENCY");
+      assertMoneyIntentPayload({
+        kind: input.kind,
+        name: input.name,
+        targetMinor: input.targetMinor,
+        targetPercent: input.targetPercent,
+        goalId: input.goalId,
+      });
+      const existing = await tx
+        .select()
+        .from(moneyIntent)
+        .where(and(eq(moneyIntent.userId, userId), eq(moneyIntent.idempotencyKey, key)));
+      if (existing[0]) return this.toMoneyIntent(existing[0]);
+      const [row] = await tx
+        .insert(moneyIntent)
+        .values({
+          userId,
+          name: input.name.trim(),
+          kind: input.kind,
+          period: input.period ?? "month",
+          targetMinor: input.targetMinor ? BigInt(input.targetMinor) : null,
+          targetPercent: input.targetPercent ?? null,
+          goalId: input.goalId ?? null,
+          active: input.active !== false,
+          idempotencyKey: key,
+        })
+        .returning();
+      if (!row) throw new Error("INTENT_NOT_FOUND");
+      return this.toMoneyIntent(row);
+    });
+  }
+
+  updateMoneyIntent(
+    userId: string,
+    intentId: string,
+    input: UpdateMoneyIntentRequest,
+  ): Promise<MoneyIntentSummary> {
+    return withTenantContext(this.db, { userId }, async (tx) => {
+      const existing = await tx
+        .select()
+        .from(moneyIntent)
+        .where(and(eq(moneyIntent.id, intentId), eq(moneyIntent.userId, userId)));
+      const row = existing[0];
+      if (!row) throw new Error("INTENT_NOT_FOUND");
+      const name = input.name !== undefined ? input.name.trim() : row.name;
+      const period = input.period ?? row.period;
+      const targetMinor =
+        input.targetMinor === null
+          ? null
+          : input.targetMinor !== undefined
+            ? BigInt(input.targetMinor)
+            : row.targetMinor;
+      const targetPercent =
+        input.targetPercent === null
+          ? null
+          : input.targetPercent !== undefined
+            ? input.targetPercent
+            : row.targetPercent;
+      const goalId =
+        input.goalId === null
+          ? null
+          : input.goalId !== undefined
+            ? input.goalId
+            : row.goalId;
+      const active = input.active !== undefined ? input.active : row.active;
+      assertMoneyIntentPayload({
+        kind: row.kind,
+        name,
+        targetMinor: targetMinor != null ? targetMinor.toString() : null,
+        targetPercent,
+        goalId,
+      });
+      const [updated] = await tx
+        .update(moneyIntent)
+        .set({
+          name,
+          period,
+          targetMinor,
+          targetPercent,
+          goalId,
+          active,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(moneyIntent.id, intentId), eq(moneyIntent.userId, userId)))
+        .returning();
+      if (!updated) throw new Error("INTENT_NOT_FOUND");
+      return this.toMoneyIntent(updated);
+    });
+  }
+
+  sumContributionsInRange(
+    userId: string,
+    from: string,
+    to: string,
+  ): Promise<bigint> {
+    return withTenantContext(this.db, { userId }, async (tx) => {
+      const goals = await tx
+        .select({ id: savingsGoal.id })
+        .from(savingsGoal)
+        .where(eq(savingsGoal.userId, userId));
+      if (goals.length === 0) return 0n;
+      const goalIds = new Set(goals.map((g) => g.id));
+      const rows = await tx.select().from(savingsGoalContribution);
+      let total = 0n;
+      for (const row of rows) {
+        if (!goalIds.has(row.goalId)) continue;
+        const day = row.occurredAt.toISOString().slice(0, 10);
+        if (day < from || day > to) continue;
+        total += row.amountMinor;
+      }
+      return total;
+    });
+  }
+
+  getAllocationPlan(userId: string): Promise<AllocationPlanSummary | null> {
+    return withTenantContext(this.db, { userId }, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(allocationPlan)
+        .where(eq(allocationPlan.userId, userId));
+      const row = rows[0];
+      if (!row) return null;
+      return {
+        userId,
+        percents: {
+          solo: row.soloPercent,
+          group: row.groupPercent,
+          building: row.buildingPercent,
+          org: row.orgPercent,
+          savings: row.savingsPercent,
+        },
+        updatedAt: row.updatedAt.toISOString(),
+      };
+    });
+  }
+
+  putAllocationPlan(
+    userId: string,
+    input: PutAllocationPlanRequest,
+  ): Promise<AllocationPlanSummary> {
+    return withTenantContext(this.db, { userId }, async (tx) => {
+      assertAllocationPercents(input.percents);
+      const now = new Date();
+      const values = {
+        userId,
+        soloPercent: input.percents.solo,
+        groupPercent: input.percents.group,
+        buildingPercent: input.percents.building,
+        orgPercent: input.percents.org,
+        savingsPercent: input.percents.savings,
+        updatedAt: now,
+      };
+      const [row] = await tx
+        .insert(allocationPlan)
+        .values(values)
+        .onConflictDoUpdate({
+          target: allocationPlan.userId,
+          set: {
+            soloPercent: values.soloPercent,
+            groupPercent: values.groupPercent,
+            buildingPercent: values.buildingPercent,
+            orgPercent: values.orgPercent,
+            savingsPercent: values.savingsPercent,
+            updatedAt: now,
+          },
+        })
+        .returning();
+      if (!row) throw new Error("ALLOCATION_PLAN");
+      return {
+        userId,
+        percents: {
+          solo: row.soloPercent,
+          group: row.groupPercent,
+          building: row.buildingPercent,
+          org: row.orgPercent,
+          savings: row.savingsPercent,
+        },
+        updatedAt: row.updatedAt.toISOString(),
+      };
+    });
+  }
+
+  listPaychecks(
+    userId: string,
+    opts?: { yearMonth?: string },
+  ): Promise<PaycheckSummary[]> {
+    return withTenantContext(this.db, { userId }, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(paycheck)
+        .where(eq(paycheck.userId, userId));
+      return rows
+        .filter((r) => !opts?.yearMonth || r.yearMonth === opts.yearMonth)
+        .sort((a, b) => b.occurredOn.localeCompare(a.occurredOn))
+        .map((r) => ({
+          id: r.id,
+          userId: r.userId,
+          yearMonth: r.yearMonth,
+          amount: irrMoney(r.amountMinor),
+          occurredOn: r.occurredOn,
+          incomeSourceId: r.incomeSourceId ?? undefined,
+          moneyTxnId: r.moneyTxnId ?? undefined,
+          note: r.note ?? undefined,
+          createdAt: r.createdAt.toISOString(),
+        }));
+    });
+  }
+
+  createPaycheck(
+    userId: string,
+    input: CreatePaycheckRequest & {
+      yearMonth: string;
+      moneyTxnId?: string;
+    },
+  ): Promise<PaycheckSummary> {
+    return withTenantContext(this.db, { userId }, async (tx) => {
+      const key = input.idempotencyKey?.trim();
+      if (!key) throw new Error("IDEMPOTENCY");
+      assertYearMonth(input.yearMonth);
+      const amount = BigInt(input.amountMinor);
+      if (amount <= 0n) throw new Error("MONEY_AMOUNT");
+      const byKey = await tx
+        .select()
+        .from(paycheck)
+        .where(and(eq(paycheck.userId, userId), eq(paycheck.idempotencyKey, key)));
+      if (byKey[0]) {
+        const r = byKey[0];
+        return {
+          id: r.id,
+          userId: r.userId,
+          yearMonth: r.yearMonth,
+          amount: irrMoney(r.amountMinor),
+          occurredOn: r.occurredOn,
+          incomeSourceId: r.incomeSourceId ?? undefined,
+          moneyTxnId: r.moneyTxnId ?? undefined,
+          note: r.note ?? undefined,
+          createdAt: r.createdAt.toISOString(),
+        };
+      }
+      const byMonth = await tx
+        .select()
+        .from(paycheck)
+        .where(
+          and(eq(paycheck.userId, userId), eq(paycheck.yearMonth, input.yearMonth)),
+        );
+      if (byMonth[0]) throw new Error("PAYCHECK_MONTH_EXISTS");
+      const [row] = await tx
+        .insert(paycheck)
+        .values({
+          userId,
+          yearMonth: input.yearMonth,
+          amountMinor: amount,
+          occurredOn: input.occurredOn,
+          incomeSourceId: input.incomeSourceId ?? null,
+          moneyTxnId: input.moneyTxnId ?? null,
+          note: input.note?.trim() || null,
+          idempotencyKey: key,
+        })
+        .returning();
+      if (!row) throw new Error("PAYCHECK");
+      return {
+        id: row.id,
+        userId: row.userId,
+        yearMonth: row.yearMonth,
+        amount: irrMoney(row.amountMinor),
+        occurredOn: row.occurredOn,
+        incomeSourceId: row.incomeSourceId ?? undefined,
+        moneyTxnId: row.moneyTxnId ?? undefined,
+        note: row.note ?? undefined,
+        createdAt: row.createdAt.toISOString(),
+      };
+    });
+  }
+
 }

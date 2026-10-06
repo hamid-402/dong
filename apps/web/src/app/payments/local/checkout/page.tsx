@@ -85,7 +85,7 @@ function LocalCheckoutInner() {
         <nav className={styles.trail} aria-label="مسیر صفحه">
           <a
             className={styles.back}
-            href={intent?.returnUrl || done?.returnUrl || "/spaces"}
+            href={intent?.returnUrl || done?.returnUrl || "/home"}
           >
             ← بازگشت
           </a>

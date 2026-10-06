@@ -1,0 +1,285 @@
+.panel {
+  margin: 0 0 12px;
+  padding: 16px 18px 18px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--primary) 26%, var(--line));
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      color-mix(in srgb, var(--primary) 16%, transparent),
+      transparent 46%
+    ),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--primary) 10%, var(--surface)),
+      var(--surface) 55%
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent),
+    0 12px 26px color-mix(in srgb, var(--text) 6%, transparent);
+  display: grid;
+  gap: 12px;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 0 0 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 750;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.badge {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  color: var(--muted);
+}
+
+.badge[data-tone="attention"] {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--line));
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  color: var(--warning);
+}
+
+.badge[data-tone="overdue"] {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: var(--danger);
+}
+
+.badge[data-tone="calm"] {
+  border-color: color-mix(in srgb, var(--success) 35%, var(--line));
+  background: color-mix(in srgb, var(--success) 10%, var(--surface));
+  color: var(--success);
+}
+
+.balance {
+  display: grid;
+  gap: 2px;
+}
+
+.balanceLabel {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.balanceAmount {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.6vw, 1.7rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.balanceAmount[data-tone="credit"] {
+  color: var(--success);
+}
+
+.balanceAmount[data-tone="debt"] {
+  color: var(--danger);
+}
+
+.balanceAmount[data-tone="settled"] {
+  color: var(--text);
+}
+
+.balanceMeta {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.queue {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.queueItem {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  transition:
+    transform 120ms var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)),
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.queueItem:hover {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--line));
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+
+.queueItem:active {
+  transform: scale(0.98);
+}
+
+.queueItem[data-tone="overdue"] {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+}
+
+.queueItem[data-tone="attention"] {
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--line));
+}
+
+.queueItem[data-tone="info"] {
+  border-color: color-mix(in srgb, var(--info, #2563eb) 30%, var(--line));
+}
+
+.queueCount {
+  min-width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+}
+
+.queueItem[data-tone="overdue"] .queueCount {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+}
+
+.queueCopy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.queueCopy strong {
+  font-size: 0.92rem;
+  font-weight: 750;
+}
+
+.queueCopy small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.queueGo {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.clear {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed color-mix(in srgb, var(--line) 85%, transparent);
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.alerts {
+  display: grid;
+  gap: 8px;
+}
+
+.alertsTitle {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.alertsList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.alertLink {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--text);
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+}
+
+a.alertLink:hover {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--line));
+}
+
+.alertLink strong {
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.alertLink small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: 12px;
+  }
+
+  .cta .shell-v2__cta,
+  .cta .textButton {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .queueItem {
+    transition: none;
+  }
+
+  .queueItem:active {
+    transform: none;
+  }
+}

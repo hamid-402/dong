@@ -2,6 +2,7 @@
 
 import type { ChartSeriesResponse } from "@dang/contracts";
 import { EmptyStateBlock } from "@/components/ui-blocks";
+import { chartSourceLabel } from "@/lib/chart-format";
 import styles from "./simple-bar-chart.module.css";
 
 function formatMinor(minor: string): string {
@@ -81,7 +82,9 @@ export function SimpleBarChart({
   return (
     <section className={styles.wrap} aria-label={title}>
       <h3 className={styles.title}>{title}</h3>
-      <p className={styles.source}>منبع: {series.source}</p>
+      <p className={styles.source} title={series.source}>
+        منبع: {chartSourceLabel(series.source)}
+      </p>
       <svg
         className={styles.svg}
         viewBox={`0 0 ${width} ${height}`}

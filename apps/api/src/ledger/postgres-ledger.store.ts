@@ -22,8 +22,10 @@ import {
 } from "@dang/db";
 import type {
   LedgerStore,
+  LedgerWriteOptions,
   OnBehalfJournalInput,
   PaymentReceiptJournalInput,
+  RebuildExpenseJournalResult,
 } from "./ledger.types.js";
 
 function mapEntry(
@@ -39,6 +41,7 @@ function mapEntry(
     currency: "IRR",
     idempotencyKey: entry.idempotencyKey,
     actorUserId: entry.actorUserId,
+    occurredOn: entry.occurredOn,
     createdAt: entry.createdAt.toISOString(),
     lines: lines
       .sort((a, b) => a.lineNo - b.lineNo)
@@ -69,7 +72,7 @@ export class PostgresLedgerStore implements LedgerStore {
   async postExpense(
     actorUserId: string,
     expense: ExpenseSummary,
-    options?: { tx?: AppDatabase },
+    options?: LedgerWriteOptions,
   ): Promise<JournalEntrySummary> {
     if (expense.status !== "posted") {
       throw new Error("LEDGER_EXPENSE_STATUS");
@@ -81,7 +84,11 @@ export class PostgresLedgerStore implements LedgerStore {
         sourceType: "expense",
         sourceId: expense.id,
         idempotencyKey: `expense.post:${expense.id}`,
-        lines: buildExpenseJournalLines(expense),
+        lines: buildExpenseJournalLines(expense, {
+          fundAsSettlementParty: options?.fundAsSettlementParty,
+          defaultFundId: options?.defaultFundId,
+        }),
+        occurredOn: expense.occurredOn,
       },
       options?.tx,
     );
@@ -91,7 +98,7 @@ export class PostgresLedgerStore implements LedgerStore {
     workspaceId: string,
     actorUserId: string,
     expenseId: string,
-    options?: { tx?: AppDatabase },
+    options?: LedgerWriteOptions,
   ): Promise<void> {
     const work = async (tx: AppDatabase) => {
       await tx
@@ -116,6 +123,79 @@ export class PostgresLedgerStore implements LedgerStore {
     );
   }
 
+  async rebuildExpenseJournal(
+    actorUserId: string,
+    expense: ExpenseSummary,
+    options?: LedgerWriteOptions,
+  ): Promise<RebuildExpenseJournalResult> {
+    if (expense.status !== "posted") {
+      throw new Error("LEDGER_EXPENSE_STATUS");
+    }
+    const work = async (activeTx: AppDatabase) => {
+      const existingRows = await activeTx
+        .select()
+        .from(journalEntry)
+        .where(
+          and(
+            eq(journalEntry.workspaceId, expense.workspaceId),
+            eq(journalEntry.sourceType, "expense"),
+            eq(journalEntry.sourceId, expense.id),
+          ),
+        )
+        .limit(1);
+      const existing = existingRows[0];
+      if (existing) {
+        const lines = await activeTx
+          .select()
+          .from(journalLine)
+          .where(eq(journalLine.entryId, existing.id));
+        const mapped = mapEntry(existing, lines);
+        const alreadyFund =
+          mapped.status === "posted" &&
+          mapped.lines.some((l) => l.accountCode.startsWith("fund:"));
+        if (alreadyFund && !options?.force) {
+          return { status: "skipped" as const, entry: mapped };
+        }
+        const legacySource = `${expense.id}#legacy-${existing.id.slice(0, 8)}`;
+        await activeTx
+          .update(journalEntry)
+          .set({
+            status: "reversed",
+            sourceId: legacySource,
+            idempotencyKey: `expense.post.legacy:${existing.id}`,
+          })
+          .where(eq(journalEntry.id, existing.id));
+      }
+
+      const entry = await this.post(
+        actorUserId,
+        {
+          workspaceId: expense.workspaceId,
+          sourceType: "expense",
+          sourceId: expense.id,
+          idempotencyKey: `expense.fund_party.rebuild:${expense.id}:${Date.now()}`,
+          lines: buildExpenseJournalLines(expense, {
+            fundAsSettlementParty: options?.fundAsSettlementParty,
+            defaultFundId: options?.defaultFundId,
+          }),
+          occurredOn: expense.occurredOn,
+        },
+        activeTx,
+      );
+      return {
+        status: (existing ? "rebuilt" : "created"),
+        entry,
+      };
+    };
+
+    if (options?.tx) return work(options.tx);
+    return withTenantContext(
+      this.db,
+      { workspaceId: expense.workspaceId, userId: actorUserId },
+      work,
+    );
+  }
+
   async postSettlement(
     actorUserId: string,
     settlement: SettlementSummary,
@@ -132,6 +212,7 @@ export class PostgresLedgerStore implements LedgerStore {
         sourceId: settlement.id,
         idempotencyKey: `settlement.confirm:${settlement.id}`,
         lines: buildSettlementJournalLines(settlement),
+        occurredOn: settlement.createdAt.slice(0, 10),
       },
       options?.tx,
     );
@@ -196,10 +277,15 @@ export class PostgresLedgerStore implements LedgerStore {
       sourceId: string;
       idempotencyKey: string;
       lines: JournalLine[];
+      occurredOn?: string;
     },
     tx?: AppDatabase,
   ): Promise<JournalEntrySummary> {
     assertBalancedJournalLines(input.lines);
+    const occurredOn =
+      input.occurredOn && /^\d{4}-\d{2}-\d{2}/.test(input.occurredOn)
+        ? input.occurredOn.slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
 
     const work = async (activeTx: AppDatabase) => {
       const existing = await activeTx
@@ -232,6 +318,7 @@ export class PostgresLedgerStore implements LedgerStore {
           currency: "IRR",
           idempotencyKey: input.idempotencyKey,
           actorUserId,
+          occurredOn,
         })
         .returning();
 

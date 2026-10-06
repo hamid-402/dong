@@ -18,12 +18,12 @@
 | V2 Auth — Argon2id / session hash | ✅ | `apps/api/src/auth/password.ts` · `docs/LOCAL-AUTH.md` |
 | V2 MFA TOTP + recovery | ✅ | `mfa.service.ts` · `docs/MFA-STORAGE.md` |
 | V2 TOTP at-rest AEAD + rotation window | ✅ برش | `totp-secret-crypto.ts` · `docs/ops/KEY-ROTATION.md` |
-| V2 Vault/KMS خارجی | ⬜ شکاف | R10-06 باقی‌مانده |
+| V2 Vault/KMS خارجی | ⬜ شکاف | HttpVault opt-in آماده؛ زنده = `masterKeySource=http_vault` (RES-01) |
 | V3 Session — HttpOnly cookie | ✅ | `session-cookie.ts` · middleware gate |
 | V3 CSRF double-submit | ✅ | `csrf.guard.ts` · web `api/client` |
 | V3 Rate-limit auth | ✅ | `rate-limit.ts` · Redis fail-closed prod |
 | V4 Access — role sets | ✅ برش | `access-policy.ts` · `requireAnyRole` |
-| V4 ABAC کامل | 🟡 جزئی | `rbac_abac_v1` روی مسیرهای داغ (R10-05 برش ۷)؛ DSL/PDP باز |
+| V4 ABAC کامل | 🟡 جزئی | `rbac_abac_v5` + grants؛ سقف جانشین؛ remote PDP باز (RES-02) |
 | V4 Tenant isolation / RLS | ✅ | migrations RLS · `packages/db/tests` · R10-24 |
 | V5 Input — Zod on bodies | ✅ | `zod-validation.pipe.ts` |
 | V7 Error — Problem Details | ✅ | `problem-details.filter.ts` |

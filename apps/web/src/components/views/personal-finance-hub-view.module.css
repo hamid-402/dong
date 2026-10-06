@@ -1,0 +1,30 @@
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.15rem 0 0.85rem;
+  padding: 0.25rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line, #cbd5e1) 85%, transparent);
+}
+
+.subnavLink {
+  text-decoration: none;
+  color: color-mix(in srgb, var(--text) 78%, transparent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.55rem;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.subnavLink:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary, #0f766e) 12%, transparent);
+}
+
+.subnavLink:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}

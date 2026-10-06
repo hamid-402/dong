@@ -23,11 +23,17 @@ test("G03 OCR result persists on attachment summary", async () => {
     status: "completed",
     merchantHint: "کافه نمونه",
     amountMinorHint: "150000",
+    lineItems: [{ title: "چای", quantity: "2", amountMinor: "80000" }],
+    taxMinor: "9000",
+    occurredOn: "2026-10-06",
     rawTextPreview: "stub",
     completedAt: new Date().toISOString(),
   });
   assert.equal(saved.ocrResult?.merchantHint, "کافه نمونه");
   assert.equal(saved.ocrResult?.amountMinorHint, "150000");
+  assert.equal(saved.ocrResult?.lineItems?.[0]?.title, "چای");
+  assert.equal(saved.ocrResult?.taxMinor, "9000");
+  assert.equal(saved.ocrResult?.occurredOn, "2026-10-06");
   const again = await store.getById("w1", created.id);
   assert.equal(again?.ocrResult?.merchantHint, "کافه نمونه");
 });

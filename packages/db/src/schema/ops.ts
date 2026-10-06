@@ -165,3 +165,34 @@ export const workspaceWebhook = ops.table(
     index("ops_workspace_webhook_workspace_idx").on(table.workspaceId, table.createdAt),
   ],
 );
+
+/** Delivery attempts for outbound webhooks (R8 / migration 0086). */
+export const workspaceWebhookDelivery = ops.table(
+  "workspace_webhook_delivery",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    webhookId: uuid("webhook_id")
+      .notNull()
+      .references(() => workspaceWebhook.id, { onDelete: "cascade" }),
+    eventType: text("event_type").notNull(),
+    ok: boolean("ok").notNull(),
+    statusCode: integer("status_code"),
+    detail: text("detail").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("ops_workspace_webhook_delivery_ws_created_idx").on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+    index("ops_workspace_webhook_delivery_hook_created_idx").on(
+      table.webhookId,
+      table.createdAt,
+    ),
+  ],
+);

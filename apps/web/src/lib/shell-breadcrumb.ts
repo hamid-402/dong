@@ -120,17 +120,33 @@ export function isShellPrimaryPath(
  * Parent href for the shell back control — last ancestor with href, else fallback.
  * Current (leaf) crumbs typically omit href.
  */
+export function trailParent(
+  crumbs: BreadcrumbCrumb[],
+  fallback = "/home",
+): { href: string; label: string } {
+  for (let i = crumbs.length - 2; i >= 0; i -= 1) {
+    const crumb = crumbs[i];
+    if (crumb?.group) continue;
+    if (crumb?.href && crumb.label && crumb.label !== "…") {
+      return { href: crumb.href, label: crumb.label };
+    }
+  }
+  const root = crumbs[0];
+  if (root?.href && root.label && root.label !== "…") {
+    return { href: root.href, label: root.label };
+  }
+  return { href: fallback, label: "" };
+}
+
+/**
+ * Parent href for the shell back control — last ancestor with href, else fallback.
+ * Current (leaf) crumbs typically omit href.
+ */
 export function trailParentHref(
   crumbs: BreadcrumbCrumb[],
-  fallback = "/spaces",
+  fallback = "/home",
 ): string {
-  for (let i = crumbs.length - 2; i >= 0; i -= 1) {
-    const href = crumbs[i]?.href;
-    if (href) return href;
-  }
-  const root = crumbs[0]?.href;
-  if (root) return root;
-  return fallback;
+  return trailParent(crumbs, fallback).href;
 }
 
 /** Build breadcrumb crumbs from the current pathname (RTL: home → leaf). */
@@ -190,9 +206,11 @@ export function breadcrumbForPathname(
   }
 
   if (pathname.startsWith("/spaces")) {
-    const crumbs: BreadcrumbCrumb[] = [{ label: NAV_LABELS.spacesList, href: "/spaces" }];
+    const crumbs: BreadcrumbCrumb[] = [{ label: NAV_LABELS.home, href: "/home" }];
     if (pathname.startsWith("/spaces/new")) {
       crumbs.push({ label: NAV_LABELS.createSpace });
+    } else if (pathname.startsWith("/spaces/reports")) {
+      crumbs.push({ label: "گزارش حوزه" });
     }
     return crumbs;
   }
@@ -224,8 +242,11 @@ export function breadcrumbForPathname(
       crumbs.push({ label: domainGroupLabel(homeFolder) });
       return crumbs.slice(0, MAX_BREADCRUMB_DEPTH);
     }
-    crumbs.push({ label: NAV_LABELS.home });
-    return crumbs.slice(0, MAX_BREADCRUMB_DEPTH);
+    return [{ label: spaceLabel }];
+  }
+
+  if (SEGMENT_TO_PAGE[segment] === "space") {
+    return [{ label: spaceLabel }];
   }
 
   const page = SEGMENT_TO_PAGE[segment];
@@ -284,4 +305,61 @@ export function breadcrumbForPathname(
 
   crumbs.push({ label: PAGE_LABEL[page] ?? segment });
   return crumbs.slice(0, MAX_BREADCRUMB_DEPTH);
+}
+
+const PAGE_DOMAIN: Partial<Record<WorkspacePage, "finance" | "buy" | "people" | "oversight" | "settings">> = {
+  expenses: "finance",
+  settlements: "finance",
+  invoices: "finance",
+  recurring: "finance",
+  addons: "finance",
+  approvals: "finance",
+  orgFinance: "finance",
+  ledger: "finance",
+  statements: "finance",
+  charts: "finance",
+  payments: "finance",
+  catalog: "buy",
+  procurement: "buy",
+  proposals: "buy",
+  assets: "buy",
+  members: "people",
+  subunits: "people",
+  permissions: "people",
+  partners: "people",
+  audit: "oversight",
+  securityOps: "oversight",
+  metrics: "oversight",
+  jobs: "oversight",
+  settings: "settings",
+};
+
+export function domainKeyForPathname(
+  pathname: string,
+): "finance" | "buy" | "people" | "oversight" | "settings" | null {
+  const parts = pathname.replace(/\/+$/, "").split("/").filter(Boolean);
+  if (parts[0] !== "w" || !parts[2]) return null;
+  const page = SEGMENT_TO_PAGE[parts[2]];
+  return (page && PAGE_DOMAIN[page]) || null;
+}
+
+/** Insert the domain between the space and the page. Back skips this crumb. */
+export function insertDomainCrumb(
+  crumbs: BreadcrumbCrumb[],
+  pathname: string,
+): BreadcrumbCrumb[] {
+  const parts = pathname.replace(/\/+$/, "").split("/").filter(Boolean);
+  if (parts[0] !== "w" || !parts[1] || crumbs.length === 0) return crumbs;
+  const page = SEGMENT_TO_PAGE[parts[2] ?? ""];
+  const domain = page ? PAGE_DOMAIN[page] : undefined;
+  if (!domain) return crumbs;
+  const label = domainGroupLabel(domain);
+  if (crumbs.some((crumb) => crumb.label === label)) return crumbs;
+  const slug = decodeURIComponent(parts[1]);
+  const domainCrumb: BreadcrumbCrumb = {
+    label,
+    href: `${wPath(slug, "more")}?folder=${domain}`,
+    group: true,
+  };
+  return [crumbs[0]!, domainCrumb, ...crumbs.slice(1)];
 }

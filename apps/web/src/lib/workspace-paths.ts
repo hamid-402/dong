@@ -159,7 +159,7 @@ export function absoluteForPage(
   slug: string | null,
 ): string {
   if (page === "account") return "/account";
-  if (page === "spaces") return "/spaces";
+  if (page === "spaces") return "/home";
   if (page === "spaces-new") return "/spaces/new";
   if (page === "invite") return "/invite";
   /** Classic `/` and `/hub` home → app hub, not a random workspace. */

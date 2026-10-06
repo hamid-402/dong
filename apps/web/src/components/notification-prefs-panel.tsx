@@ -27,8 +27,8 @@ const EVENT_TOGGLES: {
 }[] = [
   {
     key: "expensePosted",
-    label: "ثبت خرج",
-    hint: "اعلان داخل‌برنامه وقتی خرجی ثبت می‌شود",
+    label: "ثبت پول",
+    hint: "اعلان داخل‌برنامه وقتی پول (خرج کامل یا روزانه) ثبت می‌شود",
   },
   {
     key: "settlementClaimed",
@@ -50,9 +50,12 @@ const EVENT_TOGGLES: {
 /** Account notification prefs — digest gated by weeklyDigest; event toggles always. */
 export function NotificationPrefsPanel({
   flags,
+  emailProvider,
   onError,
 }: {
   flags: ProductFeatureFlags | undefined;
+  /** Live capabilities.providers.email — honesty for digest delivery. */
+  emailProvider?: "smtp" | "log" | "none" | (string & {});
   onError: (message: string | null) => void;
 }) {
   const [freq, setFreq] = useState<EmailDigestFrequency>("off");
@@ -170,7 +173,11 @@ export function NotificationPrefsPanel({
       {flags?.weeklyDigest ? (
         <SectionCard title="خلاصهٔ ایمیلی" tone="quiet">
           <StatusLine>
-            فقط ترجیح شما — ارسال واقعی وابسته به Mailer در capabilities است؛ آمار ساختگی نیست.
+            {emailProvider === "smtp"
+              ? "ترجیح ذخیره می‌شود؛ ارسال واقعی با Mailer SMTP وصل است. زمان آخرین digest در این نسخه ثبت نمی‌شود — آمار ساختگی نشان داده نمی‌شود. اعلان push وب نداریم."
+              : emailProvider === "log"
+                ? "ترجیح ذخیره می‌شود؛ ایمیل فقط در لاگ محلی می‌افتد (ارسال واقعی نیست). آخرین digest ثبت نمی‌شود. اعلان push وب نداریم."
+                : "ترجیح ذخیره می‌شود؛ ارسال واقعی وابسته به Mailer در capabilities است (الان خاموش/آزمایشی). آخرین digest ثبت نمی‌شود — آمار ساختگی نیست. اعلان push وب نداریم."}
           </StatusLine>
           <FormStack>
             <SelectField

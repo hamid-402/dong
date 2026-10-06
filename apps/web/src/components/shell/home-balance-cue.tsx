@@ -2,6 +2,9 @@
 
 import type { SpaceKind } from "@dang/contracts";
 import Link from "next/link";
+import { displayUnitLabel } from "@dang/ui";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { NAV_LABELS } from "@/lib/nav-labels";
 
 /**
  * Single home balance strip — one amount, one status line, two actions max.
@@ -29,6 +32,7 @@ export function HomeBalanceCue({
   spaceKind: SpaceKind;
   persistenceHint?: string;
 }) {
+  const unitLabel = displayUnitLabel(useDisplayUnit());
   const owed = balanceToman > 0;
   const debt = balanceToman < 0;
   const needsSettle = debt || owed || openSettlements > 0;
@@ -66,7 +70,7 @@ export function HomeBalanceCue({
               ? `${openSettlements.toLocaleString("fa-IR")} تسویه در جریان`
               : balanceToman === 0
                 ? "تسویه"
-                : `${owed ? "+" : "−"}${amountLabel} تومان`}
+                : `${owed ? "+" : "−"}${amountLabel} ${unitLabel}`}
         </p>
         {subtitleBits.length > 0 ? (
           <p className="homeBalanceCue__meta">{subtitleBits.join(" · ")}</p>
@@ -79,7 +83,7 @@ export function HomeBalanceCue({
           </Link>
         ) : null}
         <Link href={expenseHref} className={needsSettle ? "textButton" : "shell-v2__cta"}>
-          {spaceKind === "personal" ? "ثبت در دفتر من" : "ثبت خرج"}
+          {spaceKind === "personal" ? "ثبت در دفتر من" : NAV_LABELS.addExpense}
         </Link>
         {spaceKind !== "personal" ? (
           <Link href={spaceHref} className="textButton">

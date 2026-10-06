@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>پیش‌نمایش استیکرهای دنگ</title>
+  <style>
+    :root {
+      --bg: #f4f7f6;
+      --surface: #fff;
+      --text: #0f1a17;
+      --muted: #3d4c47;
+      --line: #c9d4cf;
+      --primary: #0d6b63;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px 16px 80px;
+      line-height: 1.5;
+    }
+    h1 { margin: 0 0 8px; font-size: 1.5rem; }
+    .lead { color: var(--muted); margin: 0 0 24px; max-width: 40rem; }
+    section { margin-bottom: 28px; }
+    h2 { margin: 0 0 4px; font-size: 1.1rem; }
+    .where { color: var(--muted); font-size: 0.85rem; margin: 0 0 12px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .card {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 100%;
+      background: var(--surface);
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 12px 12px;
+      text-align: center;
+      cursor: pointer;
+      font: inherit;
+      color: inherit;
+      transition: border-color .15s, transform .15s;
+    }
+    .card:hover {
+      border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
+      transform: translateY(-2px);
+    }
+    .card.is-on {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+    }
+    .art {
+      height: 88px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 8px;
+      pointer-events: none;
+    }
+    .art svg { width: 72px; height: 72px; display: block; }
+    .code { font-weight: 800; color: var(--primary); font-size: 0.9rem; pointer-events: none; }
+    .title { font-weight: 700; font-size: 0.92rem; margin-top: 2px; pointer-events: none; }
+    .vibe { color: var(--muted); font-size: 0.78rem; margin-top: 2px; pointer-events: none; }
+    .bar {
+      position: sticky;
+      bottom: 12px;
+      margin: 28px auto 0;
+      max-width: 52rem;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 10px 28px rgba(15, 26, 23, 0.08);
+      z-index: 5;
+    }
+    .bar code {
+      font-size: 0.92rem;
+      background: #eef5f3;
+      padding: 6px 10px;
+      border-radius: 8px;
+      direction: ltr;
+      display: inline-block;
+      user-select: all;
+    }
+    button.copy {
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    button.copy:disabled { opacity: .45; cursor: not-allowed; }
+    .err {
+      margin: 12px 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #ffe9e6;
+      color: #8a241c;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>پیش‌نمایش تصویری استیکرها</h1>
+  <p class="lead">روی هر کارت کلیک کن تا انتخاب شود. در پایان کدها را کپی کن و در چت بفرست.</p>
+  <div class="err" id="err"></div>
+  <div id="root"></div>
+  <div class="bar">
+    <div>
+      <div style="font-size:0.8rem;color:var(--muted)">انتخاب تو برای چت:</div>
+      <code id="out">هنوز انتخابی نیست</code>
+    </div>
+    <button type="button" class="copy" id="copyBtn" disabled>کپی کدها</button>
+  </div>
+
+  <script>
+    function svg(inner, a, b, c) {
+      return (
+        '<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+        inner
+          .split("{a}").join(a)
+          .split("{b}").join(b)
+          .split("{c}").join(c) +
+        "</svg>"
+      );
+    }
+
+    const icons = {
+      P1: () => svg('<ellipse cx="32" cy="54" rx="18" ry="4" fill="{b}" opacity=".25"/><path d="M11 21h37a7 7 0 0 1 7 7v19a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7V28a7 7 0 0 1 7-7z" fill="{c}" stroke="{a}" stroke-width="2"/><path d="M8 29h48" stroke="{b}" stroke-width="2.2" stroke-linecap="round"/><rect x="38" y="35" width="14" height="10" rx="3" fill="{c}" stroke="{a}" stroke-width="1.4"/><circle cx="45" cy="40" r="2.4" fill="{b}"/>', "#0b6b5c", "#2bb89a", "#e4faf4"),
+      P2: () => svg('<circle cx="24" cy="36" r="14" fill="{c}" stroke="{a}" stroke-width="2"/><circle cx="40" cy="28" r="14" fill="{b}" stroke="{a}" stroke-width="2"/><path d="M48 14c-8 2-10 10-8 16 6-2 10-8 8-16z" fill="{b}" stroke="{a}" stroke-width="1.5"/>', "#0b6b5c", "#f0c14d", "#e4faf4"),
+      P3: () => svg('<rect x="16" y="10" width="32" height="44" rx="5" fill="{c}" stroke="{a}" stroke-width="2"/><path d="M22 18h20M22 28h20M22 38h12" stroke="{a}" stroke-width="2" stroke-linecap="round"/><path d="M40 10v14l4-3 4 3V10" fill="{b}" stroke="{a}" stroke-width="1.5"/>', "#3d4aaa", "#8f78e6", "#eaecff"),
+      P4: () => svg('<path d="M32 10l5 14h15l-12 9 5 14-13-9-13 9 5-14-12-9h15z" fill="{b}" stroke="{a}" stroke-width="1.6"/><circle cx="32" cy="32" r="4" fill="{a}"/>', "#b06a10", "#ffd48a", "#fff4de"),
+      G1: () => svg('<circle cx="20" cy="22" r="7" fill="{c}" stroke="{a}" stroke-width="1.8"/><circle cx="44" cy="22" r="7" fill="{c}" stroke="{a}" stroke-width="1.8"/><circle cx="32" cy="34" r="8" fill="{b}" stroke="{a}" stroke-width="1.8"/><path d="M8 52c3-9 10-12 24-12s21 3 24 12" stroke="{a}" stroke-width="2" stroke-linecap="round"/>', "#0c6e66", "#a78bfa", "#e2fbf8"),
+      G2: () => svg('<path d="M12 36c7-9 14-9 20 0s13 9 20 0" stroke="{a}" stroke-width="3" stroke-linecap="round"/><circle cx="18" cy="28" r="6" fill="{c}" stroke="{b}" stroke-width="1.8"/><circle cx="46" cy="28" r="6" fill="{b}" stroke="{a}" stroke-width="1.8"/>', "#0c6e66", "#2ecfc0", "#e2fbf8"),
+      G3: () => svg('<path d="M10 30c0-12 10-20 22-20s22 8 22 20H10z" fill="{c}" stroke="{a}" stroke-width="2"/><path d="M32 30v22" stroke="{a}" stroke-width="2.4" stroke-linecap="round"/><path d="M32 52c4 0 6-2 6-5" stroke="{b}" stroke-width="2" stroke-linecap="round"/><circle cx="22" cy="54" r="4" fill="{b}"/><circle cx="42" cy="54" r="4" fill="{b}"/>', "#1a4f9c", "#f0b040", "#e8f1ff"),
+      G4: () => svg('<circle cx="32" cy="32" r="20" stroke="{a}" stroke-width="2.4" stroke-dasharray="5 4.5" stroke-linecap="round"/><circle cx="32" cy="32" r="8.5" fill="{c}" stroke="{a}" stroke-width="1.7"/><circle cx="32" cy="32" r="3.2" fill="{b}"/><circle cx="17" cy="18" r="4.6" fill="{c}" stroke="{a}"/><circle cx="47" cy="18" r="4.6" fill="{c}" stroke="{a}"/><circle cx="17" cy="46" r="4.6" fill="{c}" stroke="{a}"/><circle cx="47" cy="46" r="4.6" fill="{c}" stroke="{a}"/>', "#0c6e66", "#2ecfc0", "#e2fbf8"),
+      B1: () => svg('<ellipse cx="32" cy="56" rx="16" ry="3.5" fill="{b}" opacity=".3"/><path d="M9 31 32 11l23 20v25H9z" fill="{c}" stroke="{a}" stroke-width="2" stroke-linejoin="round"/><rect x="26" y="36" width="12" height="20" rx="2.2" fill="{b}" stroke="{a}" stroke-width="1.5"/><path d="M20 22h8v-5.5z" fill="{b}" stroke="{a}" stroke-width="1.2" stroke-linejoin="round"/>', "#1a4f9c", "#4b8fe8", "#e8f1ff"),
+      B2: () => svg('<rect x="14" y="14" width="36" height="40" rx="4" fill="{c}" stroke="{a}" stroke-width="2"/><path d="M22 22h8v8h-8zM34 22h8v8h-8zM22 36h8v8h-8zM34 36h8v8h-8z" fill="{b}" stroke="{a}" stroke-width="1.2"/>', "#1a4f9c", "#93bfff", "#e8f1ff"),
+      B3: () => svg('<circle cx="24" cy="28" r="10" fill="{c}" stroke="{a}" stroke-width="2"/><circle cx="24" cy="28" r="3.5" fill="{b}"/><path d="M32 28h18l-4 5h-6l-2 5h-4" stroke="{a}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><rect x="40" y="14" width="14" height="10" rx="3" fill="{b}" stroke="{a}"/>', "#b06a10", "#f0b040", "#fff4de"),
+      B4: () => svg('<path d="M18 12h28l4 8v34a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V16a4 4 0 0 1 4-4z" fill="{c}" stroke="{a}" stroke-width="2"/><path d="M22 28h20M22 36h14" stroke="{a}" stroke-width="2" stroke-linecap="round"/><path d="m24 46 5 5 10-12" stroke="{b}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>', "#0d6f86", "#34c77a", "#e3f8fd"),
+      O1: () => svg('<path d="M32 8 50 16v16c0 14-11 22-18 24-7-2-18-10-18-24V16z" fill="{c}" stroke="{a}" stroke-width="2"/><path d="m23 32 6 6 12-13" stroke="{b}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>', "#b83a32", "#e56b60", "#ffe9e6"),
+      O2: () => svg('<ellipse cx="32" cy="56" rx="14" ry="3.5" fill="{b}" opacity=".3"/><path d="M21 54V17.5L32 8l11 9.5V54z" fill="{c}" stroke="{a}" stroke-width="2" stroke-linejoin="round"/><path d="M25 26h14M25 36h14M25 46h14" stroke="{b}" stroke-width="2.1" stroke-linecap="round"/><rect x="29" y="48" width="6" height="6" rx="1.2" fill="{b}" stroke="{a}"/>', "#5a3bb8", "#8f78e6", "#efeaff"),
+      O3: () => svg('<rect x="12" y="16" width="40" height="32" rx="6" fill="{c}" stroke="{a}" stroke-width="2"/><circle cx="24" cy="32" r="7" fill="{b}" stroke="{a}"/><path d="M34 28h12M34 36h8" stroke="{a}" stroke-width="2" stroke-linecap="round"/>', "#5a3bb8", "#c9b8ff", "#efeaff"),
+      O4: () => svg('<circle cx="32" cy="32" r="8" fill="{c}" stroke="{a}" stroke-width="2"/><path d="M32 12v6M32 46v6M12 32h6M46 32h6M18 18l4 4M42 42l4 4M46 18l-4 4M22 42l-4 4" stroke="{b}" stroke-width="3" stroke-linecap="round"/>', "#4a5563", "#8b96a5", "#eef2f0"),
+      H1: () => svg('<circle cx="32" cy="32" r="20" fill="{c}" stroke="{a}" stroke-width="2"/><path d="m32 16 8 24-24-8 16-16z" fill="{b}" stroke="{a}" stroke-width="1.4"/><circle cx="32" cy="32" r="3" fill="{a}"/>', "#3d4aaa", "#7382e8", "#eaecff"),
+      H2: () => svg('<rect x="9" y="9" width="20" height="20" rx="5" fill="#7ee0c8" stroke="{a}" stroke-width="1.5"/><rect x="35" y="9" width="20" height="20" rx="5" fill="#f0c14d" stroke="{a}" stroke-width="1.5"/><rect x="9" y="35" width="20" height="20" rx="5" fill="#93bfff" stroke="{a}" stroke-width="1.5"/><rect x="35" y="35" width="20" height="20" rx="5" fill="#c9b8ff" stroke="{a}" stroke-width="1.5"/><circle cx="32" cy="32" r="3.4" fill="#fff" stroke="{a}"/>', "#0b6b5c", "#2bb89a", "#e4faf4"),
+      H3: () => svg('<rect x="16" y="10" width="32" height="44" rx="4" fill="{c}" stroke="{a}" stroke-width="2"/><rect x="22" y="16" width="20" height="32" rx="2" fill="{b}" stroke="{a}"/><circle cx="36" cy="34" r="2.5" fill="{a}"/>', "#b06a10", "#ffd48a", "#fff4de"),
+      H4: () => svg('<path d="M8 30c6-10 10-10 16 0s10 10 16 0 10-10 16 0" stroke="{a}" stroke-width="3" stroke-linecap="round"/><path d="M8 42c6-8 10-8 16 0s10 8 16 0 10-8 16 0" stroke="{b}" stroke-width="2.4" stroke-linecap="round"/>', "#0d6f86", "#2db8d4", "#e3f8fd"),
+      E1: () => svg('<rect x="12" y="14" width="40" height="38" rx="6" fill="{c}" stroke="{a}" stroke-width="2"/><path d="M12 26h40M22 10v10M42 10v10" stroke="{b}" stroke-width="2" stroke-linecap="round"/>', "#1d55a8", "#5596ef", "#eaf2ff"),
+      E2: () => svg('<path d="M32 48V26" stroke="{a}" stroke-width="2.4" stroke-linecap="round"/><path d="M32 30c-12 0-16-14-8-20 4 8 8 14 8 20z" fill="{b}" stroke="{a}"/><path d="M32 34c12-2 16-14 8-20-2 8-6 14-8 20z" fill="{c}" stroke="{a}"/><ellipse cx="32" cy="52" rx="12" ry="5" stroke="{a}" stroke-width="1.6"/>', "#3f7a0c", "#78c41a", "#effcdc"),
+      E3: () => svg('<path d="M12 28 32 18l20 10v22H12z" fill="{c}" stroke="{a}" stroke-width="2" stroke-linejoin="round"/><path d="M12 28h40M32 18v32" stroke="{b}" stroke-width="1.8"/><path d="M20 14h10l2 6H18z" fill="{b}" stroke="{a}"/>', "#9a6b12", "#e0b84a", "#fff6df"),
+      E4: () => svg('<path d="M13 50h38M13 12v38" stroke="{a}" stroke-width="2.2" stroke-linecap="round"/><circle cx="24" cy="38" r="3.6" fill="{c}" stroke="{b}"/><circle cx="35" cy="28" r="3.6" fill="{c}" stroke="{b}"/><circle cx="46" cy="18" r="3.6" fill="{b}" stroke="{a}"/><path d="M24 38 35 28 46 18" stroke="{b}" stroke-width="1.8" stroke-dasharray="3.5 3" stroke-linecap="round"/>', "#1a4f9c", "#4b8fe8", "#e8f1ff"),
+      X1: () => svg('<path d="M20 10h24v44l-4-3-4 3-4-3-4 3-4-3-4 3z" fill="{c}" stroke="{a}" stroke-width="2" stroke-linejoin="round"/><path d="M26 22h12M26 30h12M26 38h8" stroke="{a}" stroke-width="2" stroke-linecap="round"/>', "#0b6b5c", "#2bb89a", "#e4faf4"),
+      X2: () => svg('<path d="M12 22h34a6 6 0 0 1 6 6v18a6 6 0 0 1-6 6H16a6 6 0 0 1-6-6V28a6 6 0 0 1 6-6z" fill="{c}" stroke="{a}" stroke-width="2"/><circle cx="44" cy="20" r="10" fill="{b}" stroke="{a}" stroke-width="1.6"/><path d="m39 20 3 3 7-8" stroke="{a}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>', "#0b6b5c", "#7ae0a8", "#e4faf4"),
+      X3: () => svg('<rect x="8" y="18" width="48" height="30" rx="6" fill="{c}" stroke="{a}" stroke-width="2"/><path d="M8 28h48" stroke="{b}" stroke-width="8"/><path d="M16 40h14" stroke="{a}" stroke-width="2.4" stroke-linecap="round"/>', "#1a4f9c", "#4b8fe8", "#e8f1ff"),
+      X4: () => svg('<ellipse cx="32" cy="34" rx="17" ry="14.5" transform="rotate(-18 32 34)" fill="{b}" stroke="{a}" stroke-width="2.1"/><ellipse cx="32" cy="34" rx="11" ry="9" transform="rotate(-18 32 34)" stroke="{a}" stroke-width="1.5" opacity=".7"/><path d="M32 23.5v21M23.5 34h17" stroke="{a}" stroke-width="2.1" stroke-linecap="round" transform="rotate(-18 32 34)"/>', "#9a6b12", "#f0c14d", "#fff6df"),
+      S1: () => svg('<path d="M32 12v36M16 24h32" stroke="{a}" stroke-width="2.2" stroke-linecap="round"/><path d="M16 24c0 8 6 14 16 14s16-6 16-14" stroke="{b}" stroke-width="2"/><circle cx="16" cy="24" r="4" fill="{b}"/><circle cx="48" cy="24" r="4" fill="{c}" stroke="{a}"/>', "#1a4f9c", "#4b8fe8", "#e8f1ff"),
+      S2: () => svg('<path d="M11 23h30l-7-7" stroke="{a}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M53 41H23l7 7" stroke="{a}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 23h12M34 41h12" stroke="{b}" stroke-width="2.8" stroke-linecap="round"/>', "#0b6b5c", "#f0c14d", "#e4faf4"),
+      S3: () => svg('<path d="M12 38c7-9 14-9 20 0s13 9 20 0" stroke="{a}" stroke-width="2.8" stroke-linecap="round"/><circle cx="46" cy="18" r="9" fill="{b}" stroke="{a}" stroke-width="1.6"/><path d="M46 13v10M41 18h10" stroke="{a}" stroke-width="1.8" stroke-linecap="round"/>', "#0c6e66", "#f0c14d", "#e2fbf8"),
+      S4: () => svg('<circle cx="32" cy="32" r="18" fill="{c}" stroke="{a}" stroke-width="2"/><path d="m22 33 7 7 14-16" stroke="{a}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>', "#157a45", "#34c77a", "#e6fbef"),
+      OK1: () => svg('<circle cx="32" cy="32" r="18" fill="{c}" stroke="{a}" stroke-width="2"/><path d="m22 33 7 7 14-16" stroke="{a}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>', "#157a45", "#34c77a", "#e6fbef"),
+      OK2: () => svg('<circle cx="32" cy="36" r="16.5" fill="{c}" stroke="{a}" stroke-width="2.1"/><path d="m22.5 36 6.2 6.2 13.2-15" stroke="{a}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 12l3.2 8.2 8.2 3.2-8.2 3.2L13 35l-3.2-8.2L1.6 23.6l8.2-3.2z" fill="{b}" stroke="{a}" stroke-width="1"/><circle cx="44" cy="14" r="2.2" fill="{a}"/>', "#157a45", "#ffd48a", "#e6fbef"),
+      OK3: () => svg('<path d="M18 12v40" stroke="{a}" stroke-width="2.6" stroke-linecap="round"/><path d="M20 14h28l-6 10 6 10H20z" fill="{b}" stroke="{a}" stroke-width="1.6" stroke-linejoin="round"/>', "#b06a10", "#f0b040", "#fff4de"),
+      OK4: () => svg('<path d="M32 10l5 14h15l-12 9 5 14-13-9-13 9 5-14-12-9h15z" fill="{b}" stroke="{a}" stroke-width="1.6"/>', "#b06a10", "#ffd48a", "#fff4de"),
+    };
+
+    const slots = [
+      { id: "personal", label: "شخصی", where: "خانه · فضاهای من · جمع‌مانده شخصی", ids: ["P1", "P2", "P3", "P4"], titles: ["کیف پول نرم", "سکه و برگ", "دفتر جیبی", "هدف ستاره‌ای"], vibes: ["صمیمی", "رشد", "مرتب", "شاد"] },
+      { id: "group", label: "گروهی", where: "دوستان · سفر · جمع‌مانده گروهی", ids: ["G1", "G2", "G3", "G4"], titles: ["سه نفرک", "دست‌دادن", "چتر مشترک", "حلقه دوستان"], vibes: ["اجتماعی", "همکاری", "باهم", "پویا"] },
+      { id: "building", label: "ساختمان", where: "ساختمان · شارژ · واحدها", ids: ["B1", "B2", "B3", "B4"], titles: ["خانه کلاسیک", "آپارتمان طبقه", "کلید واحد", "قبض نرم"], vibes: ["امن", "شهری", "مسکونی", "شارژ"] },
+      { id: "org", label: "سازمان", where: "سازمان · تیم · تدارکات", ids: ["O1", "O2", "O3", "O4"], titles: ["سپر اعتماد", "برج اداری", "کارت سازمانی", "چرخ‌دنده نرم"], vibes: ["رسمی", "سازمانی", "حرفه‌ای", "عملیات"] },
+      { id: "home", label: "خانه / هاب", where: "بنر بالای /home و /spaces", ids: ["H1", "H2", "H3", "H4"], titles: ["قطب‌نما", "موزاییک کاشی", "درِ باز", "موج کوتاه"], vibes: ["کشف", "چند حوزه", "خوش‌آمد", "پویا"] },
+      { id: "empty", label: "خالی / بدون داده", where: "empty گزارش‌ها", ids: ["E1", "E2", "E3", "E4"], titles: ["تقویم خالی", "جوانه صبر", "جعبه باز", "نمودار نقطه‌چین"], vibes: ["خنثی", "امیدوار", "آماده", "گزارشی"] },
+      { id: "expenses", label: "خرج / مالی", where: "کاشی خرج‌ها", ids: ["X1", "X2", "X3", "X4"], titles: ["رسید تاخورده", "کیف + تیک", "کارت بانکی", "سکه افتان"], vibes: ["ثبت", "پرداخت", "تراکنش", "شاد"] },
+      { id: "settlements", label: "تسویه", where: "کاشی تسویه", ids: ["S1", "S2", "S3", "S4"], titles: ["ترازو", "پیکان دوطرفه", "دست‌دادن مالی", "تیک دایره"], vibes: ["تعادل", "رد و بدل", "توافق", "تسویه شد"] },
+      { id: "success", label: "موفقیت", where: "فلش موفقیت", ids: ["OK1", "OK2", "OK3", "OK4"], titles: ["تیک کلاسیک", "جرقه کوتاه", "پرچم کوچک", "ستاره تأیید"], vibes: ["استاندارد", "جشنک", "انجام شد", "تشویقی"] },
+    ];
+
+    const picks = Object.create(null);
+    const root = document.getElementById("root");
+    const out = document.getElementById("out");
+    const copyBtn = document.getElementById("copyBtn");
+    const err = document.getElementById("err");
+
+    function art(id) {
+      try {
+        const fn = icons[id];
+        if (!fn) return "<span style='color:#b91c1c'>ناموجود</span>";
+        return fn();
+      } catch (e) {
+        return "<span style='color:#b91c1c'>خطا</span>";
+      }
+    }
+
+    function render() {
+      try {
+        root.innerHTML = slots.map(function (slot) {
+          const cards = slot.ids.map(function (id, i) {
+            const on = picks[slot.id] === id ? " is-on" : "";
+            return (
+              '<button type="button" class="card' + on + '" data-slot="' + slot.id + '" data-id="' + id + '">' +
+              '<div class="art">' + art(id) + "</div>" +
+              '<div class="code">' + id + "</div>" +
+              '<div class="title">' + slot.titles[i] + "</div>" +
+              '<div class="vibe">' + slot.vibes[i] + "</div>" +
+              "</button>"
+            );
+          }).join("");
+          return (
+            "<section><h2>" + slot.label + "</h2>" +
+            '<p class="where">' + slot.where + "</p>" +
+            '<div class="grid">' + cards + "</div></section>"
+          );
+        }).join("");
+        err.style.display = "none";
+      } catch (e) {
+        err.style.display = "block";
+        err.textContent = "خطا در رندر: " + e.message;
+      }
+      sync();
+    }
+
+    function sync() {
+      const codes = slots.map(function (s) { return picks[s.id]; }).filter(Boolean);
+      out.textContent = codes.length ? codes.join(" ") : "هنوز انتخابی نیست";
+      copyBtn.disabled = codes.length === 0;
+    }
+
+    root.addEventListener("click", function (e) {
+      const btn = e.target.closest(".card");
+      if (!btn || !root.contains(btn)) return;
+      picks[btn.getAttribute("data-slot")] = btn.getAttribute("data-id");
+      render();
+    });
+
+    copyBtn.addEventListener("click", async function () {
+      const text = out.textContent;
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+        }
+        copyBtn.textContent = "کپی شد";
+        setTimeout(function () { copyBtn.textContent = "کپی کدها"; }, 1200);
+      } catch (e) {
+        err.style.display = "block";
+        err.textContent = "کپی نشد — کد را دستی از پایین صفحه بردار: " + text;
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>

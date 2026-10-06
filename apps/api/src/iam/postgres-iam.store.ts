@@ -6,6 +6,7 @@ import {
   isNull,
   membership,
   personalWorkspace,
+  sql,
   userAccount,
   withTenantContext,
   workspace,
@@ -67,6 +68,8 @@ function mapWorkspace(row: typeof workspace.$inferSelect): WorkspaceSummary {
     template: asTemplate(row.template),
     timezone: row.timezone,
     displayUnit: asDisplayUnit(row.displayUnit),
+    archivedAt: row.archivedAt?.toISOString(),
+    deletedAt: row.deletedAt?.toISOString(),
   };
 }
 
@@ -174,21 +177,33 @@ export class PostgresIamStore implements IamStore {
             template: workspace.template,
             timezone: workspace.timezone,
             displayUnit: workspace.displayUnit,
+            archivedAt: workspace.archivedAt,
+            deletedAt: workspace.deletedAt,
+            role: membership.role,
           })
           .from(workspace)
           .innerJoin(membership, eq(membership.workspaceId, workspace.id))
           .where(
-            and(eq(membership.userId, userId), isNull(membership.disabledAt)),
+            and(
+              eq(membership.userId, userId),
+              isNull(membership.disabledAt),
+              isNull(workspace.deletedAt),
+            ),
           );
 
-        return rows.map((row) => ({
-          id: row.id,
-          name: row.name,
-          slug: row.slug,
-          template: asTemplate(row.template),
-          timezone: row.timezone,
-          displayUnit: asDisplayUnit(row.displayUnit),
-        }));
+        return rows
+          .filter((row) => row.archivedAt == null || row.role === "owner")
+          .map((row) => ({
+            id: row.id,
+            name: row.name,
+            slug: row.slug,
+            template: asTemplate(row.template),
+            timezone: row.timezone,
+            displayUnit: asDisplayUnit(row.displayUnit),
+            archivedAt: row.archivedAt?.toISOString(),
+            deletedAt: row.deletedAt?.toISOString(),
+            myRole: row.role,
+          }));
       },
     );
   }
@@ -292,6 +307,19 @@ export class PostgresIamStore implements IamStore {
         const role = memberships[0]?.role;
         if (role !== "owner" && role !== "admin") {
           throw new Error("WORKSPACE_UPDATE_FORBIDDEN");
+        }
+
+        const currentRows = await tx
+          .select()
+          .from(workspace)
+          .where(eq(workspace.id, input.workspaceId))
+          .limit(1);
+        const current = currentRows[0];
+        if (!current || current.deletedAt) {
+          return undefined;
+        }
+        if (current.archivedAt) {
+          throw new Error("WORKSPACE_ARCHIVED");
         }
 
         const rows = await tx
@@ -421,7 +449,8 @@ export class PostgresIamStore implements IamStore {
           .where(eq(workspace.id, workspaceId))
           .limit(1);
         const row = rows[0];
-        return row ? mapWorkspace(row) : undefined;
+        if (!row || row.deletedAt) return undefined;
+        return mapWorkspace(row);
       },
     );
   }
@@ -471,12 +500,22 @@ export class PostgresIamStore implements IamStore {
 
   async getWorkspaceBySlug(slug: string): Promise<WorkspaceSummary | undefined> {
     const normalized = slug.trim().toLowerCase();
-    const rows = await this.db
-      .select()
-      .from(workspace)
-      .where(eq(workspace.slug, normalized))
-      .limit(1);
-    return rows[0] ? mapWorkspace(rows[0]) : undefined;
+    if (!normalized) return undefined;
+    // Join-by-slug must resolve before membership exists. Set app.join_slug (migration 0085)
+    // so FORCE RLS allows SELECT of that single row for this transaction only.
+    return this.db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select set_config('app.join_slug', ${normalized}, true)`,
+      );
+      const rows = await tx
+        .select()
+        .from(workspace)
+        .where(eq(workspace.slug, normalized))
+        .limit(1);
+      const row = rows[0];
+      if (!row || row.deletedAt || row.archivedAt) return undefined;
+      return mapWorkspace(row);
+    });
   }
 
   async setMemberDefaultShares(
@@ -825,6 +864,244 @@ export class PostgresIamStore implements IamStore {
           addedByUserId: row.addedByUserId,
           displayName: users[0].displayName,
         });
+      },
+    );
+  }
+
+  async leaveMembership(input: {
+    workspaceId: string;
+    userId: string;
+    reason?: string;
+  }): Promise<MembershipSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId: input.workspaceId, userId: input.userId },
+      async (tx) => {
+        const wsRows = await tx
+          .select()
+          .from(workspace)
+          .where(eq(workspace.id, input.workspaceId))
+          .limit(1);
+        const ws = wsRows[0];
+        if (!ws || ws.deletedAt) throw new Error("WORKSPACE_NOT_FOUND");
+        if (ws.template === "personal") {
+          throw new Error("PERSONAL_WORKSPACE_PROTECTED");
+        }
+
+        const all = await tx
+          .select()
+          .from(membership)
+          .where(eq(membership.workspaceId, input.workspaceId));
+        const self = all.find((m) => m.userId === input.userId);
+        if (!self || self.disabledAt) throw new Error("MEMBER_NOT_FOUND");
+        if (self.role === "owner") throw new Error("OWNER_MUST_TRANSFER");
+
+        if (
+          wouldRemoveLastFinanceManager(
+            all.map((m) => ({
+              userId: m.userId,
+              role: m.role,
+              disabledAt: m.disabledAt?.toISOString() ?? null,
+            })),
+            input.userId,
+            { disabling: true },
+          )
+        ) {
+          throw new Error("LAST_FINANCE_MANAGER");
+        }
+
+        const reason =
+          input.reason?.trim().slice(0, 500) || "left_by_member";
+        const updated = await tx
+          .update(membership)
+          .set({
+            disabledAt: new Date(),
+            disabledByUserId: input.userId,
+            disabledReason: reason,
+          })
+          .where(
+            and(
+              eq(membership.workspaceId, input.workspaceId),
+              eq(membership.userId, input.userId),
+            ),
+          )
+          .returning();
+        const row = updated[0];
+        if (!row) throw new Error("MEMBER_NOT_FOUND");
+        const users = await tx
+          .select()
+          .from(userAccount)
+          .where(eq(userAccount.id, input.userId))
+          .limit(1);
+        if (!users[0]) throw new Error("MEMBER_NOT_FOUND");
+        return mapMemberSummary({
+          workspaceId: row.workspaceId,
+          userId: row.userId,
+          role: row.role,
+          defaultShares: row.defaultShares,
+          joinedAt: row.joinedAt,
+          disabledAt: row.disabledAt,
+          disabledReason: row.disabledReason,
+          addedVia: row.addedVia,
+          addedByUserId: row.addedByUserId,
+          displayName: users[0].displayName,
+        });
+      },
+    );
+  }
+
+  async archiveWorkspace(
+    workspaceId: string,
+    actorUserId: string,
+  ): Promise<WorkspaceSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const actorRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, actorUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        if (!actorRows[0] || actorRows[0].role !== "owner") {
+          throw new Error("WORKSPACE_LIFECYCLE_FORBIDDEN");
+        }
+
+        const rows = await tx
+          .select()
+          .from(workspace)
+          .where(eq(workspace.id, workspaceId))
+          .limit(1);
+        const current = rows[0];
+        if (!current || current.deletedAt) throw new Error("WORKSPACE_NOT_FOUND");
+        if (current.template === "personal") {
+          throw new Error("PERSONAL_WORKSPACE_PROTECTED");
+        }
+        if (current.archivedAt) return mapWorkspace(current);
+
+        const updated = await tx
+          .update(workspace)
+          .set({
+            archivedAt: new Date(),
+            archivedByUserId: actorUserId,
+            updatedAt: new Date(),
+          })
+          .where(eq(workspace.id, workspaceId))
+          .returning();
+        const row = updated[0];
+        if (!row) throw new Error("WORKSPACE_NOT_FOUND");
+        return mapWorkspace(row);
+      },
+    );
+  }
+
+  async unarchiveWorkspace(
+    workspaceId: string,
+    actorUserId: string,
+  ): Promise<WorkspaceSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const actorRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, actorUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        if (!actorRows[0] || actorRows[0].role !== "owner") {
+          throw new Error("WORKSPACE_LIFECYCLE_FORBIDDEN");
+        }
+
+        const rows = await tx
+          .select()
+          .from(workspace)
+          .where(eq(workspace.id, workspaceId))
+          .limit(1);
+        const current = rows[0];
+        if (!current || current.deletedAt) throw new Error("WORKSPACE_NOT_FOUND");
+        if (!current.archivedAt) return mapWorkspace(current);
+
+        const updated = await tx
+          .update(workspace)
+          .set({
+            archivedAt: null,
+            archivedByUserId: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(workspace.id, workspaceId))
+          .returning();
+        const row = updated[0];
+        if (!row) throw new Error("WORKSPACE_NOT_FOUND");
+        return mapWorkspace(row);
+      },
+    );
+  }
+
+  async softDeleteWorkspace(
+    workspaceId: string,
+    actorUserId: string,
+    confirmSlug: string,
+  ): Promise<WorkspaceSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const actorRows = await tx
+          .select()
+          .from(membership)
+          .where(
+            and(
+              eq(membership.workspaceId, workspaceId),
+              eq(membership.userId, actorUserId),
+              isNull(membership.disabledAt),
+            ),
+          )
+          .limit(1);
+        if (!actorRows[0] || actorRows[0].role !== "owner") {
+          throw new Error("WORKSPACE_LIFECYCLE_FORBIDDEN");
+        }
+
+        const rows = await tx
+          .select()
+          .from(workspace)
+          .where(eq(workspace.id, workspaceId))
+          .limit(1);
+        const current = rows[0];
+        if (!current || current.deletedAt) throw new Error("WORKSPACE_NOT_FOUND");
+        if (current.template === "personal") {
+          throw new Error("PERSONAL_WORKSPACE_PROTECTED");
+        }
+        if (current.slug !== confirmSlug.trim().toLowerCase()) {
+          throw new Error("WORKSPACE_SLUG_MISMATCH");
+        }
+
+        const now = new Date();
+        const updated = await tx
+          .update(workspace)
+          .set({
+            deletedAt: now,
+            deletedByUserId: actorUserId,
+            archivedAt: current.archivedAt ?? now,
+            archivedByUserId: current.archivedByUserId ?? actorUserId,
+            updatedAt: now,
+          })
+          .where(eq(workspace.id, workspaceId))
+          .returning();
+        const row = updated[0];
+        if (!row) throw new Error("WORKSPACE_NOT_FOUND");
+        return mapWorkspace(row);
       },
     );
   }

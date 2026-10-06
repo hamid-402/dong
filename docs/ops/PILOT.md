@@ -4,10 +4,24 @@
 
 ## پیش‌نیاز runtime
 
-1. Postgres + `pnpm db:migrate` (حداقل تا `0066`)
+1. Postgres + `pnpm db:migrate` (حداقل تا `0086` برای webhook delivery)
 2. API `:3006` · Web `:3005` · Redis اگر jobs/outbox صف می‌خواهید
 3. `allowDevAuth` فقط برای آزمایش محلی؛ پایلوت واقعی = ورود password/OIDC
-4. Capabilities را از `/system/capabilities` چک کنید — persistence، email، jobs
+4. Capabilities را از `/system/capabilities` چک کنید — persistence، email، jobs، `conversionLive`، stubs
+5. نوار صداقت UI: `ProviderStubBadges` روی خانه و مالی (OCR/AV/email/PSP/FX) — بدون badge جعلی
+
+## چک‌لیست pilot سازمانی (R9)
+
+| مورد | معیار سبز |
+|------|-----------|
+| Persistence chrome | برچسب از capabilities (پایدار / مختلط N/M / حافظه) — نه سه فیلد جدا |
+| Stub/keys | SMTP/PSP/OCR/AV/FX در UI فقط از capabilities |
+| Digest | ترجیح ذخیره می‌شود؛ بدون ادعای «آخرین ارسال» وقتی API ندارد |
+| Depth | لینک اهداف/نمودار فقط با `goals_v1` / `charts_v1` |
+| i18n | `partners.*` و `procurement.*` در fa+en |
+| Deputy cap | UI سقف تأیید (`approvalCapMinor`) روی دسترسی‌ها |
+| a11y finance | CI با `A11Y_REQUIRE_FINANCE=1` + API زنده |
+| SoT | STATUS · IA · این سند · tracker هم‌خوان |
 
 ## مسیر رشد (حداقل)
 

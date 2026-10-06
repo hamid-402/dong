@@ -72,6 +72,25 @@ export const statementsApi = {
       label: "خروجی صورت‌حساب",
     }),
 
+  createStatementPackExport: (
+    workspaceId: string,
+    body: {
+      from: string;
+      to: string;
+      format: "xlsx" | "csv" | "html_print" | "pdf";
+      documentNo?: string;
+      kindDocumentTitle?: string;
+      letterheadNote?: string;
+      footerNote?: string;
+      sealLabel?: string;
+    },
+  ) =>
+    postWithOfflineQueue<StatementExportSummary>({
+      path: `/workspaces/${workspaceId}/statements/pack/exports`,
+      body: JSON.stringify(body),
+      label: "بستهٔ صورتحساب اعضا",
+    }),
+
   notifyStatementReady: (
     workspaceId: string,
     userId: string,
@@ -95,7 +114,7 @@ export const statementsApi = {
   downloadStatementExportBlob: async (
     workspaceId: string,
     exportId: string,
-    format: "csv" | "json" = "csv",
+    format: "csv" | "json" | "xlsx" | "html" | "pdf" = "csv",
   ): Promise<{ blob: Blob; fileName: string }> => {
     const headers = new Headers({ Accept: "*/*" });
     if (getAuthClientMode() === "dev") {

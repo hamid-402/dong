@@ -3,13 +3,20 @@ import test from "node:test";
 import {
   buildDailyLedgerCsv,
   buildDailyLedgerMatrix,
+  countDayItems,
   eachDateInclusive,
+  flattenDailyLedgerDay,
   formatJalaliIso,
   isoFromJalali,
   parseDailyLedgerImportCsv,
   resolveDailyLedgerRange,
   shiftDailyLedgerRange,
+  sumDayFundDeposits,
 } from "../src/daily-ledger.js";
+import {
+  createDailyLedgerDepositRequestSchema,
+  createDailyLedgerEntryRequestSchema,
+} from "../src/schemas/daily-ledger.js";
 
 test("eachDateInclusive spans inclusive days", () => {
   assert.deepEqual(eachDateInclusive("2026-09-01", "2026-09-03"), [
@@ -160,4 +167,174 @@ test("buildDailyLedgerMatrix marks range-locked days", () => {
   assert.equal(matrix.days[0]?.isRangeLocked, true);
   assert.equal(matrix.days[1]?.isRangeLocked, false);
   assert.equal(matrix.canManageLocks, true);
+});
+
+test("buildDailyLedgerMatrix keeps fund deposits off consumption totals", () => {
+  const matrix = buildDailyLedgerMatrix({
+    workspaceId: "w1",
+    from: "2026-09-12",
+    to: "2026-09-12",
+    members: [{ userId: "u1", displayName: "حمید" }],
+    expenses: [
+      {
+        id: "e1",
+        title: "نان",
+        status: "posted",
+        visibility: "shared",
+        occurredOn: "2026-09-12",
+        total: { amountMinor: "50000", currency: "IRR" },
+        splits: [{ userId: "u1", amount: { amountMinor: "50000", currency: "IRR" } }],
+        participantUserIds: ["u1"],
+        source: "daily_ledger",
+        fundingSourceKind: "petty_cash",
+        fundingRefId: "fund-1",
+      },
+    ],
+    dayMeta: [],
+    expensePersistence: "memory",
+    dayMetaPersistence: "memory",
+    fundDeposits: [
+      {
+        movementId: "m1",
+        fundId: "fund-1",
+        fundName: "صندوق اصلی",
+        kind: "gift",
+        amountMinor: "2000000",
+        actorUserId: "u1",
+        cashInByUserId: "u1",
+        occurredOn: "2026-09-12",
+        occurredAt: "2026-09-12T12:00:00.000Z",
+      },
+      {
+        movementId: "m2",
+        fundId: "fund-1",
+        fundName: "صندوق اصلی",
+        kind: "spend",
+        amountMinor: "50000",
+        actorUserId: "u1",
+        occurredOn: "2026-09-12",
+        occurredAt: "2026-09-12T13:00:00.000Z",
+      },
+    ],
+  });
+  assert.equal(matrix.days[0]?.dayTotal.amountMinor, "50000");
+  assert.equal(matrix.totals.grand.amountMinor, "50000");
+  assert.equal(matrix.days[0]?.fundDeposits.length, 1);
+  assert.equal(matrix.days[0]?.fundDeposits[0]?.kind, "gift");
+  assert.equal(matrix.days[0]?.members.u1?.items[0]?.fundingSourceKind, "petty_cash");
+  assert.equal(matrix.days[0]?.members.u1?.items[0]?.fundingRefId, "fund-1");
+});
+
+test("flattenDailyLedgerDay and sumDayFundDeposits", () => {
+  const matrix = buildDailyLedgerMatrix({
+    workspaceId: "w1",
+    from: "2026-09-12",
+    to: "2026-09-12",
+    members: [
+      { userId: "u1", displayName: "حمید" },
+      { userId: "u2", displayName: "جواد" },
+    ],
+    expenses: [
+      {
+        id: "e1",
+        title: "نان",
+        status: "posted",
+        visibility: "shared",
+        occurredOn: "2026-09-12",
+        total: { amountMinor: "50000", currency: "IRR" },
+        splits: [{ userId: "u1", amount: { amountMinor: "50000", currency: "IRR" } }],
+        participantUserIds: ["u1"],
+        source: "daily_ledger",
+        fundingSourceKind: "personal",
+      },
+      {
+        id: "e2",
+        title: "آب",
+        status: "posted",
+        visibility: "company",
+        occurredOn: "2026-09-12",
+        total: { amountMinor: "20000", currency: "IRR" },
+        splits: [
+          { userId: "u1", amount: { amountMinor: "10000", currency: "IRR" } },
+          { userId: "u2", amount: { amountMinor: "10000", currency: "IRR" } },
+        ],
+        participantUserIds: ["u1", "u2"],
+        source: "daily_ledger",
+        fundingSourceKind: "petty_cash",
+        fundingRefId: "fund-1",
+      },
+    ],
+    dayMeta: [],
+    expensePersistence: "memory",
+    dayMetaPersistence: "memory",
+    fundDeposits: [
+      {
+        movementId: "m1",
+        fundId: "fund-1",
+        fundName: "صندوق",
+        kind: "gift",
+        amountMinor: "1000000",
+        actorUserId: "u1",
+        cashInByUserId: "u1",
+        occurredOn: "2026-09-12",
+        occurredAt: "2026-09-12T12:00:00.000Z",
+      },
+    ],
+  });
+  const day = matrix.days[0]!;
+  const lines = flattenDailyLedgerDay(day, matrix.members);
+  assert.equal(lines.length, 2);
+  assert.equal(lines[0]?.column, "member");
+  assert.equal(lines[0]?.memberUserId, "u1");
+  assert.equal(lines[1]?.column, "shared");
+  assert.equal(sumDayFundDeposits(day), "1000000");
+  assert.equal(countDayItems(day), 2);
+});
+
+test("createDailyLedgerDepositRequestSchema accepts positive gift deposit", () => {
+  const ok = createDailyLedgerDepositRequestSchema.safeParse({
+    date: "2026-09-12",
+    amountMinor: "2500000",
+    fundId: "fund-1",
+    cashInByUserId: "u1",
+    note: "سهم ماهانه",
+    mode: "gift",
+    idempotencyKey: "dep-1",
+  });
+  assert.equal(ok.success, true);
+  const def = createDailyLedgerDepositRequestSchema.safeParse({
+    date: "2026-09-12",
+    amountMinor: "2500000",
+    fundId: "fund-1",
+    idempotencyKey: "dep-balance",
+  });
+  assert.equal(def.success, true);
+  if (def.success) assert.equal(def.data.mode, undefined);
+  const bad = createDailyLedgerDepositRequestSchema.safeParse({
+    date: "2026-09-12",
+    amountMinor: "0",
+    fundId: "fund-1",
+    idempotencyKey: "dep-0",
+  });
+  assert.equal(bad.success, false);
+});
+
+test("createDailyLedgerEntryRequestSchema requires fundingRef for petty_cash", () => {
+  const bad = createDailyLedgerEntryRequestSchema.safeParse({
+    date: "2026-09-12",
+    itemName: "نان",
+    amount: { amountMinor: "1000", currency: "IRR" },
+    fundingSourceKind: "petty_cash",
+    idempotencyKey: "e1",
+  });
+  assert.equal(bad.success, false);
+  const ok = createDailyLedgerEntryRequestSchema.safeParse({
+    date: "2026-09-12",
+    itemName: "نان",
+    amount: { amountMinor: "1000", currency: "IRR" },
+    fundingSourceKind: "petty_cash",
+    fundingRefId: "fund-1",
+    idempotencyKey: "e2",
+  });
+  assert.equal(ok.success, true);
 });

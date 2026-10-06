@@ -1,17 +1,13 @@
 #!/usr/bin/env node
 /**
- * R10-16 / W6 — canary / post-deploy gate.
+ * R10-16 / W6 / Phase 5.8 — canary / post-deploy gate.
  * Fail ⇒ do not promote / trigger rollback.
- *
- * Env:
- *   API_URL  default http://127.0.0.1:3006
- *   WEB_URL  default http://127.0.0.1:3005
- *   CANARY_REQUIRE_READY=1  (default) — reject degraded when set
- *   CANARY_REQUIRE_WORKER=1 (default) — when Redis is configured, worker heartbeat must be alive
- *   CANARY_CHECK_SLO=1 — optional: if GET /platform/slo returns 200, fail on any breached window
- *                        (401/403/skip = no invented burn; needs platform session cookie if set)
- *   CANARY_SLO_COOKIE — optional Cookie header for authenticated SLO probe
  */
+import {
+  readyStatusFailure,
+  workerHeartbeatFailure,
+} from "./canary-gate-policy.mjs";
+
 const apiBase = (process.env.API_URL ?? "http://127.0.0.1:3006").replace(/\/$/, "");
 const webBase = (process.env.WEB_URL ?? "http://127.0.0.1:3005").replace(/\/$/, "");
 const requireReady = process.env.CANARY_REQUIRE_READY !== "0";
@@ -37,15 +33,13 @@ try {
   const ready = await get(`${apiBase}/api/v1/health/ready`);
   if (!ready.ok) {
     failures.push(`health/ready HTTP ${ready.status}`);
-  } else if (requireReady && ready.json?.status !== "ready") {
-    failures.push(`health/ready status=${ready.json?.status} (want ready)`);
-  } else if (
-    ready.json?.status !== "ready" &&
-    ready.json?.status !== "degraded"
-  ) {
-    failures.push(`health/ready unexpected body`);
   } else {
-    console.log(`OK health/ready → ${ready.json?.status}`);
+    const fail = readyStatusFailure({
+      requireReady,
+      status: ready.json?.status,
+    });
+    if (fail) failures.push(fail);
+    else console.log(`OK health/ready → ${ready.json?.status}`);
   }
 } catch (err) {
   failures.push(`health/ready unreachable: ${err instanceof Error ? err.message : err}`);
@@ -68,10 +62,13 @@ if (capsJson) {
   const worker = capsJson.integrationsReady?.workerConsumer;
   const redisConfigured = worker?.redisConfigured === true;
   const heartbeatAlive = worker?.heartbeatAlive === true;
-  if (requireWorker && redisConfigured && !heartbeatAlive) {
-    failures.push(
-      "worker heartbeat dead while Redis configured (integrationsReady.workerConsumer)",
-    );
+  const fail = workerHeartbeatFailure({
+    requireWorker,
+    redisConfigured,
+    heartbeatAlive,
+  });
+  if (fail) {
+    failures.push(fail);
   } else if (redisConfigured) {
     console.log(
       `OK workerConsumer redisConfigured=true heartbeatAlive=${heartbeatAlive}`,

@@ -8,6 +8,7 @@
  *   settlement.claim, finance.manage); grants still layer first in WorkspaceAccessService
  * - rbac_abac_v3 — statement.read_self|read_any|export + payout.manage
  * - rbac_abac_v4 — settlement.dispute; requireAccess also runs Policy DSL built-ins
+ * - rbac_abac_v5 — deputy finance approvalCapMinor enforced when amountMinor present
  */
 
 import {
@@ -18,7 +19,7 @@ import {
   roleInSet,
 } from "./access-policy.js";
 
-export const ACCESS_POLICY_VERSION = "rbac_abac_v4" as const;
+export const ACCESS_POLICY_VERSION = "rbac_abac_v5" as const;
 
 export type AccessAction =
   | "workspace.mutate"

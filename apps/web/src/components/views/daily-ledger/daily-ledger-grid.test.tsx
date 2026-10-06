@@ -23,6 +23,7 @@ const ledger: DailyLedgerResponse = {
       },
       members: {},
       dayTotal: { amountMinor: "0", currency: "IRR" },
+      fundDeposits: [],
     },
   ],
   totals: {

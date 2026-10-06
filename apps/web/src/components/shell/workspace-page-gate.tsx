@@ -73,6 +73,9 @@ export function WorkspacePageGate({ page, children, needRole = false }: Props) {
   if (!access.allowed) {
     return (
       <EmptyHint>
+        <h1 className="moduleChrome__title" style={{ marginBottom: "0.5rem" }}>
+          این صفحه اینجا فعال نیست
+        </h1>
         <strong>دسترسی مجاز نیست.</strong> {access.reason}
       </EmptyHint>
     );

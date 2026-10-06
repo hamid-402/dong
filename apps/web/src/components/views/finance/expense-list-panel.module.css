@@ -1,8 +1,346 @@
+.filtersFold {
+  margin: 2px 0 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: var(--r-md, 10px);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.filtersFold summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--muted);
+  list-style: none;
+}
+
+.filtersFold summary::-webkit-details-marker {
+  display: none;
+}
+
+.filtersFold[open] summary {
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.filtersGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 10px 12px;
+}
+
+@media (max-width: 640px) {
+  .filtersGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.filterChrome {
+  display: grid;
+  gap: 10px;
+  margin: 2px 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  background: color-mix(in srgb, var(--surface-2, var(--surface)) 70%, transparent);
+}
+
+.searchBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+  margin: 0 0 10px;
+}
+
+.searchField {
+  flex: 1 1 16rem;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.searchLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.searchField input {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.searchField input:focus {
+  outline: 2px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  outline-offset: 1px;
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--line));
+}
+
+.searchClear {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  padding: 8px 4px;
+}
+
+.activeFilters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin: 0 0 10px;
+}
+
+.activeFilterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 auto;
+}
+
+.activeChip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--line));
+  background: color-mix(in srgb, var(--primary-soft, var(--primary)) 35%, var(--surface));
+  color: var(--text);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.activeChip span {
+  opacity: 0.65;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.rowAudience {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.rowAudienceShared {
+  color: color-mix(in srgb, var(--primary) 72%, var(--text));
+}
+
+.rowAudiencePrivate {
+  color: color-mix(in srgb, #b54708 78%, var(--text));
+}
+
+.rowAudienceCompany {
+  color: color-mix(in srgb, var(--gold, #a67c00) 80%, var(--text));
+}
+
+.inspectorAudience {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.filterGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.filterGroupLabel {
+  flex: 0 0 auto;
+  min-width: 2.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.filterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 auto;
+}
+
+.filterChip {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 9px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.filterChip:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--line));
+}
+
+.filterChipActive {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
+  background: color-mix(in srgb, var(--primary-soft, var(--primary)) 42%, var(--surface));
+  font-weight: 700;
+}
+
+.listLegend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin: 4px 0 10px;
+  padding: 0 2px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.listLegend span {
+  font-weight: 600;
+}
+
+.dayGroup {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.dayHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 4px 2px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.dayLabel {
+  font-size: 0.82rem;
+  font-weight: 750;
+  color: var(--text);
+}
+
+.dayCount {
+  font-weight: 550;
+  color: var(--muted);
+}
+
+.dayTotal {
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .masterDetail {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(230px, 0.75fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 28rem);
+  gap: 16px;
   align-items: start;
+}
+
+.listColumn {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.listMore {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 2px;
+}
+
+.rowTitleWithCheck {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+}
+
+.rowTitleStack {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowTitleText {
+  display: block;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowDate {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.rowPills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  align-items: center;
+}
+
+.rowAmount {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.expenseRow {
+  border-radius: var(--r-md, 12px);
+}
+
+.rowReversed {
+  opacity: 0.72;
+}
+
+.rowReversed :global(.dataRow) {
+  border-style: dashed;
 }
 
 .masterDetail > :first-child {
@@ -10,28 +348,41 @@
   min-height: 0;
 }
 
-.dateFilterRow {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.masterDetail :global(.dataList) {
   gap: 10px;
-  margin: 10px 0 4px;
+}
+
+.masterDetail :global(.dataRow) {
+  padding-block: 10px;
+  padding-inline: 12px;
+  align-items: flex-start;
+}
+
+.masterDetail :global(.dataRowMain b) {
+  font-weight: inherit;
+}
+
+.masterDetail :global(.dataRowMain small) {
+  margin-top: 4px;
 }
 
 .selectedRow :global(.dataRow) {
   border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
   background: color-mix(in srgb, var(--primary-soft) 38%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--primary);
 }
 
 .inspector {
   align-self: start;
   position: sticky;
   top: var(--shell-chrome-offset, 60px);
-  padding: 16px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md, 12px);
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--primary) 6%, transparent), transparent 52%),
-    var(--surface-2);
+    linear-gradient(145deg, color-mix(in srgb, var(--primary) 5%, transparent), transparent 52%),
+    var(--surface);
+  box-shadow: var(--elev-1, 0 1px 2px color-mix(in srgb, var(--text) 6%, transparent));
 }
 
 @media (max-width: 900px) {
@@ -43,9 +394,9 @@
 
 .inspectorLabel {
   color: var(--primary);
-  font-size: 9px;
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.06em;
 }
 
 .inspectorHead {
@@ -53,7 +404,35 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  margin-bottom: 8px;
+}
+
+.inspectorHero {
+  display: grid;
+  gap: 4px;
   margin-bottom: 4px;
+}
+
+.inspectorHero h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.inspectorHeroMeta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.inspectorHeroAmount {
+  margin-top: 2px;
+  font-size: 1.15rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 640px) {
@@ -61,29 +440,23 @@
     position: sticky;
     bottom: calc(72px + env(safe-area-inset-bottom, 0px));
     z-index: 20;
-    max-height: min(48vh, 360px);
+    max-height: min(52vh, 420px);
     overflow: auto;
     box-shadow: var(--elev-2);
   }
 }
 
-.inspector h3 {
-  margin: 7px 0 5px;
-  color: var(--text);
-  font-size: 17px;
-}
-
 .inspector dl {
-  margin: 15px 0 0;
+  margin: 10px 0 0;
 }
 
 .inspector dl > div {
-  padding: 8px 0;
+  padding: 7px 0;
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  border-top: 1px solid var(--line);
-  font-size: 11px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  font-size: 0.78rem;
 }
 
 .inspector dt {
@@ -97,14 +470,99 @@
 }
 
 .inspector p {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: var(--muted);
-  font-size: 10px;
-  line-height: 1.7;
+  font-size: 0.72rem;
+  line-height: 1.55;
 }
 
 .inspector code {
   font-size: inherit;
+}
+
+.inspectorActions {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  background: color-mix(in srgb, var(--surface-2, var(--surface)) 92%, transparent);
+}
+
+.actionStatus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.actionRow :global(button) {
+  flex: 1 1 auto;
+  min-width: 7.5rem;
+  justify-content: center;
+}
+
+.actionRowSecondary {
+  padding-top: 8px;
+  border-top: 1px dashed color-mix(in srgb, var(--line) 75%, transparent);
+}
+
+.actionLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.inspectorActionHint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.receiptBlock {
+  margin: 4px 0 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  background: color-mix(in srgb, var(--surface-2, var(--surface)) 92%, transparent);
+}
+
+.receiptTitle {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.metaList {
+  margin: 10px 0 0;
+}
+
+.inspectorEmpty {
+  align-self: start;
+  position: sticky;
+  top: var(--shell-chrome-offset, 60px);
+  padding: 20px 16px;
+  border: 1px dashed color-mix(in srgb, var(--line) 85%, transparent);
+  border-radius: var(--r-md, 12px);
+  background: color-mix(in srgb, var(--surface-2, var(--surface)) 70%, transparent);
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.inspectorEmpty p {
+  margin: 0;
 }
 
 @media (max-width: 900px) {
@@ -112,18 +570,19 @@
     grid-template-columns: 1fr;
   }
 
-  .inspector {
+  .inspector,
+  .inspectorEmpty {
     position: static;
   }
 }
 
 .splitBlock {
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .splitBlock h4 {
-  margin: 0 0 8px;
-  font-size: 0.9rem;
+  margin: 0 0 6px;
+  font-size: 0.85rem;
   color: var(--text);
 }
 
@@ -139,7 +598,7 @@
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 0;
-  border-top: 1px solid var(--line);
+  padding: 5px 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   font-size: 12px;
 }

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
@@ -19,6 +20,8 @@ import type {
   ExpenseSummary,
   PreviewExpenseSplitInput,
   ExpenseCsvImportRequest,
+  RebuildFundPartyJournalsRequest,
+  RestoreExpenseRequestInput,
   ReverseExpenseRequestInput,
   ReviseExpenseRequestInput,
 } from "@dang/contracts";
@@ -28,6 +31,8 @@ import {
   previewExpenseSplitSchema,
   expenseCsvImportSchema,
   expenseListQuerySchema,
+  rebuildFundPartyJournalsRequestSchema,
+  restoreExpenseRequestSchema,
   reverseExpenseRequestSchema,
   reviseExpenseRequestSchema,
 } from "@dang/contracts";
@@ -110,6 +115,27 @@ export class ExpensesController {
     return this.expenses.importCsv(actor, workspaceId, body);
   }
 
+  @Post("rebuild-fund-party-journals")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Rebuild posted expense journals under fund-as-settlement-party (members↔تنخواه)",
+    description:
+      "Idempotent migration for finance managers when ENABLE_FUND_AS_SETTLEMENT_PARTY is on. " +
+      "Renames+reverses classic journals then re-posts with fund:{id} parties. " +
+      "force=true re-posts even when fund lines already exist.",
+  })
+  rebuildFundPartyJournals(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body(new ZodValidationPipe(rebuildFundPartyJournalsRequestSchema))
+    body: RebuildFundPartyJournalsRequest,
+  ) {
+    return this.expenses.rebuildFundPartyJournals(actor, workspaceId, {
+      force: body.force,
+    });
+  }
+
   @Post(":expenseId/submit")
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: "Submit a draft expense for posting" })
@@ -168,9 +194,40 @@ export class ExpensesController {
     @Param("workspaceId") workspaceId: string,
     @Param("expenseId") expenseId: string,
     @Body(new ZodValidationPipe(reverseExpenseRequestSchema))
-    _body: ReverseExpenseRequestInput,
+    body: ReverseExpenseRequestInput,
   ): Promise<ExpenseSummary> {
-    return this.expenses.reverse(actor, workspaceId, expenseId);
+    return this.expenses.reverse(actor, workspaceId, expenseId, body);
+  }
+
+  @Post(":expenseId/restore")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Restore a reversed expense by recreating a posted replacement on the balance",
+  })
+  restore(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("expenseId") expenseId: string,
+    @Body(new ZodValidationPipe(restoreExpenseRequestSchema))
+    body: RestoreExpenseRequestInput,
+    @Res({ passthrough: true }) reply?: FastifyReply,
+  ): Promise<{ restored: ExpenseSummary; fromExpenseId: string }> {
+    return this.expenses.restoreReversed(actor, workspaceId, expenseId, body, reply);
+  }
+
+  @Delete(":expenseId")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Hard-delete a reversed (or never-posted draft) expense — not for active posted rows",
+  })
+  purge(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("expenseId") expenseId: string,
+  ): Promise<{ deleted: true }> {
+    return this.expenses.purgeExpense(actor, workspaceId, expenseId);
   }
 
   @Post(":expenseId/revise")

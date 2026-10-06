@@ -11,6 +11,7 @@ import {
   type DisplayUnit,
   type DisplayUnitPreference,
 } from "@dang/contracts";
+import { DisplayUnitProvider as UiDisplayUnitProvider } from "@dang/ui";
 
 type DisplayUnitContextValue = {
   unit: DisplayUnit;
@@ -43,7 +44,9 @@ export function DisplayUnitProvider({
     [userPreference, workspaceUnit],
   );
   return (
-    <DisplayUnitContext.Provider value={value}>{children}</DisplayUnitContext.Provider>
+    <UiDisplayUnitProvider unit={value.unit}>
+      <DisplayUnitContext.Provider value={value}>{children}</DisplayUnitContext.Provider>
+    </UiDisplayUnitProvider>
   );
 }
 

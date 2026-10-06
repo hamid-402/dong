@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
+import { Inject, Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
 import { ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { ActivityPage, AuthActor } from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
@@ -7,7 +7,7 @@ import { ActivityService } from "./activity.service.js";
 @ApiTags("activity")
 @Controller("workspaces/:workspaceId/activity")
 export class ActivityController {
-  constructor(private readonly activity: ActivityService) {}
+  constructor(@Inject(ActivityService) private readonly activity: ActivityService) {}
 
   @Get()
   @UseGuards(AuthGuard)

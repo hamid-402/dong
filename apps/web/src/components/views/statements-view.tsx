@@ -9,7 +9,7 @@ import type {
   MembershipSummary,
   StatementLine,
 } from "@dang/contracts";
-import { isFinanceManagerRole, sumStatementShareMinor } from "@dang/contracts";
+import { inspectPayoutDestination, isFinanceManagerRole, sumStatementShareMinor } from "@dang/contracts";
 import { Button, SelectField } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
@@ -44,6 +44,16 @@ function maskDestination(kind: "card" | "iban", value: string): string {
     return `${digits.slice(0, 4)} ··· ${digits.slice(-4)}`;
   }
   return digits;
+}
+
+function recognizedPayoutBank(payout: {
+  destinationKind: "card" | "iban";
+  destinationValue: string;
+  bankName?: string;
+}): string | null {
+  if (payout.bankName) return payout.bankName;
+  const seen = inspectPayoutDestination(payout.destinationKind, payout.destinationValue);
+  return seen.checkOk ? (seen.bank?.nameFa ?? null) : null;
 }
 
 function rangeQuery(
@@ -184,6 +194,14 @@ export function StatementsView({
   const [loading, setLoading] = useState(true);
   const [pending, startTransition] = useTransition();
   const [exporting, setExporting] = useState<"csv" | "json" | null>(null);
+  const [packExporting, setPackExporting] = useState<
+    "xlsx" | "csv" | "html_print" | "pdf" | null
+  >(null);
+  const [packDocumentNo, setPackDocumentNo] = useState("");
+  const [packDocTitle, setPackDocTitle] = useState("");
+  const [packLetterhead, setPackLetterhead] = useState("");
+  const [packFooter, setPackFooter] = useState("");
+  const [packSeal, setPackSeal] = useState("");
   const [notifying, setNotifying] = useState(false);
 
   const preset = activePreset(from, to);
@@ -313,14 +331,83 @@ export function StatementsView({
     });
   }
 
+  const packPdfLive =
+    chrome.capabilities?.providers?.statementPackPdf === "pdfkit_vazir_v1";
+
+  function onPackExport(format: "xlsx" | "csv" | "html_print" | "pdf") {
+    if (!workspaceId) return;
+    if (format === "pdf" && !packPdfLive) {
+      setError(t("statements.packPdfUnavailable"));
+      return;
+    }
+    setPackExporting(format);
+    startTransition(() => {
+      void (async () => {
+        try {
+          const created = await api.createStatementPackExport(workspaceId, {
+            from,
+            to,
+            format,
+            documentNo: packDocumentNo.trim() || undefined,
+            kindDocumentTitle: packDocTitle.trim() || undefined,
+            letterheadNote: packLetterhead.trim() || undefined,
+            footerNote: packFooter.trim() || undefined,
+            sealLabel: packSeal.trim() || undefined,
+          });
+          const { blob, fileName } = await api.downloadStatementExportBlob(
+            workspaceId,
+            created.id,
+            format === "html_print"
+              ? "html"
+              : format === "xlsx"
+                ? "xlsx"
+                : format === "pdf"
+                  ? "pdf"
+                  : "csv",
+          );
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = fileName;
+          document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+          if (format === "html_print") {
+            window.open(url, "_blank", "noopener,noreferrer");
+            window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+            flashSuccess(t("statements.packHtmlReady"));
+          } else {
+            URL.revokeObjectURL(url);
+            flashSuccess(
+              format === "pdf"
+                ? t("statements.packPdfReady")
+                : t("statements.packExportReady"),
+            );
+          }
+        } catch (reason: unknown) {
+          setError(friendlyErrorMessage(reason, t("statements.packExportError")));
+        } finally {
+          setPackExporting(null);
+        }
+      })();
+    });
+  }
+
   function onNotify() {
     if (!workspaceId || !detail || !finance) return;
     setNotifying(true);
     startTransition(() => {
       void (async () => {
         try {
-          await api.notifyStatementReady(workspaceId, detail.userId, { from, to });
-          flashSuccess(t("statements.notifySent"));
+          const res = await api.notifyStatementReady(workspaceId, detail.userId, {
+            from,
+            to,
+          });
+          flashSuccess(
+            res.emailDelivered
+              ? t("statements.notifySent")
+              : t("statements.notifyInAppOnly"),
+          );
         } catch (reason: unknown) {
           setError(friendlyErrorMessage(reason, t("statements.notifyError")));
         } finally {
@@ -577,6 +664,9 @@ export function StatementsView({
                           {line.catalogItemId ? (
                             <span className={styles.meta}> · {t("statements.catalog")}</span>
                           ) : null}
+                          {line.fundingNoteFa ? (
+                            <div className={styles.meta}>{line.fundingNoteFa}</div>
+                          ) : null}
                         </td>
                         <td className={styles.num}>{line.quantity ?? "—"}</td>
                         <td>{line.unitCode ?? "—"}</td>
@@ -697,10 +787,10 @@ export function StatementsView({
                         )}
                   </dd>
                 </div>
-                {detail.payoutInstructions.bankName ? (
+                {recognizedPayoutBank(detail.payoutInstructions) ? (
                   <div>
                     <dt>{t("statements.payoutBank")}</dt>
-                    <dd>{detail.payoutInstructions.bankName}</dd>
+                    <dd>{recognizedPayoutBank(detail.payoutInstructions)}</dd>
                   </div>
                 ) : null}
                 {!printMode ? (
@@ -743,6 +833,31 @@ export function StatementsView({
               onClick={() => onExport("json")}
             >
               {exporting === "json" ? "…" : t("statements.downloadJson")}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={pending || packExporting !== null}
+              onClick={() => onPackExport("xlsx")}
+            >
+              {packExporting === "xlsx" ? "…" : t("statements.downloadPackXlsx")}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={pending || packExporting !== null || !packPdfLive}
+              title={!packPdfLive ? t("statements.packPdfUnavailable") : undefined}
+              onClick={() => onPackExport("pdf")}
+            >
+              {packExporting === "pdf" ? "…" : t("statements.downloadPackPdf")}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={pending || packExporting !== null}
+              onClick={() => onPackExport("html_print")}
+            >
+              {packExporting === "html_print" ? "…" : t("statements.downloadPackPrint")}
             </Button>
             {slug ? (
               <Link
@@ -794,7 +909,7 @@ export function StatementsView({
         ) : slug ? (
           <Link href={wPath(slug, "payments")}>{NAV_LABELS.payments}</Link>
         ) : (
-          <Link href="/spaces">{NAV_LABELS.spacesList}</Link>
+          <Link href="/home">{NAV_LABELS.spacesList}</Link>
         )
       }
       state="ready"
@@ -876,7 +991,7 @@ export function StatementsView({
               onChange={(e) => {
                 const id = e.target.value;
                 if (!id || !slug) return;
-                window.location.href = `/w/${encodeURIComponent(slug)}/statements/${id}?${query}`;
+                router.push(`/w/${encodeURIComponent(slug)}/statements/${id}?${query}`);
               }}
             >
               {summaries.map((s) => (
@@ -888,6 +1003,82 @@ export function StatementsView({
           ) : null}
         </div>
       </section>
+
+      {!printMode ? (
+        <section className={styles.actionsBar} aria-label={t("statements.actionsTitle")}>
+          <details className={styles.packLetterhead} style={{ width: "100%", marginBottom: 8 }}>
+            <summary>{t("statements.packLetterheadTitle")}</summary>
+            <div
+              style={{
+                display: "grid",
+                gap: 8,
+                marginTop: 8,
+                gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
+              }}
+            >
+              <label style={{ display: "grid", gap: 4 }}>
+                <span>{t("statements.packDocumentNo")}</span>
+                <input
+                  value={packDocumentNo}
+                  onChange={(e) => setPackDocumentNo(e.target.value)}
+                  placeholder="STP-…"
+                />
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span>{t("statements.packDocTitle")}</span>
+                <input
+                  value={packDocTitle}
+                  onChange={(e) => setPackDocTitle(e.target.value)}
+                  placeholder="صورتحساب …"
+                />
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span>{t("statements.packLetterhead")}</span>
+                <input
+                  value={packLetterhead}
+                  onChange={(e) => setPackLetterhead(e.target.value)}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span>{t("statements.packFooter")}</span>
+                <input
+                  value={packFooter}
+                  onChange={(e) => setPackFooter(e.target.value)}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span>{t("statements.packSeal")}</span>
+                <input value={packSeal} onChange={(e) => setPackSeal(e.target.value)} />
+              </label>
+            </div>
+          </details>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={pending || packExporting !== null}
+            onClick={() => onPackExport("xlsx")}
+          >
+            {packExporting === "xlsx" ? "…" : t("statements.downloadPackXlsx")}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={pending || packExporting !== null || !packPdfLive}
+            title={!packPdfLive ? t("statements.packPdfUnavailable") : undefined}
+            onClick={() => onPackExport("pdf")}
+          >
+            {packExporting === "pdf" ? "…" : t("statements.downloadPackPdf")}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={pending || packExporting !== null}
+            onClick={() => onPackExport("html_print")}
+          >
+            {packExporting === "html_print" ? "…" : t("statements.downloadPackPrint")}
+          </Button>
+        </section>
+      ) : null}
 
       {finance && !focusUserId && summaries.length > 0 ? (
         <section

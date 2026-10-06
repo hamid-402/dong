@@ -85,7 +85,7 @@ const SCREEN_DATA: Record<
   invite: { sections: [["فضای مقصد", "نام فضا، الگو و دعوت‌کننده", "grid"], ["نقش پیشنهادی", "شرح دسترسی پیش از پذیرش", "shield"]] },
   account: { metrics: [["زبان", "فارسی"], ["منطقه زمانی", "Asia/Tehran"]], sections: [["مشخصات عمومی", "نام نمایشی، زبان و منطقه زمانی", "users"], ["خروج", "پایان نشست جاری با تأیید", "arrow"]] },
   "account-security": { metrics: [["MFA", "قابل مدیریت"], ["نشست فعال", "۱"]], sections: [["رمز عبور", "تغییر رمز با بررسی رمز فعلی", "shield"], ["تأیید دومرحله‌ای", "QR، کد بازیابی و لغو امن", "check"], ["نشست‌ها", "مشاهده و بستن نشست‌های فعال", "users"]] },
-  spaces: { metrics: [["فضای فعال", "vidaverse"], ["الگو", "پویا"]], sections: [["فضای شخصی", "خرج‌ها و منابع متعلق به خود کاربر", "wallet"], ["فضاهای گروهی", "دوستان و خانواده با تسویه", "users"], ["فضاهای سازمانی", "خرید، دارایی و حاکمیت", "grid"]] },
+  spaces: { metrics: [["فضای فعال", "فضای نمونه"], ["الگو", "پویا"]], sections: [["فضای شخصی", "خرج‌ها و منابع متعلق به خود کاربر", "wallet"], ["فضاهای گروهی", "دوستان و خانواده با تسویه", "users"], ["فضاهای سازمانی", "خرید، دارایی و حاکمیت", "grid"]] },
   "spaces-new": { sections: [["نوع فضا", "یکی از شش الگوی واقعی محصول", "grid"], ["نام و نشانی", "نام فضای کاری و slug یکتا", "settings"], ["مرور دسترسی", "ماژول‌های فعال پیش از ساخت", "shield"]] },
   "whats-new": { sections: [["تحویل‌های اخیر", "فقط قابلیت‌های واقعاً منتشرشده", "check"], ["مرز قابلیت", "providerهای stub با برچسب روشن", "shield"]] },
   "ui-kit": { sections: [["توکن‌ها", "رنگ، فاصله، تایپوگرافی و focus", "grid"], ["کنترل‌ها", "دکمه، ورودی، انتخاب و وضعیت", "settings"], ["الگوهای داده", "جدول، صف، inspector و نمودار", "chart"]] },
@@ -102,7 +102,7 @@ const SCREEN_DATA: Record<
   procurement: { metrics: [["نیاز باز", "۰"], ["سفارش فعال", "۰"]], sections: [["نیاز و درخواست", "شرح نیاز تا تصمیم خرید", "cart"], ["فروشندگان", "ثبت و انتخاب توسط نقش خریدار", "users"], ["سفارش و تحویل", "ثبت سفارش، تحویل و ایجاد دارایی", "check"]] },
   proposals: { metrics: [["فعال", "۰"], ["حدنصاب", "تنظیم‌شده"]], sections: [["ثبت پیشنهاد", "عنوان، شرح و زمان رأی", "plus"], ["رأی‌گیری", "موافق، مخالف و وضعیت حدنصاب", "check"], ["تبدیل به نیاز", "انتقال پیشنهاد پذیرفته‌شده به خرید", "cart"]] },
   assets: { metrics: [["دارایی", "۰"], ["در اختیار", "۰"]], sections: [["فهرست تجهیزات", "وضعیت و منشأ تحویل", "grid"], ["تخصیص و انتقال", "فقط نقش امانت‌دار یا مدیر", "users"], ["ثبت خرابی", "شرح رخداد و وضعیت بعدی", "shield"]] },
-  members: { metrics: [["عضو فعال", "۱"], ["مدیر مالی", "۱"]], sections: [["اعضا و نقش", "۹ نقش واقعی فضای کاری", "users"], ["دعوت امن", "لینک پذیرش و انقضا", "plus"], ["قانون پشتیبان", "حداقل دو مدیر مالی پس از bootstrap", "shield"]] },
+  members: { metrics: [["عضو فعال", "۱"], ["مدیر مالی", "۱"]], sections: [["اعضا و نقش", "۹ نقش واقعی فضای کاری", "users"], ["دعوت امن", "لینک پذیرش و انقضا", "plus"], ["قانون مادرخرج", "حداقل یک مدیر مالی پس از bootstrap", "shield"]] },
   partners: { metrics: [["قرارداد", "۰"], ["آورده", "۰ تومان"]], sections: [["قرارداد شراکت", "طرف‌ها، تاریخ و مفاد مالی", "receipt"], ["آورده و قرض", "ثبت جریان سرمایه و برداشت", "wallet"], ["مالکیت و قفل", "گزارش سهم و قفل بازه", "shield"]] },
   settings: { sections: [["مشخصات فضا", "نام، واحد نمایش و منطقه زمانی", "settings"], ["الگو و ماژول", "نمایش ساختار فعال بدون حذف داده", "grid"], ["مقصدهای مدیریت", "اعضا، متریک و نمای فضا", "arrow"]] },
   audit: { metrics: [["کل رخداد", "پویا"], ["موفق", "پویا"]], sections: [["جستجو و فیلتر", "عملیات، هدف، عامل و نتیجه", "search"], ["بازرس رخداد", "زمان، request id و فراداده", "shield"]] },
@@ -458,7 +458,7 @@ export function OperationsRoomPreview({ initialScreen }: { initialScreen?: strin
         <div className={styles.shell}>
           <header className={styles.commandBar}>
             <button type="button" className={styles.brand} onClick={() => navigate("workspace-home")}><span className={styles.logo}>د</span><span><b>اتاق عملیات</b><small>DANG / PREVIEW</small></span></button>
-            <button type="button" className={styles.workspaceButton} onClick={() => setWorkspaceOpen((value) => !value)} aria-expanded={workspaceOpen}><span><b>vidaverse</b><small>{TEMPLATE_LABELS[context.template]}</small></span><Icon name="arrow" size={14} /></button>
+            <button type="button" className={styles.workspaceButton} onClick={() => setWorkspaceOpen((value) => !value)} aria-expanded={workspaceOpen}><span><b>فضای نمونه</b><small>{TEMPLATE_LABELS[context.template]}</small></span><Icon name="arrow" size={14} /></button>
             <button type="button" className={styles.searchButton} aria-label="جستجو یا اجرای فرمان" onClick={() => setCommandOpen(true)}><Icon name="search" size={15} /><span>جستجو یا اجرای فرمان</span><kbd>Ctrl K</kbd></button>
             <div className={styles.headerActions}>
               <span className={styles.liveStatus}><i />PREVIEW</span>
@@ -470,12 +470,12 @@ export function OperationsRoomPreview({ initialScreen }: { initialScreen?: strin
               <div className={styles.workspacePopover}>
                 <span className={styles.eyebrow}>اتاق‌های شما</span>
                 {([
-                  ["vidaverse", context.template],
+                  ["فضای نمونه", context.template],
                   ["دفتر شخصی", "personal"],
                   ["خانه و خانواده", "household"],
                 ] satisfies Array<[string, WorkspaceTemplate]>).map(([name, workspaceTemplate]) => (
                   <button type="button" key={name} onClick={() => { updateContext("template", workspaceTemplate); setWorkspaceOpen(false); }}>
-                    <span className={styles.roomMark}>{name.slice(0, 1)}</span><span><b>{name}</b><small>{TEMPLATE_LABELS[workspaceTemplate]}</small></span>{name === "vidaverse" ? <Icon name="check" size={15} /> : null}
+                    <span className={styles.roomMark}>{name.slice(0, 1)}</span><span><b>{name}</b><small>{TEMPLATE_LABELS[workspaceTemplate]}</small></span>{name === "فضای نمونه" ? <Icon name="check" size={15} /> : null}
                   </button>
                 ))}
                 <PreviewButton onClick={() => navigate("spaces")}>مدیریت همه فضاها</PreviewButton>
@@ -496,7 +496,7 @@ export function OperationsRoomPreview({ initialScreen }: { initialScreen?: strin
 
             <main className={styles.workspace}>
               <div className={styles.contextBar}>
-                <div><button type="button" onClick={() => navigate("workspace-home")}>vidaverse</button><Icon name="arrow" size={12} /><span>{GROUP_LABELS[screen.group]}</span><Icon name="arrow" size={12} /><b>{screen.title}</b></div>
+                <div><button type="button" onClick={() => navigate("workspace-home")}>فضای نمونه</button><Icon name="arrow" size={12} /><span>{GROUP_LABELS[screen.group]}</span><Icon name="arrow" size={12} /><b>{screen.title}</b></div>
                 <button type="button" onClick={() => setAccessOpen(true)} className={styles.roleChip}><Icon name="shield" size={13} />{ROLE_LABELS[context.role]} · {access.reason}</button>
               </div>
               <div className={styles.pageHeader}>

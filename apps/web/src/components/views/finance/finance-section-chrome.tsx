@@ -101,15 +101,15 @@ export function buildFinanceSectionChrome(input: {
 
   const ledgerHref = slug ? wPath(slug, "ledger") : null;
   const expensesDescription = readOnlyFinance
-    ? "مشاهدهٔ خرج‌ها — نقش شما فقط‌خواندنی است و ثبت خرج فعال نیست."
+    ? "مشاهدهٔ خرج‌ها — نقش شما فقط‌خواندنی است و ثبت فعال نیست."
     : persona === "approver"
       ? "خرج‌های فضا برای بررسی — اقدام تأیید از مرکز تأیید."
       : spaceKind === "building"
-        ? "شارژ و قبوض همین ساختمان — ثبت سریع، فهرست، برگشت و اصلاح. جدول روز×عضو در دفتر روزانه است."
+        ? `${NAV_LABELS.fullExpense} و شارژ همین ساختمان — فهرست همه؛ مصرف تکراری در ${NAV_LABELS.ledger}.`
         : spaceKind === "org"
-          ? "خرج سازمانی همین فضا — ثبت سریع، فهرست، برگشت و اصلاح."
+          ? `${NAV_LABELS.fullExpense} سازمانی — فهرست همه؛ مصرف تکراری در ${NAV_LABELS.ledger}.`
           : spaceKind === "group"
-            ? "خرج‌های این گروه — ثبت و فهرست اینجا؛ جدول روزانه در دفتر روزانه؛ تسویهٔ مانده در تسویه."
+            ? `${NAV_LABELS.fullExpense} با تقسیم و جزئیات — فهرست همهٔ پول‌ها اینجاست؛ ${NAV_LABELS.dailyEntry} در ${NAV_LABELS.ledger}.`
             : "خرج‌های همین فضا — ثبت، فهرست، برگشت و اصلاح.";
 
   return {
@@ -120,13 +120,13 @@ export function buildFinanceSectionChrome(input: {
     ) : persona === "approver" && approvalsHref ? (
       <Link href={approvalsHref}>{NAV_LABELS.approvals}</Link>
     ) : (
-      <a href="#expense-panel">{NAV_LABELS.addExpense}</a>
+      <a href="#expense-panel">{NAV_LABELS.fullExpense}</a>
     ),
     secondary: slug ? (
       <>
         <a href="#expense-list">فهرست خرج‌ها</a>
         {ledgerHref && persona !== "guest" ? (
-          <Link href={ledgerHref}>{NAV_LABELS.ledger}</Link>
+          <Link href={ledgerHref}>{NAV_LABELS.dailyEntry}</Link>
         ) : null}
         <Link href={settlementsHref}>{NAV_LABELS.settlements}</Link>
         {canApproveCompany && approvalsHref && persona !== "member" ? (

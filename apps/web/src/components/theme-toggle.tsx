@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   APP_ATMOSPHERES,
+  APP_MOTIONS,
   APP_THEMES,
   useOptionalTheme,
 } from "@/lib/theme";
@@ -90,9 +91,11 @@ export function ThemeToggleButton({ className = "" }: { className?: string }) {
     theme,
     atmosphere,
     density,
+    motion,
     setTheme,
     setAtmosphere,
     setDensity,
+    setMotion,
   } = themeApi;
   const activeTheme = APP_THEMES.find((item) => item.id === theme) ?? APP_THEMES[0]!;
   const activeAtm =
@@ -185,6 +188,33 @@ export function ThemeToggleButton({ className = "" }: { className?: string }) {
                         onClick={() => setAtmosphere(item.id)}
                         aria-pressed={item.id === atmosphere}
                         title={item.hint}
+                      >
+                        <span>{item.label}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section>
+                <p className="appearance-panel__heading">حرکت و استیکر</p>
+                <p className="appearance-panel__sub">
+                  بنر رنگی و استیکر همیشه دیده می‌شود. «کامل» شناوری و جرقه را روشن می‌کند.
+                  اگر ویندوز Animation را خاموش کرده باشد، حرکت به «ضروری» محدود می‌شود ولی بنر می‌ماند.
+                </p>
+                <ul className="appearance-bg-grid" role="list">
+                  {APP_MOTIONS.map((item) => (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        className={
+                          item.id === motion
+                            ? "appearance-bg-option is-active"
+                            : "appearance-bg-option"
+                        }
+                        onClick={() => setMotion(item.id)}
+                        aria-pressed={item.id === motion}
+                        title={`${item.hint} (${item.levels})`}
                       >
                         <span>{item.label}</span>
                       </button>

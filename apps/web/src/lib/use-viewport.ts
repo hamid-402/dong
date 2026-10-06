@@ -7,11 +7,21 @@ export type ViewportMode = "mobile" | "tablet" | "desktop";
 /** Match shell.css wide layout (`min-width: 1024px` + `.shell-v2--desktop`). */
 export const VIEWPORT_DESKTOP_MIN = 1024;
 export const VIEWPORT_TABLET_MIN = 768;
+/** Operations Room mosaic split (Phase 4) — above this width use side+main. */
+export const VIEWPORT_OPS_ROOM_MIN = 1200;
+
+export type AdaptiveMosaicMode = "launcher" | "hybrid" | "operations-room";
 
 export function readViewportMode(width: number): ViewportMode {
   if (width >= VIEWPORT_DESKTOP_MIN) return "desktop";
   if (width >= VIEWPORT_TABLET_MIN) return "tablet";
   return "mobile";
+}
+
+export function readAdaptiveMosaicMode(width: number): AdaptiveMosaicMode {
+  if (width >= VIEWPORT_OPS_ROOM_MIN) return "operations-room";
+  if (width >= VIEWPORT_TABLET_MIN) return "hybrid";
+  return "launcher";
 }
 
 function subscribe(onStoreChange: () => void) {
@@ -31,6 +41,23 @@ function getServerSnapshot(): ViewportMode {
 /** Stable after hydrate; CSS media queries remain source of truth for shell sizing. */
 export function useViewportMode(): ViewportMode {
   return useSyncExternalStore(subscribe, getClientSnapshot, getServerSnapshot);
+}
+
+function getClientAdaptiveSnapshot(): AdaptiveMosaicMode {
+  return readAdaptiveMosaicMode(window.innerWidth);
+}
+
+function getServerAdaptiveSnapshot(): AdaptiveMosaicMode {
+  return "launcher";
+}
+
+/** Mosaic presentation: launcher (mobile) · hybrid (tablet) · operations-room (≥1200). */
+export function useAdaptiveMosaicMode(): AdaptiveMosaicMode {
+  return useSyncExternalStore(
+    subscribe,
+    getClientAdaptiveSnapshot,
+    getServerAdaptiveSnapshot,
+  );
 }
 
 export function useIsNarrow(): boolean {

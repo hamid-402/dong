@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type {
   CatalogCategory,
   CatalogFrequentItem,
@@ -22,6 +22,13 @@ import {
   SectionCard,
   StatusPill,
 } from "@/components/ui-blocks";
+import {
+  RowSelectCheckbox,
+  SelectionActionBar,
+  rowSelectActivateProps,
+} from "@/components/selection/selection-action-bar";
+import { useRowSelection } from "@/components/selection/use-row-selection";
+import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { useWorkspaceScope } from "@/components/shell/workspace-scope";
 import { api } from "@/lib/api";
@@ -77,6 +84,20 @@ export function CatalogView() {
 
   const canManagePins = isFinanceManagerRole(myRole);
   const flatCats = flattenCategories(categories);
+  const itemIds = useMemo(() => items.map((i) => i.id), [items]);
+  const itemSelection = useRowSelection(itemIds);
+  const pinIds = useMemo(() => pins.map((p) => p.itemId), [pins]);
+  const pinSelection = useRowSelection(pinIds);
+  const barItem =
+    itemSelection.selectedCount === 1
+      ? (items.find((i) => i.id === itemSelection.selectedIds[0]) ?? null)
+      : null;
+  const selectedItems = useMemo(
+    () => items.filter((i) => itemSelection.selectedIds.includes(i.id)),
+    [items, itemSelection.selectedIds],
+  );
+  const anyActiveSelected = selectedItems.some((i) => i.active);
+  const anyInactiveSelected = selectedItems.some((i) => !i.active);
 
   function refresh(id: string, search = q, onlyActive = activeOnly) {
     startTransition(() => {
@@ -218,13 +239,25 @@ export function CatalogView() {
     });
   }
 
-  function onDeactivate(itemId: string) {
-    if (!workspaceId) return;
+  function deactivateSelected() {
+    if (!workspaceId || !anyActiveSelected) return;
+    const targets = selectedItems.filter((i) => i.active);
+    const label =
+      targets.length === 1
+        ? "این قلم غیرفعال شود؟"
+        : `${targets.length.toLocaleString("fa-IR")} قلم غیرفعال شوند؟`;
+    if (!window.confirm(label)) return;
     startTransition(() => {
-      void api
-        .deactivateCatalogItem(workspaceId, itemId)
+      void Promise.all(
+        targets.map((i) => api.deactivateCatalogItem(workspaceId, i.id)),
+      )
         .then(() => {
-          flashSuccess("قلم غیرفعال شد؛ در ثبت جدید نمی‌آید، سوابق دست‌نخورده می‌ماند");
+          flashSuccess(
+            targets.length === 1
+              ? "قلم غیرفعال شد؛ در ثبت جدید نمی‌آید، سوابق دست‌نخورده می‌ماند"
+              : `${targets.length.toLocaleString("fa-IR")} قلم غیرفعال شد`,
+          );
+          itemSelection.clear();
           refresh(workspaceId);
         })
         .catch((reason: unknown) => {
@@ -233,19 +266,36 @@ export function CatalogView() {
     });
   }
 
-  function onActivate(itemId: string) {
-    if (!workspaceId) return;
+  function activateSelected() {
+    if (!workspaceId || !anyInactiveSelected) return;
+    const targets = selectedItems.filter((i) => !i.active);
     startTransition(() => {
-      void api
-        .activateCatalogItem(workspaceId, itemId)
+      void Promise.all(targets.map((i) => api.activateCatalogItem(workspaceId, i.id)))
         .then(() => {
-          flashSuccess("قلم دوباره فعال شد");
+          flashSuccess(
+            targets.length === 1
+              ? "قلم دوباره فعال شد"
+              : `${targets.length.toLocaleString("fa-IR")} قلم فعال شد`,
+          );
+          itemSelection.clear();
           refresh(workspaceId);
         })
         .catch((reason: unknown) => {
           setError(friendlyErrorMessage(reason, "فعال‌سازی ناموفق بود"));
         });
     });
+  }
+
+  function unpinSelected() {
+    if (!workspaceId || pinSelection.selectedCount === 0) return;
+    const remove = new Set(pinSelection.selectedIds);
+    const label =
+      remove.size === 1
+        ? "این پین برداشته شود؟"
+        : `${remove.size.toLocaleString("fa-IR")} پین برداشته شوند؟`;
+    if (!window.confirm(label)) return;
+    onReplacePins(pins.map((p) => p.itemId).filter((id) => !remove.has(id)));
+    pinSelection.clear();
   }
 
   function onImportPersonal() {
@@ -371,7 +421,7 @@ export function CatalogView() {
       <SectionCard
         id="catalog-items"
         title="کاتالوگ کالا و خدمت"
-        description="هر کالا، خدمت، وعده یا تنقلات — نام، واحد و قیمت مرجع برای ثبت سریع."
+        description="هر کالا، خدمت، وعده یا تنقلات — نام، واحد و قیمت مرجع برای ثبت سریع. برای عملیات، روی ردیف کلیک کنید یا مربع کنارش را تیک بزنید (نوار انتخاب)."
         actions={
           <div className={styles.toolbarActions}>
             <Button type="button" variant="secondary" onClick={onImportPersonal} disabled={pending}>
@@ -486,126 +536,146 @@ export function CatalogView() {
             }
           />
         ) : (
-          <DataList>
-            {items.map((item) => (
-              <div key={item.id} className={styles.itemBlock}>
-                {editingId === item.id ? (
-                  <FormStack className={styles.addForm}>
-                    <TextField
-                      label="نام"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                    />
-                    <SelectField
-                      label="واحد"
-                      value={editUnit}
-                      onChange={(e) => setEditUnit(e.target.value)}
-                    >
-                      {units.map((u) => (
-                        <option key={u.code} value={u.code}>
-                          {u.labelFa}
-                        </option>
-                      ))}
-                    </SelectField>
-                    <TextField
-                      label="قیمت مرجع (ریال)"
-                      value={editPrice}
-                      onChange={(e) => setEditPrice(e.target.value)}
-                      inputMode="numeric"
-                    />
-                    <div className={styles.rowActions}>
-                      <Button type="button" onClick={onSaveEdit} disabled={pending}>
-                        ذخیره
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setEditingId(null)}
-                        disabled={pending}
+          <>
+            <SelectionActionBar
+              selectedCount={itemSelection.selectedCount}
+              idleHint="روی ردیف کلیک کنید یا مربع کنار قلم را تیک بزنید"
+              onClear={itemSelection.clear}
+            >
+              <button
+                type="button"
+                disabled={!barItem || pending}
+                onClick={() => barItem && startEdit(barItem)}
+              >
+                ویرایش
+              </button>
+              <button
+                type="button"
+                disabled={!barItem || pending}
+                onClick={() => barItem && onToggleHistory(barItem.id)}
+              >
+                {barItem && historyItemId === barItem.id ? "بستن تاریخچه" : "تاریخچه قیمت"}
+              </button>
+              {canManagePins ? (
+                <button
+                  type="button"
+                  disabled={!barItem || pending || !barItem.active}
+                  onClick={() => barItem && togglePin(barItem.id)}
+                >
+                  {barItem && pinnedIds.has(barItem.id) ? "برداشتن پین" : "پین مادرخرج"}
+                </button>
+              ) : null}
+              {anyActiveSelected ? (
+                <button
+                  type="button"
+                  className={selStyles.danger}
+                  disabled={pending}
+                  onClick={deactivateSelected}
+                >
+                  غیرفعال
+                </button>
+              ) : null}
+              {anyInactiveSelected ? (
+                <button type="button" disabled={pending} onClick={activateSelected}>
+                  فعال‌سازی
+                </button>
+              ) : null}
+            </SelectionActionBar>
+            <DataList>
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  className={`${styles.itemBlock}${
+                    editingId === item.id ? "" : ` ${selStyles.selectableRow}`
+                  }`}
+                  {...(editingId === item.id
+                    ? {}
+                    : rowSelectActivateProps({
+                        onActivate: () => itemSelection.toggle(item.id),
+                      }))}
+                >
+                  {editingId === item.id ? (
+                    <FormStack className={styles.addForm}>
+                      <TextField
+                        label="نام"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                      />
+                      <SelectField
+                        label="واحد"
+                        value={editUnit}
+                        onChange={(e) => setEditUnit(e.target.value)}
                       >
-                        انصراف
-                      </Button>
-                    </div>
-                  </FormStack>
-                ) : (
-                  <DataRow
-                    title={item.name}
-                    meta={`${unitLabel(item.unitCode)} · ${item.active ? "فعال" : "غیرفعال"}`}
-                    trailing={
+                        {units.map((u) => (
+                          <option key={u.code} value={u.code}>
+                            {u.labelFa}
+                          </option>
+                        ))}
+                      </SelectField>
+                      <TextField
+                        label="قیمت مرجع (ریال)"
+                        value={editPrice}
+                        onChange={(e) => setEditPrice(e.target.value)}
+                        inputMode="numeric"
+                      />
                       <div className={styles.rowActions}>
-                        <Amount irrMinor={item.referencePriceMinor} />
-                        <StatusPill tone={item.active ? "ok" : "neutral"}>
-                          {item.active ? "فعال" : "غیرفعال"}
-                        </StatusPill>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => startEdit(item)}
-                          disabled={pending}
-                        >
-                          ویرایش
+                        <Button type="button" onClick={onSaveEdit} disabled={pending}>
+                          ذخیره
                         </Button>
                         <Button
                           type="button"
                           variant="secondary"
-                          onClick={() => onToggleHistory(item.id)}
+                          onClick={() => setEditingId(null)}
                           disabled={pending}
                         >
-                          {historyItemId === item.id ? "بستن تاریخچه" : "تاریخچه قیمت"}
+                          انصراف
                         </Button>
-                        {canManagePins ? (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => togglePin(item.id)}
-                            disabled={pending || !item.active}
-                          >
-                            {pinnedIds.has(item.id) ? "برداشتن پین" : "پین مادرخرج"}
-                          </Button>
-                        ) : null}
-                        {item.active ? (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => onDeactivate(item.id)}
-                            disabled={pending}
-                          >
-                            غیرفعال
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => onActivate(item.id)}
-                            disabled={pending}
-                          >
-                            فعال‌سازی
-                          </Button>
-                        )}
                       </div>
-                    }
-                  />
-                )}
-                {historyItemId === item.id ? (
-                  prices.length === 0 ? (
-                    <EmptyHint>تاریخچه‌ای ثبت نشده.</EmptyHint>
+                    </FormStack>
                   ) : (
-                    <ul className={styles.priceList}>
-                      {prices.map((p) => (
-                        <li key={p.id}>
-                          <Amount irrMinor={p.priceMinor} />
-                          <span className={styles.priceMeta}>
-                            {formatFaDate(p.effectiveFrom)}
-                            {p.note ? ` · ${p.note}` : ""}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )
-                ) : null}
-              </div>
-            ))}
-          </DataList>
+                    <DataRow
+                      title={
+                        <span className={styles.rowTitleWithCheck}>
+                          <RowSelectCheckbox
+                            checked={itemSelection.isSelected(item.id)}
+                            onChange={() => itemSelection.toggle(item.id)}
+                            label={`انتخاب ${item.name}`}
+                          />
+                          {item.name}
+                        </span>
+                      }
+                      meta={`${unitLabel(item.unitCode)} · ${item.active ? "فعال" : "غیرفعال"}`}
+                      trailing={
+                        <div className={styles.rowActions}>
+                          <Amount irrMinor={item.referencePriceMinor} />
+                          <StatusPill tone={item.active ? "ok" : "neutral"}>
+                            {item.active ? "فعال" : "غیرفعال"}
+                          </StatusPill>
+                        </div>
+                      }
+                    />
+                  )}
+                  {historyItemId === item.id ? (
+                    prices.length === 0 ? (
+                      <EmptyHint>تاریخچه‌ای ثبت نشده.</EmptyHint>
+                    ) : (
+                      <ul className={styles.priceList}>
+                        {prices.map((p) => (
+                          <li key={p.id}>
+                            <Amount irrMinor={p.priceMinor} />
+                            <span className={styles.priceMeta}>
+                              {formatFaDate(p.effectiveFrom)}
+                              {p.note ? ` · ${p.note}` : ""}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )
+                  ) : null}
+                </div>
+              ))}
+            </DataList>
+          </>
         )}
 
         {!loading && items.length === 0 && q.trim() ? (
@@ -649,30 +719,54 @@ export function CatalogView() {
       {canManagePins ? (
         <SectionCard
           title="پین‌های مادرخرج"
-          description="فهرست دستی برای دسترسی سریع — فقط نقش‌های مالی."
+          description="فهرست دستی برای دسترسی سریع — فقط نقش‌های مالی. برای برداشتن، روی ردیف کلیک کنید یا مربع کنار پین را تیک بزنید."
         >
           {pins.length === 0 ? (
-            <EmptyHint>پینی تنظیم نشده. از دکمهٔ «پین مادرخرج» روی اقلام استفاده کنید.</EmptyHint>
+            <EmptyHint>
+              پینی تنظیم نشده. از نوار انتخاب روی اقلام کاتالوگ «پین مادرخرج» را بزنید.
+            </EmptyHint>
           ) : (
-            <DataList>
-              {pins.map((pin) => (
-                <DataRow
-                  key={pin.itemId}
-                  title={pin.item?.name ?? pin.itemId}
-                  meta={`ترتیب ${pin.sortOrder + 1}`}
-                  trailing={
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => togglePin(pin.itemId)}
-                      disabled={pending}
-                    >
-                      برداشتن
-                    </Button>
-                  }
-                />
-              ))}
-            </DataList>
+            <>
+              <SelectionActionBar
+                selectedCount={pinSelection.selectedCount}
+                idleHint="روی ردیف کلیک کنید یا مربع کنارش را تیک بزنید"
+                onClear={pinSelection.clear}
+              >
+                <button
+                  type="button"
+                  className={selStyles.danger}
+                  disabled={pinSelection.selectedCount === 0 || pending}
+                  onClick={unpinSelected}
+                >
+                  برداشتن
+                </button>
+              </SelectionActionBar>
+              <DataList>
+                {pins.map((pin) => (
+                  <div
+                    key={pin.itemId}
+                    className={selStyles.selectableRow}
+                    {...rowSelectActivateProps({
+                      onActivate: () => pinSelection.toggle(pin.itemId),
+                    })}
+                  >
+                    <DataRow
+                      title={
+                        <span className={styles.rowTitleWithCheck}>
+                          <RowSelectCheckbox
+                            checked={pinSelection.isSelected(pin.itemId)}
+                            onChange={() => pinSelection.toggle(pin.itemId)}
+                            label={`انتخاب پین ${pin.item?.name ?? pin.itemId}`}
+                          />
+                          {pin.item?.name ?? pin.itemId}
+                        </span>
+                      }
+                      meta={`ترتیب ${pin.sortOrder + 1}`}
+                    />
+                  </div>
+                ))}
+              </DataList>
+            </>
           )}
         </SectionCard>
       ) : null}

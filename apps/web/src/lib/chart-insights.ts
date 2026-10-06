@@ -1,40 +1,49 @@
 import type { ChartPoint, ChartSeriesResponse } from "@dang/contracts";
 import {
+  JALALI_MONTH_FA,
+  parseIsoToJalali,
+  weekdayFaSatFirst,
+} from "@dang/contracts";
+import {
   chartPointMinor,
   chartSecondaryMinor,
   formatChartToman,
 } from "@/lib/chart-format";
+import { formatFaDate } from "@/lib/fa-datetime";
 
-const FA_MONTHS = [
-  "ژانویه",
-  "فوریه",
-  "مارس",
-  "آوریل",
-  "مه",
-  "ژوئن",
-  "ژوئیه",
-  "اوت",
-  "سپتامبر",
-  "اکتبر",
-  "نوامبر",
-  "دسامبر",
-] as const;
-
-/** YYYY-MM → برچسب کوتاه فارسی (تقویم میلادی API). */
+/** YYYY-MM (میلادی API) → ماه شمسی پایدار (روز ۱۵ همان ماه). */
 export function formatChartMonthLabel(ym: string): string {
   const m = /^(\d{4})-(\d{2})$/.exec(ym.trim());
   if (!m) return ym;
-  const year = m[1]!;
   const month = Number(m[2]);
   if (month < 1 || month > 12) return ym;
-  return `${FA_MONTHS[month - 1]} ${Number(year).toLocaleString("fa-IR")}`;
+  const parts = parseIsoToJalali(`${m[1]}-${m[2]}-15`);
+  if (!parts) return ym;
+  const yearFa = parts.jy.toLocaleString("fa-IR", { useGrouping: false });
+  return `${JALALI_MONTH_FA[parts.jm - 1]} ${yearFa}`;
 }
 
-/** YYYY-MM-DD → روز/ماه کوتاه. */
+/** YYYY-MM-DD → «شنبه ۱۴ شهریور ۱۴۰۵» */
 export function formatChartDayLabel(day: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day.trim());
   if (!m) return day;
-  return `${Number(m[3]).toLocaleString("fa-IR")} ${FA_MONTHS[Number(m[2]) - 1]}`;
+  const iso = `${m[1]}-${m[2]}-${m[3]}`;
+  const parts = parseIsoToJalali(iso);
+  if (!parts) return formatFaDate(iso);
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return formatFaDate(iso);
+  const weekday = weekdayFaSatFirst(d.getDay());
+  const dayFa = parts.jd.toLocaleString("fa-IR", { useGrouping: false });
+  const yearFa = parts.jy.toLocaleString("fa-IR", { useGrouping: false });
+  return `${weekday} ${dayFa} ${JALALI_MONTH_FA[parts.jm - 1]} ${yearFa}`;
+}
+
+/** بازهٔ from/to (Gregorian ISO) به برچسب شمسی کوتاه. */
+export function formatChartRangeLabel(from: string, to: string): string {
+  const a = formatFaDate(from);
+  const b = formatFaDate(to);
+  if (a === "—" && b === "—") return "";
+  return `${a} تا ${b}`;
 }
 
 export function withFriendlyChartLabels(
@@ -51,6 +60,12 @@ export function withFriendlyChartLabels(
       }
       return point;
     }),
+    ...(series.from && series.to
+      ? {
+          from: series.from,
+          to: series.to,
+        }
+      : {}),
   };
 }
 
@@ -115,6 +130,7 @@ export function buildTrendInsights(
 export function buildShareInsights(
   series: ChartSeriesResponse | null,
   entityLabel = "مورد",
+  keyPrefix = "",
 ): ChartInsight[] {
   if (!series || series.points.length === 0) return [];
   const total = series.points.reduce((a, p) => a + chartPointMinor(p), 0n);
@@ -125,20 +141,20 @@ export function buildShareInsights(
   const share = Number((chartPointMinor(top) * 1000n) / total) / 10;
   return [
     {
-      key: "top",
+      key: `${keyPrefix}top`,
       label: `بیشترین ${entityLabel}`,
       value: top.label,
       hint: `${share.toLocaleString("fa-IR")}٪ · ${formatChartToman(chartPointMinor(top))} تومان`,
       tone: share >= 50 ? "attention" : "neutral",
     },
     {
-      key: "count",
+      key: `${keyPrefix}count`,
       label: "تعداد اقلام",
       value: series.points.length.toLocaleString("fa-IR"),
       tone: "neutral",
     },
     {
-      key: "total",
+      key: `${keyPrefix}total`,
       label: "جمع",
       value: `${formatChartToman(total)} تومان`,
       tone: "neutral",

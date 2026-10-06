@@ -13,7 +13,7 @@ import {
   mosaicItemSummary,
   spaceNav,
 } from "@/lib/navigation-v2";
-import { isReadOnlyRole, roleAllowsNavKey } from "@dang/contracts";
+import { isReadOnlyRole, roleAllowsNavKey, spaceKindForTemplate } from "@dang/contracts";
 import { listRecentDestinations, rememberDestination } from "@/lib/recent-destinations";
 import { spaceNavFlagsFromCapabilities } from "@/lib/workspace-page-access";
 import { wPath } from "@/lib/workspace-paths";
@@ -25,6 +25,17 @@ import {
 } from "@/lib/statement-links";
 import { useShellV2Api } from "@/components/shell/shell-v2-context";
 import { t } from "@/lib/i18n";
+import { fuzzyScore } from "@/lib/fuzzy-score";
+import { parseDirectoryQuery } from "@/lib/directory-query";
+import { DIRECTORY_KIND_LABEL } from "@/lib/workspace-directory-model";
+import {
+  filterLivePinnedWorkspaces,
+  filterLiveRecentWorkspaces,
+  listPinnedWorkspaces,
+  listRecentWorkspaces,
+} from "@/lib/workspace-directory-prefs";
+import { api } from "@/lib/api";
+import type { WorkspaceSubunitSummary } from "@dang/contracts";
 
 type PaletteItem = {
   id: string;
@@ -33,44 +44,15 @@ type PaletteItem = {
   group: string;
   /** Extra searchable text (mosaic summary, etc.) — not shown in the row. */
   haystack?: string;
+  /** Finder channel for prefix filters. */
+  channel?: "space" | "page" | "action" | "subunit";
 };
 
-/**
- * Pure fuzzy scorer: subsequence match with consecutive-run bonus.
- * Higher is better; -1 means no match. Works for Persian/Latin labels.
- */
-export function fuzzyScore(query: string, text: string): number {
-  const q = query.trim().toLowerCase();
-  const t = text.toLowerCase();
-  if (!q) return 0;
-  if (t === q) return 10_000;
-  const exactAt = t.indexOf(q);
-  if (exactAt >= 0) {
-    return 5_000 + Math.max(0, 1_000 - exactAt) - Math.max(0, t.length - q.length);
-  }
+/** @deprecated Import from `@/lib/fuzzy-score` — re-export for existing tests. */
+export { fuzzyScore } from "@/lib/fuzzy-score";
 
-  let qi = 0;
-  let score = 0;
-  let consecutive = 0;
-  let firstIndex = -1;
-
-  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
-    if (t[ti] === q[qi]) {
-      if (firstIndex < 0) firstIndex = ti;
-      consecutive += 1;
-      score += 10 + consecutive * 5;
-      if (ti === 0 || /\s/.test(t[ti - 1]!)) score += 15;
-      qi += 1;
-    } else {
-      consecutive = 0;
-    }
-  }
-
-  if (qi !== q.length) return -1;
-  score -= firstIndex;
-  score -= Math.max(0, t.length - q.length);
-  return score;
-}
+const PER_GROUP_CAP = 8;
+const RESULT_CAP = 24;
 
 /**
  * Ctrl/Cmd+K command palette — focus trap, Esc close, aria modal.
@@ -82,6 +64,7 @@ export function CommandPalette() {
   const setOpen = shell?.setCommandPaletteOpen ?? (() => undefined);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [subunits, setSubunits] = useState<WorkspaceSubunitSummary[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -92,6 +75,30 @@ export function CommandPalette() {
   const activeWs = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const slug = activeWs?.slug ?? null;
   const template = activeWs?.template;
+  const spaceKind = spaceKindForTemplate(template);
+
+  useEffect(() => {
+    if (!open || !chrome.workspaceId) {
+      setSubunits([]);
+      return;
+    }
+    if (spaceKind !== "building" && spaceKind !== "org") {
+      setSubunits([]);
+      return;
+    }
+    let cancelled = false;
+    void api
+      .listSubunits(chrome.workspaceId)
+      .then((rows) => {
+        if (!cancelled) setSubunits(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setSubunits([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, chrome.workspaceId, spaceKind]);
 
   const items = useMemo(() => {
     const list: PaletteItem[] = [];
@@ -102,12 +109,39 @@ export function CommandPalette() {
       list.push(item);
     };
 
+    const liveIds = chrome.workspaces.map((w) => w.id);
+    for (const pin of filterLivePinnedWorkspaces(listPinnedWorkspaces(), liveIds)) {
+      const ws = chrome.workspaces.find((w) => w.id === pin.workspaceId);
+      if (!ws) continue;
+      push({
+        id: `pin-ws-${ws.id}`,
+        label: ws.name,
+        href: wPath(ws.slug),
+        group: "پین‌شده",
+        channel: "space",
+        haystack: `${ws.slug} ${DIRECTORY_KIND_LABEL[spaceKindForTemplate(ws.template)]}`,
+      });
+    }
+    for (const recent of filterLiveRecentWorkspaces(listRecentWorkspaces(), liveIds)) {
+      const ws = chrome.workspaces.find((w) => w.id === recent.workspaceId);
+      if (!ws) continue;
+      push({
+        id: `recent-ws-${ws.id}`,
+        label: ws.name,
+        href: wPath(ws.slug),
+        group: t("shell.groupRecent"),
+        channel: "space",
+        haystack: `${ws.slug} ${DIRECTORY_KIND_LABEL[spaceKindForTemplate(ws.template)]}`,
+      });
+    }
+
     for (const recent of listRecentDestinations()) {
       push({
         id: `recent-${recent.key}`,
         label: recent.label,
         href: recent.href,
         group: t("shell.groupRecent"),
+        channel: "page",
       });
     }
 
@@ -119,10 +153,39 @@ export function CommandPalette() {
         label: NAV_LABELS.addExpense,
         href: fab,
         group: t("shell.groupShortcut"),
+        channel: "action",
+        haystack: `${NAV_LABELS.addExpense} ثبت پول انتخابگر`,
+      });
+    }
+    if (slug && !isReadOnlyRole(membershipRole)) {
+      const kind = spaceKindForTemplate(template);
+      if (kind !== "personal") {
+        push({
+          id: "job-daily-entry",
+          label: `${NAV_LABELS.dailyEntry} · تیک مصرف`,
+          href: wPath(slug, "ledger"),
+          group: t("shell.groupShortcut"),
+          channel: "action",
+          haystack: `${NAV_LABELS.dailyEntry} تیک روز عضو مصرف تکراری دفتر`,
+        });
+      }
+      push({
+        id: "job-full-expense",
+        label: `${NAV_LABELS.fullExpense} · تقسیم`,
+        href: `${wPath(slug, "expenses")}#quick-expense`,
+        group: t("shell.groupShortcut"),
+        channel: "action",
+        haystack: `${NAV_LABELS.fullExpense} تقسیم جزئیات رویداد`,
       });
     }
     for (const tab of bottomTabsV2(template, slug)) {
-      push({ id: `tab-${tab.key}`, label: tab.label, href: tab.href, group: t("shell.groupShortcut") });
+      push({
+        id: `tab-${tab.key}`,
+        label: tab.label,
+        href: tab.href,
+        group: t("shell.groupShortcut"),
+        channel: "page",
+      });
     }
     if (slug) {
       push({
@@ -130,6 +193,7 @@ export function CommandPalette() {
         label: NAV_LABELS.expenses,
         href: wPath(slug, "expenses"),
         group: t("shell.groupShortcut"),
+        channel: "page",
         haystack: mosaicItemSummary("expenses"),
       });
       push({
@@ -137,12 +201,14 @@ export function CommandPalette() {
         label: NAV_LABELS.space,
         href: wPath(slug, "space"),
         group: t("shell.groupShortcut"),
+        channel: "page",
       });
       push({
         id: "shortcut-more",
         label: NAV_LABELS.more,
         href: wPath(slug, "more"),
         group: t("shell.groupShortcut"),
+        channel: "page",
       });
       for (const domain of DOMAIN_GROUP_ORDER) {
         push({
@@ -159,6 +225,7 @@ export function CommandPalette() {
                     : NAV_LABELS.sectionSettings,
           href: homeDomainHref(slug, domain),
           group: NAV_LABELS.home,
+          channel: "page",
           haystack: `پوشه خانه ${domain}`,
         });
       }
@@ -167,6 +234,7 @@ export function CommandPalette() {
         label: NAV_LABELS.settlements,
         href: wPath(slug, "settlements"),
         group: t("shell.groupAction"),
+        channel: "action",
         haystack: mosaicItemSummary("settlements"),
       });
       if (chrome.capabilities?.providers?.statements === "csv_json_print_v1") {
@@ -177,6 +245,7 @@ export function CommandPalette() {
             label: NAV_LABELS.myStatementThisMonth,
             href: memberStatementHref(slug, me, statementMonthBounds()),
             group: t("shell.groupAction"),
+            channel: "action",
             haystack: mosaicItemSummary("statements"),
           });
         }
@@ -185,6 +254,7 @@ export function CommandPalette() {
           label: NAV_LABELS.statements,
           href: statementsListHref(slug),
           group: t("shell.groupAction"),
+          channel: "action",
           haystack: mosaicItemSummary("statements"),
         });
       }
@@ -193,6 +263,7 @@ export function CommandPalette() {
         label: NAV_LABELS.members,
         href: wPath(slug, "members"),
         group: t("shell.groupAction"),
+        channel: "action",
         haystack: `${NAV_LABELS.members} ${NAV_LABELS.invite} عضو نقش`,
       });
       push({
@@ -200,6 +271,7 @@ export function CommandPalette() {
         label: t("shell.settingsSpace"),
         href: wPath(slug, "settings"),
         group: t("shell.groupAction"),
+        channel: "page",
         haystack: mosaicItemSummary("settings"),
       });
     }
@@ -216,6 +288,7 @@ export function CommandPalette() {
           label: item.label,
           href: item.href,
           group: section.label,
+          channel: "page",
           haystack: mosaicItemSummary(item.key),
         });
       }
@@ -230,15 +303,31 @@ export function CommandPalette() {
         label: item.label,
         href: item.href,
         group: NAV_LABELS.sectionAccount,
+        channel: "page",
       });
     }
     for (const ws of chrome.workspaces) {
+      const kind = spaceKindForTemplate(ws.template);
       push({
         id: `ws-${ws.id}`,
         label: ws.name,
         href: wPath(ws.slug),
         group: NAV_LABELS.spacesList,
+        channel: "space",
+        haystack: `${ws.slug} ${DIRECTORY_KIND_LABEL[kind]} ${ws.template}`,
       });
+    }
+    if (slug) {
+      for (const unit of subunits) {
+        push({
+          id: `subunit-${unit.id}`,
+          label: unit.name,
+          href: wPath(slug, "subunits"),
+          group: spaceKind === "building" ? "واحدها" : "بخش‌ها",
+          channel: "subunit",
+          haystack: `${unit.code ?? ""} ${unit.kind} ${unit.name}`,
+        });
+      }
     }
     return list;
   }, [
@@ -250,28 +339,69 @@ export function CommandPalette() {
     template,
     open,
     membershipRole,
+    subunits,
+    spaceKind,
   ]);
 
   const filtered = useMemo(() => {
-    const q = query.trim();
-    if (!q) {
-      const recentLabel = t("shell.groupRecent");
-      const recentFirst = items.filter((item) => item.group === recentLabel);
-      const rest = items.filter((item) => item.group !== recentLabel);
-      return [...recentFirst, ...rest].slice(0, 20);
+    const scope = parseDirectoryQuery(query);
+    const scoped = items.filter((item) => {
+      if (scope.kind === "spaces") return item.channel === "space";
+      if (scope.kind === "pages") {
+        return item.channel === "page" || item.channel === "action";
+      }
+      if (scope.kind === "spaceKind") {
+        if (item.channel !== "space") return false;
+        const ws = chrome.workspaces.find((w) => wPath(w.slug) === item.href);
+        return ws
+          ? spaceKindForTemplate(ws.template) === scope.spaceKind
+          : false;
+      }
+      return true;
+    });
+
+    const q = scope.text.trim();
+    const scored = q
+      ? scoped
+          .map((item) => {
+            const labelScore = fuzzyScore(q, item.label);
+            const hayScore = item.haystack ? fuzzyScore(q, item.haystack) : -1;
+            const score = Math.max(labelScore, hayScore);
+            return { item, score };
+          })
+          .filter((row) => row.score >= 0)
+          .sort(
+            (a, b) =>
+              b.score - a.score ||
+              a.item.label.localeCompare(b.item.label, "fa"),
+          )
+      : (() => {
+          const recentLabel = t("shell.groupRecent");
+          const pinFirst = scoped.filter((item) => item.group === "پین‌شده");
+          const recentFirst = scoped.filter(
+            (item) => item.group === recentLabel && !pinFirst.includes(item),
+          );
+          const rest = scoped.filter(
+            (item) =>
+              item.group !== recentLabel && item.group !== "پین‌شده",
+          );
+          return [...pinFirst, ...recentFirst, ...rest].map((item) => ({
+            item,
+            score: 0,
+          }));
+        })();
+
+    const perGroup = new Map<string, number>();
+    const capped: PaletteItem[] = [];
+    for (const row of scored) {
+      const count = perGroup.get(row.item.group) ?? 0;
+      if (count >= PER_GROUP_CAP) continue;
+      perGroup.set(row.item.group, count + 1);
+      capped.push(row.item);
+      if (capped.length >= RESULT_CAP) break;
     }
-    return items
-      .map((item) => {
-        const labelScore = fuzzyScore(q, item.label);
-        const hayScore = item.haystack ? fuzzyScore(q, item.haystack) : -1;
-        const score = Math.max(labelScore, hayScore);
-        return { item, score };
-      })
-      .filter((row) => row.score >= 0)
-      .sort((a, b) => b.score - a.score || a.item.label.localeCompare(b.item.label, "fa"))
-      .slice(0, 20)
-      .map((row) => row.item);
-  }, [items, query]);
+    return capped;
+  }, [items, query, chrome.workspaces]);
 
   useEffect(() => {
     if (!open) return;
@@ -384,7 +514,7 @@ export function CommandPalette() {
           className="cmd-palette__input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={t("shell.searchPlaceholder")}
+          placeholder={`${t("shell.searchPlaceholder")} · گ: س: فضا:`}
           role="combobox"
           aria-label={t("shell.searchAria")}
           aria-expanded="true"

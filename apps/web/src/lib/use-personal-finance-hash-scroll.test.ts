@@ -11,6 +11,7 @@ describe("usePersonalFinanceHashScroll G16", () => {
     document.body.innerHTML = `
       <div id="overview"></div>
       <div id="goals"></div>
+      <div id="intents"></div>
       <div id="charts"></div>
       <div id="resources"></div>
     `;

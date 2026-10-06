@@ -27,13 +27,15 @@ const trend: ChartSeriesResponse = {
 };
 
 describe("chart-insights", () => {
-  it("formats month labels in Persian", () => {
-    expect(formatChartMonthLabel("2026-02")).toContain("فوریه");
+  it("formats month labels in Jalali Persian", () => {
+    expect(formatChartMonthLabel("2026-02")).toBe("بهمن ۱۴۰۴");
+    expect(formatChartMonthLabel("2026-01")).toBe("دی ۱۴۰۴");
   });
 
-  it("withFriendlyChartLabels rewrites YYYY-MM keys", () => {
+  it("withFriendlyChartLabels rewrites YYYY-MM keys to Jalali", () => {
     const labeled = withFriendlyChartLabels(trend);
-    expect(labeled.points[0]?.label).toContain("ژانویه");
+    expect(labeled.points[0]?.label).toBe("دی ۱۴۰۴");
+    expect(labeled.points[1]?.label).toBe("بهمن ۱۴۰۴");
   });
 
   it("buildTrendInsights reports mom change", () => {

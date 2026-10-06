@@ -16,6 +16,7 @@ import {
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import type {
   AuthActor,
+  CreateDailyLedgerDepositRequest,
   CreateDailyLedgerEntryRequest,
   CreateWorkspaceRangeLockRequest,
   DailyLedgerResponse,
@@ -26,6 +27,7 @@ import type {
   WorkspaceRangeLockSummary,
 } from "@dang/contracts";
 import {
+  createDailyLedgerDepositRequestSchema,
   createDailyLedgerEntryRequestSchema,
   createWorkspaceRangeLockRequestSchema,
   importDailyLedgerCsvRequestSchema,
@@ -144,17 +146,48 @@ export class DailyLedgerController {
     return this.dailyLedger.addEntry(actor, workspaceId, body);
   }
 
+  @Post("deposits")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "واریز به صندوق برای یک روز — پیش‌فرض اعتبار عضو (کاهش بدهی/بستانکار)؛ اختیاری هدیه",
+  })
+  createDeposit(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body(new ZodValidationPipe(createDailyLedgerDepositRequestSchema))
+    body: CreateDailyLedgerDepositRequest,
+  ) {
+    return this.dailyLedger.createDeposit(actor, workspaceId, body);
+  }
+
   @Post("import")
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: "Import CSV rows: date_iso,column,item_name,amount_toman (column=shared|member name)",
+    summary:
+      "Import ledger rows from CSV/paste (Dong-To wide or long) or xlsxBase64 (جدول عمومی)",
   })
   async importCsv(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
     @Body(new ZodValidationPipe(importDailyLedgerCsvRequestSchema))
     body: ImportDailyLedgerCsvRequestInput,
-  ): Promise<{ imported: number; skipped: number; ledger: DailyLedgerResponse }> {
+  ): Promise<{
+    imported: number;
+    skipped: number;
+    holidays: number;
+    warnings: string[];
+    unmappedColumns: string[];
+    preview?: Array<{
+      date: string;
+      column: string;
+      itemName: string;
+      amountToman: number;
+      resolved: "shared" | "member" | "skip" | "unmapped";
+      memberUserId?: string;
+    }>;
+    ledger: DailyLedgerResponse;
+  }> {
     return this.dailyLedger.importCsv(actor, workspaceId, body);
   }
 

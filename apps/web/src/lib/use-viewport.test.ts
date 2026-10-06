@@ -1,21 +1,24 @@
+/**
+ * @vitest-environment node
+ */
 import { describe, expect, it } from "vitest";
 import {
-  VIEWPORT_DESKTOP_MIN,
-  VIEWPORT_TABLET_MIN,
+  readAdaptiveMosaicMode,
   readViewportMode,
+  VIEWPORT_OPS_ROOM_MIN,
 } from "./use-viewport";
 
-describe("readViewportMode", () => {
-  it("aligns desktop with shell.css 1024px breakpoint", () => {
-    expect(VIEWPORT_DESKTOP_MIN).toBe(1024);
-    expect(readViewportMode(1023)).toBe("tablet");
-    expect(readViewportMode(1024)).toBe("desktop");
-    expect(readViewportMode(1400)).toBe("desktop");
+describe("viewport mosaic modes", () => {
+  it("maps widths to viewport bands", () => {
+    expect(readViewportMode(500)).toBe("mobile");
+    expect(readViewportMode(800)).toBe("tablet");
+    expect(readViewportMode(1100)).toBe("desktop");
   });
 
-  it("treats tablet from 768", () => {
-    expect(VIEWPORT_TABLET_MIN).toBe(768);
-    expect(readViewportMode(767)).toBe("mobile");
-    expect(readViewportMode(768)).toBe("tablet");
+  it("uses 1200px for operations-room mosaic", () => {
+    expect(VIEWPORT_OPS_ROOM_MIN).toBe(1200);
+    expect(readAdaptiveMosaicMode(767)).toBe("launcher");
+    expect(readAdaptiveMosaicMode(900)).toBe("hybrid");
+    expect(readAdaptiveMosaicMode(1200)).toBe("operations-room");
   });
 });

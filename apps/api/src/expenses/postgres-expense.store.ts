@@ -19,8 +19,10 @@ import {
   validateExpenseDraftInput,
   type ExpenseStore,
   type ExpenseViewOptions,
+  type ExpenseReverseOptions,
   type StoredExpense,
 } from "./expense.types.js";
+import { appendExpenseReverseMeta } from "./expense-reverse-meta.js";
 
 function formatOccurredOn(value: string | Date): string {
   return typeof value === "string" ? value : value.toISOString().slice(0, 10);
@@ -399,7 +401,7 @@ export class PostgresExpenseStore implements ExpenseStore {
     workspaceId: string,
     expenseId: string,
     actorUserId: string,
-    options?: ExpenseViewOptions,
+    options?: ExpenseReverseOptions,
   ): Promise<StoredExpense> {
     return this.updateStatus(
       workspaceId,
@@ -409,6 +411,33 @@ export class PostgresExpenseStore implements ExpenseStore {
       ["draft", "submitted", "posted"],
       "reverse",
       options,
+    );
+  }
+
+  async hardDelete(
+    workspaceId: string,
+    expenseId: string,
+    actorUserId: string,
+    options?: ExpenseViewOptions,
+  ): Promise<void> {
+    const work = async (tx: AppDatabase) => {
+      const stored = await this.loadExpense(tx, expenseId, workspaceId);
+      assertCanMutateExpense(stored, actorUserId, "reverse", options);
+      if (stored.status !== "reversed" && stored.status !== "draft") {
+        throw new Error("EXPENSE_STATUS");
+      }
+      await tx
+        .delete(expense)
+        .where(and(eq(expense.id, expenseId), eq(expense.workspaceId, workspaceId)));
+    };
+    if (options?.tx) {
+      await work(options.tx);
+      return;
+    }
+    await withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      work,
     );
   }
 
@@ -448,7 +477,7 @@ export class PostgresExpenseStore implements ExpenseStore {
     nextStatus: StoredExpense["status"],
     allowedFrom: StoredExpense["status"][],
     action: "submit" | "post" | "reverse",
-    options?: ExpenseViewOptions,
+    options?: ExpenseReverseOptions,
   ): Promise<StoredExpense> {
     const work = async (tx: AppDatabase) => {
       const stored = await this.loadExpense(tx, expenseId, workspaceId);
@@ -457,9 +486,20 @@ export class PostgresExpenseStore implements ExpenseStore {
         throw new Error("EXPENSE_STATUS");
       }
 
+      const patch: { status: StoredExpense["status"]; note?: string } = {
+        status: nextStatus,
+      };
+      if (action === "reverse") {
+        patch.note = appendExpenseReverseMeta(stored.note, {
+          reversedByUserId: actorUserId,
+          reversedAt: new Date().toISOString(),
+          reverseReason: options?.reverseReason?.trim() || "unspecified",
+        });
+      }
+
       const updated = await tx
         .update(expense)
-        .set({ status: nextStatus })
+        .set(patch)
         .where(eq(expense.id, expenseId))
         .returning();
 

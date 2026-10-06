@@ -87,6 +87,24 @@ export const updateWorkspaceRequestSchema = z
 
 export type UpdateWorkspaceRequestInput = z.infer<typeof updateWorkspaceRequestSchema>;
 
+export const leaveWorkspaceRequestSchema = z
+  .object({
+    reason: z.string().trim().max(500).optional(),
+  })
+  .strict();
+
+export type LeaveWorkspaceRequestInput = z.infer<typeof leaveWorkspaceRequestSchema>;
+
+export const softDeleteWorkspaceRequestSchema = z
+  .object({
+    confirmSlug: z.string().trim().min(1).max(64),
+  })
+  .strict();
+
+export type SoftDeleteWorkspaceRequestInput = z.infer<
+  typeof softDeleteWorkspaceRequestSchema
+>;
+
 export const createInviteRequestSchema = z
   .object({
     role: membershipRoleSchema,

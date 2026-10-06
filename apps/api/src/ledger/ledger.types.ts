@@ -9,6 +9,16 @@ import type { AppDatabase } from "@dang/db";
 
 export type LedgerWriteOptions = {
   tx?: AppDatabase;
+  /** When set, expense journals may use fund:{id} as settlement party. */
+  fundAsSettlementParty?: boolean;
+  defaultFundId?: string;
+  /** Rebuild even when journal already has fund:* lines. */
+  force?: boolean;
+};
+
+export type RebuildExpenseJournalResult = {
+  status: "rebuilt" | "skipped" | "created";
+  entry: JournalEntrySummary;
 };
 
 export type PaymentReceiptJournalInput = {
@@ -44,6 +54,15 @@ export type LedgerStore = {
     expenseId: string,
     options?: LedgerWriteOptions,
   ): Promise<void>;
+  /**
+   * Re-post expense journal under fund-as-settlement-party rules.
+   * Supersedes the prior source entry (rename + reverse) then inserts fresh lines.
+   */
+  rebuildExpenseJournal(
+    actorUserId: string,
+    expense: ExpenseSummary,
+    options?: LedgerWriteOptions,
+  ): Promise<RebuildExpenseJournalResult>;
   postSettlement(
     actorUserId: string,
     settlement: SettlementSummary,

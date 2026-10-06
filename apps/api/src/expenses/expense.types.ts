@@ -12,6 +12,10 @@ import {
   type Money,
   type SplitMethod,
 } from "@dang/contracts";
+import {
+  parseExpenseReverseMeta,
+  stripExpenseReverseMeta,
+} from "./expense-reverse-meta.js";
 
 export type StoredExpense = ExpenseSummary & {
   note?: string;
@@ -23,6 +27,10 @@ export type ExpenseViewOptions = {
   viewAllPrivate?: boolean;
   /** Join an outer tenant transaction (postgres orchestration). */
   tx?: AppDatabase;
+};
+
+export type ExpenseReverseOptions = ExpenseViewOptions & {
+  reverseReason?: string;
 };
 
 export type ExpenseStore = {
@@ -66,8 +74,18 @@ export type ExpenseStore = {
     workspaceId: string,
     expenseId: string,
     actorUserId: string,
-    options?: ExpenseViewOptions,
+    options?: ExpenseReverseOptions,
   ): Promise<StoredExpense>;
+  /**
+   * Permanently remove a reversed (or never-posted draft) expense.
+   * Posted active expenses must be reversed first.
+   */
+  hardDelete(
+    workspaceId: string,
+    expenseId: string,
+    actorUserId: string,
+    options?: ExpenseViewOptions,
+  ): Promise<void>;
   /**
    * Memory compensating write after journal failure (no lifecycle checks).
    * Postgres paths rely on transaction rollback instead.
@@ -231,6 +249,8 @@ export function validateExpenseDraftInput(input: CreateExpenseDraftRequest): {
 }
 
 export function toExpenseSummary(expense: StoredExpense): ExpenseSummary {
+  const reverseMeta = parseExpenseReverseMeta(expense.note);
+  const cleanNote = stripExpenseReverseMeta(expense.note ?? "");
   return {
     id: expense.id,
     workspaceId: expense.workspaceId,
@@ -270,7 +290,10 @@ export function toExpenseSummary(expense: StoredExpense): ExpenseSummary {
     fundingSourceKind: expense.fundingSourceKind,
     fundingRefId: expense.fundingRefId,
     missionKind: expense.missionKind,
-    note: expense.note,
+    note: cleanNote || undefined,
+    reverseReason: reverseMeta?.reverseReason,
+    reversedAt: reverseMeta?.reversedAt,
+    reversedByUserId: reverseMeta?.reversedByUserId,
   };
 }
 

@@ -1,5 +1,6 @@
 import type { Money } from "./money.js";
-import type { ExpenseSplitLine, ExpenseSummary } from "./finance.js";
+import type { ExpenseSplitLine, ExpenseSummary, SettlementSummary } from "./finance.js";
+import type { SettlePayIntent, SettlePayPlan } from "./settle-pay.js";
 
 /**
  * S11-09 payment ops — receipts, petty cash, credit purchases.
@@ -53,7 +54,13 @@ export type RejectPaymentReceiptRequest = {
   note: string;
 };
 
-export type PettyCashMovementKind = "topup" | "spend" | "return" | "adjust";
+export type PettyCashMovementKind =
+  | "topup"
+  | "spend"
+  | "return"
+  | "adjust"
+  /** Gift / donation — increases fund; never creates member debts. */
+  | "gift";
 
 export type PettyCashMovementSummary = {
   id: string;
@@ -81,6 +88,55 @@ export type PettyCashFundSummary = {
   createdByUserId: string;
   createdAt: string;
   movements?: PettyCashMovementSummary[];
+};
+
+/** One member's share toward a topup (from linked expense splits). */
+export type PettyCashLedgerContribution = {
+  userId: string;
+  displayName: string;
+  amountMinor: string;
+};
+
+/**
+ * Ledger row for petty-cash audit — date, kind, amounts, actor,
+ * and for topups: who put cash in + each member's contribution share.
+ */
+export type PettyCashLedgerRow = {
+  id: string;
+  fundId: string;
+  kind: PettyCashMovementKind;
+  amountMinor: string;
+  /** Signed IRR minor: +topup/+return, −spend/−adjust-down. */
+  signedDeltaMinor: string;
+  balanceAfterMinor: string;
+  occurredAt: string;
+  createdAt: string;
+  actorUserId: string;
+  actorDisplayName: string;
+  note?: string;
+  expenseId?: string;
+  /** Who physically put money into the box (expense paidBy on topup). */
+  cashInByUserId?: string;
+  cashInByDisplayName?: string;
+  memberContributions?: PettyCashLedgerContribution[];
+};
+
+export type PettyCashLedgerResponse = {
+  fundId: string;
+  fundName: string;
+  custodianUserId: string;
+  custodianDisplayName: string;
+  /** When the fund/box was opened. */
+  fundCreatedAt: string;
+  createdByUserId: string;
+  createdByDisplayName: string;
+  /** False when soft-closed — ledger still readable. */
+  fundActive: boolean;
+  openingBalanceMinor: string;
+  closingBalanceMinor: string;
+  currency: "IRR";
+  /** Chronological ascending (oldest first) for running balance. */
+  rows: PettyCashLedgerRow[];
 };
 
 export type CreatePettyCashFundRequest = {
@@ -177,6 +233,42 @@ export type PettyCashHealthReport = {
     lastMovementAt?: string;
     status: "ok" | "empty" | "inactive";
   }>;
+};
+
+/** Gift to fund — no shared expense / no debts for other members. */
+export type GiftPettyCashRequest = {
+  amountMinor: string;
+  cashInByUserId?: string;
+  note?: string;
+  occurredAt?: string;
+  idempotencyKey: string;
+};
+
+export type GiftPettyCashResponse = {
+  fund: PettyCashFundSummary;
+  movement: PettyCashMovementSummary;
+  balanceMinor: string;
+};
+
+export type SettlePayRequest = {
+  counterpartyUserId: string;
+  amountMinor: string;
+  intent: SettlePayIntent;
+  fundId?: string;
+  asOf?: string;
+  note?: string;
+  previewOnly?: boolean;
+  idempotencyKey: string;
+};
+
+export type SettlePayResponse = {
+  workspaceId: string;
+  previewOnly: boolean;
+  plan: SettlePayPlan;
+  payerNetBeforeMinor: string;
+  counterpartyNetBeforeMinor: string;
+  settlement?: SettlementSummary;
+  gift?: GiftPettyCashResponse;
 };
 
 export type CreditPurchaseStatus =
@@ -279,5 +371,5 @@ export function signedPettyCashDelta(
   const raw = BigInt(amountMinor);
   if (kind === "spend") return raw > 0n ? -raw : raw;
   if (kind === "adjust") return raw;
-  return raw < 0n ? -raw : raw; // topup | return always increase
+  return raw < 0n ? -raw : raw; // topup | return | gift always increase
 }

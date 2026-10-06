@@ -177,6 +177,7 @@ export class WorkspaceAccessService {
           });
         }
         this.assertBuiltInPolicies(workspaceId, userId, action, effectiveRole, resource);
+        await this.assertDeputyApprovalCap(workspaceId, userId, role, action, resource);
         return {
           role: effectiveRole,
           decision: {
@@ -200,6 +201,7 @@ export class WorkspaceAccessService {
       this.deny(workspaceId, userId, action, decision);
     }
     this.assertBuiltInPolicies(workspaceId, userId, action, effectiveRole, resource);
+    await this.assertDeputyApprovalCap(workspaceId, userId, role, action, resource);
     return { role: effectiveRole, decision };
   }
 
@@ -271,6 +273,16 @@ export class WorkspaceAccessService {
               action,
             };
           }
+          const capDeny = await this.previewDeputyCapDeny(workspaceId, userId, role, resource);
+          if (capDeny) {
+            return {
+              allowed: false,
+              reason: capDeny,
+              code: "DENY_ATTRIBUTE",
+              policyVersion: ACCESS_POLICY_VERSION,
+              action,
+            };
+          }
           return {
             allowed: true,
             reason: `Grant ${grant.source} allowed ${action}`,
@@ -307,6 +319,16 @@ export class WorkspaceAccessService {
         return {
           allowed: false,
           reason: dsl.reason,
+          code: "DENY_ATTRIBUTE",
+          policyVersion: ACCESS_POLICY_VERSION,
+          action,
+        };
+      }
+      const capDeny = await this.previewDeputyCapDeny(workspaceId, userId, role, resource);
+      if (capDeny) {
+        return {
+          allowed: false,
+          reason: capDeny,
           code: "DENY_ATTRIBUTE",
           policyVersion: ACCESS_POLICY_VERSION,
           action,
@@ -382,6 +404,56 @@ export class WorkspaceAccessService {
     if (!this.permissions) return false;
     const window = await this.permissions.findActiveDeputyWindow(workspaceId, userId);
     return Boolean(window);
+  }
+
+  /**
+   * R7 / RES-02 — when access is elevated via an active deputy window that sets
+   * approvalCapMinor, deny if resource.amountMinor exceeds the cap.
+   * Native finance managers are not capped by deputy windows.
+   */
+  private async assertDeputyApprovalCap(
+    workspaceId: string,
+    userId: string,
+    baseRole: MembershipRole,
+    action: AccessAction,
+    resource?: AccessResourceAttrs,
+  ): Promise<void> {
+    const reason = await this.previewDeputyCapDeny(
+      workspaceId,
+      userId,
+      baseRole,
+      resource,
+    );
+    if (!reason) return;
+    this.deny(workspaceId, userId, action, {
+      allowed: false,
+      code: "DENY_ATTRIBUTE",
+      reason,
+      policyVersion: ACCESS_POLICY_VERSION,
+      action,
+    });
+  }
+
+  private async previewDeputyCapDeny(
+    workspaceId: string,
+    userId: string,
+    baseRole: MembershipRole,
+    resource?: AccessResourceAttrs,
+  ): Promise<string | null> {
+    if (isFinanceManagerRole(baseRole)) return null;
+    const amount = resource?.amountMinor?.trim();
+    if (!amount || !this.permissions) return null;
+    const window = await this.permissions.findActiveDeputyWindow(workspaceId, userId);
+    const cap = window?.approvalCapMinor?.trim();
+    if (!cap) return null;
+    try {
+      if (BigInt(amount) > BigInt(cap)) {
+        return `سقف تأیید جانشین مالی (${cap}) برای مبلغ ${amount} کافی نیست`;
+      }
+    } catch {
+      return "مبلغ یا سقف تأیید جانشین مالی نامعتبر است";
+    }
+    return null;
   }
 
   private async effectiveRoleForPolicy(

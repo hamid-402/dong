@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const SECTION_IDS = ["overview", "goals", "charts", "resources", "personal-expense"] as const;
+const SECTION_IDS = ["lifestyle", "overview", "goals", "intents", "charts", "resources", "personal-expense"] as const;
 
 /**
  * Scroll to `#section` on mount / hashchange for personal finance surfaces (G16).

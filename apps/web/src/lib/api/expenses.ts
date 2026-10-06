@@ -1,4 +1,4 @@
-import type { CreateExpenseCategoryRequest, CreateExpenseDraftRequest, CreateExpenseTagRequest, CreateRecurringRuleRequest, ExpenseCategorySummary, ExpenseListQuery, ExpenseSplitLine, ExpenseSummary, ExpenseTagSummary, RecurringRuleSummary, ReviseRecurringRuleRequest, SetExpenseTagsRequest } from "@dang/contracts";
+import type { CreateExpenseCategoryRequest, CreateExpenseDraftRequest, CreateExpenseTagRequest, CreateRecurringRuleRequest, ExpenseCategorySummary, ExpenseListQuery, ExpenseSplitLine, ExpenseSummary, ExpenseTagSummary, RebuildFundPartyJournalsResult, RecurringRuleSummary, ReviseRecurringRuleRequest, SetExpenseTagsRequest } from "@dang/contracts";
 import { apiFetch } from "./client";
 import { postWithOfflineQueue } from "./offline-post";
 
@@ -107,6 +107,22 @@ export const expensesApi = {
       idempotencyKey: body?.idempotencyKey,
       label: "برگشت خرج",
     }),
+  restoreExpense: (
+    workspaceId: string,
+    expenseId: string,
+    body: { idempotencyKey: string },
+  ) =>
+    postWithOfflineQueue<{ restored: ExpenseSummary; fromExpenseId: string }>({
+      path: `/workspaces/${workspaceId}/expenses/${expenseId}/restore`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: "بازیابی خرج",
+    }),
+  purgeExpense: (workspaceId: string, expenseId: string) =>
+    apiFetch<{ deleted: true }>(
+      `/workspaces/${workspaceId}/expenses/${expenseId}`,
+      { method: "DELETE" },
+    ),
   reviseExpense: (
     workspaceId: string,
     expenseId: string,
@@ -153,6 +169,21 @@ export const expensesApi = {
     apiFetch<{ createdExpenseIds: string[]; titles: string[] }>(
       `/workspaces/${workspaceId}/recurring-rules/run-due`,
       { method: "POST", body: "{}" },
+    ),
+  /**
+   * Opt-in: rebuild posted expense journals under fund-as-settlement-party.
+   * Requires ENABLE_FUND_AS_SETTLEMENT_PARTY and finance-manager role.
+   */
+  rebuildFundPartyJournals: (
+    workspaceId: string,
+    body?: { force?: boolean },
+  ) =>
+    apiFetch<RebuildFundPartyJournalsResult>(
+      `/workspaces/${workspaceId}/expenses/rebuild-fund-party-journals`,
+      {
+        method: "POST",
+        body: JSON.stringify(body ?? {}),
+      },
     ),
 };
 
