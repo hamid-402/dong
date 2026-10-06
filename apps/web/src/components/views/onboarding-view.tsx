@@ -31,8 +31,7 @@ import { hubPathFor } from "@/lib/hub-links";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { wPath } from "@/lib/workspace-paths";
 
-const ONBOARDING_STEPS = [
-  "نام و قالب فضا را انتخاب کنید (شخصی / گروه / ساختمان / سازمان)",
+const ONBOARDING_STEPS_TAIL = [
   "فضا ساخته می‌شود و خانهٔ آن با کارت‌های مالی، خرید و فضاها باز می‌شود",
   "از خانه اعضا را دعوت کنید یا با ＋ اولین خرج را ثبت کنید — فهرست همهٔ فضاها در /home",
 ] as const;
@@ -194,9 +193,10 @@ export function OnboardingView() {
               spaceKind: "group" as const,
             },
           ];
-    return base.filter(
+    const matched = base.filter(
       (item) => !kindFilter || spaceKindForTemplate(item.id) === kindFilter,
     );
+    return matched.length > 0 ? matched : base;
   }, [templates, kindFilter]);
   const createdFinanceHref = created
     ? wPath(created.slug, "record")
@@ -209,6 +209,23 @@ export function OnboardingView() {
     }
   }, [visibleTemplates, template]);
 
+  const titleKind =
+    kindFilter &&
+    visibleTemplates.some((item) => item.spaceKind === kindFilter)
+      ? kindFilter
+      : null;
+  const offersExtendedKinds = visibleTemplates.some(
+    (item) => item.spaceKind === "building" || item.spaceKind === "org",
+  );
+  const onboardingSteps = [
+    offersExtendedKinds
+      ? "نام و قالب فضا را انتخاب کنید (شخصی / گروه / ساختمان / سازمان)"
+      : templates.length > 0
+        ? "نام و قالب فضا را انتخاب کنید (شخصی یا گروه)"
+        : "نام و قالب فضا را انتخاب کنید",
+    ...ONBOARDING_STEPS_TAIL,
+  ];
+
   return (
     <AppShell
       workspaceId={chrome.workspaceId}
@@ -219,22 +236,24 @@ export function OnboardingView() {
       <PageHeader
         eyebrow="مدیریت"
         title={
-          kindFilter === "building"
+          titleKind === "building"
             ? "ساخت فضای ساختمان"
-            : kindFilter === "org"
+            : titleKind === "org"
               ? "ساخت فضای سازمانی"
-              : kindFilter === "personal"
+              : titleKind === "personal"
                 ? "ساخت فضای شخصی"
-                : kindFilter === "group"
+                : titleKind === "group"
                   ? "ساخت گروه"
                   : "شروع فضای کاری"
         }
         description={
-          kindFilter === "building"
+          titleKind === "building"
             ? "واحدها، ساکنان، شارژ و قبوض — یا پروژهٔ پیمانکاری با مصالح و شرکا."
-            : kindFilter === "org"
+            : titleKind === "org"
               ? "تیم یا شرکای پروژه با بخش‌ها، تأیید و تدارکات."
-              : "گروه دوستانه بسازید، دوستان را دعوت کنید، خرج جمعی و خصوصی را جدا کنید — برای تیم‌ها خرج جاری شرکت هم هست."
+              : offersExtendedKinds
+                ? "گروه دوستانه بسازید، دوستان را دعوت کنید، خرج جمعی و خصوصی را جدا کنید — برای تیم‌ها خرج جاری شرکت هم هست."
+                : "فضای شخصی یا گروه دوستانه بسازید، اعضا را دعوت کنید و خرج مشترک را تسویه کنید."
         }
         actions={
           <>
@@ -258,7 +277,7 @@ export function OnboardingView() {
         <ProductGrid>
           <SectionCard title="راهنمای شروع" delayClass="delay1">
             <ol className="onboardingSteps">
-              {ONBOARDING_STEPS.map((step, index) => (
+              {onboardingSteps.map((step, index) => (
                 <li key={step}>
                   <span>{index + 1}</span>
                   {step}

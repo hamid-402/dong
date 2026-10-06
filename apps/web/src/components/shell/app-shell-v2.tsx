@@ -32,7 +32,7 @@ import { useViewportMode } from "@/lib/use-viewport";
 import { t } from "@/lib/i18n";
 import { NAV_LABELS, spaceTabLabel } from "@/lib/nav-labels";
 import { workspaceDisplayName } from "@/lib/workspace-display-name";
-import { spaceKindForTemplate, isReadOnlyRole, type SpaceKind } from "@dang/contracts";
+import { spaceKindForTemplate, spaceKindOffered, isReadOnlyRole, type SpaceKind } from "@dang/contracts";
 import { assignKindGems, shellKindStyle } from "@/lib/tile-gem-palettes";
 import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
 import { spaceNavFlagsFromCapabilities } from "@/lib/workspace-page-access";
@@ -173,6 +173,15 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
       : spacesListHref;
   const archived = Boolean(active?.archivedAt);
   const railFlags = spaceNavFlagsFromCapabilities(chrome.capabilities);
+  const productFlags = chrome.capabilities?.productFlags;
+  const offeredSpaceKinds = new Set<SpaceKind>(
+    (["personal", "group", "building", "org"] as const).filter((kind) =>
+      spaceKindOffered(kind, {
+        buildingSpaces: productFlags?.buildingSpaces === true,
+        orgSpaces: productFlags?.orgSpaces === true,
+      }),
+    ),
+  );
   const tabHrefs = tabs.map((tab) => tab.href).join("|");
   useEffect(() => {
     for (const tab of tabs) router.prefetch(tab.href);
@@ -317,6 +326,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
                   workspaces={chrome.workspaces}
                   activeWorkspaceId={chrome.workspaceId}
                   homeHref="/home"
+                  offeredKinds={offeredSpaceKinds}
                 />
               </div>
             ) : (
@@ -325,6 +335,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
                   workspaces={chrome.workspaces}
                   activeWorkspaceId={chrome.workspaceId}
                   homeHref="/home"
+                  offeredKinds={offeredSpaceKinds}
                 />
               </div>
             )}

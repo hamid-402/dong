@@ -11,6 +11,8 @@ import {
   leaveWorkspaceRequestSchema,
   softDeleteWorkspaceRequestSchema,
   updateWorkspaceRequestSchema,
+  readProductFeatureFlags,
+  spaceKindOffered,
   workspaceTemplateCatalog,
   type AuthActor,
   type CreateWorkspaceRequest,
@@ -48,7 +50,10 @@ export class WorkspacesController {
     },
   })
   listTemplates(): WorkspaceTemplateCatalogItem[] {
-    return workspaceTemplateCatalog;
+    const flags = readProductFeatureFlags(process.env);
+    return workspaceTemplateCatalog.filter((item) =>
+      spaceKindOffered(item.spaceKind, flags),
+    );
   }
 
   @Get("by-slug/:slug")

@@ -8,7 +8,7 @@ import type {
   PersonalFinanceTrendGroupBy,
   PersonalFinanceTrendsResponse,
 } from "@dang/contracts";
-import { resolveDailyLedgerRange } from "@dang/contracts";
+import { resolveDailyLedgerRange, spaceKindOffered } from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
 import {
   EmptyHint,
@@ -86,7 +86,12 @@ export function PersonalFinanceOverviewPanel() {
     <SectionCard title="مالیه من در همه فضاها" delayClass="delay1">
       <FormStack>
         <StatusLine>
-          پرداخت از جیب، سهم مصرف، و مانده فعلی هر گروه/سازمان — جدا از هم.
+          {spaceKindOffered("org", {
+            buildingSpaces: chrome.capabilities?.productFlags?.buildingSpaces === true,
+            orgSpaces: chrome.capabilities?.productFlags?.orgSpaces === true,
+          })
+            ? "پرداخت از جیب، سهم مصرف، و مانده فعلی هر گروه و سازمان — جدا از هم."
+            : "پرداخت از جیب، سهم مصرف، و مانده فعلی هر گروه — جدا از هم."}
         </StatusLine>
         <div className="pfRangeRow">
           <JalaliDateField label="از تاریخ" value={from} onChange={setFrom} />

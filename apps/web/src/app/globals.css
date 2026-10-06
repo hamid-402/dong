@@ -1814,8 +1814,8 @@ html[data-motion="off"] .dang-motion-feedback * {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  justify-content: space-between;
-  gap: 8px 12px;
+  justify-content: flex-start;
+  gap: 8px 16px;
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
   border-radius: var(--r-lg);
@@ -1862,9 +1862,8 @@ html[data-motion="off"] .dang-motion-feedback * {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  justify-content: flex-end;
-  flex: 1 1 auto;
-  margin-inline-start: auto;
+  justify-content: flex-start;
+  flex: 0 0 auto;
 }
 .moduleChrome__actions > :first-child,
 .productHeaderActions > :first-child {
@@ -1924,6 +1923,10 @@ html[data-motion="off"] .dang-motion-feedback * {
   align-items: center;
   justify-content: flex-end;
   margin-inline-start: auto;
+}
+.workspacePageFrame > .moduleChrome .productHeaderActions {
+  justify-content: flex-start;
+  margin-inline-start: 0;
 }
 .productHeaderActions a,
 .productHeaderActions button {
@@ -2064,24 +2067,52 @@ html[data-theme="mist"] .sectionCard:hover {
   gap: var(--space-2);
   align-items: end;
 }
+.formStack {
+  justify-items: start;
+}
+.formStack > * {
+  width: min(100%, 42rem);
+}
+.formStack select,
+.formStack textarea,
+.formStack .jdfTrigger,
+.formStack input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+  max-width: 28rem;
+}
+.formStack button,
+.dlOnboard > button {
+  width: auto;
+  max-width: 100%;
+  justify-self: start;
+}
 @media (min-width: 1000px) {
   .expenseFormWide {
     display: flex;
     flex-wrap: wrap;
     align-items: start;
+    justify-content: flex-start;
     gap: 14px 18px;
+    max-width: 72rem;
   }
   .expenseFormWide > * {
-    flex: 1 1 24rem;
-    min-width: min(100%, 24rem);
-    max-width: 100%;
+    flex: 0 1 24rem;
+    min-width: min(100%, 16rem);
+    max-width: min(100%, 28rem);
   }
   .expenseFormWide > .statusLine,
   .expenseFormWide > details,
   .expenseFormWide > .splitComposer,
   .expenseFormWide > .expenseFormActions,
-  .expenseFormWide > .liveHint {
+  .expenseFormWide > .liveHint,
+  .expenseFormWide > .expenseStepper,
+  .expenseFormWide > ol {
     flex: 1 1 100%;
+    min-width: 0;
+    max-width: 42rem;
+  }
+  .expenseFormWide select {
+    width: 100%;
+    max-width: 28rem;
   }
 }
 .formStack__actions {
@@ -2609,6 +2640,8 @@ html[data-theme="mist"] .sectionCard:hover {
   display: flex;
   align-items: center;
   gap: 4px;
+  width: 100%;
+  max-width: 72rem;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
   background: color-mix(in srgb, var(--surface-2, var(--surface)) 75%, transparent);

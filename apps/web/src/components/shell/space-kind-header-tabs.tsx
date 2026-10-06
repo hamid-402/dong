@@ -55,10 +55,13 @@ export function SpaceKindHeaderTabs({
   workspaces,
   activeWorkspaceId,
   homeHref = "/home",
+  offeredKinds,
 }: {
   workspaces: WorkspaceSummary[];
   activeWorkspaceId?: string | null;
   homeHref?: string;
+  /** When set, only these realm tabs render. Home always stays. */
+  offeredKinds?: ReadonlySet<SpaceKind>;
 }) {
   const pathname = usePathname();
   const search = useSearchParams();
@@ -93,7 +96,10 @@ export function SpaceKindHeaderTabs({
       label: NAV_LABELS.spaceOrg,
       href: "/home?kind=org",
     },
-  ];
+  ].filter(
+    (tab) =>
+      tab.key === "home" || !offeredKinds || offeredKinds.has(tab.key),
+  );
 
   return (
     <nav className="spaceKindTabs" aria-label={t("shell.kindTabsAria")}>

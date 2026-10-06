@@ -25,7 +25,8 @@
 
 .filtersGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 18rem));
+  justify-content: start;
   gap: 10px 12px;
 }
 
@@ -58,6 +59,7 @@
   display: grid;
   gap: 4px;
   min-width: 0;
+  max-width: 36rem;
 }
 
 .searchLabel {
@@ -267,7 +269,8 @@
 
 .masterDetail {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 28rem);
+  grid-template-columns: minmax(0, 46rem) minmax(16rem, 24rem);
+  justify-content: start;
   gap: 16px;
   align-items: start;
 }

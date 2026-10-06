@@ -21,7 +21,6 @@
   display: inline-flex;
   flex-wrap: wrap;
   gap: 4px 10px;
-  margin-inline-start: auto;
 }
 
 .toolbarNav a {
@@ -36,7 +35,8 @@
 
 .masterDetail {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
+  grid-template-columns: minmax(0, 32rem) minmax(18rem, 28rem);
+  justify-content: start;
   gap: 12px;
   align-items: start;
   min-height: 0;
@@ -74,7 +74,8 @@
   appearance: none;
   width: 100%;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto max-content max-content;
+  justify-content: start;
   gap: 10px;
   align-items: center;
   padding: 8px 10px;
@@ -267,7 +268,8 @@
 
 .opsGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(16rem, 28rem));
+  justify-content: start;
   gap: 12px;
   margin: 0;
 }

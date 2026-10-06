@@ -123,11 +123,18 @@ export function JoinGroupView({ initialSlug = "" }: { initialSlug?: string }) {
   const alreadyMember = workspaces.some(
     (w) => w.slug === (preview?.slug ?? normalizeGroupId(groupId)),
   );
+  const extendedKinds =
+    chrome?.capabilities?.productFlags?.buildingSpaces === true ||
+    chrome?.capabilities?.productFlags?.orgSpaces === true;
 
   return (
     <WorkspacePageFrame
       title="پیوستن با شناسه فضا"
-      description="شناسه‌ای که صاحب گروه، ساختمان یا سازمان به شما داده را وارد کنید و درخواست عضویت بفرستید."
+      description={
+        extendedKinds
+          ? "شناسه‌ای که صاحب گروه، ساختمان یا سازمان به شما داده را وارد کنید و درخواست عضویت بفرستید."
+          : "شناسه‌ای که صاحب گروه به شما داده را وارد کنید و درخواست عضویت بفرستید."
+      }
       primaryAction={<Link href="/home">{NAV_LABELS.spacesList}</Link>}
       secondaryActions={<Link href="/home">خانه</Link>}
       state="ready"
@@ -144,7 +151,11 @@ export function JoinGroupView({ initialSlug = "" }: { initialSlug?: string }) {
               setPreview(null);
               setSuccess(null);
             }}
-            hint="مثال: friends-trip یا /join/tower-12 — لینک کامل هم پذیرفته می‌شود"
+            hint={
+              extendedKinds
+                ? "مثال: friends-trip یا /join/tower-12 — لینک کامل هم پذیرفته می‌شود"
+                : "مثال: friends-trip — لینک کامل هم پذیرفته می‌شود"
+            }
             dir="ltr"
           />
           <Button type="button" onClick={lookup} disabled={pending || !groupId.trim()}>

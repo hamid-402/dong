@@ -7,6 +7,7 @@ import {
   jalaliYearMonthDateBounds,
   resolveYearMonthDateBounds,
   spaceKindForTemplate,
+  spaceKindOffered,
   type PersonalFinanceMetricFocus,
   type PersonalFinanceWorkspaceLine,
   type SpaceKind,
@@ -192,22 +193,35 @@ export function PersonalSpacesAccordion({
       );
     }
 
-    return KIND_ORDER.filter((k) => !(hidePersonal && k === "personal")).map(
-      (k) => byKind[k],
-    );
-  }, [chrome.workspaces, lines, hidePersonal]);
+    const kindFlags = {
+      buildingSpaces: chrome.capabilities?.productFlags?.buildingSpaces === true,
+      orgSpaces: chrome.capabilities?.productFlags?.orgSpaces === true,
+    };
+    return KIND_ORDER.filter((k) => {
+      if (hidePersonal && k === "personal") return false;
+      return spaceKindOffered(k, kindFlags);
+    }).map((k) => byKind[k]);
+  }, [chrome.workspaces, chrome.capabilities?.productFlags, lines, hidePersonal]);
 
   const totalSpaces = buckets.reduce((n, b) => n + b.workspaces.length, 0);
 
   return (
     <section
       className={`${styles.accordion}${className ? ` ${className}` : ""}`}
-      aria-label="گروه‌ها و پروژه‌ها"
+      aria-label={
+        chrome.capabilities?.productFlags?.orgSpaces === true
+          ? "گروه‌ها و پروژه‌ها"
+          : "گروه‌ها"
+      }
       aria-busy={pending && !loaded}
     >
       {!compact ? (
         <div className={styles.head}>
-          <h2 className={styles.title}>گروه‌ها و پروژه‌ها</h2>
+          <h2 className={styles.title}>
+            {chrome.capabilities?.productFlags?.orgSpaces === true
+              ? "گروه‌ها و پروژه‌ها"
+              : "گروه‌ها"}
+          </h2>
           <p className={styles.hint}>
             {totalSpaces > 0
               ? `${totalSpaces.toLocaleString("fa-IR")} فضا — برای جزئیات باز کنید`

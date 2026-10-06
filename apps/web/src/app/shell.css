@@ -1037,9 +1037,12 @@ a.shell-v2__catalogLink:hover {
 
 .shell-v2__crumb {
   display: flex;
+  flex: 0 1 auto;
   flex-wrap: nowrap;
   align-items: center;
   gap: 0;
+  width: max-content;
+  max-width: 100%;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1050,8 +1053,9 @@ a.shell-v2__catalogLink:hover {
 .shell-v2__crumbItem {
   display: inline-flex;
   align-items: center;
-  min-width: 0;
-  max-width: min(14rem, 28vw);
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: min(16rem, 36vw);
 }
 
 .shell-v2__crumbItem.is-current {
@@ -1084,8 +1088,9 @@ a.shell-v2__catalogLink:hover {
 }
 
 .shell-v2__crumbSeg {
-  display: inline-block;
-  max-width: 100%;
+  display: block;
+  width: max-content;
+  max-width: min(16rem, 36vw);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3837,8 +3842,9 @@ html[data-theme="linear"] .kindAggregate__card {
 
 @media (min-width: 720px) {
   .groupBalanceHero {
-    grid-template-columns: 1.25fr 0.75fr;
+    grid-template-columns: minmax(0, 1fr) minmax(14rem, 20rem);
     align-items: start;
+    justify-content: end;
   }
 }
 
@@ -3952,6 +3958,19 @@ html[data-theme="linear"] .kindAggregate__card {
 .groupBalanceHero__expenseLink:hover,
 .homeActivity__link:hover {
   background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.groupBalanceHero__peerLink,
+.groupBalanceHero__expenseLink {
+  justify-content: flex-start;
+  width: auto;
+  max-width: 100%;
+}
+
+.groupBalanceHero__peerLink {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  justify-content: start;
 }
 
 .groupBalanceHero__peerLink small {
@@ -4088,12 +4107,19 @@ html[data-theme="linear"] .kindAggregate__card {
 }
 
 .spacesBalanceOverview__grid dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.35em;
   margin: 0;
   font-size: clamp(1.3rem, 2vw, 1.65rem);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
-  word-break: break-word;
+}
+
+.spacesBalanceOverview__amount {
+  white-space: nowrap;
 }
 
 .spacesBalanceOverview__grid .is-credit dd {
@@ -4133,6 +4159,21 @@ html[data-theme="linear"] .kindAggregate__card {
     grid-area: actions;
     justify-content: flex-end;
     margin: 0;
+  }
+}
+
+@media (min-width: 1100px) {
+  .spacesBalanceOverviewStack .spacesBalanceOverview {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "head"
+      "actions"
+      "stats";
+    align-items: stretch;
+  }
+
+  .spacesBalanceOverviewStack .spacesBalanceOverview__actions {
+    justify-content: flex-start;
   }
 }
 

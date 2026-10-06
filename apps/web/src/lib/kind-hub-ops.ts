@@ -42,6 +42,7 @@ export function pickKindTarget(
 /** Kind tiles for account home / spaces «all» — open the kind hub, not a single-space op. */
 export function kindDomainMosaicItems(
   counts: Record<SpaceKind, number>,
+  offered: (kind: SpaceKind) => boolean = () => true,
 ): ContextualMosaicItem[] {
   const meta: Array<{
     key: SpaceKind;
@@ -80,7 +81,7 @@ export function kindDomainMosaicItems(
     },
   ];
 
-  return meta.map((row) => {
+  return meta.filter((row) => offered(row.key)).map((row) => {
     const count = counts[row.key] ?? 0;
     return {
       key: `kind-${row.key}`,

@@ -1,6 +1,7 @@
 "use client";
 
-import type { SpaceKind } from "@dang/contracts";
+import { spaceKindOffered, type SpaceKind } from "@dang/contracts";
+import { useAppChrome } from "@/lib/use-app-chrome";
 import Link from "next/link";
 import { formatMoneyFromIrrMinor, displayUnitLabel } from "@dang/ui";
 import {
@@ -24,10 +25,12 @@ function KindBalanceCard({
   kind,
   aggregate,
   spaceCount,
+  hint,
 }: {
   kind: SpaceKind;
   aggregate: SpaceNetAggregate;
   spaceCount: number;
+  hint: string;
 }) {
   const unit = useDisplayUnit();
   const unitLabel = displayUnitLabel(unit);
@@ -51,7 +54,7 @@ function KindBalanceCard({
             <p>
               {settled
                 ? `در ${spaceCount.toLocaleString("fa-IR")} فضای ${label} حساب‌ها تسویه است.`
-                : KIND_HINT[kind]}
+                : hint}
             </p>
           </div>
         </div>
@@ -60,13 +63,15 @@ function KindBalanceCard({
         <div className="is-credit">
           <dt>طلب دارید</dt>
           <dd>
-            {owedDisplay} {unitLabel}
+            <span className="spacesBalanceOverview__amount">{owedDisplay}</span>
+            <span>{unitLabel}</span>
           </dd>
         </div>
         <div className="is-debt">
           <dt>بدهکارید</dt>
           <dd>
-            {debtDisplay} {unitLabel}
+            <span className="spacesBalanceOverview__amount">{debtDisplay}</span>
+            <span>{unitLabel}</span>
           </dd>
         </div>
         <div>
@@ -118,6 +123,11 @@ export function SpacesBalanceOverview({
   /** When set (e.g. /home?kind=building), show only that ledger. */
   onlyKind?: SpaceKind | null;
 }) {
+  const chrome = useAppChrome();
+  const kindFlags = {
+    buildingSpaces: chrome.capabilities?.productFlags?.buildingSpaces === true,
+    orgSpaces: chrome.capabilities?.productFlags?.orgSpaces === true,
+  };
   if (loading && rows.length === 0) {
     return (
       <section className="spacesBalanceOverview is-loading" aria-busy="true">
@@ -126,7 +136,9 @@ export function SpacesBalanceOverview({
     );
   }
 
-  const groups = groupSpaceNetsByKind(rows, onlyKind);
+  const groups = groupSpaceNetsByKind(rows, onlyKind).filter(({ kind }) =>
+    spaceKindOffered(kind, kindFlags),
+  );
   if (groups.length === 0) return null;
 
   return (
@@ -137,6 +149,13 @@ export function SpacesBalanceOverview({
           kind={kind}
           aggregate={aggregate}
           spaceCount={kindRows.length}
+          hint={
+            kind === "personal" && !kindFlags.buildingSpaces
+              ? "فقط دفتر شخصی."
+              : kind === "group" && !kindFlags.orgSpaces
+                ? "فقط گروه‌ها — طلب و بدهی سفر و دوستان."
+                : KIND_HINT[kind]
+          }
         />
       ))}
     </div>

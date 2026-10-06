@@ -29,4 +29,12 @@ describe("kind-hub-ops", () => {
       "/spaces/new?kind=building",
     );
   });
+
+  it("kindDomainMosaicItems can omit building and org", () => {
+    const items = kindDomainMosaicItems(
+      { personal: 0, group: 1, building: 2, org: 3 },
+      (kind) => kind === "personal" || kind === "group",
+    );
+    expect(items.map((item) => item.key)).toEqual(["kind-personal", "kind-group"]);
+  });
 });

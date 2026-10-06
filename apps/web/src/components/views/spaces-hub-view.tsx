@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { spaceKindForTemplate } from "@dang/contracts";
+import { spaceKindForTemplate, spaceKindOffered } from "@dang/contracts";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { workspaceTemplateLabel } from "@/lib/status-labels";
 import { wPath } from "@/lib/workspace-paths";
@@ -84,11 +84,18 @@ export function SpacesHubView() {
     Partial<Record<(typeof KIND_ORDER)[number], boolean>>
   >({});
   const kindFromUrl = searchParams.get("kind");
+  const productFlags = chrome.capabilities?.productFlags;
+  const kindOffered = (kind: (typeof KIND_ORDER)[number]) =>
+    spaceKindOffered(kind, {
+      buildingSpaces: productFlags?.buildingSpaces === true,
+      orgSpaces: productFlags?.orgSpaces === true,
+    });
   const kindFilter: (typeof KIND_ORDER)[number] | "all" =
-    kindFromUrl === "personal" ||
-    kindFromUrl === "group" ||
-    kindFromUrl === "building" ||
-    kindFromUrl === "org"
+    (kindFromUrl === "personal" ||
+      kindFromUrl === "group" ||
+      kindFromUrl === "building" ||
+      kindFromUrl === "org") &&
+    kindOffered(kindFromUrl)
       ? kindFromUrl
       : "all";
   const [nets, setNets] = useState<Record<string, NetCell>>({});
@@ -191,15 +198,22 @@ export function SpacesHubView() {
         key: "life-domains",
         label: "حوزه‌ها",
         description: "برای گزارش تجمیعی و فهرست فضاها، یک حوزه را باز کنید",
-        items: kindDomainMosaicItems({
-          personal: totals.personal,
-          group: totals.group,
-          building: totals.building,
-          org: totals.org,
-        }),
+        items: kindDomainMosaicItems(
+          {
+            personal: totals.personal,
+            group: totals.group,
+            building: totals.building,
+            org: totals.org,
+          },
+          (kind) =>
+            spaceKindOffered(kind, {
+              buildingSpaces: productFlags?.buildingSpaces === true,
+              orgSpaces: productFlags?.orgSpaces === true,
+            }),
+        ),
       },
     ],
-    [totals],
+    [totals, productFlags],
   );
 
   const visibleCount =
@@ -349,7 +363,11 @@ export function SpacesHubView() {
             />
           </div>
           <SectionCard title="هنوز فضایی ندارید">
-            <p>برای شروع یک فضای شخصی، گروهی یا سازمانی بسازید.</p>
+            <p>
+              {kindOffered("org")
+                ? "برای شروع یک فضای شخصی، گروهی یا سازمانی بسازید."
+                : "برای شروع یک فضای شخصی یا گروهی بسازید."}
+            </p>
             <div className="dataRowActions">
               <Link className="shell-v2__cta" href="/spaces/new">
                 {NAV_LABELS.createSpace}
@@ -357,12 +375,16 @@ export function SpacesHubView() {
               <Link href="/spaces/new?kind=group" className="textButton">
                 گروه
               </Link>
-              <Link href="/spaces/new?kind=building" className="textButton">
-                ساختمان
-              </Link>
-              <Link href="/spaces/new?kind=org" className="textButton">
-                سازمان
-              </Link>
+              {kindOffered("building") ? (
+                <Link href="/spaces/new?kind=building" className="textButton">
+                  ساختمان
+                </Link>
+              ) : null}
+              {kindOffered("org") ? (
+                <Link href="/spaces/new?kind=org" className="textButton">
+                  سازمان
+                </Link>
+              ) : null}
               <Link href="/spaces/new?kind=personal" className="textButton">
                 شخصی
               </Link>
@@ -440,7 +462,7 @@ export function SpacesHubView() {
                   { key: "group" as const, label: KIND_LABEL.group, count: totals.group },
                   { key: "building" as const, label: KIND_LABEL.building, count: totals.building },
                   { key: "org" as const, label: KIND_LABEL.org, count: totals.org },
-                ]
+                ].filter((chip) => chip.key === "all" || kindOffered(chip.key))
               ).map((chip) => (
                 <button
                   key={chip.key}
@@ -709,8 +731,12 @@ export function SpacesHubView() {
             </Link>
             <StatusLine>
               <Link href="/spaces/reports?kind=group">گزارش گروهی</Link>
-              {" · "}
-              <Link href="/spaces/reports?kind=building">گزارش ساختمان</Link>
+              {kindOffered("building") ? (
+                <>
+                  {" · "}
+                  <Link href="/spaces/reports?kind=building">گزارش ساختمان</Link>
+                </>
+              ) : null}
               {" · "}
               <Link href="/me/finance">{NAV_LABELS.personalFinance}</Link>
             </StatusLine>

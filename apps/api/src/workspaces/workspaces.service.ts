@@ -20,7 +20,9 @@ import type {
 } from "@dang/contracts";
 import {
   DIRECTORY_METRICS_WORKSPACE_CAP,
+  readProductFeatureFlags,
   spaceKindForTemplate,
+  spaceKindOffered,
   toDirectoryEntry,
   workspaceTemplateCatalog,
 } from "@dang/contracts";
@@ -156,6 +158,22 @@ export class WorkspacesService {
         type: "https://dang.local/problems/validation",
         title: "Invalid workspace template",
         status: 400,
+      });
+    }
+    if (
+      !spaceKindOffered(
+        spaceKindForTemplate(template),
+        readProductFeatureFlags(process.env),
+      )
+    ) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/space-kind-disabled",
+        title: "Space kind is not enabled",
+        status: 403,
+        detail:
+          spaceKindForTemplate(template) === "building"
+            ? "ENABLE_BUILDING_SPACES is off."
+            : "ENABLE_ORG_SPACES is off.",
       });
     }
 

@@ -123,6 +123,9 @@ test("product flags: production unset → off; development unset → on", () => 
     approvalSteps: false,
     makerChecker: false,
     settlementEvidence: false,
+    fundAsSettlementParty: false,
+    buildingSpaces: false,
+    orgSpaces: false,
   };
   assert.deepEqual(readProductFeatureFlags({ NODE_ENV: "production" }), allOff);
   const allOn = Object.fromEntries(
@@ -155,6 +158,24 @@ test("product flags: production unset → off; development unset → on", () => 
   });
   assert.equal(wave6.biCompare, true);
   assert.equal(wave6.costCenter, true);
+  assert.equal(wave6.buildingSpaces, false);
+  assert.equal(wave6.orgSpaces, false);
+  assert.equal(
+    readProductFeatureFlags({
+      NODE_ENV: "production",
+      ENABLE_BUILDING_SPACES: "1",
+      ENABLE_ORG_SPACES: "1",
+    }).buildingSpaces,
+    true,
+  );
+  assert.equal(
+    readProductFeatureFlags({
+      NODE_ENV: "production",
+      ENABLE_BUILDING_SPACES: "1",
+      ENABLE_ORG_SPACES: "1",
+    }).orgSpaces,
+    true,
+  );
 });
 
 test("Wave F guest role and allowance contracts", () => {

@@ -34,6 +34,10 @@ export type ProductFeatureFlags = {
    * Spend-from-fund → members owe fund; personal advance → fund clearing + reimbursable payer.
    */
   fundAsSettlementParty: boolean;
+  /** Building templates and the ساختمان entry points. */
+  buildingSpaces: boolean;
+  /** Org templates and the سازمان entry points. */
+  orgSpaces: boolean;
 };
 
 export const PRODUCT_FLAG_ENV = {
@@ -56,6 +60,8 @@ export const PRODUCT_FLAG_ENV = {
   makerChecker: "ENABLE_MAKER_CHECKER",
   settlementEvidence: "ENABLE_SETTLEMENT_EVIDENCE",
   fundAsSettlementParty: "ENABLE_FUND_AS_SETTLEMENT_PARTY",
+  buildingSpaces: "ENABLE_BUILDING_SPACES",
+  orgSpaces: "ENABLE_ORG_SPACES",
 } as const;
 
 function parseTriState(
@@ -142,5 +148,20 @@ export function readProductFeatureFlags(
       env[PRODUCT_FLAG_ENV.fundAsSettlementParty],
       unsetDefault,
     ),
+    buildingSpaces: parseTriState(
+      env[PRODUCT_FLAG_ENV.buildingSpaces],
+      unsetDefault,
+    ),
+    orgSpaces: parseTriState(env[PRODUCT_FLAG_ENV.orgSpaces], unsetDefault),
   };
+}
+
+/** Personal and group stay available. Building and org follow their flags. */
+export function spaceKindOffered(
+  kind: "personal" | "group" | "building" | "org",
+  flags: Pick<ProductFeatureFlags, "buildingSpaces" | "orgSpaces">,
+): boolean {
+  if (kind === "building") return flags.buildingSpaces;
+  if (kind === "org") return flags.orgSpaces;
+  return true;
 }

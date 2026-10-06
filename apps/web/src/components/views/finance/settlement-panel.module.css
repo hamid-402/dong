@@ -1,6 +1,7 @@
 .masterDetail {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(230px, 0.75fr);
+  grid-template-columns: minmax(0, 46rem) minmax(16rem, 22rem);
+  justify-content: start;
   gap: 12px;
 }
 
