@@ -30,6 +30,20 @@ function headerValue(
   return value;
 }
 
+/** DevAuth identity headers. Bootstrap must not apply them over a password or OIDC session. */
+export function readDevActorInput(headers: Record<string, string | string[] | undefined>): {
+  externalSubject: string;
+  displayName: string;
+  userId?: string;
+} {
+  const userId = headerValue(headers, "x-dang-user-id");
+  return {
+    externalSubject: decodeDevHeader(headerValue(headers, "x-dang-subject"), "dev-local-user"),
+    displayName: decodeDevHeader(headerValue(headers, "x-dang-display-name"), "کاربر محلی"),
+    ...(userId ? { userId } : {}),
+  };
+}
+
 /** Accepts plain ASCII or `b64:` UTF-8 payloads from the web client. */
 function decodeDevHeader(raw: string | undefined, fallback: string): string {
   if (!raw?.trim()) return fallback;

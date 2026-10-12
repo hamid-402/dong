@@ -12,8 +12,9 @@ import { ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger
 import type { AuthActor, AuthMeResponse, SessionSummary } from "@dang/contracts";
 import { loadAppEnv } from "@dang/config";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { AuthGuard, CurrentActor } from "./auth.guard.js";
+import { AuthGuard, CurrentActor, readDevActorInput } from "./auth.guard.js";
 import { AccountService } from "./account.service.js";
+import { isCredentialAccount, SESSION_COOKIE } from "./account.types.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 
 @ApiTags("auth")
@@ -41,12 +42,15 @@ export class AuthController {
   /**
    * Issues a real HttpOnly dang_session for local DevAuth so middleware
    * no longer relies on the forgeable dang_web_session flag.
+   * A live password or OIDC cookie wins over the headers. Header identity
+   * still applies when there is no credential session, so a local dev
+   * subject can replace another dev cookie.
    */
   @Post("dev/bootstrap-session")
-  @UseGuards(AuthGuard)
-  @ApiOperation({ summary: "Dev-only: mint HttpOnly session from DevAuth headers" })
+  @ApiOperation({
+    summary: "Dev-only: mint HttpOnly session from DevAuth headers unless a password/OIDC session is present",
+  })
   async bootstrapDevSession(
-    @CurrentActor() actor: AuthActor,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<{ ok: true }> {
@@ -58,9 +62,23 @@ export class AuthController {
         status: 404,
       });
     }
+
+    const existing = await this.accounts.findSessionAccount(req.cookies?.[SESSION_COOKIE]);
+    if (existing && isCredentialAccount(existing)) {
+      return { ok: true };
+    }
+
+    const input = readDevActorInput(req.headers);
+    const target = await this.accounts.findAccountBySubject(input.externalSubject);
+    if (target && isCredentialAccount(target)) {
+      return { ok: true };
+    }
+
+    const actor = await this.iam.upsertDevActor(input);
+    const rawAgent = req.headers["user-agent"];
     await this.accounts.issueSessionForUser(actor.userId, reply, {
       ip: req.ip,
-      userAgent: req.headers["user-agent"],
+      userAgent: typeof rawAgent === "string" ? rawAgent : undefined,
     });
     return { ok: true };
   }

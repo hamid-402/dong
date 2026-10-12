@@ -13,6 +13,10 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  * Auth entrypoints that establish or recover a session.
  * A stale HttpOnly `dang_session` without a matching readable CSRF cookie
  * must not block login/register (common after partial cookie clear / HMR).
+ *
+ * Dev bootstrap is not listed. With no session cookie this guard already
+ * allows the post. With a session cookie the double-submit token is required
+ * so a header cannot rotate that cookie without the readable CSRF cookie.
  */
 const CSRF_EXEMPT_PATH_SUFFIXES = [
   "/auth/login",
@@ -20,7 +24,6 @@ const CSRF_EXEMPT_PATH_SUFFIXES = [
   "/auth/forgot-password",
   "/auth/reset-password",
   "/auth/mfa/verify",
-  "/auth/dev/bootstrap-session",
   "/auth/logout",
 ] as const;
 

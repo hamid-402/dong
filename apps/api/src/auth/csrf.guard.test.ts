@@ -51,6 +51,45 @@ test("CSRF rejects missing or mismatched token", () => {
   );
 });
 
+test("CSRF allows dev bootstrap only when no session cookie is present", () => {
+  const guard = new CsrfGuard();
+  const open = {
+    switchToHttp: () => ({
+      getRequest: () => ({
+        method: "POST",
+        url: "/api/v1/auth/dev/bootstrap-session",
+        cookies: {},
+        headers: { "x-dang-subject": "dev-local-user" },
+      }),
+    }),
+  };
+  assert.equal(guard.canActivate(open as never), true);
+
+  const withSession = {
+    switchToHttp: () => ({
+      getRequest: () => ({
+        method: "POST",
+        url: "/api/v1/auth/dev/bootstrap-session",
+        cookies: { [SESSION_COOKIE]: "live-session" },
+        headers: { "x-dang-subject": "dev-local-user" },
+      }),
+    }),
+  };
+  assert.throws(() => guard.canActivate(withSession as never), ForbiddenException);
+
+  const withToken = {
+    switchToHttp: () => ({
+      getRequest: () => ({
+        method: "POST",
+        url: "/api/v1/auth/dev/bootstrap-session",
+        cookies: { [SESSION_COOKIE]: "live-session", [CSRF_COOKIE]: "token-b" },
+        headers: { [CSRF_HEADER]: "token-b" },
+      }),
+    }),
+  };
+  assert.equal(guard.canActivate(withToken as never), true);
+});
+
 test("CSRF exempts auth login even with stale session cookie", () => {
   const guard = new CsrfGuard();
   const context = {

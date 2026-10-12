@@ -52,6 +52,7 @@ import {
   authModeForUser,
   toActor,
   toProfile,
+  type AccountRecord,
   type AccountStore,
 } from "./account.types.js";
 import {
@@ -143,12 +144,24 @@ export class AccountService {
     }
   }
 
-  async resolveSessionActor(rawToken: string | undefined): Promise<AuthActor | null> {
+  async findSessionAccount(rawToken: string | undefined): Promise<AccountRecord | null> {
     if (!rawToken?.trim()) return null;
     const session = await this.accounts.findSessionByTokenHash(hashToken(rawToken.trim()));
     if (!session) return null;
     const user = await this.accounts.findById(session.userId);
     if (!user || user.disabledAt) return null;
+    return user;
+  }
+
+  async findAccountBySubject(externalSubject: string): Promise<AccountRecord | null> {
+    const subject = externalSubject.trim();
+    if (!subject) return null;
+    return this.accounts.findByExternalSubject(subject);
+  }
+
+  async resolveSessionActor(rawToken: string | undefined): Promise<AuthActor | null> {
+    const user = await this.findSessionAccount(rawToken);
+    if (!user) return null;
     return toActor(user, authModeForUser(user));
   }
 

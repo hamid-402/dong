@@ -185,9 +185,21 @@ function asDisplayUnit(raw: string | null | undefined): DisplayUnitPreference | 
   return null;
 }
 
+/**
+ * Password and OIDC accounts. Header-only DevAuth rows have neither a
+ * password nor an email, so a dev cookie can still follow a new subject.
+ */
+export function isCredentialAccount(row: AccountRecord): boolean {
+  if (row.passwordHash) return true;
+  if (row.externalSubject.startsWith("local:")) return true;
+  if (row.email || row.emailVerifiedAt) return true;
+  return false;
+}
+
 export function authModeForUser(row: AccountRecord): AuthActor["authMode"] {
-  if (row.externalSubject.startsWith("local:")) return "password";
-  return row.passwordHash ? "password" : "oidc";
+  if (row.passwordHash || row.externalSubject.startsWith("local:")) return "password";
+  if (row.email || row.emailVerifiedAt) return "oidc";
+  return "dev";
 }
 
 export function toProfile(

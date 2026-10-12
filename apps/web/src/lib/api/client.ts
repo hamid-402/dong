@@ -56,6 +56,12 @@ export function getAuthClientMode(): AuthClientMode {
   return "dev";
 }
 
+/** True only after an explicit DevAuth choice. A missing key is not DevAuth. */
+export function isExplicitDevAuthMode(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(AUTH_MODE_KEY) === "dev";
+}
+
 export function markClientSession(mode: AuthClientMode = "password") {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(AUTH_MODE_KEY, mode);
@@ -80,8 +86,9 @@ function readBrowserCookie(name: string): string | undefined {
   return undefined;
 }
 
-/** Mint HttpOnly dang_session for local DevAuth (middleware no longer trusts web flag alone). */
+/** Mint HttpOnly dang_session for an explicit local DevAuth choice. */
 export async function bootstrapDevSession(): Promise<void> {
+  if (!isExplicitDevAuthMode()) return;
   await apiFetch<{ ok: true }>("/auth/dev/bootstrap-session", {
     method: "POST",
     body: "{}",
@@ -99,13 +106,26 @@ export function encodeDevHeader(value: string): string {
   return `b64:${btoa(binary)}`;
 }
 
+function configuredDevIdentity(): { subject: string; displayName: string } | null {
+  const subject = process.env.NEXT_PUBLIC_DEV_SUBJECT?.trim();
+  const displayName = process.env.NEXT_PUBLIC_DEV_DISPLAY_NAME?.trim();
+  if (!subject || !displayName) return null;
+  return { subject, displayName };
+}
+
 export function getDevIdentity() {
+  const configured = configuredDevIdentity();
   if (typeof window === "undefined") {
-    return { subject: "dev-local-user", displayName: "کاربر محلی" };
+    return configured ?? { subject: "dev-local-user", displayName: "کاربر محلی" };
+  }
+  const storedSubject = window.localStorage.getItem(DEV_SUBJECT_KEY);
+  const storedName = window.localStorage.getItem(DEV_NAME_KEY);
+  if (configured && (!storedSubject || storedSubject === "dev-local-user")) {
+    return configured;
   }
   return {
-    subject: window.localStorage.getItem(DEV_SUBJECT_KEY) ?? "dev-local-user",
-    displayName: window.localStorage.getItem(DEV_NAME_KEY) ?? "کاربر محلی",
+    subject: storedSubject ?? configured?.subject ?? "dev-local-user",
+    displayName: storedName ?? configured?.displayName ?? "کاربر محلی",
   };
 }
 

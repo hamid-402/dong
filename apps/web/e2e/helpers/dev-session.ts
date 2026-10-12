@@ -74,13 +74,31 @@ export async function installDevSession(context: BrowserContext, page: Page): Pr
   }
 }
 
+async function mergeStoredCsrf(
+  request: APIRequestContext,
+  headers: Record<string, string>,
+): Promise<Record<string, string>> {
+  if (headers[CSRF_HEADER]) return headers;
+  try {
+    const { cookies } = await request.storageState();
+    const csrf = cookies.find((cookie) => cookie.name === CSRF_COOKIE)?.value;
+    if (!csrf) return headers;
+    return { ...headers, [CSRF_HEADER]: csrf };
+  } catch {
+    return headers;
+  }
+}
+
 async function tryPost(
   request: APIRequestContext,
   url: string,
   headers: Record<string, string>,
 ): Promise<boolean> {
   try {
-    const res = await request.post(url, { data: {}, headers });
+    const res = await request.post(url, {
+      data: {},
+      headers: await mergeStoredCsrf(request, headers),
+    });
     return res.ok();
   } catch {
     return false;
@@ -104,7 +122,10 @@ export async function seedDemoWorkspace(
       const bootUrl = url.includes("/api/v1/")
         ? url.replace(/\/demo\/seed.?$/, "/auth/dev/bootstrap-session")
         : `${API_ORIGIN}/api/v1/auth/dev/bootstrap-session`;
-      const bootRes = await request.post(bootUrl, { data: {}, headers: devHeaders() });
+      const bootRes = await request.post(bootUrl, {
+        data: {},
+        headers: await mergeStoredCsrf(request, devHeaders()),
+      });
       const setCookie =
         bootRes.headers()["set-cookie"] ??
         (bootRes.headers() as Record<string, string>)["Set-Cookie"];
@@ -151,7 +172,10 @@ export async function devApiAuthHeaders(
 ): Promise<Record<string, string>> {
   async function boot(url: string): Promise<string | undefined> {
     try {
-      const bootRes = await request.post(url, { data: {}, headers: devHeaders() });
+      const bootRes = await request.post(url, {
+        data: {},
+        headers: await mergeStoredCsrf(request, devHeaders()),
+      });
       const setCookie =
         bootRes.headers()["set-cookie"] ??
         (bootRes.headers() as Record<string, string>)["Set-Cookie"];
