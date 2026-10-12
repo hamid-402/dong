@@ -8,6 +8,7 @@ import { AppShell } from "@/components/app-shell";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { wPath } from "@/lib/workspace-paths";
+import styles from "@/components/shell/money-entry-chooser.module.css";
 
 type Choice = {
   key: string;
@@ -79,15 +80,7 @@ export function MoneyRecordChooserView() {
         description="ثبت روزانه برای مصرف تکراری؛ خرج کامل برای تقسیم و جزئیات. هر دو در مانده می‌آیند."
         state="ready"
       >
-        <ul
-          style={{
-            listStyle: "none",
-            margin: 0,
-            padding: 0,
-            display: "grid",
-            gap: 12,
-          }}
-        >
+        <ul className={styles.recordList}>
           {choices.map((choice) => {
             if (!slug) return null;
             const base = wPath(slug, choice.page);
@@ -96,26 +89,10 @@ export function MoneyRecordChooserView() {
               <li key={choice.key}>
                 <Link
                   href={href}
-                  style={{
-                    display: "block",
-                    padding: "16px 18px",
-                    borderRadius: 12,
-                    border: choice.job
-                      ? "2px solid color-mix(in srgb, var(--primary) 45%, var(--line))"
-                      : "1px solid var(--line)",
-                    background: choice.job
-                      ? "color-mix(in srgb, var(--primary) 8%, var(--surface))"
-                      : "var(--surface)",
-                    textDecoration: "none",
-                    color: "inherit",
-                  }}
+                  className={`${styles.recordCard}${choice.job ? ` ${styles.recordCardJob}` : ""}`}
                 >
-                  <strong style={{ display: "block", marginBottom: 4 }}>
-                    {choice.title}
-                  </strong>
-                  <span style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
-                    {choice.summary}
-                  </span>
+                  <strong>{choice.title}</strong>
+                  <span>{choice.summary}</span>
                 </Link>
               </li>
             );

@@ -6,9 +6,8 @@ describe("workspaceDisplayName", () => {
     expect(workspaceDisplayName("شرکت آتیه", "small_team")).toBe("شرکت آتیه");
   });
 
-  it("replaces single-token slugs with the kind label", () => {
-    expect(workspaceDisplayName("vidaverse", "small_team")).toBe("سازمان");
-    expect(workspaceDisplayName("vidaverse", "friends_family")).toBe("گروهی");
+  it("keeps a single-token name", () => {
+    expect(workspaceDisplayName("vidaverse", "friends_family")).toBe("vidaverse");
   });
 
   it("keeps a real multi-word name even in latin letters", () => {

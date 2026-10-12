@@ -1,6 +1,8 @@
 .chooser {
   display: grid;
   gap: 10px;
+  width: min(100%, 48rem);
+  justify-self: start;
   margin: 0 0 12px;
 }
 
@@ -11,14 +13,14 @@
 
 .title {
   margin: 0;
-  font-size: 15px;
+  font-size: 1.05rem;
   font-weight: 750;
 }
 
 .hint {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.92rem;
   line-height: 1.45;
 }
 
@@ -26,9 +28,17 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.grid > li {
+  flex: 1 1 16rem;
+  width: min(100%, 22rem);
+  max-width: min(100%, 22rem);
+  min-width: min(100%, 16rem);
 }
 
 .card {
@@ -50,21 +60,70 @@
 }
 
 .card strong {
-  font-size: 14px;
+  font-size: 1rem;
   font-weight: 750;
 }
 
 .card span {
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .compact .grid {
+  display: grid;
   grid-template-columns: 1fr 1fr;
+}
+
+.compact .grid > li {
+  width: auto;
+  max-width: none;
+  min-width: 0;
 }
 
 .compact .card {
   min-height: 56px;
   padding: 10px 12px;
+}
+
+.recordList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: 12px;
+}
+
+.recordCard {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-height: 7.5rem;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  text-decoration: none;
+  color: inherit;
+}
+
+.recordCard strong {
+  font-size: 1.05rem;
+  font-weight: 750;
+}
+
+.recordCard span {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.recordCardJob {
+  border: 2px solid color-mix(in srgb, var(--primary) 45%, var(--line));
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+
+.recordCard:hover {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--line));
 }

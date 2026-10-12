@@ -126,7 +126,7 @@ a.skip-link:visited,
 .skip-link {
   position: absolute;
   inset-inline-start: 12px;
-  top: -48px;
+  top: 12px;
   z-index: 1000;
   padding: 10px 14px;
   border-radius: 10px;
@@ -134,10 +134,11 @@ a.skip-link:visited,
   color: var(--primary-ink);
   font-weight: 700;
   text-decoration: none;
-  transition: top .15s var(--ease);
+  transform: translateY(calc(-100% - 24px));
+  transition: transform .15s var(--ease);
 }
 .skip-link:focus {
-  top: 12px;
+  transform: none;
 }
 
 #main:focus {
@@ -583,7 +584,8 @@ html[data-theme="linear"] .ambient {
 .profile small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
 
 .content { padding: 34px 34px 40px; }
-.greeting { display: flex; align-items: center; justify-content: space-between; gap: 16px 28px; margin-bottom: 24px; }
+.greeting { display: flex; align-items: flex-end; justify-content: flex-start; flex-wrap: wrap; gap: 16px 28px; margin-bottom: 24px; }
+.greeting .productHeaderActions { justify-content: flex-start; margin-inline-start: 0; }
 .greeting > div { flex: 0 1 auto; min-width: 0; max-width: min(100%, 46rem); }
 .greeting .eyebrow { color: var(--gold); font-size: 0.85rem; font-weight: 650; }
 .greeting h1 { margin: 6px 0 0; font-size: 1.65rem; line-height: 1.3; letter-spacing: -0.03em; font-weight: 750; color: var(--text); }
@@ -1770,8 +1772,10 @@ html[data-motion="off"] .dang-motion-feedback * {
 /* S11-12 shared page frame — title row + body states */
 .workspacePageFrame {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   width: 100%;
+  min-width: 0;
   max-width: none;
   animation: workspacePageEnter 360ms var(--ease, ease) both;
 }
@@ -1795,7 +1799,9 @@ html[data-motion="off"] .dang-motion-feedback * {
 
 .workspacePageFrame__body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+  min-width: 0;
 }
 
 /* Module chrome inside product shell — keep real page heading */
@@ -1812,10 +1818,11 @@ html[data-motion="off"] .dang-motion-feedback * {
 .workspacePageFrame > .moduleChrome {
   margin-bottom: 0;
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
   justify-content: flex-start;
-  gap: 8px 16px;
+  gap: 10px;
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
   border-radius: var(--r-lg);
@@ -1953,10 +1960,12 @@ html[data-motion="off"] .dang-motion-feedback * {
 }
 .productGrid {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
+  min-width: 0;
 }
 .productGrid.cols-2 {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 @media (min-width: 768px) {
   .productGrid.cols-2 {
@@ -2053,11 +2062,15 @@ html[data-theme="mist"] .sectionCard:hover {
 }
 .sectionCardBody {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
+  min-width: 0;
 }
 .formStack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
+  min-width: 0;
 }
 .formStack--compact {
   gap: var(--space-2);
@@ -2072,6 +2085,9 @@ html[data-theme="mist"] .sectionCard:hover {
 }
 .formStack > * {
   width: min(100%, 42rem);
+}
+.formStack label {
+  overflow-wrap: anywhere;
 }
 .formStack select,
 .formStack textarea,
@@ -2314,7 +2330,9 @@ html[data-theme="mist"] .sectionCard:hover {
 
 .financeExpensesLayers {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
+  min-width: 0;
 }
 
 .financeExpensesLayers__myBalance {
@@ -2323,7 +2341,9 @@ html[data-theme="mist"] .sectionCard:hover {
 
 .financeExpensesLayers__context {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
+  min-width: 0;
 }
 
 .financeContextFold {
@@ -2668,6 +2688,26 @@ html[data-theme="mist"] .sectionCard:hover {
   color: var(--text, inherit);
   font-weight: 700;
 }
+@media (max-width: 640px) {
+  .expenseStepper {
+    padding: 8px 10px;
+  }
+  .expenseStepper__label {
+    font-size: 0.78rem;
+    line-height: 1.25;
+    white-space: normal;
+  }
+}
+@media (max-width: 640px) {
+  .expenseStepper {
+    padding: 8px 10px;
+  }
+  .expenseStepper__label {
+    font-size: 0.78rem;
+    line-height: 1.25;
+    white-space: normal;
+  }
+}
 
 .expenseFormActions {
   display: flex;
@@ -2742,7 +2782,7 @@ html[data-theme="mist"] .sectionCard:hover {
   padding: 0;
   border: none;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.9rem;
   line-height: 1.55;
 }
 .statusLine b {
@@ -2752,10 +2792,10 @@ html[data-theme="mist"] .sectionCard:hover {
 .statusPill {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  padding: 0 10px;
+  min-height: 1.7rem;
+  padding: 0 0.7rem;
   border-radius: var(--dang-radius-pill, 999px);
-  font-size: 12px;
+  font-size: 0.8rem;
   font-weight: 600;
   border: 1px solid var(--line);
   color: var(--muted);
@@ -2838,7 +2878,7 @@ html[data-theme="mist"] .sectionCard:hover {
     width: min(100% - 24px, 680px);
   }
   .productGrid.cols-2 {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .mobileNavBar {
     display: flex;
@@ -4916,9 +4956,12 @@ html[data-theme="mist"] .siteHero__plane {
 }
 
 .dlSummary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 10px;
+  width: fit-content;
+  max-width: 100%;
   padding: 12px 14px;
   border-radius: var(--r-lg, 14px);
   border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
@@ -4928,15 +4971,17 @@ html[data-theme="mist"] .siteHero__plane {
 .dlSummary > div {
   display: grid;
   gap: 4px;
+  flex: 0 0 auto;
+  min-width: 7.5rem;
 }
 
 .dlSummary span {
-  font-size: 12px;
+  font-size: 0.82rem;
   color: var(--muted);
 }
 
 .dlSummary strong {
-  font-size: 15px;
+  font-size: 1.05rem;
   font-weight: 650;
 }
 
@@ -5226,13 +5271,14 @@ html[data-theme="mist"] .siteHero__plane {
   border-radius: 10px;
   background: color-mix(in srgb, var(--dang-primary, #57d7c5) 8%, transparent);
   display: grid;
+  justify-items: start;
   gap: 8px;
 }
 
 .dlOnboard ol {
   margin: 0;
   padding-inline-start: 1.2rem;
-  font-size: 13px;
+  font-size: 0.9rem;
 }
 
 .dlLockList,

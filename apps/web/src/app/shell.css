@@ -2467,6 +2467,24 @@ html[data-density="compact"] .shell-page-trail__back {
   gap: 20px;
   width: 100%;
   min-width: 0;
+  justify-items: start;
+}
+
+.spaces-hub > .statusLine {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.spaces-hub > .spaces-hub__primary,
+.spaces-hub > .spaces-hub__secondary,
+.spaces-hub > .spaces-hub__footerCta {
+  width: 100%;
+  min-width: 0;
+}
+
+.spaces-hubPage__chrome .productHeaderActions {
+  justify-content: flex-start;
+  margin-inline-start: 0;
 }
 
 .spaces-hubPage__chrome .greeting h1,
@@ -2551,9 +2569,17 @@ html[data-density="compact"] .shell-page-trail__back {
   line-height: 1.55;
 }
 
+.spaces-hub__list > .statusLine {
+  width: fit-content;
+  max-width: 100%;
+}
+
 .spaces-hub__toolbar {
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px 16px;
   width: 100%;
   padding: 14px 16px;
   border-radius: 16px;
@@ -2653,11 +2679,12 @@ html[data-density="compact"] .shell-page-trail__back {
 
 .spaces-hub__search {
   display: block;
-  width: 100%;
+  width: min(100%, 20rem);
 }
 
 .spaces-hub__search input {
   width: 100%;
+  max-width: 20rem;
   min-height: 3rem;
   padding: 10px 14px;
   border-radius: 12px;
@@ -2671,8 +2698,10 @@ html[data-density="compact"] .shell-page-trail__back {
 .spaces-hub__filters {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 10px;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
 }
 
 .spaces-hub__chip {
@@ -2768,8 +2797,8 @@ html[data-density="compact"] .shell-page-trail__back {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
   width: 100%;
   min-width: 0;
   gap: var(--dang-gem-gap, 16px);
@@ -2781,40 +2810,13 @@ html[data-density="compact"] .shell-page-trail__back {
   display: grid;
   gap: 0;
   overflow: hidden;
-  flex: 1 1 22rem;
   width: auto;
-  min-width: min(100%, 22rem);
-  max-width: 100%;
+  min-width: 0;
+  max-width: none;
   height: auto;
   min-height: calc(var(--dang-gem-tile-h, 148px) + 56px);
 }
 
-@media (min-width: 900px) {
-  .spaces-mosaic:has(> :only-child) .spaces-mosaic__tile {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: stretch;
-    min-height: 0;
-  }
-
-  .spaces-mosaic:has(> :only-child) .spaces-mosaic__main {
-    align-content: center;
-  }
-
-  .spaces-mosaic:has(> :only-child) .spaces-mosaic__ops {
-    align-content: center;
-    align-items: center;
-    max-width: 36rem;
-    margin-top: 0;
-    border-top: 0;
-    border-inline-start: 1px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 28%, transparent);
-    padding: 18px 20px;
-  }
-
-  .spaces-mosaic:has(> :only-child) .spaces-mosaic__pin {
-    left: auto;
-    inset-inline-start: 10px;
-  }
-}
 
 .spaces-mosaic__tile.is-active {
   box-shadow:
@@ -4030,8 +4032,8 @@ html[data-theme="linear"] .kindAggregate__card {
 }
 
 .spacesBalanceOverviewStack {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
   gap: 14px;
   width: 100%;
   min-width: 0;
@@ -4039,13 +4041,14 @@ html[data-theme="linear"] .kindAggregate__card {
 }
 
 .spacesBalanceOverviewStack > * {
-  flex: 1 1 18rem;
-  min-width: min(100%, 18rem);
-  max-width: 100%;
+  min-width: 0;
+  max-width: none;
 }
 
 .spacesBalanceOverviewStack .spacesBalanceOverview {
   margin-bottom: 0;
+  container-type: inline-size;
+  container-name: balance-card;
 }
 
 .spacesBalanceOverview.is-loading {
@@ -4091,6 +4094,12 @@ html[data-theme="linear"] .kindAggregate__card {
   }
 }
 
+@container balance-card (max-width: 34rem) {
+  .spacesBalanceOverview__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .spacesBalanceOverview__grid > div {
   display: grid;
   gap: 8px;
@@ -4120,6 +4129,22 @@ html[data-theme="linear"] .kindAggregate__card {
 
 .spacesBalanceOverview__amount {
   white-space: nowrap;
+}
+
+@container balance-card (max-width: 34rem) {
+  .spacesBalanceOverview__grid > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: 6px 12px;
+    padding: 10px 14px;
+  }
+
+  .spacesBalanceOverview__grid dd {
+    margin-inline-start: auto;
+    font-size: 1.15rem;
+  }
 }
 
 .spacesBalanceOverview__grid .is-credit dd {
@@ -4167,8 +4192,8 @@ html[data-theme="linear"] .kindAggregate__card {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "head"
-      "actions"
-      "stats";
+      "stats"
+      "actions";
     align-items: stretch;
   }
 
@@ -4243,12 +4268,11 @@ html[data-theme="linear"] .kindAggregate__card {
 }
 
 .groupOpsRail__grid {
-  --dang-gem-cols: 4;
   margin: 0;
   padding: 0;
   list-style: none;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
   gap: var(--dang-gem-gap);
   align-items: stretch;
   width: 100%;
@@ -4257,9 +4281,8 @@ html[data-theme="linear"] .kindAggregate__card {
 
 .groupOpsRail__grid > li {
   display: flex;
-  flex: 1 1 10rem;
-  min-width: min(100%, 10rem);
-  max-width: 100%;
+  min-width: 0;
+  max-width: none;
 }
 
 .groupOpsRail__tile {
@@ -4404,8 +4427,9 @@ html[data-theme="linear"] .groupOpsRail__open {
 }
 
 .groupSetupChecklist__item {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 10px;
   align-items: center;
   padding: 10px 12px;
@@ -4526,6 +4550,28 @@ html[data-theme="linear"] .groupOpsRail__open {
   flex: 1 1 auto;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.shell-v2__header--spaceFirst:has(> .shell-v2__header-nav--mobileKinds) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "brand end"
+    "kinds kinds";
+  row-gap: 4px;
+}
+
+.shell-v2__header--spaceFirst:has(> .shell-v2__header-nav--mobileKinds) > .shell-v2__brand {
+  grid-area: brand;
+}
+
+.shell-v2__header--spaceFirst:has(> .shell-v2__header-nav--mobileKinds) > .shell-v2__header-end {
+  grid-area: end;
+}
+
+.shell-v2__header--spaceFirst > .shell-v2__header-nav--mobileKinds {
+  grid-area: kinds;
+  min-width: 0;
+  margin-inline: -4px;
 }
 
 .shell-v2__header-nav--mobileKinds .spaceKindTabs {
@@ -4680,6 +4726,7 @@ html[data-theme="mist"] .spaceKindTabs__tab[data-kind].is-current-realm {
 }
 
 .groupPublicId {
+  width: min(100%, 42rem);
   margin: 0 0 16px;
   padding: 16px 18px;
   border-radius: 16px;
@@ -4745,6 +4792,8 @@ html[data-theme="mist"] .spaceKindTabs__tab[data-kind].is-current-realm {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  width: fit-content;
+  max-width: 100%;
   margin: 0 0 10px;
   padding: 8px 10px;
   border-radius: 12px;
@@ -4832,7 +4881,7 @@ html[data-theme="mist"] .spaceKindTabs__tab[data-kind].is-current-realm {
 .homeActivity__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 10px;
   margin-bottom: 10px;
 }
@@ -4879,6 +4928,9 @@ html[data-theme="mist"] .spaceKindTabs__tab[data-kind].is-current-realm {
 }
 
 .homeActivity__list .homeActivity__link {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
   padding: 10px 4px;
 }
 
@@ -6147,6 +6199,8 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
 
 .mosaicWorkspace__treasury {
   margin-top: 0.35rem;
+  width: min(100%, 36rem);
+  justify-self: start;
 }
 
 .mosaicWorkspace__secondary {
@@ -6179,6 +6233,8 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
 }
 
 .mosaicWorkspace__more {
+  width: min(100%, 48rem);
+  justify-self: start;
   margin-top: 4px;
   border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
   border-radius: 14px;
@@ -6189,9 +6245,29 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
 .mosaicWorkspace__more > summary {
   cursor: pointer;
   list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
   padding: 12px 4px;
   font-weight: 700;
   color: var(--text);
+}
+
+.mosaicWorkspace__more > summary::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  margin-top: -0.2rem;
+  flex: 0 0 auto;
+}
+
+.mosaicWorkspace__more[open] > summary::before {
+  transform: rotate(-135deg);
+  margin-top: 0.15rem;
 }
 
 .mosaicWorkspace__more > summary::-webkit-details-marker {

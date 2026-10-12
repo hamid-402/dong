@@ -10,6 +10,20 @@ import {
 import { NAV_LABELS } from "@/lib/nav-labels";
 
 describe("shell-breadcrumb", () => {
+  it("names the money record page in Persian", () => {
+    const crumbs = insertDomainCrumb(
+      breadcrumbForPathname("/w/acme/record", "آکمه"),
+      "/w/acme/record",
+    );
+    expect(crumbs.map((c) => c.label)).toEqual([
+      "آکمه",
+      NAV_LABELS.sectionFinance,
+      NAV_LABELS.addExpense,
+    ]);
+    expect(crumbs.some((c) => c.label === "record")).toBe(false);
+    expect(domainKeyForPathname("/w/acme/record")).toBe("finance");
+  });
+
   it("builds workspace crumbs", () => {
     const crumbs = breadcrumbForPathname("/w/acme/expenses", "آکمه");
     expect(crumbs[0]?.label).toBe("آکمه");

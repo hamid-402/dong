@@ -1,12 +1,9 @@
 import { spaceKindForTemplate, type WorkspaceTemplate } from "@dang/contracts";
 import { spaceTabLabel } from "@/lib/nav-labels";
 
-/** Single-token slugs (e.g. demo "vidaverse") — not a human title. */
-const LATIN_SLUG = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/i;
-
 /**
  * Human label for a workspace in chrome/breadcrumbs.
- * Cuts English demo names like "vidaverse" in favor of the Persian kind label.
+ * Keeps the stored name. Kind label is only the fallback when the name is empty.
  */
 export function workspaceDisplayName(
   name: string | null | undefined,
@@ -14,7 +11,7 @@ export function workspaceDisplayName(
   fallback = "فضا",
 ): string {
   const trimmed = (name ?? "").trim();
-  if (trimmed && !LATIN_SLUG.test(trimmed)) return trimmed;
+  if (trimmed) return trimmed;
   if (template) {
     try {
       return spaceTabLabel(spaceKindForTemplate(template as WorkspaceTemplate));

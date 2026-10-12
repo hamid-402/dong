@@ -301,16 +301,6 @@ export function FriendsGroupView() {
           <ContentSkeleton rows={4} label="در حال بارگذاری خلاصهٔ گروه…" />
         ) : (
           <ProductGrid>
-            {slug ? (
-              <StatusLine>
-                <Link href={overviewHref}>مرکز فضای کاری</Link>
-                {" · "}
-                {homeSpec
-                  ? homeSpec.blurbFa
-                  : "خلاصهٔ همین گروه — فهرست کامل ابزارها در نوار کناری"}
-              </StatusLine>
-            ) : null}
-
             {homeSpec?.panels.balanceHero !== false &&
             workspace &&
             balances &&

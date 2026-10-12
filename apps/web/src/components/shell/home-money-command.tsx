@@ -8,14 +8,12 @@ import {
   moneyPulseWhereWentSeries,
   spaceKindForTemplate,
   type ChartSeriesResponse,
-  type PettyCashFundSummary,
   type SpaceKind,
   type WorkspaceMoneyMovement,
   type WorkspaceMoneyPulse,
 } from "@dang/contracts";
 import { Amount } from "@dang/ui";
 import { ProChart } from "@/components/charts/pro-chart";
-import { TreasuryBalanceCard } from "@/components/shell/treasury-balance-card";
 import { EmptyHint, StatusLine } from "@/components/ui-blocks";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
@@ -130,9 +128,6 @@ export function HomeMoneyCommand({
   to,
   onRangeChange,
   spaceKind,
-  pettyCashFunds,
-  savingsBalanceMinor,
-  savingsGoalCount,
 }: {
   workspaceId: string;
   slug: string;
@@ -142,9 +137,6 @@ export function HomeMoneyCommand({
   to: string;
   onRangeChange?: (from: string, to: string) => void;
   spaceKind?: SpaceKind;
-  pettyCashFunds?: PettyCashFundSummary[];
-  savingsBalanceMinor?: string | null;
-  savingsGoalCount?: number;
 }) {
   const chrome = useAppChrome();
   const chartsOn = chrome.capabilities?.providers?.charts === "charts_v1";
@@ -278,29 +270,6 @@ export function HomeMoneyCommand({
 
   return (
     <section className={styles.root} aria-label="پول‌نمای فرمان فضا">
-      {resolvedKind === "personal" ||
-      chrome.capabilities?.providers?.pettyCash === "fund_v1" ? (
-        <div style={{ marginBottom: "0.85rem" }}>
-          <TreasuryBalanceCard
-            spaceKind={resolvedKind}
-            funds={pettyCashFunds ?? []}
-            paymentsHref={
-              resolvedKind === "personal"
-                ? "/me/finance#goals"
-                : wPath(slug, "payments")
-            }
-            savingsHref="/me/finance#goals"
-            canManage={false}
-            density="compact"
-            savingsBalanceMinor={
-              resolvedKind === "personal"
-                ? (savingsBalanceMinor ?? (goalsOn ? "0" : null))
-                : null
-            }
-            savingsGoalCount={savingsGoalCount}
-          />
-        </div>
-      ) : null}
       <header className={styles.header}>
         <div>
           <p className={styles.eyebrow}>مرکز فرمان پول</p>
@@ -353,24 +322,28 @@ export function HomeMoneyCommand({
         <Link className={styles.quickBtn} href={wPath(slug, "record")}>
           {NAV_LABELS.addExpense}
         </Link>
-        <Link className={styles.quickBtn} href="/me/finance#lifestyle">
-          تراز زندگی / حقوق
-        </Link>
-        <Link className={styles.quickBtn} href="/me/finance#resources">
-          ثبت درآمد / منابع
-        </Link>
-        <Link className={styles.quickBtn} href="/me/finance#resources">
-          قسط / سرمایه‌گذاری
-        </Link>
-        {goalsOn ? (
-          <Link className={styles.quickBtn} href="/me/finance#goals">
-            اهداف و پس‌انداز
-          </Link>
-        ) : null}
-        {intentsOn ? (
-          <Link className={styles.quickBtn} href="/me/finance#intents">
-            قواعد مالی
-          </Link>
+        {resolvedKind === "personal" || pulse.scope === "personal_linked" ? (
+          <>
+            <Link className={styles.quickBtn} href="/me/finance#lifestyle">
+              تراز زندگی / حقوق
+            </Link>
+            <Link className={styles.quickBtn} href="/me/finance#resources">
+              ثبت درآمد / منابع
+            </Link>
+            <Link className={styles.quickBtn} href="/me/finance#resources">
+              قسط / سرمایه‌گذاری
+            </Link>
+            {goalsOn ? (
+              <Link className={styles.quickBtn} href="/me/finance#goals">
+                اهداف و پس‌انداز
+              </Link>
+            ) : null}
+            {intentsOn ? (
+              <Link className={styles.quickBtn} href="/me/finance#intents">
+                قواعد مالی
+              </Link>
+            ) : null}
+          </>
         ) : null}
         {resolvedKind !== "personal" ? (
           <Link className={styles.quickBtn} href={wPath(slug, "ledger")}>
@@ -399,7 +372,9 @@ export function HomeMoneyCommand({
             >
               <span className={styles.tileTop}>
                 <span className={styles.tileLabel}>{tile.label}</span>
-                <span className={styles.tileCount}>{count.toLocaleString("fa-IR")}</span>
+                {count > 0 ? (
+                  <span className={styles.tileCount}>{count.toLocaleString("fa-IR")}</span>
+                ) : null}
               </span>
               <span
                 className={`${styles.tileAmount}${tile.key === "net" && netNegative ? ` ${styles.tileNeg}` : ""}`}
@@ -524,7 +499,8 @@ export function HomeMoneyCommand({
             ))}
           </ul>
         </div>
-      ) : intentsOn ? (
+      ) : intentsOn &&
+        (resolvedKind === "personal" || pulse.scope === "personal_linked") ? (
         <StatusLine>
           هنوز قاعده یا هدف مالی تعریف نشده. از{" "}
           <Link href="/me/finance#intents">مالی من → قواعد</Link> هر نوعی که لازم دارید

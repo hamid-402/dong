@@ -8,7 +8,9 @@ export function isHiddenDemoWorkspace(workspace: WorkspaceSummary): boolean {
   const slug = workspace.slug.toLowerCase();
   const name = workspace.name;
   if (name.includes("پاک‌شده")) return true;
-  if (slug.startsWith("demo-aftab")) return true;
+  if (slug.startsWith("demo-aftab") && (name.includes("پاک‌شده") || name.includes("دمو"))) {
+    return true;
+  }
   if (slug.startsWith("demo-colleagues") && name.includes("دمو")) {
     // Active colleagues demo stays visible with دمو label; purged already caught above.
     return false;

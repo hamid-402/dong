@@ -153,6 +153,21 @@ a.ctaLink:visited {
 
 .compact {
   padding: 0.85rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.65rem 1.1rem;
+}
+
+.compact .head {
+  flex: 1 1 14rem;
+  min-width: min(100%, 12rem);
+}
+
+.compact .balanceBlock,
+.compact .actions {
+  margin-top: 0;
 }
 
 .compact .title {

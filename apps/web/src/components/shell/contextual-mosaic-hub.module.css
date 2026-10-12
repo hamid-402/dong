@@ -54,8 +54,9 @@
 .header {
   margin-bottom: 12px;
   display: flex;
+  flex-wrap: wrap;
   align-items: end;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
 }
 
@@ -96,7 +97,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 6px 16px;
 }
 
@@ -111,8 +112,8 @@
   margin: 0;
   color: var(--muted);
   font-size: 0.9rem;
-  flex: 1 1 16rem;
-  text-align: end;
+  flex: 0 1 auto;
+  text-align: start;
 }
 
 /* Equal-width gem grid — same token language as groupOpsRail */
@@ -120,8 +121,8 @@
   --mosaic-gap: var(--dang-gem-gap, 12px);
   margin: 0;
   padding: 4px 0 8px;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
   width: 100%;
   min-width: 0;
   gap: var(--mosaic-gap);
@@ -133,10 +134,9 @@
 .grid li {
   position: relative;
   display: flex;
-  flex: 1 1 14rem;
   width: auto;
-  min-width: min(100%, 14rem);
-  max-width: 100%;
+  min-width: 0;
+  max-width: none;
 }
 
 .enter {
@@ -183,7 +183,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   view-transition-name: var(--mosaic-vt-name, none);
   text-align: start;
@@ -198,7 +198,7 @@
   display: grid;
   gap: 4px;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   z-index: 1;
 }
 
@@ -304,6 +304,7 @@
 }
 
 .icon {
+  order: -1;
   flex: 0 0 auto;
   width: auto;
   height: auto;

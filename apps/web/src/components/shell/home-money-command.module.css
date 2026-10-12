@@ -19,17 +19,16 @@
 .header {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
 }
 
 .eyebrow {
   margin: 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  opacity: 0.55;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  opacity: 0.72;
 }
 
 .title {
@@ -68,7 +67,7 @@
 .headerActions {
   display: grid;
   gap: 0.45rem;
-  justify-items: end;
+  justify-items: start;
 }
 
 .presets {
@@ -101,6 +100,7 @@
 .quick {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 0.45rem;
 }
 
@@ -160,8 +160,8 @@
 
 .tileTop {
   display: flex;
-  justify-content: space-between;
-  gap: 0.35rem;
+  justify-content: flex-start;
+  gap: 0.45rem;
   align-items: center;
 }
 
@@ -253,14 +253,15 @@
 
 .detailHead {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: 0.65rem;
   flex-wrap: wrap;
 }
 
 .search {
-  min-width: min(14rem, 100%);
+  width: min(100%, 16rem);
+  max-width: 16rem;
   border-radius: 0.55rem;
   border: 1px solid color-mix(in oklab, var(--dang-border, #555) 80%, transparent);
   background: color-mix(in oklab, var(--dang-bg, #000) 55%, transparent);

@@ -1,19 +1,44 @@
 .wrap {
   margin: 0 0 12px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning, #b45309) 28%, var(--line));
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   display: grid;
   gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.stubs {
+  margin: 0;
 }
 
 .lead {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   line-height: 1.45;
   color: var(--muted);
   font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+
+.lead::-webkit-details-marker {
+  display: none;
+}
+
+.lead::before {
+  content: "▸ ";
+  color: var(--warning, #b45309);
+}
+
+.stubs[open] .lead::before {
+  content: "▾ ";
+}
+
+.stubs[open] .strip {
+  margin-top: 8px;
 }
 
 .strip {
@@ -27,13 +52,13 @@
 
 .badge {
   margin: 0;
-  padding: 4px 9px;
+  padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid var(--line);
   color: var(--text);
-  font-size: 11px;
+  font-size: 0.7rem;
   font-weight: 650;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .stub {

@@ -636,9 +636,6 @@ export function OverviewView() {
                       from={data.rangeFrom}
                       to={data.rangeTo}
                       spaceKind={spaceKind}
-                      pettyCashFunds={data.pettyCashFunds}
-                      savingsBalanceMinor={data.savingsBalanceMinor}
-                      savingsGoalCount={data.savingsGoalCount}
                       onRangeChange={(nextFrom, nextTo) => {
                         setDashRange({ from: nextFrom, to: nextTo });
                         if (chrome.workspaceId) {

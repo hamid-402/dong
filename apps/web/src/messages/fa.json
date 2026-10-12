@@ -535,7 +535,7 @@
   "shell.frequentRailLabel": "مقاصد پرکاربرد و سنجاق‌شده",
   "shell.opsRoomDomains": "حوزه‌ها",
   "shell.opsRoomPickDomain": "یک حوزه را از ستون کناری انتخاب کنید تا مسیرها اینجا باز شوند.",
-  "shell.opsRoomEyebrow": "اتاق عملیات — حوزه‌ها کنار، مسیرها وسط؛ همان دادهٔ capabilities.",
+  "shell.opsRoomEyebrow": "اتاق عملیات — حوزه‌ها کنار، مسیرها وسط؛ از توانایی‌های واقعی همین فضا.",
   "shell.homeLauncherEyebrow": "همهٔ قابلیت‌های مجاز این فضا — هر کاشی یک مسیر واقعی است.",
   "shell.homeDrillExpenseCta": "ثبت پول",
   "shell.spacesHubDesc": "فضاهای کاری شما — شخصی، گروه و سازمان؛ یک کلیک برای ورود.",

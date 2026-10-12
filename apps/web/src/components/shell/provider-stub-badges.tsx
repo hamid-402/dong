@@ -124,11 +124,11 @@ export function ProviderStubBadges({
       ) : null}
 
       {badges.length > 0 ? (
-        <>
-          <p className={styles.lead}>
-            این سرویس‌ها هنوز واقعی وصل نیستند — تا اشتباه با سرویس تولیدی گرفته
-            نشوند:
-          </p>
+        <details className={styles.stubs}>
+          <summary className={styles.lead}>
+            {badges.length.toLocaleString("fa-IR")} سرویس بیرونی هنوز واقعی وصل
+            نیست — فهرست
+          </summary>
           <ul className={styles.strip}>
             {badges.map((b) => (
               <li
@@ -139,7 +139,7 @@ export function ProviderStubBadges({
               </li>
             ))}
           </ul>
-        </>
+        </details>
       ) : null}
     </section>
   );
