@@ -3,12 +3,23 @@ import test from "node:test";
 import { BadRequestException, ConflictException, ForbiddenException } from "@nestjs/common";
 import { MemoryAuditStore } from "../audit/memory-audit.store.js";
 import { MemoryIamStore } from "../iam/memory-iam.store.js";
+import { MemoryLedgerStore } from "../ledger/memory-ledger.store.js";
+import { MemorySettlementStore } from "../settlements/memory-settlement.store.js";
 import { WorkspacesService } from "./workspaces.service.js";
+
+function workspacesService(iam: MemoryIamStore, audit: MemoryAuditStore) {
+  return new WorkspacesService(
+    iam,
+    audit,
+    new MemoryLedgerStore(),
+    new MemorySettlementStore(),
+  );
+}
 
 test("owner can persist workspace profile changes and receives an audit event", async () => {
   const iam = new MemoryIamStore();
   const audit = new MemoryAuditStore();
-  const service = new WorkspacesService(iam, audit);
+  const service = workspacesService(iam, audit);
   const actor = await iam.upsertDevActor({
     externalSubject: "workspace-owner",
     displayName: "Workspace Owner",
@@ -36,7 +47,7 @@ test("owner can persist workspace profile changes and receives an audit event", 
 
 test("workspace update rejects invalid IANA timezone without mutating data", async () => {
   const iam = new MemoryIamStore();
-  const service = new WorkspacesService(iam, new MemoryAuditStore());
+  const service = workspacesService(iam, new MemoryAuditStore());
   const actor = await iam.upsertDevActor({
     externalSubject: "timezone-owner",
     displayName: "Timezone Owner",
@@ -61,7 +72,7 @@ test("workspace update rejects invalid IANA timezone without mutating data", asy
 test("member can leave workspace; owner cannot without transfer", async () => {
   const iam = new MemoryIamStore();
   const audit = new MemoryAuditStore();
-  const service = new WorkspacesService(iam, audit);
+  const service = workspacesService(iam, audit);
   const owner = await iam.upsertDevActor({
     externalSubject: "leave-owner",
     displayName: "Owner",
@@ -97,7 +108,7 @@ test("member can leave workspace; owner cannot without transfer", async () => {
 test("owner can archive then soft-delete; personal is protected", async () => {
   const iam = new MemoryIamStore();
   const audit = new MemoryAuditStore();
-  const service = new WorkspacesService(iam, audit);
+  const service = workspacesService(iam, audit);
   const owner = await iam.upsertDevActor({
     externalSubject: "archive-owner",
     displayName: "Archive Owner",

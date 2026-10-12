@@ -183,7 +183,7 @@ export class PostgresLedgerStore implements LedgerStore {
         activeTx,
       );
       return {
-        status: (existing ? "rebuilt" : "created"),
+        status: existing ? ("rebuilt" as const) : ("created" as const),
         entry,
       };
     };

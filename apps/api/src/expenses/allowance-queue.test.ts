@@ -17,7 +17,7 @@ test("allowance over limit sets requiresApproval on createDraft", async () => {
     } as unknown as AllowancesService;
     const moduleRef = {
       get: () => allowances,
-    } as ModuleRef;
+    } as unknown as ModuleRef;
 
     const service = new ExpensesService(
       store,
@@ -73,6 +73,7 @@ test("allowance over limit sets requiresApproval on createDraft", async () => {
       { userId: "u1", externalSubject: "u1", displayName: "U", authMode: "dev" },
       "w1",
       {
+        workspaceId: "w1",
         title: "Taxi",
         total: { amountMinor: "50000", currency: "IRR" },
         paidByUserId: "u1",

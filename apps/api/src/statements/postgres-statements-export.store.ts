@@ -149,7 +149,7 @@ export class PostgresStatementsExportStore implements StatementsExportStore {
         AND expires_at <= ${now}
         AND body IS NOT NULL
     `);
-    const rows = (result as { rows?: Array<{ n: number }> }).rows;
+    const rows = (result as unknown as { rows?: Array<{ n: number }> }).rows;
     return Number(rows?.[0]?.n ?? 0);
   }
 }

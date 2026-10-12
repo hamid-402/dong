@@ -143,7 +143,7 @@ test("G15 WebhooksService.dispatchEvent signs and reports delivery", async () =>
     body: string;
   }> = [];
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const url = String(input);
     const body = String(init?.body ?? "");
     const headers = Object.fromEntries(new Headers(init?.headers).entries());

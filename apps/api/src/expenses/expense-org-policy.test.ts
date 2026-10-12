@@ -80,6 +80,7 @@ test("missionKind forces company visibility on createDraft", async () => {
     { userId: "u1", externalSubject: "u1", displayName: "U", authMode: "dev" },
     "w1",
     {
+      workspaceId: "w1",
       title: "Trip advance",
       total: { amountMinor: "1000", currency: "IRR" },
       paidByUserId: "u1",

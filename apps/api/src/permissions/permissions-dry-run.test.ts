@@ -32,7 +32,7 @@ test("permissions dry-run allows member expense.create", async () => {
     userId: financeId,
     role: "finance",
     actorUserId: actor.userId,
-    addedVia: "admin_add",
+    addedVia: "user_id",
   });
   await iam.upsertDevActor({
     userId: memberId,
@@ -44,7 +44,7 @@ test("permissions dry-run allows member expense.create", async () => {
     userId: memberId,
     role: "member",
     actorUserId: actor.userId,
-    addedVia: "admin_add",
+    addedVia: "user_id",
   });
 
   const permissions = new MemoryPermissionsStore();

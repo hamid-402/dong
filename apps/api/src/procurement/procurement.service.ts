@@ -212,6 +212,7 @@ export class ProcurementService {
       paidByUserId: actor.userId,
       splitMethod: "equal",
       participantUserIds: [actor.userId],
+      occurredOn: po.createdAt.slice(0, 10),
       visibility: "company",
       requiresApproval: true,
       idempotencyKey: body.idempotencyKey,

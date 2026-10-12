@@ -132,7 +132,7 @@ test("accept rejects expired invite token", async (t) => {
       userId: "finance-1",
       role: "finance",
       actorUserId: "owner-1",
-      addedVia: "admin_add",
+      addedVia: "user_id",
     });
     const created = await service.create(
       {

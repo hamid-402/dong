@@ -104,6 +104,7 @@ export class BuildingChargesService {
 
       const title = `شارژ ${sub.code} ${body.yearMonth}`;
       const draft = await this.expenses.createDraft(actor, workspaceId, {
+        workspaceId,
         title,
         total: { amountMinor: body.amountMinorPerUnit, currency: "IRR" },
         paidByUserId: actor.userId,

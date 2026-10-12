@@ -359,9 +359,10 @@ test("S11-08 finance can read any member and export CSV", async () => {
   assert.ok((created.rowCount ?? 0) >= 1);
 
   const file = await service.downloadPayload(actor(financeUser), workspaceId, created.id);
-  assert.match(file.body, /shareMinor/);
-  assert.match(file.body, /payableMinor=/);
-  assert.match(file.body, /payout.destinationValue=/);
+  const body = file.body.toString();
+  assert.match(body, /shareMinor/);
+  assert.match(body, /payableMinor=/);
+  assert.match(body, /payout.destinationValue=/);
   assert.match(file.mimeType, /csv/);
 });
 

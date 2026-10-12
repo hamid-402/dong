@@ -63,6 +63,7 @@ test("requireCostCenter rejects createDraft without costCenterId on org workspac
           { userId: "u1", externalSubject: "u1", displayName: "U", authMode: "dev" },
           "w1",
           {
+            workspaceId: "w1",
             title: "Office",
             total: { amountMinor: "1000", currency: "IRR" },
             paidByUserId: "u1",

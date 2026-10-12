@@ -159,7 +159,7 @@ test("G15 depth: OutboxRelay + real WebhooksService HMAC delivery", async () => 
 
   let sawSig = false;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (_input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const body = String(init?.body ?? "");
     const headers = Object.fromEntries(new Headers(init?.headers).entries());
     const sig = headers["x-dang-signature"] ?? "";

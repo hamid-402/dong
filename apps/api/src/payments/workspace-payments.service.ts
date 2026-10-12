@@ -1491,11 +1491,12 @@ export class WorkspacePaymentsService {
 
     // funding_source on createDraft/post should already have debited the fund;
     // create a linked spend only if that path did not run (e.g. older test stubs).
-    let movement = (await this.ops.listMovements(workspaceId, fundId)).find(
+    const linkedSpend = (await this.ops.listMovements(workspaceId, fundId)).find(
       (m) => m.expenseId === expense.id && m.kind === "spend",
     );
+    let movement: PettyCashMovementSummary;
     let balanceMinor: string;
-    if (!movement) {
+    if (!linkedSpend) {
       const movementResult = await this.createPettyCashMovement(
         actor,
         workspaceId,
@@ -1511,6 +1512,7 @@ export class WorkspacePaymentsService {
       movement = movementResult.movement;
       balanceMinor = movementResult.balanceMinor;
     } else {
+      movement = linkedSpend;
       const all = await this.ops.listMovements(workspaceId, fundId);
       balanceMinor = this.computeFundBalance(
         fund.openingBalanceMinor,

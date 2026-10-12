@@ -255,7 +255,7 @@ export class PostgresAttachmentStore implements AttachmentStore {
         AND storage_path IS NOT NULL
         AND created_at < ${cutoff}
     `);
-    const rows = (result as { rows?: Array<{ n: number }> }).rows;
+    const rows = (result as unknown as { rows?: Array<{ n: number }> }).rows;
     return Number(rows?.[0]?.n ?? 0);
   }
 }
