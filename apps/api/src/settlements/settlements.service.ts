@@ -30,13 +30,16 @@ import {
   previewBalancesAfterTransfers,
   readProductFeatureFlags,
   settlementSuggestionsSatisfyGoldenRules,
+  spaceKindForTemplate,
   suggestMinimalSettlements,
 } from "@dang/contracts";
 import { withTenantContext } from "@dang/db";
 import { getRequestId, getTraceId, withSpan } from "@dang/observability";
+import { EmailVerificationGate } from "../auth/email-verification-gate.js";
 import { MfaService } from "../auth/mfa.service.js";
 import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
 import { IdempotencyService } from "../common/idempotency.service.js";
+import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { LEDGER_STORE, type LedgerStore } from "../ledger/ledger.types.js";
 import { MakerCheckerService } from "../maker-checker/maker-checker.service.js";
@@ -72,6 +75,10 @@ export class SettlementsService {
     @Optional()
     @Inject(PAYMENT_OPS_STORE)
     private readonly paymentOps?: PaymentOpsStore,
+    @Optional() @Inject(IAM_STORE) private readonly iam?: IamStore,
+    @Optional()
+    @Inject(EmailVerificationGate)
+    private readonly emailGate?: EmailVerificationGate,
   ) {}
 
   async createClaim(
@@ -85,6 +92,7 @@ export class SettlementsService {
       "settlement.claim",
       { amountMinor: body.amount.amountMinor },
     );
+    await this.assertGroupEmailVerified(actor.userId, workspaceId);
     await Promise.all([
       this.requireSettlementParty(workspaceId, body.fromUserId),
       this.requireSettlementParty(workspaceId, body.toUserId),
@@ -185,6 +193,7 @@ export class SettlementsService {
       { status: existing.status, amountMinor: existing.amount.amountMinor },
     );
     this.assertPartyAction(actor.userId, existing, role, "confirm");
+    await this.assertGroupEmailVerified(actor.userId, workspaceId);
     await this.assertSettlementEvidence(workspaceId, settlementId, evidence);
     if (isFinanceManagerRole(role)) {
       await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
@@ -467,6 +476,7 @@ export class SettlementsService {
       });
     }
     await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
+    await this.assertGroupEmailVerified(actor.userId, workspaceId);
 
     return this.idempotency.run(
       `settlement.simplify:${workspaceId}`,
@@ -568,6 +578,7 @@ export class SettlementsService {
     }
 
     await this.access.requireMemberRole(workspaceId, actor.userId);
+    await this.assertGroupEmailVerified(actor.userId, workspaceId);
 
     return this.idempotency.run(
       `settlement.simplify.confirm:${workspaceId}`,
@@ -776,6 +787,16 @@ export class SettlementsService {
    * dispute → هر یک از طرفین یا مدیر مالی
    * cancel → بدهکار/ایجادکننده یا مدیر مالی
    */
+  private async assertGroupEmailVerified(
+    actorUserId: string,
+    workspaceId: string,
+  ): Promise<void> {
+    if (!this.emailGate || !this.iam) return;
+    const workspace = await this.iam.getWorkspaceForUser(workspaceId, actorUserId);
+    if (!workspace || spaceKindForTemplate(workspace.template) !== "group") return;
+    await this.emailGate.assertVerifiedForGroupAction(actorUserId);
+  }
+
   private assertPartyAction(
     actorUserId: string,
     settlement: StoredSettlement,

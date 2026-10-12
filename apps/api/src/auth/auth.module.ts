@@ -11,6 +11,7 @@ import { AuthOidcController } from "./auth-oidc.controller.js";
 import { SessionAuthGuard } from "./auth.guard.js";
 import { CsrfGuard } from "./csrf.guard.js";
 import { createPersistenceStore } from "../common/postgres-store.factory.js";
+import { EmailVerificationGate } from "./email-verification-gate.js";
 import { MailerService } from "./mailer.service.js";
 import { MemoryAccountStore } from "./memory-account.store.js";
 import { MfaService } from "./mfa.service.js";
@@ -35,6 +36,7 @@ function createAccountStore(): AccountStore {
   controllers: [AuthController, AuthOidcController, AccountController],
   providers: [
     AccountService,
+    EmailVerificationGate,
     MfaService,
     MailerService,
     OidcService,
@@ -53,6 +55,7 @@ function createAccountStore(): AccountStore {
     SessionAuthGuard,
     CsrfGuard,
     AccountService,
+    EmailVerificationGate,
     MfaService,
     ACCOUNT_STORE,
     OidcService,

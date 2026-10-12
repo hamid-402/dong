@@ -59,6 +59,12 @@ const LOCK_ROLES = new Set<string>(RANGE_LOCK_ROLES);
 
 type MembersCache = Map<string, MembershipSummary[]>;
 
+function activeMemberUserIds(
+  members: Array<{ userId: string; disabledAt?: string | null }>,
+): string[] {
+  return members.filter((member) => !member.disabledAt).map((member) => member.userId);
+}
+
 @Injectable()
 export class DailyLedgerService {
   constructor(
@@ -232,7 +238,13 @@ export class DailyLedgerService {
     const members = await this.loadMembers(workspaceId, actor.userId, cache);
 
     const memberId = body.memberUserId?.trim() || null;
-    const draft = this.buildDraft(actor, workspaceId, body, members.map((m) => m.userId), memberId);
+    const draft = this.buildDraft(
+      actor,
+      workspaceId,
+      body,
+      activeMemberUserIds(members),
+      memberId,
+    );
     const created = await this.expenseService.createDraft(actor, workspaceId, draft);
     await this.expenseService.post(actor, workspaceId, created.id);
     return this.buildLedger(actor, workspaceId, body.date, body.date, cache);
@@ -423,7 +435,7 @@ export class DailyLedgerService {
             memberUserId: memberId,
             idempotencyKey: `${batchKey}:${i}`,
           },
-          members.map((m) => m.userId),
+          activeMemberUserIds(members),
           memberId,
         );
         const created = await this.expenseService.createDraft(actor, workspaceId, draft);
@@ -514,7 +526,7 @@ export class DailyLedgerService {
     let memberId: string | null = isMemberCell ? current.splits[0]!.userId : null;
     if (body.memberUserId !== undefined) {
       memberId = body.memberUserId;
-      if (memberId !== null && !members.some((m) => m.userId === memberId)) {
+      if (memberId !== null && !activeMemberUserIds(members).includes(memberId)) {
         throw new BadRequestException({ detail: "عضو نامعتبر است" });
       }
     }
@@ -541,7 +553,7 @@ export class DailyLedgerService {
             : undefined),
         fundingRefId: body.fundingRefId ?? current.fundingRefId,
       },
-      members.map((m) => m.userId),
+      activeMemberUserIds(members),
       memberId,
     );
     const created = await this.expenseService.createDraft(actor, workspaceId, draft);
@@ -689,7 +701,7 @@ export class DailyLedgerService {
 
     const cache: MembersCache = new Map();
     const members = await this.loadMembers(workspaceId, actor.userId, cache);
-    const memberIds = members.map((m) => m.userId);
+    const memberIds = activeMemberUserIds(members);
     const batchKey = body.idempotencyKey.trim();
 
     for (let i = 0; i < body.lines.length; i += 1) {

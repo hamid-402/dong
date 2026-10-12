@@ -17,6 +17,7 @@ import {
   personaHomeSpec,
 } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
+import { GroupEmailVerificationNotice } from "@/components/group-email-verification-notice";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -379,6 +380,7 @@ export function FriendsGroupView() {
 
             {!workspace ? (
               <SectionCard title="ساخت گروه" delayClass="delay1">
+                <GroupEmailVerificationNotice active />
                 <FormStack>
                   <TextField
                     label="نام گروه"

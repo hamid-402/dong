@@ -59,6 +59,12 @@ export type AppEnv = {
    * (local DevAuth DX). Capabilities.mfa mirrors this — never claim MFA on while off.
    */
   requireMfa: boolean;
+  /**
+   * Group create / group expense and settlement writes require a verified email.
+   * Default: on in production; off in development/test unless REQUIRE_EMAIL_VERIFICATION=1.
+   * Still skipped while allowDevAuth is on, so local DevAuth sessions keep working.
+   */
+  requireEmailVerification: boolean;
   /** Session cookie secret (dev default is insecure; set SESSION_SECRET in prod). */
   sessionSecret: string;
   /** Local directory for attachment binary blobs (optional). */
@@ -114,6 +120,10 @@ export function loadAppEnv(partial: EnvBag = readEnv()): AppEnv {
       nodeEnv === "development" || nodeEnv === "test",
     ),
     requireMfa: parseBoolean(partial.REQUIRE_MFA, nodeEnv === "production"),
+    requireEmailVerification: parseBoolean(
+      partial.REQUIRE_EMAIL_VERIFICATION,
+      nodeEnv === "production",
+    ),
     sessionSecret:
       partial.SESSION_SECRET ||
       (nodeEnv === "production"
@@ -125,6 +135,17 @@ export function loadAppEnv(partial: EnvBag = readEnv()): AppEnv {
     zarinpalMerchantId: partial.ZARINPAL_MERCHANT_ID || undefined,
     zarinpalCallbackUrl: partial.ZARINPAL_CALLBACK_URL || undefined,
   };
+}
+
+/**
+ * Group-space writes require a verified email only when this environment
+ * enforces it. allowDevAuth (default in development and test) skips the gate.
+ */
+export function groupEmailVerificationEnforced(
+  env: Pick<AppEnv, "allowDevAuth" | "requireEmailVerification">,
+): boolean {
+  if (env.allowDevAuth) return false;
+  return env.requireEmailVerification;
 }
 
 export function isOidcConfigured(env: AppEnv = loadAppEnv()): boolean {

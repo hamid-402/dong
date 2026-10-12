@@ -7,6 +7,9 @@ import {
   expenseItemAssignment,
   expensePaymentLine,
   expenseSplitLine,
+  inArray,
+  isNull,
+  membership,
   withTenantContext,
   type AppDatabase,
 } from "@dang/db";
@@ -23,6 +26,10 @@ import {
   type StoredExpense,
 } from "./expense.types.js";
 import { appendExpenseReverseMeta } from "./expense-reverse-meta.js";
+import {
+  assertExpensePartiesAreActiveMembers,
+  expensePartyUserIds,
+} from "./expense-party-membership.js";
 
 function formatOccurredOn(value: string | Date): string {
   return typeof value === "string" ? value : value.toISOString().slice(0, 10);
@@ -177,6 +184,12 @@ export class PostgresExpenseStore implements ExpenseStore {
         if (existing[0]) {
           return this.loadExpense(tx, existing[0].id, input.workspaceId);
         }
+
+        await this.assertActiveParties(tx, input.workspaceId, {
+          paidByUserId: input.paidByUserId,
+          splits,
+          paymentLines,
+        });
 
         const inserted = await tx
           .insert(expense)
@@ -485,6 +498,9 @@ export class PostgresExpenseStore implements ExpenseStore {
       if (!allowedFrom.includes(stored.status)) {
         throw new Error("EXPENSE_STATUS");
       }
+      if (action === "post") {
+        await this.assertActiveParties(tx, workspaceId, stored);
+      }
 
       const patch: { status: StoredExpense["status"]; note?: string } = {
         status: nextStatus,
@@ -515,6 +531,37 @@ export class PostgresExpenseStore implements ExpenseStore {
       { workspaceId, userId: actorUserId },
       work,
     );
+  }
+
+  private async assertActiveParties(
+    tx: AppDatabase,
+    workspaceId: string,
+    expenseParties: {
+      paidByUserId: string;
+      splits: Array<{ userId: string }>;
+      paymentLines?: Array<{ userId: string }>;
+    },
+  ): Promise<void> {
+    const ids = expensePartyUserIds(expenseParties);
+    const rows =
+      ids.length === 0
+        ? []
+        : await tx
+            .select({ userId: membership.userId })
+            .from(membership)
+            .where(
+              and(
+                eq(membership.workspaceId, workspaceId),
+                inArray(membership.userId, ids),
+                isNull(membership.disabledAt),
+              ),
+            );
+    assertExpensePartiesAreActiveMembers({
+      paidByUserId: expenseParties.paidByUserId,
+      splits: expenseParties.splits,
+      paymentLines: expenseParties.paymentLines,
+      members: rows.map((row) => ({ userId: row.userId })),
+    });
   }
 
   private async loadExpense(

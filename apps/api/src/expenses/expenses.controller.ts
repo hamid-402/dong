@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -16,7 +15,6 @@ import type {
   AuthActor,
   CreateExpenseDraftInput,
   ExpenseListQuery,
-  ExpenseSplitLine,
   ExpenseSummary,
   PreviewExpenseSplitInput,
   ExpenseCsvImportRequest,
@@ -26,7 +24,6 @@ import type {
   ReviseExpenseRequestInput,
 } from "@dang/contracts";
 import {
-  allocateExpenseSplit,
   createExpenseDraftSchema,
   previewExpenseSplitSchema,
   expenseCsvImportSchema,
@@ -49,34 +46,15 @@ export class ExpensesController {
   @Post("preview-split")
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: "Preview expense split without persisting (same allocator as create)",
+    summary: "Preview expense split for a workspace member (same allocator as create)",
   })
   previewSplit(
-    @CurrentActor() _actor: AuthActor,
-    @Param("workspaceId") _workspaceId: string,
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
     @Body(new ZodValidationPipe(previewExpenseSplitSchema))
     body: PreviewExpenseSplitInput,
-  ): { splits: ExpenseSplitLine[] } {
-    try {
-      return {
-        splits: allocateExpenseSplit({
-          total: body.total,
-          splitMethod: body.splitMethod,
-          participantUserIds: body.participantUserIds,
-          splitLines: body.splitLines,
-          items: body.items,
-          tip: body.tip,
-          tax: body.tax,
-          discount: body.discount,
-        }),
-      };
-    } catch (error: unknown) {
-      const code = error instanceof Error ? error.message : "SPLIT_ERROR";
-      throw new BadRequestException({
-        title: "Invalid split",
-        detail: code,
-      });
-    }
+  ) {
+    return this.expenses.previewSplit(actor, workspaceId, body);
   }
 
   @Post()

@@ -17,6 +17,11 @@ export type SystemCapabilities = {
   databaseConfigured: boolean;
   /** Present when TOTP MFA API is available. */
   mfa?: boolean;
+  /**
+   * True when group create and group expense/settlement writes require a
+   * verified email. False while DevAuth is on, even if the raw flag is set.
+   */
+  requireEmailVerification?: boolean;
   readiness: "ready" | "degraded";
   /**
    * Dong 2.0 product flags from env (honest — UI must hide unfinished features).

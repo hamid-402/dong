@@ -20,6 +20,7 @@ import {
   StatusLine,
 } from "@/components/ui-blocks";
 import type { OcrFormHints } from "@/components/expense-receipt-upload";
+import { GroupEmailVerificationNotice } from "@/components/group-email-verification-notice";
 import { ExpenseFormPanel } from "@/components/views/finance/expense-form-panel";
 import { ExpenseListPanel } from "@/components/views/finance/expense-list-panel";
 import { FinanceSummaryCard } from "@/components/views/finance/finance-summary-card";
@@ -147,6 +148,7 @@ export function FinanceExpensesSection(props: FinanceExpensesSectionProps) {
         </SectionCard>
       ) : (
         <ProductGrid>
+          <GroupEmailVerificationNotice active={props.spaceKind === "group"} />
           <ExpenseFormPanel
             title={props.title}
             onTitleChange={props.onTitleChange}

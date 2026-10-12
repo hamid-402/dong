@@ -14,12 +14,15 @@ import type {
   AuthActor,
   CreateExpenseDraftRequest,
   ExpenseListQuery,
+  ExpenseSplitLine,
   ExpenseSummary,
   JournalEntrySummary,
+  PreviewExpenseSplitInput,
   MemberInvoiceAdjustmentSummary,
   RebuildFundPartyJournalsResult,
 } from "@dang/contracts";
 import {
+  allocateExpenseSplit,
   buildFormulaWeightsFromSubunits,
   readProductFeatureFlags,
   resolvePostingDecision,
@@ -52,6 +55,7 @@ function isMfaEnrollmentForbidden(error: ForbiddenException): boolean {
 }
 import { ApprovalStepsService } from "../approval-steps/approval-steps.module.js";
 import { MakerCheckerService } from "../maker-checker/maker-checker.service.js";
+import { EmailVerificationGate } from "../auth/email-verification-gate.js";
 import { MfaService } from "../auth/mfa.service.js";
 import {
   PROCUREMENT_STORE,
@@ -74,6 +78,7 @@ import {
 import {
   EXPENSE_STORE,
   toExpenseSummary,
+  validateExpenseDraftInput,
   type ExpenseStore,
   type StoredExpense,
 } from "./expense.types.js";
@@ -85,6 +90,10 @@ import {
   type WorkspaceSubunitStore,
 } from "../subunits/subunit.types.js";
 import type { AllowancesService } from "../allowances/allowances.service.js";
+import {
+  ExpensePartyNotMemberError,
+  assertExpensePartiesAreActiveMembers,
+} from "./expense-party-membership.js";
 import { evaluatePerDiemRequiresApproval } from "./expense-org-policy.js";
 import {
   applyOriginalMoneyToIrr,
@@ -131,6 +140,9 @@ export class ExpensesService {
     @Inject(WORKSPACE_SUBUNIT_STORE)
     private readonly subunits?: WorkspaceSubunitStore,
     @Optional() private readonly moduleRef?: ModuleRef,
+    @Optional()
+    @Inject(EmailVerificationGate)
+    private readonly emailGate?: EmailVerificationGate,
   ) {}
 
   /** Lazy — FxRatesModule is optional for unit tests without FX wired. */
@@ -163,6 +175,36 @@ export class ExpensesService {
     }
   }
 
+  async previewSplit(
+    actor: AuthActor,
+    workspaceId: string,
+    body: PreviewExpenseSplitInput,
+  ): Promise<{ splits: ExpenseSplitLine[] }> {
+    await this.access.requireMember(workspaceId, actor.userId);
+    try {
+      return {
+        splits: allocateExpenseSplit({
+          total: body.total,
+          splitMethod: body.splitMethod,
+          participantUserIds: body.participantUserIds,
+          splitLines: body.splitLines,
+          items: body.items,
+          tip: body.tip,
+          tax: body.tax,
+          discount: body.discount,
+        }),
+      };
+    } catch (error: unknown) {
+      const code = error instanceof Error ? error.message : "SPLIT_ERROR";
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "تقسیم نامعتبر است",
+        status: 400,
+        detail: code,
+      });
+    }
+  }
+
   async createDraft(
     actor: AuthActor,
     workspaceId: string,
@@ -181,6 +223,13 @@ export class ExpensesService {
     let requiresApproval = resolvedBody.requiresApproval;
     let policyNoteSuffix = "";
     const workspace = await this.iam.getWorkspaceForUser(workspaceId, actor.userId);
+    if (
+      this.emailGate &&
+      workspace &&
+      spaceKindForTemplate(workspace.template) === "group"
+    ) {
+      await this.emailGate.assertVerifiedForGroupAction(actor.userId);
+    }
     const visibility = resolvedBody.visibility ?? "shared";
     const flags = readProductFeatureFlags(process.env);
     const kind = spaceKindForTemplate(workspace?.template);
@@ -333,6 +382,8 @@ export class ExpensesService {
       requiresApproval:
         requiresApproval ?? (visibility === "company" ? true : undefined),
     };
+
+    await this.assertDraftParties(workspaceId, actor.userId, payload);
 
     try {
       const created = await withSpan(
@@ -574,8 +625,10 @@ export class ExpensesService {
   ): Promise<ExpenseSummary> {
     await this.assertExpenseWriteRate(actor.userId, workspaceId, reply);
     await this.access.requireAccess(workspaceId, actor.userId, "expense.create");
+    await this.assertGroupEmailVerified(actor.userId, workspaceId);
     await this.assertReceiptPolicy(workspaceId, expenseId, actor.userId);
     await this.assertCostCenterPolicy(workspaceId, expenseId, actor.userId);
+    await this.assertVisibleExpenseParties(actor, workspaceId, expenseId);
     try {
       const updated = await this.expenses.submit(workspaceId, expenseId, actor.userId);
       if (updated.requiresApproval) {
@@ -645,6 +698,7 @@ export class ExpensesService {
     expenseId: string,
   ): Promise<ExpenseSummary> {
     await this.access.requireAccess(workspaceId, actor.userId, "expense.create");
+    await this.assertGroupEmailVerified(actor.userId, workspaceId);
     if (this.mfa) await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
     await this.assertReceiptPolicy(workspaceId, expenseId, actor.userId);
     try {
@@ -658,6 +712,7 @@ export class ExpensesService {
       });
       const current = listed.find((e) => e.id === expenseId);
       if (!current) throw new Error("EXPENSE_NOT_FOUND");
+      await this.assertExpenseParties(workspaceId, actor.userId, current);
       if (current.visibility === "company") {
         if (!role || !COMPANY_POST_ROLES.has(role)) {
           throw new ForbiddenException({
@@ -1859,7 +1914,102 @@ export class ExpensesService {
     }
   }
 
+  private async assertGroupEmailVerified(
+    actorUserId: string,
+    workspaceId: string,
+  ): Promise<void> {
+    if (!this.emailGate) return;
+    const workspace = await this.iam.getWorkspaceForUser(workspaceId, actorUserId);
+    if (!workspace || spaceKindForTemplate(workspace.template) !== "group") return;
+    await this.emailGate.assertVerifiedForGroupAction(actorUserId);
+  }
+
+  private async assertDraftParties(
+    workspaceId: string,
+    actorUserId: string,
+    body: CreateExpenseDraftRequest,
+  ): Promise<void> {
+    let parsed: ReturnType<typeof validateExpenseDraftInput>;
+    try {
+      parsed = validateExpenseDraftInput(body);
+    } catch (error: unknown) {
+      this.rethrowValidation(error);
+    }
+    await this.assertExpenseParties(workspaceId, actorUserId, {
+      paidByUserId: body.paidByUserId,
+      splits: parsed.splits,
+      paymentLines: parsed.paymentLines,
+    });
+  }
+
+  private async assertVisibleExpenseParties(
+    actor: AuthActor,
+    workspaceId: string,
+    expenseId: string,
+  ): Promise<void> {
+    const { viewAllPrivate } = await resolveExpenseListOptions(
+      this.iam,
+      workspaceId,
+      actor.userId,
+    );
+    const listed = await this.expenses.listForWorkspace(workspaceId, actor.userId, {
+      viewAllPrivate,
+    });
+    const current = listed.find((row) => row.id === expenseId);
+    if (!current) return;
+    await this.assertExpenseParties(workspaceId, actor.userId, current);
+  }
+
+  private async assertExpenseParties(
+    workspaceId: string,
+    actorUserId: string,
+    expense: {
+      paidByUserId: string;
+      splits: Array<{ userId: string }>;
+      paymentLines?: Array<{ userId: string }>;
+    },
+  ): Promise<void> {
+    const members = await this.iam.listMembers(workspaceId, actorUserId);
+    if (!members) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "Not a workspace member",
+        status: 403,
+        detail: "عضویت فضای کاری لازم است",
+      });
+    }
+    try {
+      assertExpensePartiesAreActiveMembers({
+        paidByUserId: expense.paidByUserId,
+        splits: expense.splits,
+        paymentLines: expense.paymentLines,
+        members,
+      });
+    } catch (error: unknown) {
+      if (error instanceof ExpensePartyNotMemberError) {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/validation",
+          title: "عضو فعال این فضا نیست",
+          status: 400,
+          code: error.code,
+          detail: error.detail,
+        });
+      }
+      throw error;
+    }
+  }
+
   private rethrowLifecycle(error: unknown): never {
+    if (error instanceof HttpException) throw error;
+    if (error instanceof ExpensePartyNotMemberError) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "عضو فعال این فضا نیست",
+        status: 400,
+        code: error.code,
+        detail: error.detail,
+      });
+    }
     if (error instanceof Error && error.message === "EXPENSE_NOT_FOUND") {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
@@ -1894,6 +2044,16 @@ export class ExpensesService {
   }
 
   private rethrowValidation(error: unknown): never {
+    if (error instanceof HttpException) throw error;
+    if (error instanceof ExpensePartyNotMemberError) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "عضو فعال این فضا نیست",
+        status: 400,
+        code: error.code,
+        detail: error.detail,
+      });
+    }
     if (error instanceof Error) {
       const map: Record<string, string> = {
         EXPENSE_CURRENCY: "Only IRR is supported",

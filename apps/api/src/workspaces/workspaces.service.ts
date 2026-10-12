@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Optional,
   NotFoundException,
 } from "@nestjs/common";
 import type {
@@ -26,6 +27,7 @@ import {
   toDirectoryEntry,
   workspaceTemplateCatalog,
 } from "@dang/contracts";
+import { EmailVerificationGate } from "../auth/email-verification-gate.js";
 import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
 import { IAM_STORE, type IamStore } from "../iam/iam.types.js";
 import { LEDGER_STORE, type LedgerStore } from "../ledger/ledger.types.js";
@@ -130,6 +132,9 @@ export class WorkspacesService {
     @Inject(AUDIT_STORE) private readonly audit: AuditStore,
     @Inject(LEDGER_STORE) private readonly ledger: LedgerStore,
     @Inject(SETTLEMENT_STORE) private readonly settlements: SettlementStore,
+    @Optional()
+    @Inject(EmailVerificationGate)
+    private readonly emailGate?: EmailVerificationGate,
   ) {}
 
   async create(actor: AuthActor, body: CreateWorkspaceRequest): Promise<WorkspaceSummary> {
@@ -175,6 +180,10 @@ export class WorkspacesService {
             ? "ENABLE_BUILDING_SPACES is off."
             : "ENABLE_ORG_SPACES is off.",
       });
+    }
+
+    if (spaceKindForTemplate(template) === "group") {
+      await this.emailGate?.assertVerifiedForGroupAction(actor.userId);
     }
 
     try {

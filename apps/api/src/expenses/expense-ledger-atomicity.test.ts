@@ -75,7 +75,10 @@ test("expense post rolls back status when journal fails (memory)", async () => {
   };
   const iam = {
     getWorkspaceForUser: async () => ({ template: "friends" }),
-    listMembers: async () => [{ userId: "alice", role: "owner" }],
+    listMembers: async () => [
+      { userId: "alice", role: "owner" },
+      { userId: "bob", role: "member" },
+    ],
   };
   const outbox = {
     insert: async (input: {
@@ -219,7 +222,10 @@ test("expense post + journal happy path still consistent", async () => {
     ledger,
     {
       getWorkspaceForUser: async () => ({ template: "friends" }),
-      listMembers: async () => [{ userId: "alice", role: "owner" }],
+      listMembers: async () => [
+      { userId: "alice", role: "owner" },
+      { userId: "bob", role: "member" },
+    ],
     } as never,
     {
       requireMemberRole: async () => "owner",

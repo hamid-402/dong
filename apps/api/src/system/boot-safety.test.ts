@@ -14,6 +14,7 @@ function baseEnv(over: Partial<AppEnv> = {}): AppEnv {
     apiBaseUrl: "http://localhost:3006/api/v1",
     allowDevAuth: true,
     requireMfa: false,
+    requireEmailVerification: false,
     sessionSecret: "dev-only-session-secret-change-me",
     ...over,
   };

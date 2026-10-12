@@ -12,6 +12,7 @@ import type {
 import { spaceKindForTemplate } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
+import { GroupEmailVerificationNotice } from "@/components/group-email-verification-notice";
 import {
   DataList,
   DataRow,
@@ -320,6 +321,9 @@ export function OnboardingView() {
           ) : null}
 
           <SectionCard title="ایجاد فضای کاری" delayClass="delay1">
+            <GroupEmailVerificationNotice
+              active={spaceKindForTemplate(template) === "group"}
+            />
             <form onSubmit={onCreate}>
               <FormStack>
                 <TextField
