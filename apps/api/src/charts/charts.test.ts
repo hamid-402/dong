@@ -351,9 +351,10 @@ test("G14 workspace expenseTrend Forbidden when plan lacks reports", async () =>
 });
 
 test("G14 incomeVsExpense uses monthly_close when present", async () => {
+  const yearMonth = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, "0")}`;
   const goals = new MemoryPersonalGoalsStore();
   await goals.upsertMonthlyClose(alice, {
-    yearMonth: "2026-09",
+    yearMonth,
     incomeMinor: 2_000_000n,
     expenseMinor: 800_000n,
     groupShareMinor: 0n,
@@ -369,5 +370,5 @@ test("G14 incomeVsExpense uses monthly_close when present", async () => {
   );
   const series = await service.incomeVsExpense(actor, 1);
   assert.equal(series.source, "monthly_close");
-  assert.ok(series.points.some((p) => p.key === "2026-09"));
+  assert.ok(series.points.some((p) => p.key === yearMonth));
 });

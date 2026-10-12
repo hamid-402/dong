@@ -48,9 +48,9 @@ describe("operations room preview model", () => {
     }
   });
 
-  it("covers all nine roles and six workspace templates", () => {
+  it("covers all nine roles and every workspace template in the catalog", () => {
     expect(PREVIEW_ROLES).toHaveLength(9);
-    expect(PREVIEW_TEMPLATES).toHaveLength(6);
+    expect(PREVIEW_TEMPLATES).toHaveLength(7);
   });
 
   it("enforces specialized, read-only, template, flag, and MFA states", () => {

@@ -100,6 +100,7 @@ describe("journal balance constraint", () => {
             currency: "IRR",
             idempotencyKey: `unbalanced:${entryId}`,
             actorUserId: userId,
+            occurredOn: "2026-09-07",
           });
           await tx.insert(journalLine).values({
             entryId,
@@ -154,6 +155,7 @@ describe("journal balance constraint", () => {
         currency: "IRR",
         idempotencyKey: `balanced:${entryId}`,
         actorUserId: userId,
+        occurredOn: "2026-09-07",
       });
       await tx.insert(journalLine).values([
         {

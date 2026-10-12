@@ -76,6 +76,7 @@ test("expense approve returns pending tier progress without finalizing", async (
     } as never,
     {
       assertFourEyes: async () => undefined,
+      resolveApprovalTiersForWorkspace: async () => [],
       applyTierGate: async () => ({
         outcome: "pending",
         evaluation: {

@@ -12,6 +12,9 @@ function fakeMailer(mode: "resend" | "dev-log" | "none"): MailerService {
 }
 
 test("public contact delivers when mailer is live", async () => {
+  const previous = process.env.CONTACT_INBOX;
+  process.env.CONTACT_INBOX = "support@example.com";
+  try {
   const svc = new PublicContactService(fakeMailer("resend"));
   const out = await svc.submit(
     {
@@ -25,9 +28,16 @@ test("public contact delivers when mailer is live", async () => {
   assert.equal(out.accepted, true);
   assert.equal(out.delivered, true);
   assert.equal(out.suggestMailto, false);
+  } finally {
+    if (previous === undefined) delete process.env.CONTACT_INBOX;
+    else process.env.CONTACT_INBOX = previous;
+  }
 });
 
 test("public contact suggests mailto when mailer is none", async () => {
+  const previous = process.env.CONTACT_INBOX;
+  process.env.CONTACT_INBOX = "support@example.com";
+  try {
   const svc = new PublicContactService(fakeMailer("none"));
   const out = await svc.submit(
     {
@@ -41,4 +51,8 @@ test("public contact suggests mailto when mailer is none", async () => {
   assert.equal(out.delivered, false);
   assert.equal(out.suggestMailto, true);
   assert.equal(out.mailerMode, "none");
+  } finally {
+    if (previous === undefined) delete process.env.CONTACT_INBOX;
+    else process.env.CONTACT_INBOX = previous;
+  }
 });

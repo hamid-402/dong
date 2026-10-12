@@ -456,6 +456,7 @@ describe("cross-tenant RLS", () => {
         sourceId,
         idempotencyKey: `je-${sourceId.slice(0, 8)}`,
         actorUserId: userA,
+        occurredOn: "2026-09-12",
       });
       await tx.insert(settlement).values({
         id: settlementId,
