@@ -66,6 +66,7 @@ export function WorkspaceSwitcher({
   >(() => new Set());
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const openViaKeyboardRef = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listId = useId();
@@ -189,6 +190,16 @@ export function WorkspaceSwitcher({
       }
     };
     const focusTimer = window.setTimeout(() => {
+      if (openViaKeyboardRef.current) {
+        const selected =
+          menuRef.current?.querySelector<HTMLButtonElement>(
+            "[data-workspace-option][aria-selected='true']",
+          ) ??
+          menuRef.current?.querySelector<HTMLButtonElement>("[data-workspace-option]");
+        selected?.focus();
+        if (selected?.id) setActiveOptionId(selected.id);
+        return;
+      }
       searchRef.current?.focus();
     }, 0);
     for (const row of flatOptions.slice(0, 8)) {
@@ -330,10 +341,14 @@ export function WorkspaceSwitcher({
             ? "خانه — فهرست فضاها"
             : `فضای کاری فعال: ${workspaceName || "انتخاب نشده"}`
         }
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          openViaKeyboardRef.current = false;
+          setOpen((v) => !v);
+        }}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             event.preventDefault();
+            openViaKeyboardRef.current = true;
             setOpen(true);
           }
         }}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   type ReactNode,
 } from "react";
@@ -166,6 +167,7 @@ export function AuthLinkRow({ children }: { children: ReactNode }) {
 
 export function AuthDevLink() {
   const { caps } = useSiteStatus();
+  const router = useRouter();
   if (!caps?.allowDevAuth) return null;
   return (
     <>
@@ -179,7 +181,7 @@ export function AuthDevLink() {
           void bootstrapDevSession()
             .catch(() => undefined)
             .finally(() => {
-              window.location.assign("/spaces/new");
+              router.push("/spaces/new");
             });
         }}
       >

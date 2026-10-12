@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ContextualMosaicHub } from "@/components/shell/contextual-mosaic-hub";
 import { WorkspaceDomainExplorer } from "@/components/shell/workspace-domain-explorer";
@@ -73,50 +73,42 @@ export function ShellToolsView() {
     domainParam != null ? parseDomainSubGroup(domainParam, groupQuery) : null;
   const flagsKey = JSON.stringify(spaceNavFlagsFromCapabilities(chrome.capabilities));
 
-  const sections = useMemo(
-    () =>
-      contextualMosaicSections(
-        active?.template,
-        slug,
-        JSON.parse(flagsKey) as ReturnType<typeof spaceNavFlagsFromCapabilities>,
-        "all",
-        membershipRole || null,
-      ),
-    [active?.template, slug, flagsKey, membershipRole],
+  const sections = contextualMosaicSections(
+    active?.template,
+    slug,
+    JSON.parse(flagsKey) as ReturnType<typeof spaceNavFlagsFromCapabilities>,
+    "all",
+    membershipRole || null,
   );
-  const accountItems = useMemo(
-    () =>
-      contextualAccountNav({
-        platformAdminLive:
-          chrome.capabilities?.providers?.platformAdmin === "platform_v1",
-        platformRole: chrome.platformRole,
-      }),
-    [chrome.capabilities?.providers?.platformAdmin, chrome.platformRole],
-  );
+  const accountItems = contextualAccountNav({
+    platformAdminLive:
+      chrome.capabilities?.providers?.platformAdmin === "platform_v1",
+    platformRole: chrome.platformRole,
+  });
 
-  const liveHrefKey = useMemo(() => {
+  const liveHrefKey = (() => {
     const hrefs: string[] = [];
     for (const section of sections) {
       for (const item of section.items) hrefs.push(item.href);
     }
     for (const item of accountItems) hrefs.push(item.href);
     return hrefs.sort().join("|");
-  }, [sections, accountItems]);
+  })();
 
-  const liveHrefs = useMemo(() => {
-    if (!liveHrefKey) return new Set<string>();
-    return new Set(liveHrefKey.split("|"));
-  }, [liveHrefKey]);
+  const liveHrefs = liveHrefKey
+    ? new Set(liveHrefKey.split("|"))
+    : new Set<string>();
 
   const [recent, setRecent] = useState<RecentDestination[]>([]);
   const [pins, setPins] = useState<PinnedDestination[]>([]);
 
   useEffect(() => {
+    const hrefs = liveHrefKey ? new Set(liveHrefKey.split("|")) : new Set<string>();
     const nextRecent = listRecentDestinations();
-    const nextPins = filterLivePinned(listPinnedDestinations(), liveHrefs);
+    const nextPins = filterLivePinned(listPinnedDestinations(), hrefs);
     setRecent((prev) => (sameHrefList(prev, nextRecent) ? prev : nextRecent));
     setPins((prev) => (sameHrefList(prev, nextPins) ? prev : nextPins));
-  }, [pathname, folderQuery, intentQuery, liveHrefKey, liveHrefs]);
+  }, [pathname, folderQuery, intentQuery, liveHrefKey]);
 
   useEffect(() => {
     if (!slug) return;
@@ -136,20 +128,14 @@ export function ShellToolsView() {
     // Keep domain folders on More (do not bounce to home) so back + trail work.
   }, [slug, intentQuery, folderQuery, router]);
 
-  const pinnedHrefSet = useMemo(
-    () => new Set(pins.map((pin) => pin.href)),
-    [pins],
-  );
+  const pinnedHrefSet = new Set(pins.map((pin) => pin.href));
 
   function refreshPins() {
     setPins(filterLivePinned(listPinnedDestinations(), liveHrefs));
   }
 
   const toolCount = sections.reduce((n, s) => n + s.items.length, 0);
-  const flatItems = useMemo(
-    () => sections.flatMap((section) => section.items),
-    [sections],
-  );
+  const flatItems = sections.flatMap((section) => section.items);
   // Flat catalog only on the More root — keep folder drill for subgroups.
   const useFlatCatalog =
     !domainParam && flatItems.length > 0 && flatItems.length <= 6;
