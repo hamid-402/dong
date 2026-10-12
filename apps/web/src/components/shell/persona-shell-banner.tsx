@@ -39,7 +39,7 @@ export function PersonaShellBanner() {
             {profile.persona === "auditor" ? "ناظر" : "مهمان"}
           </StatusPill>
         ) : null}
-        {isDeputy ? <StatusPill tone="info">جانشین مالی</StatusPill> : null}{" "}
+        {isDeputy ? <StatusPill tone="neutral">جانشین مالی</StatusPill> : null}{" "}
         <span className={styles.hint}>
           {isDeputy
             ? `نقش ${membershipRoleLabel(role)} — اختیار مالی موقت در بازهٔ جانشینی.`

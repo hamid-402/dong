@@ -15,6 +15,7 @@ import type {
 import { isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import {
   DataList,
@@ -145,6 +146,7 @@ export function PartnershipView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
+      <WorkspacePageFrame title={t("nav.partners")} state="ready">
       {pageError ? <p className="liveError">{pageError}</p> : null}
       <MotionSceneStrip kind="partners" />
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
@@ -566,6 +568,7 @@ export function PartnershipView() {
           </SectionCard>
         </ProductGrid>
       )}
+      </WorkspacePageFrame>
     </AppShell>
   );
 }

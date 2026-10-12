@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import type { ActivityItem } from "@dang/contracts";
-import { spaceKindForTemplate, isFinanceManagerRole, isReadOnlyRole, primaryCounterpartyEdge, type PettyCashFundSummary } from "@dang/contracts";
+import { spaceKindForTemplate, isFinanceManagerRole, isReadOnlyRole, primaryCounterpartyEdge, type MembershipRole, type PettyCashFundSummary } from "@dang/contracts";
 import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
 import { formatMoney, formatMoneyFromIrrMinor, irrMinorToDisplayInteger, type DisplayUnit } from "@dang/ui";
 import { useDisplayUnit } from "@/lib/display-unit";
@@ -18,6 +18,7 @@ import { HomeMoneyCommand, rangeForPreset } from "@/components/shell/home-money-
 import { MoneyEntryChooser } from "@/components/shell/money-entry-chooser";
 import type { WorkspaceMoneyPulse } from "@dang/contracts";
 import { GroupOpsRail } from "@/components/shell/group-ops-rail";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { StructuralSubunitsRail } from "@/components/shell/structural-subunits-rail";
 import { GroupPublicIdCard } from "@/components/shell/group-public-id";
 import { GroupSetupChecklist } from "@/components/shell/group-setup-checklist";
@@ -99,6 +100,24 @@ function useAnimatedBalance(
   return formatMoney(value, unit);
 }
 
+function membershipRoleOrNull(role: string | null | undefined): MembershipRole | null {
+  switch (role) {
+    case "owner":
+    case "admin":
+    case "finance":
+    case "deputy_finance":
+    case "approver":
+    case "buyer":
+    case "asset_custodian":
+    case "member":
+    case "auditor":
+    case "guest":
+      return role;
+    default:
+      return null;
+  }
+}
+
 type DashboardState = {
   workspaceId: string;
   workspaceName: string;
@@ -118,7 +137,7 @@ type DashboardState = {
   recentNeeds: Array<{ id: string; title: string; status: string }>;
   memberNames: string[];
   /** Active membership role of the current actor (for ops rail). */
-  myRole: string;
+  myRole: MembershipRole | null;
   /** Active finance managers (owner/admin/finance) — for setup checklist. */
   financeManagerCount: number;
   previewExpenseTitle: string;
@@ -267,8 +286,9 @@ export function OverviewView() {
               status: needStatusLabel(n.status),
             })),
             memberNames: members.map((m) => m.displayName).filter(Boolean),
-            myRole:
-              members.find((m) => m.userId === chrome.actor?.userId)?.role ?? "",
+            myRole: membershipRoleOrNull(
+              members.find((m) => m.userId === chrome.actor?.userId)?.role,
+            ),
             financeManagerCount: members.filter(
               (m) => !m.disabledAt && isFinanceManagerRole(m.role),
             ).length,
@@ -451,6 +471,10 @@ export function OverviewView() {
         />
       ) : null}
 
+      <WorkspacePageFrame
+        title={data?.workspaceName || NAV_LABELS.home}
+        state="ready"
+      >
       <div className="mosaicWorkspace">
         {!chrome.ready || (!data && pending) ? (
           <ContentSkeleton rows={4} label="در حال بارگذاری خانه…" />
@@ -837,6 +861,7 @@ export function OverviewView() {
           </>
         )}
       </div>
+      </WorkspacePageFrame>
     </AppShell>
   );
 }

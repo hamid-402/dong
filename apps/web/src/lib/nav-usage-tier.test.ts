@@ -49,7 +49,7 @@ const sample: ContextualMosaicSection[] = [
         href: "/w/x/security-ops",
         summary: "s",
         intent: "monitor",
-        icon: "shield",
+        icon: "settings",
       },
     ],
   },

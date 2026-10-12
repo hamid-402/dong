@@ -17,6 +17,7 @@ import type {
 import { isReadOnlyRole } from "@dang/contracts";
 import { Amount, Button, TextField } from "@dang/ui";
 import { AppShell, ShellIconSvg } from "@/components/app-shell";
+import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import {
   DataList,
@@ -143,6 +144,7 @@ export function ProcurementView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
+      <WorkspacePageFrame title={t("nav.procurement")} state="ready">
       {pageError ? <p className="liveError">{pageError}</p> : null}
       <MotionSceneStrip kind="procurement" />
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
@@ -603,6 +605,7 @@ export function ProcurementView() {
         </ProductGrid>
         </>
       )}
+      </WorkspacePageFrame>
     </AppShell>
   );
 }

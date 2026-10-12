@@ -13,6 +13,7 @@ import { SessionGate } from "@/components/session-gate";
 import { ShellV2Provider, useShellV2Api } from "@/components/shell/shell-v2-context";
 import { AppTabbar } from "@/components/shell/app-tabbar";
 import { SpaceKindHeaderTabs } from "@/components/shell/space-kind-header-tabs";
+import type { BreadcrumbCrumb } from "@/components/shell/app-breadcrumb";
 import { ShellPageTrail } from "@/components/shell/shell-page-trail";
 import { ShellHeaderWayfinding } from "@/components/shell/shell-header-wayfinding";
 import { ShellHeaderSearchField } from "@/components/shell/shell-header-search";
@@ -215,7 +216,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
     );
     if (!inWorkspace) return base;
     const kindLabel = realmKind ? spaceTabLabel(realmKind) : null;
-    const roots = [
+    const roots: BreadcrumbCrumb[] = [
       { label: t("nav.home"), href: "/home" },
       ...(kindLabel && base[0]?.label !== kindLabel
         ? [{ label: kindLabel, href: `/home?kind=${realmKind}` }]

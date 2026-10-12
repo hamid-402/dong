@@ -74,7 +74,7 @@ export function SpaceKindHeaderTabs({
         )
       : null;
 
-  const tabs: KindTab[] = [
+  const allTabs: KindTab[] = [
     { key: "home", label: NAV_LABELS.home, href: homeHref },
     {
       key: "personal",
@@ -96,8 +96,9 @@ export function SpaceKindHeaderTabs({
       label: NAV_LABELS.spaceOrg,
       href: "/home?kind=org",
     },
-  ].filter(
-    (tab) =>
+  ];
+  const tabs = allTabs.filter(
+    (tab): tab is KindTab =>
       tab.key === "home" || !offeredKinds || offeredKinds.has(tab.key),
   );
 

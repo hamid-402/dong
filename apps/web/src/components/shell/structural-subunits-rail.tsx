@@ -46,10 +46,7 @@ export function StructuralSubunitsRail({
   const noun = spaceKind === "building" ? "واحد" : "بخش";
   const canCharge =
     !isReadOnlyRole(myRole) &&
-    (isFinanceManagerRole(myRole) ||
-      myRole === "owner" ||
-      myRole === "admin" ||
-      myRole === "buyer");
+    (isFinanceManagerRole(myRole) || myRole === "buyer");
 
   useEffect(() => {
     let cancelled = false;

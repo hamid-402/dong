@@ -470,6 +470,5 @@ export function usePersonalResourcesData() {
     onDeleteCategory,
     onExportTxns,
     onApplyTxnFilter,
-    onContributeTxnToGoal,
   };
 }

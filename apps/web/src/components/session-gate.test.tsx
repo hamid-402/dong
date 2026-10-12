@@ -194,7 +194,7 @@ describe("bootstrapDevSession client guard", () => {
     window.localStorage.setItem("dang.dev.displayName", "Other");
     await realBootstrap();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toContain("/auth/dev/bootstrap-session");
     expect(init.method).toBe("POST");
     const headers = new Headers(init.headers);
