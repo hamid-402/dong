@@ -1,8 +1,8 @@
 .zone {
-  --dz-danger: #b42318;
-  --dz-warn: #b54708;
-  --dz-leave: #1d4ed8;
-  --dz-ok: #166534;
+  --dz-danger: var(--dang-danger, #a11612);
+  --dz-warn: var(--dang-warning, #8a4804);
+  --dz-leave: var(--dang-primary, #123ece);
+  --dz-ok: var(--dang-success, #0c6a34);
   --dz-line: color-mix(in srgb, var(--line) 88%, transparent);
   margin-top: 10px;
   padding: 22px 20px 20px;

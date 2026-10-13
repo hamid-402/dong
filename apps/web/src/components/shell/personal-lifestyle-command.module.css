@@ -248,9 +248,9 @@
 }
 
 .statusOk {
-  background: color-mix(in srgb, var(--success) 14%, transparent);
+  background: var(--dang-success-soft);
   color: var(--success);
-  border-color: color-mix(in srgb, var(--success) 26%, transparent);
+  border-color: var(--dang-success-line);
 }
 
 .statusWarn {
@@ -531,8 +531,8 @@
 }
 
 .flashError {
-  background: color-mix(in srgb, var(--danger) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
+  background: var(--dang-danger-soft);
+  border: 1px solid var(--dang-danger-line);
   color: var(--danger);
 }
 

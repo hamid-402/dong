@@ -2,7 +2,7 @@
   margin: 0 0 12px;
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--warning, #b45309) 28%, var(--line));
+  border: 1px solid var(--dang-warning-line);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   display: grid;
   gap: 8px;
@@ -62,8 +62,8 @@
 }
 
 .stub {
-  background: color-mix(in srgb, var(--warning, #b45309) 16%, var(--surface));
-  border-color: color-mix(in srgb, var(--warning, #b45309) 35%, var(--line));
+  background: var(--dang-warning-soft);
+  border-color: var(--dang-warning-line);
 }
 
 .mode {
@@ -102,7 +102,7 @@
   margin: 6px 0 0;
   padding: 8px 10px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  background: var(--dang-warning-soft);
   color: var(--muted);
   font-size:0.875rem;
   line-height: 1.45;

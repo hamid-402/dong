@@ -9,24 +9,32 @@
   --muted: var(--dang-muted, #5e574e);
   --line: var(--dang-line, #7a7268);
   --line-strong: var(--dang-line-strong, #5e574e);
-  --primary: var(--dang-primary, #1d4ed8);
-  --primary-deep: var(--dang-primary-deep, #1e3a8a);
+  --primary: var(--dang-primary, #123ece);
+  --primary-deep: var(--dang-primary-deep, #152f84);
   --primary-ink: var(--dang-primary-ink, #ffffff);
-  --link: var(--dang-link, #1d4ed8);
-  --gold: var(--dang-gold, #6b4423);
-  --gold-soft: var(--dang-gold-soft, rgba(107, 68, 35, 0.12));
-  --success: var(--dang-success, #146c36);
-  --warning: var(--dang-warning, #8a4b08);
-  --danger: var(--dang-danger, #9f1d1d);
+  --link: var(--dang-link, #123ece);
+  --gold: var(--dang-gold, #7a4514);
+  --gold-soft: var(--dang-gold-soft, #f6e2cc);
+  --gold-line: var(--dang-gold-line, #915622);
+  --success: var(--dang-success, #0c6a34);
+  --success-soft: var(--dang-success-soft, #d3f0de);
+  --success-line: var(--dang-success-line, #1b7440);
+  --warning: var(--dang-warning, #8a4804);
+  --warning-soft: var(--dang-warning-soft, #f8e4cc);
+  --warning-line: var(--dang-warning-line, #8c5a21);
+  --danger: var(--dang-danger, #a11612);
+  --danger-soft: var(--dang-danger-soft, #f8d6d2);
+  --danger-line: var(--dang-danger-line, #ae3229);
   --shadow: var(--dang-shadow);
   --ease: var(--dang-ease, cubic-bezier(0.2, 0.8, 0.2, 1));
-  --focus-ring: var(--dang-focus-ring, 0 0 0 3px var(--dang-focus, #1d4ed8));
+  --focus-ring: var(--dang-focus-ring, 0 0 0 3px var(--dang-focus, #123ece));
   --fill-subtle: var(--dang-fill-subtle);
   --fill-soft: var(--dang-fill-soft);
   --fill-hover: var(--dang-fill-hover);
   --fill-strong: var(--dang-fill-strong);
   --primary-soft: var(--dang-primary-soft);
   --primary-mid: var(--dang-primary-mid);
+  --primary-line: var(--dang-primary-line, #3055cf);
   --panel-top: var(--dang-panel-top);
   --panel-bottom: var(--dang-panel-bottom);
   --chrome: var(--dang-chrome);
@@ -34,7 +42,9 @@
   --header-bg: var(--dang-header-bg, var(--dang-chrome));
   --dock-bg: var(--dang-dock-bg, var(--dang-dock));
   --on-accent: var(--dang-on-accent, #ffffff);
-  --info: var(--dang-info, #5b21b6);
+  --info: var(--dang-info, #5a12c0);
+  --info-soft: var(--dang-info-soft, #e6d6f8);
+  --info-line: var(--dang-info-line, #7539d0);
   --placeholder: var(--dang-placeholder, #6b645c);
   --ink: var(--text);
   --accent: var(--primary);
@@ -926,14 +936,14 @@ html[dir="ltr"] .actionCard:hover i {
   border-radius: 999px;
   background: var(--gold-soft);
   color: var(--gold);
-  border: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
+  border: 1px solid var(--gold-line);
   font-size:0.875rem;
   font-weight: 750;
 }
 .overviewDock__live {
-  background: color-mix(in srgb, var(--success) 16%, transparent) !important;
+  background: var(--success-soft) !important;
   color: var(--success) !important;
-  border-color: color-mix(in srgb, var(--success) 35%, transparent) !important;
+  border-color: var(--success-line) !important;
 }
 .overviewDock__live--off {
   background: color-mix(in srgb, var(--muted) 14%, transparent) !important;
@@ -1043,13 +1053,13 @@ html[dir="ltr"] .actionCard:hover i {
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--success) 16%, transparent);
+  background: var(--success-soft);
   color: var(--success);
   font-size:0.875rem;
   font-weight: 800;
 }
 .overviewDock__mark--need {
-  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  background: var(--primary-soft);
   color: var(--primary);
 }
 .overviewDock__empty {
@@ -1108,7 +1118,7 @@ html[dir="ltr"] .actionCard:hover i {
   border-radius: var(--dang-radius-pill, 999px);
   background: var(--gold-soft);
   color: var(--gold);
-  border: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
+  border: 1px solid var(--gold-line);
   font-size:0.875rem;
   font-weight: 750;
 }
@@ -1243,10 +1253,10 @@ html[dir="ltr"] .actionCard:hover i {
 .amountInput b { font-size: 16px; }
 .memberRow { display: flex; flex-wrap: wrap; gap: 8px; }
 .member { padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--dang-radius-pill, 999px); color: var(--text); background: var(--fill-subtle); font-size:0.875rem; }
-.member.selected { border-color: color-mix(in srgb, var(--primary) 40%, transparent); background: var(--primary-soft); color: var(--primary); }
+.member.selected { border-color: var(--primary-line); background: var(--primary-soft); color: var(--primary); }
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .choices span { padding: 12px; border: 1px solid var(--line); border-radius: var(--r-md); color: var(--muted); font-size:0.875rem; text-align: center; }
-.choices .selected { border-color: color-mix(in srgb, var(--primary) 40%, transparent); background: var(--primary-soft); color: var(--text); }
+.choices .selected { border-color: var(--primary-line); background: var(--primary-soft); color: var(--text); }
 .primaryButton { width: 100%; min-height: var(--control-h); margin-top: 18px; border: 0; border-radius: var(--r-md); background: var(--primary); color: var(--primary-ink); font-weight: 800; font-size: 15px; cursor: pointer; }
 
 .palette { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; margin-top: 22px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--surface) 88%, transparent); }
@@ -1634,14 +1644,16 @@ html[data-motion="off"] .dang-motion-feedback * {
   margin: 0;
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(237, 124, 120, .12);
+  border: 1px solid var(--danger-line);
+  background: var(--danger-soft);
   color: var(--danger);
 }
 .liveSuccess {
   margin: 0;
   padding: 12px 14px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--success) 14%, transparent);
+  border: 1px solid var(--success-line);
+  background: var(--success-soft);
   color: var(--success);
 }
 .liveHint {
@@ -2813,22 +2825,22 @@ html[data-theme="mist"] .sectionCard:hover {
 }
 .statusPill.tone-ok {
   color: var(--success);
-  border-color: color-mix(in srgb, var(--success) 35%, transparent);
-  background: color-mix(in srgb, var(--success) 12%, transparent);
+  border-color: var(--success-line);
+  background: var(--success-soft);
 }
 .statusPill.tone-warn {
   color: var(--warning);
-  border-color: color-mix(in srgb, var(--warning) 35%, transparent);
-  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  border-color: var(--warning-line);
+  background: var(--warning-soft);
 }
 .statusPill.tone-danger {
   color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
 }
 .statusPill.tone-gold {
   color: var(--gold);
-  border-color: rgba(201, 170, 112, .28);
+  border-color: var(--gold-line);
   background: var(--gold-soft);
 }
 .workspaceChipRow {
@@ -2855,7 +2867,7 @@ html[data-theme="mist"] .sectionCard:hover {
 }
 .workspaceChip.active {
   color: var(--text);
-  border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+  border-color: var(--primary-line);
   background: var(--primary-soft);
 }
 .mobileNavBar {

@@ -35,7 +35,7 @@ const variants: Record<ButtonVariant, CSSProperties> = {
   secondary: {
     background: "var(--dang-gold-soft)",
     color: "var(--dang-gold)",
-    borderColor: "color-mix(in srgb, var(--dang-gold) 30%, transparent)",
+    borderColor: "var(--dang-gold-line)",
   },
   ghost: {
     background: "transparent",
@@ -43,9 +43,9 @@ const variants: Record<ButtonVariant, CSSProperties> = {
     borderColor: "var(--dang-line)",
   },
   danger: {
-    background: "color-mix(in srgb, var(--dang-danger) 14%, transparent)",
+    background: "var(--dang-danger-soft)",
     color: "var(--dang-danger)",
-    borderColor: "color-mix(in srgb, var(--dang-danger) 28%, transparent)",
+    borderColor: "var(--dang-danger-line)",
   },
 };
 

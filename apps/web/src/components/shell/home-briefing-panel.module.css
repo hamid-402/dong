@@ -56,20 +56,20 @@
 }
 
 .badge[data-tone="attention"] {
-  border-color: color-mix(in srgb, var(--warning) 45%, var(--line));
-  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  border-color: var(--dang-warning-line);
+  background: var(--dang-warning-soft);
   color: var(--warning);
 }
 
 .badge[data-tone="overdue"] {
-  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
-  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  border-color: var(--dang-danger-line);
+  background: var(--dang-danger-soft);
   color: var(--danger);
 }
 
 .badge[data-tone="calm"] {
-  border-color: color-mix(in srgb, var(--success) 35%, var(--line));
-  background: color-mix(in srgb, var(--success) 10%, var(--surface));
+  border-color: var(--dang-success-line);
+  background: var(--dang-success-soft);
   color: var(--success);
 }
 
@@ -139,8 +139,8 @@
 }
 
 .queueItem:hover {
-  border-color: color-mix(in srgb, var(--primary) 40%, var(--line));
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  border-color: var(--dang-primary-line);
+  background: var(--dang-primary-soft);
 }
 
 .queueItem:active {
@@ -148,16 +148,18 @@
 }
 
 .queueItem[data-tone="overdue"] {
-  border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
-  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+  border-color: var(--dang-danger-line);
+  background: var(--dang-danger-soft);
 }
 
 .queueItem[data-tone="attention"] {
-  border-color: color-mix(in srgb, var(--warning) 35%, var(--line));
+  border-color: var(--dang-warning-line);
+  background: var(--dang-warning-soft);
 }
 
 .queueItem[data-tone="info"] {
-  border-color: color-mix(in srgb, var(--info, #2563eb) 30%, var(--line));
+  border-color: var(--dang-info-line);
+  background: var(--dang-info-soft);
 }
 
 .queueCount {
@@ -173,7 +175,7 @@
 }
 
 .queueItem[data-tone="overdue"] .queueCount {
-  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  background: var(--dang-danger-soft);
   color: var(--danger);
 }
 

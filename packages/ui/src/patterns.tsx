@@ -8,12 +8,32 @@ export type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
 };
 
 export function Badge({ tone = "neutral", children, style, ...rest }: BadgeProps) {
-  const colors: Record<NonNullable<BadgeProps["tone"]>, string> = {
-    neutral: "var(--dang-muted)",
-    ok: "var(--dang-success)",
-    warn: "var(--dang-warning)",
-    danger: "var(--dang-danger)",
-    gold: "var(--dang-gold)",
+  const tones: Record<NonNullable<BadgeProps["tone"]>, { color: string; background: string; border: string }> = {
+    neutral: {
+      color: "var(--dang-muted)",
+      background: "var(--dang-fill-soft)",
+      border: "var(--dang-line)",
+    },
+    ok: {
+      color: "var(--dang-success)",
+      background: "var(--dang-success-soft)",
+      border: "var(--dang-success-line)",
+    },
+    warn: {
+      color: "var(--dang-warning)",
+      background: "var(--dang-warning-soft)",
+      border: "var(--dang-warning-line)",
+    },
+    danger: {
+      color: "var(--dang-danger)",
+      background: "var(--dang-danger-soft)",
+      border: "var(--dang-danger-line)",
+    },
+    gold: {
+      color: "var(--dang-gold)",
+      background: "var(--dang-gold-soft)",
+      border: "var(--dang-gold-line)",
+    },
   };
   const badgeStyle: CSSProperties = {
     display: "inline-flex",
@@ -23,9 +43,9 @@ export function Badge({ tone = "neutral", children, style, ...rest }: BadgeProps
     borderRadius: 999,
     fontSize: "0.875rem",
     fontWeight: 600,
-    color: colors[tone],
-    background: `color-mix(in srgb, ${colors[tone]} 14%, transparent)`,
-    border: `1px solid color-mix(in srgb, ${colors[tone]} 28%, transparent)`,
+    color: tones[tone].color,
+    background: tones[tone].background,
+    border: `1px solid ${tones[tone].border}`,
     ...style,
   };
   return (
@@ -92,11 +112,9 @@ export function Tabs({ items, value, onChange, "aria-label": ariaLabel }: TabsPr
               padding: "8px 14px",
               borderRadius: 10,
               border: selected
-                ? "1px solid color-mix(in srgb, var(--dang-primary) 45%, var(--dang-line))"
+                ? "1px solid var(--dang-primary-line)"
                 : "1px solid var(--dang-line)",
-              background: selected
-                ? "color-mix(in srgb, var(--dang-primary) 12%, transparent)"
-                : "transparent",
+              background: selected ? "var(--dang-primary-soft)" : "transparent",
               color: "inherit",
               font: "inherit",
               fontWeight: selected ? 700 : 500,
@@ -172,12 +190,12 @@ export type ToastProps = {
 /** Live region toast — use for flash success/error. */
 export function Toast({ tone = "info", children, style, ...rest }: ToastProps) {
   const role = tone === "error" ? "alert" : "status";
-  const color =
+  const surface =
     tone === "error"
-      ? "var(--dang-danger)"
+      ? { background: "var(--dang-danger-soft)", border: "var(--dang-danger-line)" }
       : tone === "success"
-        ? "var(--dang-success)"
-        : "var(--dang-primary)";
+        ? { background: "var(--dang-success-soft)", border: "var(--dang-success-line)" }
+        : { background: "var(--dang-info-soft)", border: "var(--dang-info-line)" };
   return (
     <div
       role={role}
@@ -185,8 +203,8 @@ export function Toast({ tone = "info", children, style, ...rest }: ToastProps) {
       style={{
         padding: "12px 14px",
         borderRadius: 12,
-        border: `1px solid color-mix(in srgb, ${color} 35%, var(--dang-line))`,
-        background: `color-mix(in srgb, ${color} 10%, var(--dang-surface))`,
+        border: `1px solid ${surface.border}`,
+        background: surface.background,
         color: "inherit",
         ...style,
       }}

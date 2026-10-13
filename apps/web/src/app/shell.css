@@ -1408,7 +1408,7 @@ a.shell-navMenu__leaveLink:visited {
 
 a.shell-navMenu__leaveLink:hover {
   color: var(--text);
-  background: color-mix(in srgb, var(--danger, #b91c1c) 12%, var(--surface));
+  background: var(--danger-soft);
 }
 
 .shell-navMenu__section {
@@ -1512,8 +1512,8 @@ a.shell-navMenu__leaveLink:hover {
   margin: 0 0 12px;
   padding: 10px 12px;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--warning, #a66d00) 35%, var(--line));
-  background: color-mix(in srgb, var(--warning, #a66d00) 10%, var(--surface));
+  border: 1px solid var(--warning-line);
+  background: var(--warning-soft);
   color: var(--text);
   font-size:0.875rem;
   font-weight: 600;
@@ -1528,8 +1528,8 @@ a.shell-navMenu__leaveLink:hover {
   margin: 0 0 12px;
   padding: 10px 12px;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, #b45309 35%, var(--line));
-  background: color-mix(in srgb, #b45309 10%, var(--surface));
+  border: 1px solid var(--warning-line);
+  background: var(--warning-soft);
   color: var(--text);
   font-size:0.875rem;
   font-weight: 600;
@@ -3246,11 +3246,11 @@ html[data-theme="linear"] .spaces-mosaic__ops a {
   gap: 6px;
   padding: 12px 14px;
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--gold, #c9a227) 42%, var(--line));
+  border: 1px solid var(--gold-line);
   background:
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--gold, #c9a227) 12%, transparent),
+      var(--gold-soft),
       transparent 60%
     ),
     var(--surface);
@@ -3890,8 +3890,8 @@ html[data-theme="linear"] .kindAggregate__card {
   margin: 0 0 12px;
   padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--warning, #c47a1a) 40%, var(--line));
-  background: color-mix(in srgb, var(--warning, #c47a1a) 12%, var(--surface));
+  border: 1px solid var(--warning-line);
+  background: var(--warning-soft);
   font-size:0.875rem;
   font-weight: 650;
 }
