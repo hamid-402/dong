@@ -276,7 +276,7 @@ export function JobsDlqView() {
                   <>
                     <header>
                       <strong>{selected.job.name}</strong>
-                      <StatusPill tone="danger">DLQ</StatusPill>
+                      <StatusPill tone="danger">صف ناموفق</StatusPill>
                     </header>
                     <dl className={styles.meta}>
                       <div>

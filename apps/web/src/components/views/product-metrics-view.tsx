@@ -282,7 +282,7 @@ export function ProductMetricsView() {
                           <dd>{selected.count.toLocaleString("fa-IR")}</dd>
                         </div>
                         <div>
-                          <dt>action منبع</dt>
+                          <dt>کنش منبع</dt>
                           <dd>
                             <code>{selected.milestone.sourceAction}</code>
                           </dd>

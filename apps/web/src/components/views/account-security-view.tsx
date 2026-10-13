@@ -115,7 +115,7 @@ export function AccountSecurityView() {
                 </div>
                 <dl>
                   <div>
-                    <dt>IP</dt>
+                    <dt>آی‌پی</dt>
                     <dd>{session.ip || "گزارش نشده"}</dd>
                   </div>
                   <div>

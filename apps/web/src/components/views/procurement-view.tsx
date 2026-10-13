@@ -368,7 +368,7 @@ export function ProcurementView() {
               </DataList>
               {selectedRequest ? (
                 <aside className={styles.inspector} aria-label="جزئیات درخواست خرید انتخاب‌شده">
-                  <span>PURCHASE INSPECTOR</span>
+                  <span>بازرس خرید</span>
                   <h3>{selectedRequest.title}</h3>
                   <Amount irrMinor={selectedRequest.amount.amountMinor} />
                   <dl>

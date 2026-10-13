@@ -215,7 +215,7 @@ export default function WorkspaceAuditPage() {
                   <div><dt>عامل</dt><dd>{selected.actorUserId ? memberNames.get(selected.actorUserId) ?? selected.actorUserId : "عامل سیستمی"}</dd></div>
                   <div><dt>نوع هدف</dt><dd>{selected.targetType}</dd></div>
                   <div><dt>شناسه هدف</dt><dd>{selected.targetId ?? "ثبت نشده"}</dd></div>
-                  <div><dt>Request ID</dt><dd>{selected.requestId ?? "ثبت نشده"}</dd></div>
+                  <div><dt>شناسهٔ درخواست</dt><dd>{selected.requestId ?? "ثبت نشده"}</dd></div>
                   <div><dt>علت</dt><dd>{selected.reason ?? "ثبت نشده"}</dd></div>
                 </dl>
                 <section>

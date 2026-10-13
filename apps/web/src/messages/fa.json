@@ -352,7 +352,7 @@
   "jobs.dlqEmpty": "DLQ خالی است یا موردی برای این فضا نیست.",
   "jobs.dlqAttempts": "تلاش {count}",
   "jobs.failed": "ناموفق",
-  "jobs.dlqDetailAria": "جزئیات DLQ",
+  "jobs.dlqDetailAria": "جزئیات صف ناموفق",
   "jobs.jobId": "شناسه کار",
   "jobs.workspace": "فضا",
   "jobs.failedAt": "زمان شکست",
