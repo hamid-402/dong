@@ -30,6 +30,7 @@ import {
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
+import { createWorkspaceWithUniqueSlug } from "@/lib/group-slug";
 import { todayIsoLocal } from "@/lib/fa-datetime";
 import { hubPathFor } from "@/lib/hub-links";
 import { useLiveInvalidation } from "@/lib/live-invalidation";
@@ -170,27 +171,17 @@ export function FriendsGroupView() {
       setError("نام گروه را وارد کنید");
       return;
     }
-    const ascii = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 28);
-    const slugPrefix = groupTemplate === "household" ? "family" : "friends";
-    const nextSlug = `${slugPrefix}-${ascii || Date.now().toString(36)}`.slice(0, 48);
+    const ownerShares = Math.max(1, Math.min(100, Number(ownerDefaultShares) || 1));
     startTransition(() => {
       void (async () => {
         try {
-          const created = await api.createWorkspace(
+          const created = await createWorkspaceWithUniqueSlug(
             {
               name,
-              slug: nextSlug,
               template: groupTemplate,
-              ownerDefaultShares: Math.max(
-                1,
-                Math.min(100, Number(ownerDefaultShares) || 1),
-              ),
+              ownerDefaultShares: ownerShares,
             },
-            newClientId(),
+            (body) => api.createWorkspace(body, newClientId()),
           );
           chrome.selectWorkspace(created.id);
           chrome.refreshChrome();
