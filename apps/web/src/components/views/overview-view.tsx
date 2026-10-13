@@ -55,7 +55,6 @@ import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalTheme } from "@/lib/theme";
 import { formatFaDate } from "@/lib/fa-datetime";
 import { FlashMessages } from "@/lib/use-flash-message";
-import { MotionSceneStrip } from "@/components/visual/motion-scene";
 import { FirstRunTour } from "@/components/views/first-run-tour";
 import { DemoConfirmDialog } from "@/components/views/demo-confirm-dialog";
 
@@ -505,9 +504,6 @@ export function OverviewView() {
                 نمای ساده برای فضای تازه‌کار — مسیرهای پیشرفته با رشد استفاده (خرج‌های
                 ثبت‌شده) باز می‌شوند. ابزارها همچنان همهٔ مسیرهای مجاز را نشان می‌دهد.
               </StatusLine>
-            ) : null}
-            {!homeFolder ? (
-              <MotionSceneStrip kind="home" prominence="compact" />
             ) : null}
 
             {!homeFolder ? (

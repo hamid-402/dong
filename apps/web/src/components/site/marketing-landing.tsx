@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { MarketingShell, useSiteStatus } from "@/components/site/marketing-shell";
 import { SITE_CLIENT_SCENARIOS, SITE_SERVICE_ITEMS } from "@/lib/site-nav";
 import { api } from "@/lib/api";
-import { StickerSvg } from "@/components/visual/stickers";
 
 const HOW_STEPS = [
   {
@@ -85,7 +84,6 @@ export function MarketingLanding() {
       <section className="siteHero siteHero--home" aria-labelledby="site-hero-brand">
         <div className="siteHero__plane" aria-hidden>
           <div className="siteHero__glow" />
-          <StickerSvg name="handshake" className="siteHero__sticker siteHero__sticker--home" />
         </div>
         <div className="siteHero__copy siteHero__copy--home">
           <h1 id="site-hero-brand" className="siteHero__brand">

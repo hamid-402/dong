@@ -3,12 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CSSProperties, MouseEvent } from "react";
-import type { SpaceKind } from "@dang/contracts";
 import { ShellIconSvg } from "@/components/shell/shell-icons";
-import {
-  StickerSvg,
-  stickerForSpaceKind,
-} from "@/components/visual/stickers";
 import type {
   ContextualMosaicIntent,
   ContextualMosaicSection,
@@ -22,17 +17,6 @@ import {
 import { gemCssVars } from "@/lib/tile-gem-palettes";
 import { t } from "@/lib/i18n";
 import styles from "./contextual-mosaic-hub.module.css";
-
-const SPACE_KIND_KEYS = new Set<string>([
-  "personal",
-  "group",
-  "building",
-  "org",
-]);
-
-function isSpaceKindKey(key: string): key is SpaceKind {
-  return SPACE_KIND_KEYS.has(key);
-}
 
 export type ContextualMosaicFact = {
   label: string;
@@ -171,16 +155,8 @@ export function ContextualMosaicHub({
                       <p>{item.summary}</p>
                       <span className={styles.intent}>{intentLabel(item.intent)}</span>
                     </span>
-                    <span className={`dang-gem__icon dang-gem__icon--sticker ${styles.icon}`} aria-hidden>
-                      {isSpaceKindKey(item.key) ? (
-                        <StickerSvg
-                          name={stickerForSpaceKind(item.key)}
-                          size={compact ? 34 : 42}
-                          animated={false}
-                        />
-                      ) : (
-                        <ShellIconSvg name={item.icon} />
-                      )}
+                    <span className={styles.icon} aria-hidden>
+                      <ShellIconSvg name={item.icon} />
                     </span>
                     <span className={styles.footer}>
                       {fact ? (
