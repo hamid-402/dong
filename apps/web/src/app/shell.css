@@ -161,7 +161,7 @@
 .mosaic-ws-switch__menu{
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  inset-inline-start: 0;
   z-index: 60;
   width: min(320px, 88vw);
   max-height: min(60vh, 420px);
@@ -2935,7 +2935,7 @@ html[data-density="compact"] .shell-page-trail__back{
 .spaces-mosaic__pin{
   position: absolute;
   top: 8px;
-  left: 8px;
+  inset-inline-end: 8px;
   z-index: 2;
   width: 32px;
   height: 32px;
@@ -5016,7 +5016,7 @@ html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-current-realm{
   word-break: break-all;
   direction: ltr;
   unicode-bidi: isolate;
-  text-align: left;
+  text-align: start;
 }
 
 .groupPublicId__actions{
@@ -6155,7 +6155,7 @@ html[data-scheme="light"] .shell-tabs--dock .shell-tabs__tab.is-active{
   }
 
   .dataRowTrailing{
-    text-align: right;
+    text-align: end;
   }
 
   .workspacePageFrame > .moduleChrome{
@@ -6478,7 +6478,7 @@ html[data-scheme="light"] .shell-tabs--dock .shell-tabs__tab.is-active{
   content: "";
   width: 0.45rem;
   height: 0.45rem;
-  border-right: 2px solid var(--muted);
+  border-inline-start: 2px solid var(--muted);
   border-bottom: 2px solid var(--muted);
   transform: rotate(45deg);
   margin-top: -0.2rem;
