@@ -59,6 +59,32 @@ const FA_TO_LATIN: Record<string, string> = {
 
 export type GroupSlugTemplate = "friends_family" | "household";
 
+/** Templates that mint a public id from the name. Building and org share this helper. */
+export type WorkspaceSlugTemplate =
+  | GroupSlugTemplate
+  | "personal"
+  | "residential_building"
+  | "construction"
+  | "project_partners"
+  | "small_team";
+
+function slugPrefix(template: WorkspaceSlugTemplate): string {
+  switch (template) {
+    case "household":
+      return "family";
+    case "friends_family":
+      return "friends";
+    case "personal":
+      return "me";
+    case "residential_building":
+    case "construction":
+      return "building";
+    case "project_partners":
+    case "small_team":
+      return "org";
+  }
+}
+
 export function transliterateGroupName(name: string): string {
   let out = "";
   for (const ch of name.normalize("NFKC")) {
@@ -92,12 +118,12 @@ export function randomSlugSuffix(length = 5): string {
   return out;
 }
 
-export function groupSlugFromName(
+export function workspaceSlugFromName(
   name: string,
-  template: GroupSlugTemplate,
+  template: WorkspaceSlugTemplate,
   suffix = randomSlugSuffix(),
 ): string {
-  const prefix = template === "household" ? "family" : "friends";
+  const prefix = slugPrefix(template);
   const stem = transliterateGroupName(name);
   const tail =
     suffix
@@ -110,6 +136,14 @@ export function groupSlugFromName(
     slug = slug.slice(0, SLUG_MAX).replace(/-+$/g, "");
   }
   return slug;
+}
+
+export function groupSlugFromName(
+  name: string,
+  template: GroupSlugTemplate,
+  suffix = randomSlugSuffix(),
+): string {
+  return workspaceSlugFromName(name, template, suffix);
 }
 
 export function isWorkspaceSlugTaken(err: unknown): boolean {
@@ -126,22 +160,29 @@ export function isWorkspaceSlugTaken(err: unknown): boolean {
 export async function createWorkspaceWithUniqueSlug<T>(
   input: {
     name: string;
-    template: GroupSlugTemplate;
-    ownerDefaultShares: number;
+    template: WorkspaceSlugTemplate;
+    ownerDefaultShares?: number;
   },
   create: (body: {
     name: string;
     slug: string;
-    template: GroupSlugTemplate;
-    ownerDefaultShares: number;
+    template: WorkspaceSlugTemplate;
+    ownerDefaultShares?: number;
   }) => Promise<T>,
   options?: { attempts?: number; suffix?: () => string },
 ): Promise<T> {
   const attempts = Math.max(1, options?.attempts ?? 3);
   for (let i = 0; i < attempts; i += 1) {
-    const slug = groupSlugFromName(input.name, input.template, options?.suffix?.());
+    const slug = workspaceSlugFromName(input.name, input.template, options?.suffix?.());
     try {
-      return await create({ ...input, slug });
+      return await create({
+        name: input.name,
+        slug,
+        template: input.template,
+        ...(input.ownerDefaultShares != null
+          ? { ownerDefaultShares: input.ownerDefaultShares }
+          : {}),
+      });
     } catch (err) {
       if (!isWorkspaceSlugTaken(err) || i === attempts - 1) throw err;
     }

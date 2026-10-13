@@ -49,8 +49,6 @@ export function OnboardingView() {
   const [templates, setTemplates] = useState<WorkspaceTemplateCatalogItem[]>([]);
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
-  const [slug, setSlug] = useState("");
-  const [slugError, setSlugError] = useState<string | null>(null);
   const kindHint = searchParams.get("kind");
   const templateHint = searchParams.get("template");
   const defaultTemplate: WorkspaceTemplate =
@@ -146,35 +144,26 @@ export function OnboardingView() {
   function onCreate(event: FormEvent) {
     event.preventDefault();
     const trimmedName = name.trim();
-    const trimmedSlug = slug.trim();
-    const groupTemplate =
-      template === "friends_family" || template === "household" ? template : null;
     if (!trimmedName) {
       setNameError("نام را وارد کنید");
       setError(null);
       return;
     }
     setNameError(null);
-    if (!groupTemplate && !/^[a-z0-9-]{2,48}$/.test(trimmedSlug)) {
-      setSlugError("شناسه یکتا فقط حروف کوچک انگلیسی، عدد و خط تیره (۲–۴۸ کاراکتر)");
-      setError(null);
-      return;
-    }
-    setSlugError(null);
     startTransition(() => {
       void (async () => {
         try {
           setDevIdentity(subject.trim() || "dev-local-user", displayName.trim() || "کاربر محلی");
-          const workspace = groupTemplate
-            ? await createWorkspaceWithUniqueSlug(
-                { name: trimmedName, template: groupTemplate, ownerDefaultShares: 1 },
-                (body) => api.createWorkspace(body, newClientId()),
-              )
-            : await api.createWorkspace({
-                name: trimmedName,
-                slug: trimmedSlug,
-                template,
-              });
+          const workspace = await createWorkspaceWithUniqueSlug(
+            {
+              name: trimmedName,
+              template,
+              ...(template === "friends_family" || template === "household"
+                ? { ownerDefaultShares: 1 }
+                : {}),
+            },
+            (body) => api.createWorkspace(body, newClientId()),
+          );
           setCreated(workspace);
           setMe(await api.me());
           chrome.selectWorkspace(workspace.id);
@@ -349,31 +338,29 @@ export function OnboardingView() {
               <FormStack>
                 <TextField
                   id="create-group-name"
-                  label={groupTemplate ? "نام گروه" : "نام فضا"}
+                  label={
+                    template === "personal"
+                      ? "نام فضای شخصی"
+                      : groupTemplate
+                        ? "نام گروه"
+                        : "نام فضا"
+                  }
                   value={name}
                   onChange={(event) => {
                     setNameError(null);
                     setName(event.target.value);
                   }}
-                  placeholder={groupTemplate ? "مثلاً سفر شمال" : "مثلاً گروه دوستان"}
-                  hint={groupTemplate ? "شناسهٔ عمومی بعد از ساخت نشان داده می‌شود" : undefined}
+                  placeholder={
+                    template === "personal"
+                      ? "مثلاً دفتر من"
+                      : groupTemplate
+                        ? "مثلاً سفر شمال"
+                        : "مثلاً فضای کاری"
+                  }
+                  hint="شناسهٔ عمومی بعد از ساخت نشان داده می‌شود"
                   error={nameError ?? undefined}
                   required
                 />
-                {groupTemplate ? null : (
-                  <TextField
-                    label="شناسه یکتا (slug)"
-                    value={slug}
-                    onChange={(event) => {
-                      setSlugError(null);
-                      setSlug(event.target.value);
-                    }}
-                    placeholder="friends-group"
-                    hint="فقط a-z، 0-9 و خط تیره"
-                    error={slugError ?? undefined}
-                    required
-                  />
-                )}
                 <SelectField
                   label="قالب"
                   value={template}
@@ -391,7 +378,13 @@ export function OnboardingView() {
                   </p>
                 ) : null}
                 <Button type="submit" disabled={pending}>
-                  {pending ? "در حال ساخت…" : groupTemplate ? "ساخت گروه" : "ایجاد فضای کاری"}
+                  {pending
+                    ? "در حال ساخت…"
+                    : groupTemplate
+                      ? "ساخت گروه"
+                      : template === "personal"
+                        ? "ساخت فضای شخصی"
+                        : "ایجاد فضای کاری"}
                 </Button>
               </FormStack>
             </form>

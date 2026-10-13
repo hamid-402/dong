@@ -5,6 +5,7 @@ import {
   isWorkspaceSlugTaken,
   randomSlugSuffix,
   transliterateGroupName,
+  workspaceSlugFromName,
 } from "@/lib/group-slug";
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -77,5 +78,28 @@ describe("createWorkspaceWithUniqueSlug", () => {
         { attempts: 3, suffix: () => "s1" },
       ),
     ).rejects.toThrow("این ایمیل قبلاً ثبت شده است");
+  });
+
+  it("mints a personal slug and retries a collision", async () => {
+    expect(workspaceSlugFromName("دفتر من", "personal", "ab12c")).toBe("me-dftr-mn-ab12c");
+    expect(workspaceSlugFromName("برج آفتاب", "residential_building", "k7m2q")).toMatch(
+      /^building-[a-z0-9-]+$/,
+    );
+    expect(workspaceSlugFromName("تیم فروش", "small_team", "m3p8")).toMatch(/^org-[a-z0-9-]+$/);
+    let calls = 0;
+    const result = await createWorkspaceWithUniqueSlug(
+      { name: "دفتر من", template: "personal" },
+      async (body) => {
+        calls += 1;
+        if (calls === 1) {
+          throw Object.assign(new Error("Workspace slug already exists"), { status: 409 });
+        }
+        return body;
+      },
+      { suffix: () => (calls === 0 ? "s1" : "s2") },
+    );
+    expect(result.slug.startsWith("me-")).toBe(true);
+    expect(result.ownerDefaultShares).toBeUndefined();
+    expect(calls).toBe(2);
   });
 });
