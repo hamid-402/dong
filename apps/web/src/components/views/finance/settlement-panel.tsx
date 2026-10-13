@@ -20,7 +20,7 @@ import {
   settlePayIntentNeedsFund,
   suggestedPairwiseSettleMinor,
 } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
+import { Amount, Button, MoneyInput, SelectField, formatMoneyWithUnit, useConfirm } from "@dang/ui";
 import { BankSmsPaste } from "@/components/bank-sms-paste";
 import {
   DataList,
@@ -37,12 +37,13 @@ import { hubPathFor } from "@/lib/hub-links";
 import { api } from "@/lib/api";
 import { useDisplayUnit } from "@/lib/display-unit";
 import { displayInputToIrrMinor, irrMinorToDisplayInput } from "@/lib/irr-money";
-import { moneyFieldLabel } from "@/lib/money-labels";
+import { moneyUnitSuffix } from "@/lib/money-labels";
 import { formatFaDate } from "@/lib/fa-datetime";
 import { memberStatementHref } from "@/lib/statement-links";
 import { membershipRoleLabel, paymentLinkStatusLabel, settlementStatusLabel } from "@/lib/status-labels";
 import { useOptionalAppChrome } from "@/lib/use-app-chrome";
 import { ConfirmSettlementDialog } from "@/components/views/finance/confirm-settlement-dialog";
+import { settleConfirmRequest, settleHumanSentence } from "@/components/views/finance/settle-sentence";
 import {
   RowSelectCheckbox,
   SelectionActionBar,
@@ -167,9 +168,9 @@ export function SettlementPanel({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [remindBusy, setRemindBusy] = useState(false);
   const [remindHint, setRemindHint] = useState<string | null>(null);
-  const [intent, setIntent] = useState<SettlePayIntent>(() =>
-    fundGiftsAllowed ? "settle_and_fund_gift" : "settle_only",
-  );
+  const [amountError, setAmountError] = useState<string | null>(null);
+  const [counterpartyError, setCounterpartyError] = useState<string | null>(null);
+  const [intent, setIntent] = useState<SettlePayIntent>("settle_only");
   const [asOf, setAsOf] = useState("");
   const [fundId, setFundId] = useState("");
   const selectedSettlement =
@@ -318,6 +319,58 @@ export function SettlementPanel({
     : myLiveNet != null && settleToNet != null
       ? suggestedPairwiseSettleMinor(myLiveNet, settleToNet)
       : 0n;
+  const unitLabel = moneyUnitSuffix(displayUnit);
+  const settleMoney = displayInputToIrrMinor(settleAmountToman, displayUnit);
+  const counterpartyName = settleToUserId ? memberLabel(settleToUserId) : "";
+  const amountLabel = settleMoney ? formatMoneyWithUnit(settleMoney.amountMinor, displayUnit) : "";
+  const sentence =
+    settleMoney && settleToUserId && settleToUserId !== currentUserId
+      ? settleHumanSentence({ counterpartyName, intent })
+      : null;
+
+  function askSettle() {
+    const self = Boolean(currentUserId) && settleToUserId === currentUserId;
+    const missingParty = !settleToUserId || self;
+    const missingAmount = !settleMoney;
+    const missingFund = needsFund && (!fundId || activeFunds.length === 0);
+    setCounterpartyError(
+      missingParty
+        ? self
+          ? "طرف مقابل نمی‌تواند خود شما باشد"
+          : "طرف مقابل را انتخاب کنید"
+        : null,
+    );
+    setAmountError(
+      missingAmount
+        ? `مبلغ معتبر وارد کنید (${unitLabel})`
+        : missingFund
+          ? "برای هدیه به صندوق، یک صندوق فعال انتخاب کنید"
+          : null,
+    );
+    if (missingParty) {
+      document.getElementById("settle-counterparty")?.focus();
+      return;
+    }
+    if (missingAmount) {
+      document.getElementById("settle-amount")?.focus();
+      return;
+    }
+    if (missingFund) return;
+    void confirm(
+      settleConfirmRequest({
+        counterpartyName,
+        intent,
+        amountLabel,
+      }),
+    ).then((accepted) => {
+      if (!accepted) return;
+      onSettlePay({
+        intent,
+        fundId: needsFund ? fundId || undefined : undefined,
+        asOf: asOf.trim() || undefined,
+      });
+    });
+  }
 
   return (
     <SectionCard title="تسویه و تأیید اعضا" delayClass="delay3">
@@ -328,14 +381,16 @@ export function SettlementPanel({
         </StatusLine>
       ) : (
         <FormStack>
-          <StatusLine>
-            مانده زنده مبنا است؛ تاریخ as-of فقط پیشنهاد تسویه را محدود می‌کند. هدیه به صندوق
-            برای بقیه بدهی نمی‌سازد.
-          </StatusLine>
+          <p className="flowSentence">طرف مقابل و مبلغ. ثبت بعد از تأیید همین جمله انجام می‌شود.</p>
           <SelectField
+            id="settle-counterparty"
             label="طرف مقابل"
             value={settleToUserId}
-            onChange={(event) => onSettleToUserIdChange(event.target.value)}
+            error={counterpartyError ?? undefined}
+            onChange={(event) => {
+              setCounterpartyError(null);
+              onSettleToUserIdChange(event.target.value);
+            }}
           >
             {members.map((member) => (
               <option key={member.userId} value={member.userId}>
@@ -343,6 +398,48 @@ export function SettlementPanel({
               </option>
             ))}
           </SelectField>
+          <MoneyInput
+            id="settle-amount"
+            label="مبلغ"
+            displayUnit={displayUnit}
+            value={settleAmountToman}
+            error={amountError ?? undefined}
+            onValueChange={(next) => {
+              setAmountError(null);
+              onSettleAmountTomanChange(next);
+            }}
+          />
+          {balances && settleToUserId && settleToUserId !== currentUserId ? (
+            <div className="dataRowActions">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={readOnly || pending || pairwiseSuggest <= 0n}
+                onClick={() => {
+                  const display = irrMinorToDisplayInput(
+                    pairwiseSuggest.toString(),
+                    displayUnit,
+                  );
+                  if (display) {
+                    setAmountError(null);
+                    onSettleAmountTomanChange(display);
+                  }
+                }}
+              >
+                پیشنهاد تسویه زوجی
+                {asOf.trim() ? " (تا تاریخ پیشنهاد)" : " (مانده زنده)"}
+              </Button>
+            </div>
+          ) : null}
+          {sentence && amountLabel ? (
+            <div>
+              <p className="flowAmount">{amountLabel}</p>
+              <p className="flowSentence">{sentence}</p>
+            </div>
+          ) : null}
+          <details className="reportDetails" open={needsFund ? true : undefined}>
+            <summary>جزئیات تسویه</summary>
+            <div className="reportDetails__body">
           <SelectField
             label="قصد پرداخت"
             value={intent}
@@ -409,11 +506,6 @@ export function SettlementPanel({
               </Button>
             </div>
           ) : null}
-          <TextField
-            label={moneyFieldLabel("مبلغ پرداخت", displayUnit)}
-            value={settleAmountToman}
-            onChange={(event) => onSettleAmountTomanChange(event.target.value)}
-          />
           <BankSmsPaste
             onApply={(parsed) => {
               if (!parsed.amountMinor) return;
@@ -422,25 +514,6 @@ export function SettlementPanel({
               );
             }}
           />
-          {balances && settleToUserId && settleToUserId !== currentUserId ? (
-            <div className="dataRowActions">
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={readOnly || pending || pairwiseSuggest <= 0n}
-                onClick={() => {
-                  const display = irrMinorToDisplayInput(
-                    pairwiseSuggest.toString(),
-                    displayUnit,
-                  );
-                  if (display) onSettleAmountTomanChange(display);
-                }}
-              >
-                پیشنهاد تسویه زوجی
-                {asOf.trim() ? " (تا تاریخ پیشنهاد)" : " (مانده زنده)"}
-              </Button>
-            </div>
-          ) : null}
           {workspaceId &&
           finance &&
           settleToIsDebtor &&
@@ -508,27 +581,15 @@ export function SettlementPanel({
             </StatusLine>
           ) : previewError ? (
             <StatusLine>{previewError}</StatusLine>
-          ) : balances && !readOnly ? (
-            <StatusLine>
-              مبلغ، قصد و طرف مقابل را وارد کنید تا پیش‌نمایش از API بیاید.
-            </StatusLine>
           ) : null}
+            </div>
+          </details>
           <Button
             type="button"
-            onClick={() =>
-              onSettlePay({
-                intent,
-                fundId: needsFund ? fundId || undefined : undefined,
-                asOf: asOf.trim() || undefined,
-              })
-            }
-            disabled={
-              pending ||
-              members.length < 2 ||
-              (needsFund && (!fundId || activeFunds.length === 0))
-            }
+            onClick={askSettle}
+            disabled={pending || members.length < 2}
           >
-            ثبت پرداخت / تسویه
+            ثبت تسویه
           </Button>
         </FormStack>
       )}
@@ -621,12 +682,24 @@ export function SettlementPanel({
               type="button"
               disabled={pending}
               onClick={() => {
+                if (!barSettlement) return;
+                const label = formatMoneyWithUnit(barSettlement.amount.amountMinor, displayUnit);
+                const description = `${memberLabel(barSettlement.fromUserId)} این مبلغ را به ${memberLabel(barSettlement.toUserId)} پرداخته است. تأیید می‌کنید؟`;
                 if (evidenceRequired) {
                   setConfirmTargetId(barSettlement.id);
-                } else {
-                  onConfirmSettlement(barSettlement.id);
+                  return;
                 }
-                selection.clear();
+                void confirm({
+                  title: "تأیید تسویه",
+                  description,
+                  amount: label,
+                  confirmLabel: "تأیید تسویه",
+                  tone: "default",
+                }).then((accepted) => {
+                  if (!accepted) return;
+                  onConfirmSettlement(barSettlement.id);
+                  selection.clear();
+                });
               }}
             >
               تأیید
@@ -818,6 +891,19 @@ export function SettlementPanel({
         <ConfirmSettlementDialog
           pending={pending}
           evidenceRequired={evidenceRequired}
+          amountLabel={
+            settlements.find((row) => row.id === confirmTargetId)
+              ? formatMoneyWithUnit(
+                  settlements.find((row) => row.id === confirmTargetId)!.amount.amountMinor,
+                  displayUnit,
+                )
+              : undefined
+          }
+          sentence={(() => {
+            const row = settlements.find((item) => item.id === confirmTargetId);
+            if (!row) return undefined;
+            return `${memberLabel(row.fromUserId)} این مبلغ را به ${memberLabel(row.toUserId)} پرداخته است.`;
+          })()}
           onCancel={() => setConfirmTargetId(null)}
           onConfirm={(evidence) => {
             const id = confirmTargetId;

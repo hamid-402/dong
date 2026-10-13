@@ -579,6 +579,7 @@ export function FinanceView({
     requireCostCenter,
     settleToUserId,
     settleAmountToman,
+    settlements,
     periodTitle,
     periodKind,
     periodStartsOn,

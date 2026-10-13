@@ -9,12 +9,17 @@ import { AppModal } from "@/components/ui/app-modal";
 export function ConfirmSettlementDialog({
   pending,
   evidenceRequired,
+  amountLabel,
+  sentence,
   onCancel,
   onConfirm,
 }: {
   pending?: boolean;
   /** When capabilities.productFlags.settlementEvidence is on. */
   evidenceRequired?: boolean;
+  /** Persian-digit amount, shown large. */
+  amountLabel?: string;
+  sentence?: string;
   onCancel: () => void;
   onConfirm: (evidence: ConfirmSettlementRequest) => void;
 }) {
@@ -55,10 +60,12 @@ export function ConfirmSettlementDialog({
       onClose={onCancel}
     >
       <p className="appModalLead">
-        {evidenceRequired
-          ? "برای ثبت در دفترکل، نوع شاهد را مشخص کنید."
-          : "تأیید می‌کند که مبلغ بین طرفین جابه‌جا شده است."}
+        {sentence ??
+          (evidenceRequired
+            ? "برای ثبت در دفترکل، نوع شاهد را مشخص کنید."
+            : "تأیید می‌کند که مبلغ بین طرفین جابه‌جا شده است.")}
       </p>
+      {amountLabel ? <p className="flowAmount">{amountLabel}</p> : null}
       <FormStack>
         <SelectField
           label="نوع شاهد"

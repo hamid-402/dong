@@ -18,6 +18,8 @@ import { useLiveInvalidation } from "@/lib/live-invalidation";
 import { displayInputToIrrMinor, irrMinorToDisplayInput } from "@/lib/irr-money";
 import { useDisplayUnit } from "@/lib/display-unit";
 import { moneyUnitSuffix } from "@/lib/money-labels";
+import { formatMoneyWithUnit } from "@dang/ui";
+import { settleSuccessMessage } from "@/components/views/finance/settle-sentence";
 import {
   listOfflineExpenseDrafts,
   removeOfflineExpenseDraft,
@@ -56,6 +58,7 @@ export type FinanceActionsDeps = {
   requireCostCenter?: boolean;
   settleToUserId: string;
   settleAmountToman: string;
+  settlements?: SettlementSummary[];
   periodTitle: string;
   periodKind: PeriodKind;
   periodStartsOn: string;
@@ -129,6 +132,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
     requireCostCenter = false,
     settleToUserId,
     settleAmountToman,
+    settlements = [],
     periodTitle,
     periodKind,
     periodStartsOn,
@@ -496,15 +500,13 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
             await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope),
           );
           setError(null);
-          const settlePart = BigInt(res.plan.settlementAmountMinor);
-          const giftPart = BigInt(res.plan.giftAmountMinor);
-          if (settlePart > 0n && giftPart > 0n) {
-            showSuccess("ادعای تسویه ثبت شد و مازاد به صندوق هدیه شد");
-          } else if (giftPart > 0n) {
-            showSuccess("هدیه به صندوق ثبت شد (بدون بدهی برای اعضا)");
-          } else {
-            showSuccess("ادعای تسویه ثبت شد — منتظر تأیید طرف مقابل");
-          }
+          const amountLabel = formatMoneyWithUnit(amount.amountMinor, displayUnit);
+          showSuccess(
+            settleSuccessMessage(amountLabel, {
+              settlementAmountMinor: res.plan.settlementAmountMinor,
+              giftAmountMinor: res.plan.giftAmountMinor,
+            }),
+          );
         } catch (err: unknown) {
           setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
@@ -616,7 +618,11 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
           );
           applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
-          showSuccess("تسویه تأیید شد");
+          const confirmed = settlements.find((row) => row.id === settlementId);
+          const confirmedLabel = confirmed
+            ? formatMoneyWithUnit(confirmed.amount.amountMinor, displayUnit)
+            : null;
+          showSuccess(confirmedLabel ? `تسویه ${confirmedLabel} تأیید شد` : "تسویه تأیید شد");
           setSettlementNps(true);
         } catch (err: unknown) {
           setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
