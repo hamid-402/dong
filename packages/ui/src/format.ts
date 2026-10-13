@@ -2,6 +2,16 @@ export type DisplayUnit = "rial" | "toman";
 
 const numberFormatter = new Intl.NumberFormat("fa-IR");
 
+/** Persian (۰-۹) and Arabic-Indic (٠-٩) digits to ASCII 0-9. */
+export function latinDigits(raw: string): string {
+  return raw.replace(/[۰-۹٠-٩]/g, (ch) => {
+    const code = ch.codePointAt(0) ?? 0;
+    if (code >= 0x06f0 && code <= 0x06f9) return String(code - 0x06f0);
+    if (code >= 0x0660 && code <= 0x0669) return String(code - 0x0660);
+    return ch;
+  });
+}
+
 export function displayUnitLabel(unit: DisplayUnit): string {
   return unit === "toman" ? "تومان" : "ریال";
 }

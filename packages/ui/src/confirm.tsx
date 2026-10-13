@@ -17,15 +17,27 @@ export type ConfirmTone = "danger" | "default";
 export type ConfirmRequest = {
   title?: string;
   description: string;
+  /** Large Persian-digit amount shown above the action sentence. */
+  amount?: string;
   confirmLabel?: string;
   cancelLabel?: string;
   tone?: ConfirmTone;
+};
+
+export type NormalizedConfirm = {
+  title: string;
+  description: string;
+  amount?: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  tone: ConfirmTone;
 };
 
 export type ConfirmDialogProps = {
   open: boolean;
   title: string;
   description: string;
+  amount?: string;
   confirmLabel?: string;
   cancelLabel?: string;
   tone?: ConfirmTone;
@@ -46,12 +58,14 @@ function inferConfirmLabel(description: string): string {
   return "تأیید";
 }
 
-export function normalizeConfirm(request: ConfirmRequest | string): Required<ConfirmRequest> {
+export function normalizeConfirm(request: ConfirmRequest | string): NormalizedConfirm {
   const description = typeof request === "string" ? request : request.description;
   const tone = typeof request === "string" ? "danger" : (request.tone ?? "danger");
+  const amount = typeof request === "string" ? undefined : request.amount?.trim() || undefined;
   return {
     title: typeof request === "string" || !request.title ? "تأیید" : request.title,
     description,
+    amount,
     confirmLabel:
       typeof request === "string" || !request.confirmLabel
         ? inferConfirmLabel(description)
@@ -65,6 +79,7 @@ export function ConfirmDialog({
   open,
   title,
   description,
+  amount,
   confirmLabel = "تأیید",
   cancelLabel = "انصراف",
   tone = "danger",
@@ -75,6 +90,7 @@ export function ConfirmDialog({
   const descriptionId = useId();
   return (
     <Modal open={open} title={title} onClose={pending ? undefined : onCancel} describedBy={descriptionId}>
+      {amount ? <p className="dang-confirm__amount">{amount}</p> : null}
       <p id={descriptionId} className="dang-confirm__text">
         {description}
       </p>
@@ -97,7 +113,7 @@ export function ConfirmDialog({
 
 export type ConfirmFn = (request: ConfirmRequest | string) => Promise<boolean>;
 
-type PendingConfirm = Required<ConfirmRequest> & {
+type PendingConfirm = NormalizedConfirm & {
   resolve: (value: boolean) => void;
 };
 
@@ -136,6 +152,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         open={pending != null}
         title={pending?.title ?? ""}
         description={pending?.description ?? ""}
+        amount={pending?.amount}
         confirmLabel={pending?.confirmLabel}
         cancelLabel={pending?.cancelLabel}
         tone={pending?.tone}

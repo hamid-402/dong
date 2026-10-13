@@ -1,5 +1,14 @@
 import type { DisplayUnit, Money } from "@dang/contracts";
 import { displayIntegerToIrrMinor, irrMinorToDisplayInteger } from "@dang/contracts";
+import { latinDigits } from "@dang/ui";
+
+/** ASCII digits, dropping Persian grouping marks so «۱۲٬۵۰۰» parses. */
+export function normalizeMoneyInput(raw: string): string {
+  return latinDigits(raw)
+    .replace(/[٬،,\s\u00a0]/g, "")
+    .replace(/٫/g, ".")
+    .trim();
+}
 
 /**
  * Parse a display-unit integer string into IRR minor Money.
@@ -9,7 +18,7 @@ export function displayInputToIrrMinor(
   raw: string,
   unit: DisplayUnit,
 ): Money | null {
-  const n = Number(String(raw).replaceAll(",", "").replaceAll("/", "").trim());
+  const n = Number(normalizeMoneyInput(raw).replaceAll("/", ""));
   if (!Number.isFinite(n) || n <= 0) return null;
   try {
     return {

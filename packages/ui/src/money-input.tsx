@@ -1,7 +1,7 @@
 "use client";
 
 import type { InputHTMLAttributes } from "react";
-import { displayUnitLabel, type DisplayUnit } from "./format.js";
+import { displayUnitLabel, formatMoney, latinDigits, type DisplayUnit } from "./format.js";
 import { useDisplayUnit } from "./display-unit-context.js";
 import { cx } from "./cx.js";
 
@@ -36,7 +36,9 @@ export function MoneyInput({
   const contextUnit = useDisplayUnit();
   const displayUnit = displayUnitProp ?? contextUnit;
   const fieldId = id ?? "money-input";
-  const { className, style, ...inputRest } = rest;
+  const { className, ...inputRest } = rest;
+  const formatted =
+    value.trim() !== "" ? `${formatMoney(value, displayUnit)} ${displayUnitLabel(displayUnit)}` : "";
   return (
     <div className="dang-field">
       {label ? (
@@ -56,17 +58,17 @@ export function MoneyInput({
           value={value}
           aria-invalid={error ? true : undefined}
           onChange={(event) => {
-            const digits = event.target.value.replace(/[^\d]/g, "");
+            const digits = latinDigits(event.target.value).replace(/[^\d]/g, "");
             onValueChange(digits);
           }}
-          className={cx("dang-control", className)}
-          style={{ ...style, fontVariantNumeric: "tabular-nums" }}
+          className={cx("dang-control", "dang-money-input", className)}
         />
         <span aria-hidden className="dang-field__hint">
           {displayUnitLabel(displayUnit)}
         </span>
       </span>
-      {hint && !error ? <span className="dang-field__hint">{hint}</span> : null}
+      {formatted && !error ? <span className="dang-field__hint">{formatted}</span> : null}
+      {hint && !error && !formatted ? <span className="dang-field__hint">{hint}</span> : null}
       {error ? (
         <span className="dang-field__error" role="alert">
           {error}

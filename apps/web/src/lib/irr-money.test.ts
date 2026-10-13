@@ -23,6 +23,13 @@ describe("tomanInputToIrrMinor", () => {
     });
   });
 
+  it("accepts Persian digits and grouping", () => {
+    expect(displayInputToIrrMinor("۱٬۲۵۰", "toman")).toEqual({
+      amountMinor: "12500",
+      currency: "IRR",
+    });
+  });
+
   it("strips commas and rejects non-positive", () => {
     expect(tomanInputToIrrMinor("1,250")).toEqual({
       amountMinor: "12500",

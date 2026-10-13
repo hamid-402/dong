@@ -572,11 +572,24 @@ textarea.dang-control {
   line-height: var(--leading-title);
 }
 
+.dang-confirm__amount {
+  margin: 0 0 var(--dang-space-2);
+  color: var(--dang-text);
+  font-size: var(--text-display);
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
 .dang-confirm__text {
   margin: 0 0 var(--dang-space-4);
   color: var(--dang-text);
   font-size: var(--text-md);
   line-height: var(--leading-body);
+}
+
+.dang-money-input {
+  font-variant-numeric: tabular-nums;
 }
 
 .dang-dialog__actions {

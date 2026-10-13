@@ -68,4 +68,22 @@ describe("ConfirmDialog", () => {
     );
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  it("shows a Persian-digit amount in large type", () => {
+    render(
+      <ConfirmDialog
+        open
+        title="ثبت تسویه"
+        description="شما این مبلغ را به علی می‌پردازید."
+        amount="۲۵۰٬۰۰۰ تومان"
+        confirmLabel="ثبت تسویه"
+        onConfirm={() => undefined}
+        onCancel={() => undefined}
+      />,
+    );
+    const amount = screen.getByText("۲۵۰٬۰۰۰ تومان");
+    expect(amount.className).toContain("dang-confirm__amount");
+    expect(amount.textContent).toMatch(/[۰-۹]/);
+    expect(screen.getByRole("button", { name: "ثبت تسویه" })).toBeTruthy();
+  });
 });

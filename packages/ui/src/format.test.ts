@@ -6,6 +6,7 @@ import {
   formatMoneyWithUnit,
   formatToman,
   formatTomanFromIrrMinor,
+  latinDigits,
 } from "./format.js";
 
 test("formatToman uses fa-IR digits and grouping (legacy wrapper)", () => {
@@ -27,6 +28,12 @@ test("formatMoneyFromIrrMinor rial keeps minor units", () => {
 
 test("formatMoneyFromIrrMinor toman divides by 10", () => {
   assert.equal(formatMoneyFromIrrMinor(2_500_000, "toman"), formatMoney(250_000, "toman"));
+});
+
+test("latinDigits maps Persian and Arabic-Indic digits", () => {
+  assert.equal(latinDigits("۱۲۳۴"), "1234");
+  assert.equal(latinDigits("١٢٣"), "123");
+  assert.equal(latinDigits("12۳"), "123");
 });
 
 test("formatMoneyWithUnit always includes unit label", () => {
