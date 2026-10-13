@@ -40,15 +40,19 @@ import {
 } from "@/lib/use-workspace-directory";
 import { formatDirectoryNetHint } from "@/lib/directory-metric-label";
 import { assignKindGems, gemCssVars } from "@/lib/tile-gem-palettes";
+import { t } from "@/lib/i18n";
 
 const FOCUSABLE =
   'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function WorkspaceSwitcher({
   compact = false,
+  leaveHref = null,
 }: {
   /** Hide the meta hint under the name (sub-headers). */
   compact?: boolean;
+  /** Membership leave target. Omitted outside a space. */
+  leaveHref?: string | null;
 }) {
   const { workspaces, workspaceId, workspaceName, selectWorkspace, ready } =
     useAppChrome();
@@ -540,6 +544,16 @@ export function WorkspaceSwitcher({
               <Link href="/spaces" onClick={() => setOpen(false)}>
                 همه فضاها
               </Link>
+              {leaveHref ? (
+                <Link
+                  href={leaveHref}
+                  className="mosaic-ws-switch__leave"
+                  aria-label={t("shell.leaveSpaceAria")}
+                  onClick={() => setOpen(false)}
+                >
+                  {t("shell.leaveSpace")}
+                </Link>
+              ) : null}
             </li>
           </ul>
         </div>

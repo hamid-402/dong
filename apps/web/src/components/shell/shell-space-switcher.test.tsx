@@ -81,6 +81,27 @@ describe("space switcher", () => {
     expect(push).toHaveBeenCalledWith("/w/company/space");
   });
 
+  it("offers leave membership inside the menu and omits it when no target is set", () => {
+    const { unmount } = render(
+      <WorkspaceSwitcher leaveHref="/w/home/settings#danger" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "فضای جاری: خانه، گروه" }));
+    const leave = screen.getByRole("link", {
+      name: "رفتن به منطقهٔ خطر تنظیمات برای قطع عضویت یا بایگانی",
+    });
+    expect(leave.getAttribute("href")).toBe("/w/home/settings#danger");
+    expect(leave.textContent).toContain("ترک عضویت");
+    unmount();
+
+    render(<WorkspaceSwitcher />);
+    fireEvent.click(screen.getByRole("button", { name: "فضای جاری: خانه، گروه" }));
+    expect(
+      screen.queryByRole("link", {
+        name: "رفتن به منطقهٔ خطر تنظیمات برای قطع عضویت یا بایگانی",
+      }),
+    ).toBeNull();
+  });
+
   it("keeps switcher controls at a 44px target", () => {
     const css = readFileSync(
       resolve(dirname(fileURLToPath(import.meta.url)), "../../app/shell.css"),
