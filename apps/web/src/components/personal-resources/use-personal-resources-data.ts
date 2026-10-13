@@ -16,6 +16,7 @@ import type {
   WorkspaceSummary,
 } from "@dang/contracts";
 import { spaceKindForTemplate, currentJalaliYearMonth } from "@dang/contracts";
+import { latinDigits, formatMoneyWithUnit } from "@dang/ui";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { useAppChrome } from "@/lib/use-app-chrome";
@@ -34,7 +35,7 @@ export function monthStart(): string {
 }
 
 export function tomanToMinor(toman: string): string {
-  const n = Number(toman.replaceAll(",", ""));
+  const n = Number(latinDigits(toman).replace(/[٬،,\s]/g, ""));
   if (!Number.isFinite(n) || n < 0) return "";
   return String(Math.round(n) * 10);
 }
@@ -252,7 +253,8 @@ export function usePersonalResourcesData() {
       setError("مبلغ نامعتبر است");
       return;
     }
-    run("تراکنش ثبت شد", async () => {
+    const amountLabel = formatMoneyWithUnit(minor, "toman");
+    run(`تراکنش ${amountLabel} ثبت شد`, async () => {
       await api.createPersonalTransaction({
         accountId: txnAccountId,
         kind: txnKind,

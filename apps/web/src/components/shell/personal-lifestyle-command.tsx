@@ -334,7 +334,7 @@ export function PersonalLifestyleCommand() {
                 <p className={styles.emptyTitle}>هنوز حقوق این ماه ثبت نشده</p>
                 <p className={styles.emptyCopy}>
                   {snap.emptyReason ||
-                    "با ثبت اولین حقوق، پاکت‌های تخصیص و تراز ماه ساخته می‌شود."}
+                    "با ثبت اولین حقوق، سهم حوزه‌ها و تراز ماه ساخته می‌شود."}
                 </p>
                 <Button
                   type="button"
@@ -354,7 +354,7 @@ export function PersonalLifestyleCommand() {
         {snap?.byDomain?.length && !isEmpty ? (
           <div>
             <div className={styles.domainsHead}>
-              <h2 className={styles.domainsTitle}>پاکت‌های تخصیص</h2>
+              <h2 className={styles.domainsTitle}>سهم‌های ماه</h2>
               <p className={styles.domainsHint}>مصرف واقعی نسبت به سقف درصد</p>
             </div>
             <div className={styles.domains} role="list">

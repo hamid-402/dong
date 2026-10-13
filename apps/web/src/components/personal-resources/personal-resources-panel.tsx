@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
 import {
   DataList,
@@ -21,13 +21,13 @@ import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import { api } from "@/lib/api";
 import { formatFaDate } from "@/lib/fa-datetime";
-import {
-  personalExportStatusLabel,
-  settlementStatusLabel,
-} from "@/lib/status-labels";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { FlashMessages } from "@/lib/use-flash-message";
+import { personalExportStatusLabel } from "@/lib/status-labels";
 import { PersonalResourcesAccountList } from "./personal-resources-account-list";
 import { PersonalResourcesSummaryBlock } from "./personal-resources-summary";
 import { PersonalResourcesTransferForm } from "./personal-resources-transfer-form";
+import { PersonalTxnForm } from "./personal-txn-form";
 import {
   txnKindLabel,
   usePersonalResourcesData,
@@ -36,7 +36,10 @@ import {
 /** Personal wallets / budgets — API-backed only. */
 export function PersonalResourcesPanel() {
   const confirm = useConfirm();
+  const displayUnit = useDisplayUnit();
   const d = usePersonalResourcesData();
+  const [amountError, setAmountError] = useState<string | null>(null);
+  const [accountError, setAccountError] = useState<string | null>(null);
   const categoryIds = useMemo(() => d.categories.map((c) => c.id), [d.categories]);
   const categorySel = useRowSelection(categoryIds);
   const barCategory =
@@ -85,121 +88,63 @@ export function PersonalResourcesPanel() {
     <SectionCard title="منابع مالی شخصی" delayClass="delay1">
       <FormStack>
         <StatusLine>
-          حساب‌های نقد/بانک/کارت — بودجه پاکت روی ماه شمسی فعلی. لینک به خرج/تسویه فقط با انتخاب صریح.
+          حساب نقد، بانک یا کارت. مبلغ و شرح همین‌جا ثبت می‌شود.
         </StatusLine>
 
         <PersonalResourcesSummaryBlock summary={d.summary} />
 
-        {d.error ? <p className="liveError">{d.error}</p> : null}
-        {d.info ? <p className="liveSuccess">{d.info}</p> : null}
+        <FlashMessages error={d.error} successMessage={d.info} />
 
-        <div id="txn">
-        <h3 className="pfSubhead">ثبت تراکنش</h3>
-        <div className="pfRangeRow">
-          <SelectField
-            label="حساب"
-            value={d.txnAccountId}
-            onChange={(e) => d.setTxnAccountId(e.target.value)}
-          >
-            <option value="">انتخاب…</option>
-            {d.activeAccounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </SelectField>
-          <SelectField
-            label="نوع"
-            value={d.txnKind}
-            onChange={(e) =>
-              d.setTxnKind(
-                e.target.value as
-                  | "income"
-                  | "expense"
-                  | "adjustment"
-                  | "investment"
-                  | "installment",
-              )
+        <PersonalTxnForm
+          displayUnit={displayUnit}
+          accountId={d.txnAccountId}
+          accounts={d.activeAccounts}
+          kind={d.txnKind}
+          amount={d.txnToman}
+          amountError={amountError}
+          accountError={accountError}
+          note={d.txnNote}
+          date={d.txnDate}
+          categoryId={d.txnCategoryId}
+          categories={d.categories}
+          linkWorkspaceId={d.linkWorkspaceId}
+          linkWorkspaces={d.linkWorkspaces}
+          linkExpenseId={d.linkExpenseId}
+          linkExpenses={d.linkExpenses}
+          linkSettlementId={d.linkSettlementId}
+          linkSettlements={d.linkSettlements}
+          pending={d.pending}
+          onAccountIdChange={(value) => {
+            setAccountError(null);
+            d.setTxnAccountId(value);
+          }}
+          onKindChange={d.setTxnKind}
+          onAmountChange={(value) => {
+            setAmountError(null);
+            d.setTxnToman(value);
+          }}
+          onNoteChange={d.setTxnNote}
+          onDateChange={d.setTxnDate}
+          onCategoryIdChange={d.setTxnCategoryId}
+          onLinkWorkspaceIdChange={d.setLinkWorkspaceId}
+          onLinkExpenseIdChange={d.setLinkExpenseId}
+          onLinkSettlementIdChange={d.setLinkSettlementId}
+          onSubmit={() => {
+            const missingAccount = !d.txnAccountId;
+            const missingAmount = !d.txnToman.trim() || Number(d.txnToman) <= 0;
+            setAccountError(missingAccount ? "حساب را انتخاب کنید" : null);
+            setAmountError(missingAmount ? "مبلغ معتبر وارد کنید" : null);
+            if (missingAccount) {
+              document.getElementById("personal-txn-account")?.focus();
+              return;
             }
-          >
-            <option value="expense">هزینه</option>
-            <option value="income">درآمد</option>
-            <option value="installment">قسط</option>
-            <option value="investment">سرمایه‌گذاری</option>
-            <option value="adjustment">تعدیل (افزایش)</option>
-          </SelectField>
-          <TextField
-            label="مبلغ (تومان)"
-            value={d.txnToman}
-            onChange={(e) => d.setTxnToman(e.target.value)}
-          />
-          <JalaliDateField label="تاریخ" value={d.txnDate} onChange={d.setTxnDate} />
-          <SelectField
-            label="دسته"
-            value={d.txnCategoryId}
-            onChange={(e) => d.setTxnCategoryId(e.target.value)}
-          >
-            <option value="">بدون دسته</option>
-            {d.categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </SelectField>
-        </div>
-        <TextField
-          label="یادداشت (اختیاری)"
-          value={d.txnNote}
-          onChange={(e) => d.setTxnNote(e.target.value)}
+            if (missingAmount) {
+              document.getElementById("personal-txn-amount")?.focus();
+              return;
+            }
+            d.onCreateTxn();
+          }}
         />
-        <div className="pfRangeRow">
-          <SelectField
-            label="لینک فضای گروهی (اختیاری)"
-            value={d.linkWorkspaceId}
-            onChange={(e) => d.setLinkWorkspaceId(e.target.value)}
-          >
-            <option value="">بدون لینک</option>
-            {d.linkWorkspaces.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </SelectField>
-          <SelectField
-            label="خرج گروهی"
-            value={d.linkExpenseId}
-            onChange={(e) => d.setLinkExpenseId(e.target.value)}
-            disabled={!d.linkWorkspaceId}
-          >
-            <option value="">—</option>
-            {d.linkExpenses.map((e) => (
-              <option key={e.id} value={e.id}>
-                {formatFaDate(e.occurredOn)} · {e.title}
-              </option>
-            ))}
-          </SelectField>
-          <SelectField
-            label="تسویه"
-            value={d.linkSettlementId}
-            onChange={(e) => d.setLinkSettlementId(e.target.value)}
-            disabled={!d.linkWorkspaceId}
-          >
-            <option value="">—</option>
-            {d.linkSettlements.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.id.slice(0, 8)} · {settlementStatusLabel(s.status)}
-              </option>
-            ))}
-          </SelectField>
-        </div>
-        <Button
-          type="button"
-          onClick={d.onCreateTxn}
-          disabled={d.pending || d.activeAccounts.length === 0}
-        >
-          ثبت تراکنش
-        </Button>
-        </div>
 
         <PersonalResourcesAccountList
           accounts={d.accounts}

@@ -370,7 +370,7 @@ export function PersonalSpaceView() {
 
           <details className="reportDetails" id="resources">
             <summary>
-              <span>منابع و بودجه شخصی (پاکت ماه شمسی)</span>
+              <span>منابع و بودجه شخصی</span>
             </summary>
             <div className="reportDetails__body">
               <PersonalResourcesPanel />
