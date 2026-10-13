@@ -43,8 +43,19 @@ import { NAV_LABELS } from "@/lib/nav-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useFlashMessage, FlashMessages } from "@/lib/use-flash-message";
 import { t } from "@/lib/i18n";
+import styles from "./payments-view.module.css";
+import type { DisplayUnit } from "@dang/ui";
 
 const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
+
+function invalidMoneyMessage(
+  raw: string,
+  displayUnit: DisplayUnit,
+  message: string,
+): string | undefined {
+  if (!raw.trim()) return undefined;
+  return displayInputToIrrMinor(raw, displayUnit) ? undefined : message;
+}
 
 function receiptStatusLabel(status: PaymentReceiptSummary["status"]): string {
   if (status === "submitted") return "در انتظار تأیید";
@@ -91,6 +102,8 @@ export function PaymentsView() {
   );
   const [settlementId, setSettlementId] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptFileError, setReceiptFileError] = useState<string | null>(null);
+  const [referenceTouched, setReferenceTouched] = useState(false);
 
   useEffect(() => {
     const fromStatement = searchParams?.get("amountMinor")?.trim() ?? "";
@@ -255,7 +268,7 @@ export function PaymentsView() {
       <FlashMessages successMessage={successMessage} error={error} />
 
       {pettyLive || spaceKind === "personal" ? (
-        <div style={{ marginBottom: "1.1rem" }}>
+        <div className={styles.treasury}>
           <TreasuryBalanceCard
             spaceKind={spaceKind}
             funds={funds}
@@ -332,6 +345,8 @@ export function PaymentsView() {
             value={amountMinor}
             onChange={(e) => setAmountMinor(e.target.value)}
             inputMode="numeric"
+            error={invalidMoneyMessage(amountMinor, displayUnit, "مبلغ معتبر نیست")}
+            required
           />
           <TextField
             label="شناسه تسویه (اختیاری)"
@@ -351,12 +366,24 @@ export function PaymentsView() {
             }
             inputMode="numeric"
             maxLength={4}
+            error={
+              destLast4.trim() && destLast4.trim().length < 4
+                ? "چهار رقم آخر مقصد را کامل کنید"
+                : undefined
+            }
           />
           {method === "card_to_card" ? (
             <TextField
-              label="کد پیگیری / شماره مرجع *"
+              label="کد پیگیری / شماره مرجع"
               value={referenceNo}
               onChange={(e) => setReferenceNo(e.target.value)}
+              onBlur={() => setReferenceTouched(true)}
+              error={
+                referenceTouched && !referenceNo.trim()
+                  ? "کد پیگیری کارت‌به‌کارت الزامی است"
+                  : undefined
+              }
+              required
             />
           ) : (
             <TextField
@@ -380,10 +407,11 @@ export function PaymentsView() {
                   const file = e.target.files?.[0] ?? null;
                   e.target.value = "";
                   if (file && file.size > MAX_RECEIPT_BYTES) {
-                    setError("حجم فایل بیش از ۱۰ مگابایت است");
+                    setReceiptFileError("حجم فایل بیش از ۱۰ مگابایت است");
                     setReceiptFile(null);
                     return;
                   }
+                  setReceiptFileError(null);
                   setReceiptFile(file);
                 }}
               />
@@ -391,6 +419,11 @@ export function PaymentsView() {
                 ? `پیوست: ${receiptFile.name}`
                 : "پیوست تصویر فیش (اختیاری)"}
             </label>
+          ) : null}
+          {receiptFileError ? (
+            <p className={styles.fieldError} role="alert">
+              {receiptFileError}
+            </p>
           ) : null}
           <Button
             disabled={
@@ -401,7 +434,7 @@ export function PaymentsView() {
             onClick={() => {
               if (!workspaceId) return;
               if (method === "card_to_card" && !referenceNo.trim()) {
-                setError("کد پیگیری کارت‌به‌کارت الزامی است");
+                setReferenceTouched(true);
                 return;
               }
               startTransition(() => {
@@ -539,7 +572,7 @@ export function PaymentsView() {
                   !readOnly &&
                   r.status === "submitted" &&
                   r.payerUserId !== actorId ? (
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div className={styles.rowActions}>
                       <Button
                         disabled={pending}
                         onClick={() => {
@@ -648,6 +681,8 @@ export function PaymentsView() {
                 value={obAmount}
                 onChange={(e) => setObAmount(e.target.value)}
                 inputMode="numeric"
+                error={invalidMoneyMessage(obAmount, displayUnit, "مبلغ معتبر نیست")}
+                required
               />
               <TextField
                 label={t("payments.onBehalf.settlement")}
@@ -673,10 +708,7 @@ export function PaymentsView() {
                     void (async () => {
                       try {
                         const money = displayInputToIrrMinor(obAmount, displayUnit);
-                        if (!money) {
-                          setError("مبلغ معتبر نیست");
-                          return;
-                        }
+                        if (!money) return;
                         await api.createOnBehalf(workspaceId, {
                           debtorUserId: obDebtorId,
                           payerUserId: obPayerId,
@@ -817,6 +849,15 @@ export function PaymentsView() {
                 value={openingBalance}
                 onChange={(e) => setOpeningBalance(e.target.value)}
                 inputMode="numeric"
+                error={
+                  openingBalance.trim() === "" || openingBalance.trim() === "0"
+                    ? undefined
+                    : invalidMoneyMessage(
+                        openingBalance,
+                        displayUnit,
+                        "مانده اولیه معتبر نیست",
+                      )
+                }
               />
               <Button
                 disabled={pending}
@@ -828,10 +869,7 @@ export function PaymentsView() {
                           openingBalance.trim() === "" || openingBalance.trim() === "0"
                             ? "0"
                             : displayInputToIrrMinor(openingBalance, displayUnit)?.amountMinor;
-                        if (opening == null) {
-                          setError("مانده اولیه معتبر نیست");
-                          return;
-                        }
+                        if (opening == null) return;
                         await api.createPettyCashFund(workspaceId, {
                           name: fundName.trim() || "تنخواه",
                           openingBalanceMinor: opening,
@@ -870,6 +908,12 @@ export function PaymentsView() {
                     value={spendAmount}
                     onChange={(e) => setSpendAmount(e.target.value)}
                     inputMode="numeric"
+                    error={invalidMoneyMessage(
+                      spendAmount,
+                      displayUnit,
+                      "مبلغ برداشت معتبر نیست",
+                    )}
+                    required
                   />
                   <Button
                     disabled={pending || !spendAmount.trim() || members.length === 0}
@@ -877,10 +921,7 @@ export function PaymentsView() {
                       const fid = spendFundId || funds[0]?.id;
                       if (!fid) return;
                       const total = displayInputToIrrMinor(spendAmount, displayUnit);
-                      if (!total) {
-                        setError("مبلغ برداشت معتبر نیست");
-                        return;
-                      }
+                      if (!total) return;
                       startTransition(() => {
                         void (async () => {
                           try {
@@ -903,7 +944,7 @@ export function PaymentsView() {
                     برداشت با سهم
                   </Button>
 
-                  <hr style={{ border: 0, borderTop: "1px solid var(--line)", margin: "8px 0" }} />
+                  <hr className={styles.formRule} />
                   <p className="liveHint">
                     شارژ صندوق: مبلغ را بین اعضا تقسیم می‌کند (مانده هر نفر)،
                     سپس موجودی تنخواه را افزایش می‌دهد.
@@ -915,6 +956,7 @@ export function PaymentsView() {
                       setTopupFundId(e.target.value);
                       setTopupPreview(null);
                     }}
+                    error={funds.length === 0 ? "صندوقی برای شارژ نیست" : undefined}
                   >
                     {funds.map((f) => (
                       <option key={f.id} value={f.id}>
@@ -930,6 +972,8 @@ export function PaymentsView() {
                       setTopupPreview(null);
                     }}
                     inputMode="numeric"
+                    error={invalidMoneyMessage(topupToman, displayUnit, "مبلغ شارژ معتبر نیست")}
+                    required
                   />
                   <SelectField
                     label="روش سهم"
@@ -948,10 +992,7 @@ export function PaymentsView() {
                     disabled={pending || !topupToman.trim() || members.length === 0}
                     onClick={() => {
                       const total = displayInputToIrrMinor(topupToman, displayUnit);
-                      if (!total || !workspaceId) {
-                        setError("مبلغ شارژ معتبر نیست");
-                        return;
-                      }
+                      if (!total || !workspaceId) return;
                       startTransition(() => {
                         void (async () => {
                           try {
@@ -1015,10 +1056,7 @@ export function PaymentsView() {
                     onClick={() => {
                       const fid = topupFundId || funds[0]?.id;
                       const total = displayInputToIrrMinor(topupToman, displayUnit);
-                      if (!fid || !total || !workspaceId) {
-                        setError("مبلغ یا صندوق معتبر نیست");
-                        return;
-                      }
+                      if (!fid || !total || !workspaceId) return;
                       startTransition(() => {
                         void (async () => {
                           try {
@@ -1117,12 +1155,20 @@ export function PaymentsView() {
               label="فروشنده / مرجع"
               value={supplierRef}
               onChange={(e) => setSupplierRef(e.target.value)}
+              error={
+                supplierRef.length > 0 && !supplierRef.trim()
+                  ? "نام فروشنده را بنویسید"
+                  : undefined
+              }
+              required
             />
             <TextField
               label={moneyFieldLabel("مبلغ", displayUnit)}
               value={creditAmount}
               onChange={(e) => setCreditAmount(e.target.value)}
               inputMode="numeric"
+              error={invalidMoneyMessage(creditAmount, displayUnit, "مبلغ معتبر نیست")}
+              required
             />
             <JalaliDateField
               label="سررسید"
@@ -1136,10 +1182,7 @@ export function PaymentsView() {
                   void (async () => {
                     try {
                       const money = displayInputToIrrMinor(creditAmount, displayUnit);
-                      if (!money) {
-                        setError("مبلغ معتبر نیست");
-                        return;
-                      }
+                      if (!money) return;
                       await api.createCreditPurchase(workspaceId, {
                         supplierRef: supplierRef.trim(),
                         amountMinor: money.amountMinor,

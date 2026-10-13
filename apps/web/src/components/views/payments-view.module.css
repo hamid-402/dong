@@ -1,0 +1,20 @@
+.treasury {
+  margin-bottom: 1.1rem;
+}
+
+.rowActions {
+  display: flex;
+  gap: 8px;
+}
+
+.formRule {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 8px 0;
+}
+
+.fieldError {
+  margin: 0;
+  color: var(--dang-danger, var(--danger));
+  font-size: var(--text-xs, 0.875rem);
+}
