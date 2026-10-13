@@ -6,7 +6,7 @@
   padding: 0.25rem;
   border-radius: 0.75rem;
   background: color-mix(in srgb, var(--surface) 70%, transparent);
-  border: 1px solid color-mix(in srgb, var(--line, #cbd5e1) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
 }
 
 .subnavLink {
@@ -21,7 +21,7 @@
 
 .subnavLink:hover {
   color: var(--text);
-  background: color-mix(in srgb, var(--primary, #1d4ed8) 12%, transparent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 .subnavLink:focus-visible {

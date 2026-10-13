@@ -221,9 +221,9 @@ export function PersonalLifestyleCommand() {
       <div className={styles.inner}>
         <header className={styles.heroTop}>
           <div className={styles.brandBlock}>
-            <h1 className={styles.brand} id={titleId}>
-              مالی من
-            </h1>
+            <h2 className={styles.brand} id={titleId}>
+              چرخهٔ ماه
+            </h2>
             <p className={styles.lede}>
               یک نگاه به چرخهٔ ماه: حقوق، پس‌انداز، و مصرف در حوزه‌های زندگی.
             </p>

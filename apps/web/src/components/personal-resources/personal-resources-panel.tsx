@@ -93,26 +93,7 @@ export function PersonalResourcesPanel() {
         {d.error ? <p className="liveError">{d.error}</p> : null}
         {d.info ? <p className="liveSuccess">{d.info}</p> : null}
 
-        <PersonalResourcesAccountList
-          accounts={d.accounts}
-          pending={d.pending}
-          showArchived={d.showArchived}
-          onShowArchivedChange={d.setShowArchived}
-          accountName={d.accountName}
-          onAccountNameChange={d.setAccountName}
-          accountKind={d.accountKind}
-          onAccountKindChange={d.setAccountKind}
-          openingToman={d.openingToman}
-          onOpeningTomanChange={d.setOpeningToman}
-          renameId={d.renameId}
-          renameValue={d.renameValue}
-          onRenameIdChange={d.setRenameId}
-          onRenameValueChange={d.setRenameValue}
-          onCreateAccount={d.onCreateAccount}
-          onRenameAccount={d.onRenameAccount}
-          onToggleArchive={d.onToggleArchive}
-        />
-
+        <div id="txn">
         <h3 className="pfSubhead">ثبت تراکنش</h3>
         <div className="pfRangeRow">
           <SelectField
@@ -218,6 +199,27 @@ export function PersonalResourcesPanel() {
         >
           ثبت تراکنش
         </Button>
+        </div>
+
+        <PersonalResourcesAccountList
+          accounts={d.accounts}
+          pending={d.pending}
+          showArchived={d.showArchived}
+          onShowArchivedChange={d.setShowArchived}
+          accountName={d.accountName}
+          onAccountNameChange={d.setAccountName}
+          accountKind={d.accountKind}
+          onAccountKindChange={d.setAccountKind}
+          openingToman={d.openingToman}
+          onOpeningTomanChange={d.setOpeningToman}
+          renameId={d.renameId}
+          renameValue={d.renameValue}
+          onRenameIdChange={d.setRenameId}
+          onRenameValueChange={d.setRenameValue}
+          onCreateAccount={d.onCreateAccount}
+          onRenameAccount={d.onRenameAccount}
+          onToggleArchive={d.onToggleArchive}
+        />
 
         <PersonalResourcesTransferForm
           activeAccounts={d.activeAccounts}
