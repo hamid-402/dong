@@ -16,8 +16,8 @@ import {
   isReadOnlyRole,
   personaHomeSpec,
 } from "@dang/contracts";
-import { Button, SelectField, TextField } from "@dang/ui";
-import { GroupEmailVerificationNotice } from "@/components/group-email-verification-notice";
+import { Button, TextField } from "@dang/ui";
+import { CreateGroupForm } from "@/components/create-group-form";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -30,7 +30,6 @@ import {
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
-import { createWorkspaceWithUniqueSlug } from "@/lib/group-slug";
 import { todayIsoLocal } from "@/lib/fa-datetime";
 import { hubPathFor } from "@/lib/hub-links";
 import { useLiveInvalidation } from "@/lib/live-invalidation";
@@ -61,11 +60,6 @@ export function FriendsGroupView() {
   const [expenses, setExpenses] = useState<ExpenseSummary[]>([]);
   const [balances, setBalances] = useState<WorkspaceBalancesResponse | null>(null);
   const [openSettlementCount, setOpenSettlementCount] = useState(0);
-  const [groupName, setGroupName] = useState("");
-  const [groupTemplate, setGroupTemplate] = useState<"friends_family" | "household">(
-    "friends_family",
-  );
-  const [ownerDefaultShares, setOwnerDefaultShares] = useState("1");
   const [outingTitle, setOutingTitle] = useState("");
   const [outingBudgetToman, setOutingBudgetToman] = useState("");
   const [outingEndsOn, setOutingEndsOn] = useState("");
@@ -155,40 +149,11 @@ export function FriendsGroupView() {
     });
   });
 
-  function onCreateGroup() {
-    const name = groupName.trim();
-    if (!name) {
-      setError("نام گروه را وارد کنید");
-      return;
-    }
-    const ownerShares = Math.max(1, Math.min(100, Number(ownerDefaultShares) || 1));
-    startTransition(() => {
-      void (async () => {
-        try {
-          const created = await createWorkspaceWithUniqueSlug(
-            {
-              name,
-              template: groupTemplate,
-              ownerDefaultShares: ownerShares,
-            },
-            (body) => api.createWorkspace(body, newClientId()),
-          );
-          chrome.selectWorkspace(created.id);
-          chrome.refreshChrome();
-          setWorkspace(created);
-          setGroupName("");
-          setError(null);
-          flashSuccess(
-            groupTemplate === "household"
-              ? `گروه خانواده «${created.name}» ساخته شد`
-              : `گروه «${created.name}» ساخته شد`,
-          );
-          await refresh(created.id);
-        } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "ساخت گروه ناموفق"));
-        }
-      })();
-    });
+  function onGroupCreated(created: WorkspaceSummary) {
+    setWorkspace(created);
+    setError(null);
+    flashSuccess(`گروه «${created.name}» ساخته شد`);
+    void refresh(created.id);
   }
 
   function onCreateOuting() {
@@ -377,36 +342,13 @@ export function FriendsGroupView() {
               </details>
             ) : null}
 
+            {slug && workspace && members.length < 2 ? (
+              <GroupPublicIdCard slug={slug} name={workspace?.name} />
+            ) : null}
+
             {!workspace ? (
               <SectionCard title="ساخت گروه" delayClass="delay1">
-                <GroupEmailVerificationNotice active />
-                <FormStack>
-                  <TextField
-                    label="نام گروه"
-                    value={groupName}
-                    onChange={(e) => setGroupName(e.target.value)}
-                    hint="مثلاً سفر شمال، خانه، تیم فوتبال"
-                  />
-                  <SelectField
-                    label="نوع گروه"
-                    value={groupTemplate}
-                    onChange={(e) =>
-                      setGroupTemplate(e.target.value as "friends_family" | "household")
-                    }
-                  >
-                    <option value="friends_family">دوستان</option>
-                    <option value="household">خانواده</option>
-                  </SelectField>
-                  <TextField
-                    label="سهم پیش‌فرض شما"
-                    value={ownerDefaultShares}
-                    onChange={(e) => setOwnerDefaultShares(e.target.value)}
-                    hint="مثلاً ۲ برای والدین در خانواده — بعداً برای اعضا قابل ویرایش است"
-                  />
-                  <Button type="button" onClick={onCreateGroup} disabled={pending}>
-                    ساخت گروه
-                  </Button>
-                </FormStack>
+                <CreateGroupForm onCreated={onGroupCreated} />
                 <EmptyHint>هنوز گروهی فعال نیست — یکی بسازید یا از خانه فضای دیگری باز کنید.</EmptyHint>
               </SectionCard>
             ) : null}

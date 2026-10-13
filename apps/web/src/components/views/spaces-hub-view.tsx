@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { WorkspaceSummary } from "@dang/contracts";
 import { spaceKindForTemplate, spaceKindOffered } from "@dang/contracts";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { workspaceTemplateLabel } from "@/lib/status-labels";
 import { wPath } from "@/lib/workspace-paths";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { EmptyState } from "@dang/ui";
+import { CreateGroupForm, GroupCreatedNext } from "@/components/create-group-form";
 import {
   SectionCard,
   StatusLine,
@@ -65,6 +67,7 @@ export function SpacesHubView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
+  const [createdGroup, setCreatedGroup] = useState<WorkspaceSummary | null>(null);
   const [readyHint, setReadyHint] = useState<string | null>(null);
   const [pinTick, setPinTick] = useState(0);
   const [expandedKinds, setExpandedKinds] = useState<
@@ -290,12 +293,18 @@ export function SpacesHubView() {
         <h1 id="home-day-title">خانه</h1>
         {!chrome.ready ? (
           <p role="status">در حال بارگذاری خانه…</p>
-        ) : chrome.workspaces.length === 0 ? (
-          <EmptyState
-            title="هنوز مانده‌ای نیست"
-            description="با ثبت خرج یا ساخت گروه، مانده اینجا می‌آید."
-          />
         ) : (
+          <>
+            {createdGroup ? <GroupCreatedNext workspace={createdGroup} /> : null}
+            {chrome.workspaces.length === 0 && !createdGroup ? (
+              <>
+                <EmptyState
+                  title="هنوز مانده‌ای نیست"
+                  description="نام گروه را بنویسید. شناسهٔ عمومی بعد از ساخت برای دعوت می‌آید."
+                />
+                <CreateGroupForm onCreated={setCreatedGroup} />
+              </>
+            ) : chrome.workspaces.length === 0 ? null : (
           <div className="homeBalance">
             <p className="homeBalance__label">مانده</p>
             <p className="homeBalance__amount">
@@ -305,6 +314,8 @@ export function SpacesHubView() {
             </p>
             {balanceRow ? <p className="homeBalance__meta">{balanceRow.name}</p> : null}
           </div>
+            )}
+          </>
         )}
         <div className="homeDay__actions">
           <Link className="dang-btn dang-btn--primary dang-btn--md" href={expenseHref}>
@@ -313,7 +324,14 @@ export function SpacesHubView() {
           <Link className="dang-btn dang-btn--secondary dang-btn--md" href={settleHref}>
             تسویه
           </Link>
-          <Link className="dang-btn dang-btn--secondary dang-btn--md" href="/spaces/new?kind=group">
+          <Link
+            className="dang-btn dang-btn--secondary dang-btn--md"
+            href={
+              chrome.ready && chrome.workspaces.length === 0 && !createdGroup
+                ? "#create-group"
+                : "/spaces/new?kind=group"
+            }
+          >
             گروه
           </Link>
         </div>

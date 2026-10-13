@@ -11,6 +11,7 @@ import type {
 } from "@dang/contracts";
 import { spaceKindForTemplate } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
+import { GroupCreatedNext } from "@/components/create-group-form";
 import { AppShell } from "@/components/app-shell";
 import { GroupEmailVerificationNotice } from "@/components/group-email-verification-notice";
 import {
@@ -29,6 +30,8 @@ import { authModeLabel, workspaceTemplateLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { hubPathFor } from "@/lib/hub-links";
+import { createWorkspaceWithUniqueSlug } from "@/lib/group-slug";
+import { newClientId } from "@/lib/id";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { wPath } from "@/lib/workspace-paths";
 
@@ -45,7 +48,9 @@ export function OnboardingView() {
   const [me, setMe] = useState<AuthMeResponse | null>(null);
   const [templates, setTemplates] = useState<WorkspaceTemplateCatalogItem[]>([]);
   const [name, setName] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
   const [slug, setSlug] = useState("");
+  const [slugError, setSlugError] = useState<string | null>(null);
   const kindHint = searchParams.get("kind");
   const templateHint = searchParams.get("template");
   const defaultTemplate: WorkspaceTemplate =
@@ -142,23 +147,34 @@ export function OnboardingView() {
     event.preventDefault();
     const trimmedName = name.trim();
     const trimmedSlug = slug.trim();
+    const groupTemplate =
+      template === "friends_family" || template === "household" ? template : null;
     if (!trimmedName) {
-      setError("نام فضای کاری را وارد کنید");
+      setNameError("نام را وارد کنید");
+      setError(null);
       return;
     }
-    if (!/^[a-z0-9-]{2,48}$/.test(trimmedSlug)) {
-      setError("شناسه یکتا فقط حروف کوچک انگلیسی، عدد و خط تیره (۲–۴۸ کاراکتر)");
+    setNameError(null);
+    if (!groupTemplate && !/^[a-z0-9-]{2,48}$/.test(trimmedSlug)) {
+      setSlugError("شناسه یکتا فقط حروف کوچک انگلیسی، عدد و خط تیره (۲–۴۸ کاراکتر)");
+      setError(null);
       return;
     }
+    setSlugError(null);
     startTransition(() => {
       void (async () => {
         try {
           setDevIdentity(subject.trim() || "dev-local-user", displayName.trim() || "کاربر محلی");
-          const workspace = await api.createWorkspace({
-            name: trimmedName,
-            slug: trimmedSlug,
-            template,
-          });
+          const workspace = groupTemplate
+            ? await createWorkspaceWithUniqueSlug(
+                { name: trimmedName, template: groupTemplate, ownerDefaultShares: 1 },
+                (body) => api.createWorkspace(body, newClientId()),
+              )
+            : await api.createWorkspace({
+                name: trimmedName,
+                slug: trimmedSlug,
+                template,
+              });
           setCreated(workspace);
           setMe(await api.me());
           chrome.selectWorkspace(workspace.id);
@@ -174,6 +190,8 @@ export function OnboardingView() {
 
   const pageError = error ?? chrome.error;
   const selectedTemplate = templates.find((item) => item.id === template);
+  const groupTemplate =
+    template === "friends_family" || template === "household" ? template : null;
   const kindFilter =
     kindHint === "personal" ||
     kindHint === "group" ||
@@ -218,7 +236,10 @@ export function OnboardingView() {
   const offersExtendedKinds = visibleTemplates.some(
     (item) => item.spaceKind === "building" || item.spaceKind === "org",
   );
-  const onboardingSteps = [
+  const onboardingSteps =
+    titleKind === "group" || groupTemplate
+      ? ["نام گروه را بنویسید", "بعد از ساخت، شناسهٔ عمومی را برای دعوت بفرستید"]
+      : [
     offersExtendedKinds
       ? "نام و قالب فضا را انتخاب کنید (شخصی / گروه / ساختمان / سازمان)"
       : templates.length > 0
@@ -324,23 +345,35 @@ export function OnboardingView() {
             <GroupEmailVerificationNotice
               active={spaceKindForTemplate(template) === "group"}
             />
-            <form onSubmit={onCreate}>
+            <form noValidate onSubmit={onCreate}>
               <FormStack>
                 <TextField
-                  label="نام فضا"
+                  id="create-group-name"
+                  label={groupTemplate ? "نام گروه" : "نام فضا"}
                   value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="مثلاً گروه دوستان"
+                  onChange={(event) => {
+                    setNameError(null);
+                    setName(event.target.value);
+                  }}
+                  placeholder={groupTemplate ? "مثلاً سفر شمال" : "مثلاً گروه دوستان"}
+                  hint={groupTemplate ? "شناسهٔ عمومی بعد از ساخت نشان داده می‌شود" : undefined}
+                  error={nameError ?? undefined}
                   required
                 />
-                <TextField
-                  label="شناسه یکتا (slug)"
-                  value={slug}
-                  onChange={(event) => setSlug(event.target.value)}
-                  placeholder="friends-group"
-                  hint="فقط a-z، 0-9 و خط تیره"
-                  required
-                />
+                {groupTemplate ? null : (
+                  <TextField
+                    label="شناسه یکتا (slug)"
+                    value={slug}
+                    onChange={(event) => {
+                      setSlugError(null);
+                      setSlug(event.target.value);
+                    }}
+                    placeholder="friends-group"
+                    hint="فقط a-z، 0-9 و خط تیره"
+                    error={slugError ?? undefined}
+                    required
+                  />
+                )}
                 <SelectField
                   label="قالب"
                   value={template}
@@ -358,11 +391,16 @@ export function OnboardingView() {
                   </p>
                 ) : null}
                 <Button type="submit" disabled={pending}>
-                  {pending ? "در حال ساخت…" : "ایجاد فضای کاری"}
+                  {pending ? "در حال ساخت…" : groupTemplate ? "ساخت گروه" : "ایجاد فضای کاری"}
                 </Button>
               </FormStack>
             </form>
             {created ? (
+              groupTemplate ||
+              created.template === "friends_family" ||
+              created.template === "household" ? (
+                <GroupCreatedNext workspace={created} />
+              ) : (
               <div className="liveSuccess" style={{ marginTop: 12 }}>
                 <p style={{ margin: "0 0 8px" }}>
                   ساخته شد: {created.name} ({created.slug})
@@ -388,6 +426,7 @@ export function OnboardingView() {
                   <Link href="/home">همه فضاها</Link>
                 </div>
               </div>
+              )
             ) : null}
           </SectionCard>
 
