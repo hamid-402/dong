@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, Suspense, type ReactNode } from "react";
+import { useEffect, useMemo, Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ShellIconSvg } from "@/components/shell/shell-icons";
@@ -10,22 +10,16 @@ import { HeaderProfileButton } from "@/components/header-profile-button";
 import { ThemeToggleButton } from "@/components/theme-toggle";
 import { AppChromeProvider, useAppChrome } from "@/lib/use-app-chrome";
 import { SessionGate } from "@/components/session-gate";
-import { ShellV2Provider, useShellV2Api } from "@/components/shell/shell-v2-context";
+import { ShellLocationProvider, ShellV2Provider, useShellV2Api } from "@/components/shell/shell-v2-context";
+import { resolveShellLocation } from "@/components/shell/shell-location";
 import { AppTabbar } from "@/components/shell/app-tabbar";
-import type { BreadcrumbCrumb } from "@/components/shell/app-breadcrumb";
-import { ShellPageTrail } from "@/components/shell/shell-page-trail";
-import { ShellHeaderWayfinding } from "@/components/shell/shell-header-wayfinding";
+import { ShellTrail } from "@/components/shell/shell-trail";
 import { ShellHeaderSearchField } from "@/components/shell/shell-header-search";
+import { WorkspaceSwitcher } from "@/components/mosaic/workspace-switcher";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { ShellWorkspaceNavMenu } from "@/components/shell/shell-secondary-rail";
 import { DirIcon } from "@/components/dir-icon";
 import { bottomTabsV2 } from "@/lib/navigation-v2";
-import {
-  breadcrumbForPathname,
-  domainKeyForPathname,
-  insertDomainCrumb,
-  isShellPrimaryPath,
-} from "@/lib/shell-breadcrumb";
 import { wPath } from "@/lib/workspace-paths";
 import { slugFromPathname } from "@/lib/workspace-storage";
 import { useViewportMode } from "@/lib/use-viewport";
@@ -39,10 +33,12 @@ import { spaceNavFlagsFromCapabilities } from "@/lib/workspace-page-access";
 
 function ShellUtilityCluster({
   workspaceId,
+  slug,
   dense = false,
   hideSearch = false,
 }: {
   workspaceId?: string;
+  slug?: string | null;
   /** Hide secondary tools on narrow shell. */
   dense?: boolean;
   /** Search lives in the sub-header center — avoid duplicate control. */
@@ -76,12 +72,12 @@ function ShellUtilityCluster({
         <summary>ابزارهای دیگر</summary>
         <div className="shellOverflow__menu">
           <Link href="/orgs">سازمان‌ها</Link>
-          <Link href="/home?kind=building">ساختمان‌ها</Link>
+          <Link href="/spaces?kind=building">ساختمان‌ها</Link>
           <Link href="/spaces/reports?kind=building">گزارش ساختمان</Link>
-          <Link href="/workspaces/procurement">تدارکات</Link>
-          <Link href="/workspaces/assets">تجهیزات</Link>
-          <Link href="/proposals">پیشنهادها</Link>
-          <Link href="/workspaces/partnership">شرکا</Link>
+          <Link href={slug ? wPath(slug, "procurement") : "/workspaces/procurement"}>تدارکات</Link>
+          <Link href={slug ? wPath(slug, "assets") : "/workspaces/assets"}>تجهیزات</Link>
+          <Link href={slug ? wPath(slug, "proposals") : "/proposals"}>پیشنهادها</Link>
+          <Link href={slug ? wPath(slug, "partners") : "/workspaces/partnership"}>شرکا</Link>
         </div>
       </details>
     </div>
@@ -156,26 +152,23 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
   const fabHref = null;
   const desktop = viewport === "desktop";
   const tablet = viewport === "tablet";
-  const search = searchParams?.toString() ? `?${searchParams.toString()}` : "";
-  const primary = isShellPrimaryPath(pathname, search);
+  const search = searchParams?.toString() ?? "";
   const displayWsName = workspaceDisplayName(active?.name, template);
-  const crumbs = breadcrumbForPathname(pathname, displayWsName, search);
-  const subCrumbs =
-    crumbs.length > 0
-      ? crumbs
-      : [
-          {
-            label: displayWsName || slug || t("nav.back"),
-            href: slug ? wPath(slug) : "/home",
-          },
-          { label: t("nav.pageTrail") },
-        ];
-  const contextName = inWorkspace ? displayWsName : null;
-  const contextHref = inWorkspace && slug ? wPath(slug) : null;
+  const location = useMemo(
+    () =>
+      resolveShellLocation({
+        pathname,
+        search,
+        workspaceName: displayWsName,
+        template,
+      }),
+    [pathname, search, displayWsName, template],
+  );
+  const primary = location.primary;
   const spacesListHref =
     inWorkspace && template
-      ? `/home?kind=${spaceKindForTemplate(template)}`
-      : "/home";
+      ? `/spaces?kind=${spaceKindForTemplate(template)}`
+      : "/spaces";
   /** Membership leave / archive lives in settings danger zone — not home nav. */
   const leaveMembershipHref =
     inWorkspace && slug && template && template !== "personal"
@@ -190,16 +183,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
     if (slug) router.prefetch(wPath(slug, "more"));
   }, [tabHrefs, fabHref, slug, router]);
 
-  const kindQuery = searchParams?.get("kind");
-  const realmKind: SpaceKind | null =
-    inWorkspace && template
-      ? spaceKindForTemplate(template)
-      : kindQuery === "personal" ||
-          kindQuery === "group" ||
-          kindQuery === "building" ||
-          kindQuery === "org"
-        ? kindQuery
-        : null;
+  const realmKind: SpaceKind | null = location.spaceKind;
   const realmStyle = (() => {
     if (!inWorkspace || !active || !realmKind) return undefined;
     const ids = chrome.workspaces
@@ -207,24 +191,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
       .map((ws) => ws.id);
     return shellKindStyle(assignKindGems(realmKind, ids).get(active.id));
   })();
-  const fullTrail = (() => {
-    const base = insertDomainCrumb(
-      crumbs.length > 0
-        ? crumbs
-        : [{ label: displayWsName || slug || t("nav.back") }],
-      pathname,
-    );
-    if (!inWorkspace) return base;
-    const kindLabel = realmKind ? spaceTabLabel(realmKind) : null;
-    const roots: BreadcrumbCrumb[] = [
-      { label: t("nav.home"), href: "/home" },
-      ...(kindLabel && base[0]?.label !== kindLabel
-        ? [{ label: kindLabel, href: `/home?kind=${realmKind}` }]
-        : []),
-    ];
-    return [...roots, ...base];
-  })();
-  const domainTrigger = fullTrail.find((crumb) => crumb.group)?.label ?? "منو";
+  const domainTrigger = location.trail.find((crumb) => crumb.group)?.label ?? "منو";
   const showCatalog =
     Boolean(railFlags.catalogV1) && realmKind != null && realmKind !== "personal";
 
@@ -242,6 +209,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
   }
 
   return (
+    <ShellLocationProvider value={location}>
     <div className="app-viewport">
       <div className="ambient ambient--rich" aria-hidden="true" />
       <div
@@ -259,21 +227,22 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
                 role={membershipRole || null}
                 triggerLabel={domainTrigger}
                 leaveHref={template && template !== "personal" ? leaveMembershipHref : null}
-                activeDomain={domainKeyForPathname(pathname)}
+                activeDomain={location.activeDomain}
               />
               <Link href="/home" className="shell-v2__mark" aria-label={t("shell.homeMarkAria")}>
                 <ShellIconSvg name="wallet" />
               </Link>
               {realmKind ? (
                 <Link
-                  href={`/home?kind=${realmKind}`}
+                  href={`/spaces?kind=${realmKind}`}
                   className="shell-v2__kindChip"
                   data-kind={realmKind}
                 >
                   {spaceTabLabel(realmKind)}
                 </Link>
               ) : null}
-              <BrandWordmark workspaceName={contextName} workspaceHref={contextHref} />
+              <BrandWordmark />
+              <WorkspaceSwitcher compact={!desktop} />
               {showCatalog ? (
                 <Link href={wPath(slug, "catalog")} className="shell-v2__catalogLink">
                   {NAV_LABELS.catalog}
@@ -283,18 +252,14 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
                 <ShellHeaderSearchField variant={desktop ? "field" : "icon"} />
                 <ShellUtilityCluster
                   workspaceId={chrome.workspaceId ?? undefined}
+                  slug={slug}
                   dense={!desktop}
                   hideSearch
                 />
               </div>
             </div>
             <div className="shell-v2__place">
-              <ShellPageTrail
-                backOnly
-                items={fullTrail}
-                fallbackHref={wPath(slug)}
-              />
-              <ShellHeaderWayfinding crumbs={fullTrail} compact={viewport === "mobile"} />
+              <ShellTrail />
             </div>
           </header>
         ) : primary ? (
@@ -315,14 +280,16 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
                   <ShellIconSvg name="wallet" />
                 </Link>
               )}
-              <BrandWordmark
-                workspaceName={contextName}
-                workspaceHref={contextHref}
-              />
+              <BrandWordmark />
+              <WorkspaceSwitcher compact={!desktop} />
             </div>
 
             <div className="shell-v2__header-nav">
-              <Link href="/home?view=spaces" className="shell-v2__spacesTextLink">
+              <Link
+                href="/spaces"
+                className={`shell-v2__spacesTextLink${location.section === "spaces" ? " is-active" : ""}`}
+                aria-current={location.section === "spaces" ? "page" : undefined}
+              >
                 فضاها
               </Link>
             </div>
@@ -339,6 +306,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
               ) : null}
               <ShellUtilityCluster
                 workspaceId={chrome.workspaceId ?? undefined}
+                slug={slug}
                 dense={!desktop}
               />
             </div>
@@ -357,22 +325,10 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
               {inWorkspace ? (
                 <LeaveSpaceControl href={leaveMembershipHref} compact />
               ) : null}
-              <ShellPageTrail
-                backOnly
-                items={subCrumbs}
-                fallbackHref={slug ? wPath(slug) : "/home"}
-              />
+              <WorkspaceSwitcher compact />
+              <ShellTrail />
             </div>
             <div className="shell-v2__sub-center">
-              <ShellHeaderWayfinding
-                crumbs={subCrumbs}
-                compact={viewport === "mobile"}
-                root={
-                  inWorkspace
-                    ? { label: t("nav.home"), href: "/home" }
-                    : undefined
-                }
-              />
               <ShellHeaderSearchField
                 variant={viewport === "mobile" ? "icon" : "field"}
               />
@@ -389,6 +345,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
               ) : null}
               <ShellUtilityCluster
                 workspaceId={chrome.workspaceId ?? undefined}
+                slug={slug}
                 dense={!desktop}
                 hideSearch
               />
@@ -462,6 +419,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
       </div>
       <CommandPalette />
     </div>
+    </ShellLocationProvider>
   );
 }
 

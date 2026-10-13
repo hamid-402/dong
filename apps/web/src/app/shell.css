@@ -97,6 +97,7 @@
   align-items: center;
   gap: 2px 8px;
   min-width: 0;
+  min-height: 44px;
   max-width: min(280px, 58vw);
   width: max-content;
   padding: 6px 10px;
@@ -109,6 +110,14 @@
   font: inherit;
   box-shadow: 0 1px 0 color-mix(in srgb, var(--surface) 70%, transparent);
   transition: border-color 160ms var(--ease), background 160ms var(--ease);
+}
+
+.mosaic-ws-switch__trigger:focus-visible,
+.mosaic-ws-switch__option:focus-visible,
+.mosaic-ws-switch__pin:focus-visible,
+.mosaic-ws-switch__footer a:focus-visible{
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .mosaic-ws-switch__trigger:hover,
@@ -187,6 +196,7 @@
 .mosaic-ws-switch__searchInput{
   width: 100%;
   box-sizing: border-box;
+  min-height: 44px;
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -238,7 +248,9 @@
 }
 
 .mosaic-ws-switch__pin{
-  width: 36px;
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border: 0;
   border-radius: var(--m-r-sm, 8px);
   background: transparent;
@@ -300,6 +312,7 @@
   grid-template-columns: auto minmax(0, 1fr);
   gap: 2px 10px;
   align-items: center;
+  min-height: 44px;
   padding: 10px 12px;
   border: 0;
   border-radius: var(--m-r-sm, 8px);
@@ -313,6 +326,18 @@
 .mosaic-ws-switch__option:hover,
 .mosaic-ws-switch__option.is-active{
   background: var(--primary-soft);
+}
+
+.mosaic-ws-switch__option.is-active{
+  border-inline-start: 3px solid var(--primary);
+  font-weight: 750;
+}
+
+.shell-v2__brand .mosaic-ws-switch,
+.shell-v2__identity .mosaic-ws-switch,
+.shell-v2__sub-start .mosaic-ws-switch{
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .mosaic-ws-switch__swatch{
@@ -368,7 +393,9 @@
 }
 
 .mosaic-ws-switch__footer a{
-  display: block;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   padding: 10px 12px;
   color: var(--primary);
   text-decoration: none;
@@ -664,8 +691,10 @@ a.shell-v2__mark:focus-visible{
   background: transparent;
 }
 
-.shell-v2__spacesTextLink:hover{
+.shell-v2__spacesTextLink:hover,
+.shell-v2__spacesTextLink.is-active{
   color: var(--primary);
+  font-weight: 800;
   text-decoration-color: color-mix(in srgb, var(--primary) 55%, transparent);
 }
 
@@ -1421,7 +1450,7 @@ a.shell-navMenu__leaveLink:hover{
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 40px;
+  min-height: 44px;
   padding: 8px 10px;
   border-radius: 10px;
   color: var(--text);
@@ -1459,7 +1488,10 @@ a.shell-navMenu__leaveLink:hover{
 .shell-navMenu__item.is-active{
   background: color-mix(in srgb, var(--primary) 14%, var(--surface));
   border-color: color-mix(in srgb, var(--primary) 16%, transparent);
+  border-inline-start-color: var(--primary);
+  border-inline-start-width: 3px;
   color: var(--primary);
+  font-weight: 800;
 }
 
 .shell-navMenu__item.is-active svg{
@@ -1606,6 +1638,7 @@ a.shell-navMenu__leaveLink:hover{
 
 .shell-tabs__tab.is-active{
   color: var(--primary);
+  font-weight: 800;
 }
 
 .shell-tabs--dock{
@@ -2144,7 +2177,7 @@ a.shell-page-trail__back:visited,
   gap: 6px;
   flex-shrink: 0;
   max-width: min(16rem, 42vw);
-  min-height: 2.6rem;
+  min-height: 44px;
   padding: 0 0.85rem;
   border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
   border-radius: 0.7rem;
@@ -5595,7 +5628,7 @@ html[data-scheme="light"] .shell-tabs--dock .shell-tabs__tab.is-active{
 }
 
 .shell-tabs--dock .shell-tabs__tab.is-active{
-  background: transparent;
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
   border-color: transparent;
   box-shadow: none;
   color: var(--primary);

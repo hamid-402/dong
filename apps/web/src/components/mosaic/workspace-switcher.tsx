@@ -75,11 +75,6 @@ export function WorkspaceSwitcher({
   const router = useRouter();
   const pathname = usePathname();
   const inWorkspace = /^\/w\//.test(pathname);
-  const onAppHub =
-    pathname === "/home" ||
-    pathname.startsWith("/spaces") ||
-    pathname.startsWith("/account") ||
-    pathname.startsWith("/me");
 
   const active = workspaces.find((w) => w.id === workspaceId);
   const kind = spaceKindForTemplate(active?.template);
@@ -320,12 +315,14 @@ export function WorkspaceSwitcher({
     );
   }
 
-  const triggerTitle =
-    onAppHub && !inWorkspace ? "خانه" : workspaceName || "انتخاب نشده";
-  const triggerMeta =
-    onAppHub && !inWorkspace
-      ? `${workspaces.length.toLocaleString("fa-IR")} فضا · جستجو یا پین`
-      : `${kindLabel}${workspaces.length > 1 ? ` · ${workspaces.length.toLocaleString("fa-IR")} فضا` : ""}`;
+  const currentName = (inWorkspace ? workspaceName : active?.name || workspaceName) || "";
+  const triggerTitle = currentName || "فضاها";
+  const triggerMeta = active
+    ? `${kindLabel}${workspaces.length > 1 ? ` · ${workspaces.length.toLocaleString("fa-IR")} فضا` : ""}`
+    : "انتخاب فضا";
+  const triggerAria = active
+    ? `فضای جاری: ${triggerTitle}، ${kindLabel}`
+    : "انتخاب فضا";
 
   return (
     <div className="mosaic-ws-switch" ref={rootRef}>
@@ -336,11 +333,7 @@ export function WorkspaceSwitcher({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={listId}
-        aria-label={
-          onAppHub && !inWorkspace
-            ? "خانه — فهرست فضاها"
-            : `فضای کاری فعال: ${workspaceName || "انتخاب نشده"}`
-        }
+        aria-label={triggerAria}
         onClick={() => {
           openViaKeyboardRef.current = false;
           setOpen((v) => !v);
@@ -357,7 +350,7 @@ export function WorkspaceSwitcher({
         <strong>{triggerTitle}</strong>
         {!compact ? (
           <span className="mosaic-ws-switch__hint" aria-hidden>
-            {onAppHub && !inWorkspace ? "باز کردن فضا" : "تعویض فضا"}
+            تعویض فضا
           </span>
         ) : null}
         <span className="mosaic-ws-switch__chev" aria-hidden>
@@ -544,7 +537,7 @@ export function WorkspaceSwitcher({
               <Link href="/spaces/new" onClick={() => setOpen(false)}>
                 + فضای کاری جدید
               </Link>
-              <Link href="/home" onClick={() => setOpen(false)}>
+              <Link href="/spaces" onClick={() => setOpen(false)}>
                 همه فضاها
               </Link>
             </li>

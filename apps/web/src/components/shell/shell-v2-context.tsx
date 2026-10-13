@@ -10,6 +10,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
+import type { ShellLocation } from "@/components/shell/shell-location";
 
 type ShellV2ContextValue = {
   openCommandPalette: () => void;
@@ -22,6 +23,22 @@ type ShellV2ContextValue = {
 };
 
 const ShellV2Context = createContext<ShellV2ContextValue | null>(null);
+const ShellLocationContext = createContext<ShellLocation | null>(null);
+
+/** Shared “where am I?” value for header, trail, back, and tabs. */
+export function ShellLocationProvider({
+  value,
+  children,
+}: {
+  value: ShellLocation;
+  children: ReactNode;
+}) {
+  return <ShellLocationContext.Provider value={value}>{children}</ShellLocationContext.Provider>;
+}
+
+export function useShellLocation(): ShellLocation | null {
+  return useContext(ShellLocationContext);
+}
 
 /** Marks descendants as living inside the unified product shell (Phase 1). */
 export function ShellV2Provider({ children }: { children: ReactNode }) {

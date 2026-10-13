@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ShellIconSvg } from "@/components/app-shell";
+import { useShellLocation } from "@/components/shell/shell-v2-context";
 import { isNavHrefActive, type BottomTabV2 } from "@/lib/navigation-v2";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { t } from "@/lib/i18n";
@@ -18,7 +19,10 @@ export function AppTabbar({
 }) {
   const pathname = usePathname();
   const search = useSearchParams()?.toString() ?? "";
-  const activeIndex = tabs.findIndex((tab) => isNavHrefActive(pathname, tab.href, search));
+  const location = useShellLocation();
+  const tabIsActive = (tab: BottomTabV2) =>
+    location ? location.activeTab === tab.key : isNavHrefActive(pathname, tab.href, search);
+  const activeIndex = tabs.findIndex((tab) => tabIsActive(tab));
 
   if (variant === "header") {
     return (
@@ -54,7 +58,7 @@ export function AppTabbar({
       style={{ ["--tab-count" as string]: String(Math.max(slotCount, 1)) }}
     >
       {left.map((tab) => {
-        const active = isNavHrefActive(pathname, tab.href, search);
+        const active = tabIsActive(tab);
         return (
           <Link
             key={tab.key}
@@ -82,7 +86,7 @@ export function AppTabbar({
       ) : null}
 
       {right.map((tab) => {
-        const active = isNavHrefActive(pathname, tab.href, search);
+        const active = tabIsActive(tab);
         return (
           <Link
             key={tab.key}

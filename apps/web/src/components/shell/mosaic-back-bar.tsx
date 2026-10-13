@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useShellV2 } from "@/components/shell/shell-v2-context";
 
 /**
- * Mosaic drill-down chrome — back + breadcrumb (prompt MosaicBackBar).
+ * Drill-down back + crumbs. Inside the product shell the header trail is the
+ * single path, so this bar stays quiet and does not invent a second target.
  */
 export function MosaicBackBar({
   backHref,
@@ -14,6 +16,9 @@ export function MosaicBackBar({
   backLabel?: string;
   crumbs: Array<{ label: string; href?: string }>;
 }) {
+  const inShell = useShellV2();
+  if (inShell) return null;
+
   return (
     <div className="mosaicBackBar">
       <Link href={backHref} className="mosaicBackBar__back">

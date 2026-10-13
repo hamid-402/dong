@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { MembershipRole, WorkspaceTemplate } from "@dang/contracts";
 import { ShellIconSvg } from "@/components/shell/shell-icons";
+import { useShellLocation } from "@/components/shell/shell-v2-context";
 import { isNavHrefActive, spaceNav, spaceNavItemHint, type SpaceNavFlags } from "@/lib/navigation-v2";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { t } from "@/lib/i18n";
@@ -35,6 +36,10 @@ export function ShellWorkspaceNavMenu({
   activeDomain?: string | null;
 }) {
   const pathname = usePathname();
+  const location = useShellLocation();
+  const hrefActive = (href: string) =>
+    location ? location.isHrefActive(href) : isNavHrefActive(pathname, href);
+  const domain = location?.activeDomain ?? activeDomain ?? null;
   const panelId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -87,7 +92,8 @@ export function ShellWorkspaceNavMenu({
           <Link
             href={spaceHref}
             role="menuitem"
-            className={`shell-navMenu__item${isNavHrefActive(pathname, spaceHref) ? " is-active" : ""}`}
+            className={`shell-navMenu__item${hrefActive(spaceHref) ? " is-active" : ""}`}
+            aria-current={hrefActive(spaceHref) ? "page" : undefined}
             onClick={() => setOpen(false)}
           >
             <ShellIconSvg name="home" />
@@ -96,10 +102,10 @@ export function ShellWorkspaceNavMenu({
           {sections.map((section) => (
             <div
               key={section.key}
-              className={`shell-navMenu__section${section.key === activeDomain ? " is-current" : ""}`}
+              className={`shell-navMenu__section${section.key === domain ? " is-current" : ""}`}
               role="group"
               aria-label={section.label}
-              aria-current={section.key === activeDomain ? "true" : undefined}
+              aria-current={section.key === domain ? "true" : undefined}
             >
               <p className="shell-navMenu__sectionLabel">{section.label}</p>
               {section.items.map((item) => (
@@ -107,7 +113,8 @@ export function ShellWorkspaceNavMenu({
                   key={item.key}
                   href={item.href}
                   role="menuitem"
-                  className={`shell-navMenu__item${isNavHrefActive(pathname, item.href) ? " is-active" : ""}`}
+                  className={`shell-navMenu__item${hrefActive(item.href) ? " is-active" : ""}`}
+                  aria-current={hrefActive(item.href) ? "page" : undefined}
                   onClick={() => setOpen(false)}
                 >
                   <ShellIconSvg name={item.icon} />

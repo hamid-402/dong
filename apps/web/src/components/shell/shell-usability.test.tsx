@@ -63,7 +63,7 @@ describe("shell usability", () => {
 
   it("opens the workspace list with ArrowDown and focuses the selected workspace", async () => {
     render(<WorkspaceSwitcher />);
-    const trigger = screen.getByRole("button", { name: /فضای کاری.*خانه/ });
+    const trigger = screen.getByRole("button", { name: /فضای جاری: خانه/ });
 
     trigger.focus();
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
@@ -77,7 +77,7 @@ describe("shell usability", () => {
 
   it("closes the workspace list with Escape and restores trigger focus", async () => {
     render(<WorkspaceSwitcher />);
-    const trigger = screen.getByRole("button", { name: /فضای کاری.*خانه/ });
+    const trigger = screen.getByRole("button", { name: /فضای جاری: خانه/ });
     trigger.focus();
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
     await screen.findByRole("listbox", { name: "فضاهای کاری" });
