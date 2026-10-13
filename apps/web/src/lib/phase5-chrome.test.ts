@@ -13,9 +13,6 @@ function read(relative: string): string {
 const PRODUCT_CSS = [
   "../app/shell.css",
   "../app/globals.css",
-  "../app/phase3.css",
-  "../app/phase4.css",
-  "../app/phase5.css",
   "../components/shell/contextual-mosaic-hub.module.css",
 ];
 
@@ -39,7 +36,7 @@ describe("phase 5 chrome", () => {
   });
 
   it("keeps primary chrome at 44px and a visible focus outline", () => {
-    const css = read("../app/phase5.css");
+    const css = read("../app/shell.css");
     expect(css).toContain("min-height: 44px");
     expect(css).toContain("min-width: 44px");
     expect(css).toContain("outline: 3px solid var(--dang-focus, var(--primary))");

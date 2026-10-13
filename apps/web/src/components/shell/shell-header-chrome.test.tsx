@@ -61,7 +61,7 @@ describe("profile menu", () => {
 });
 
 describe("narrow header css", () => {
-  const css = readFileSync(resolve(here, "../../app/phase5.css"), "utf8");
+  const css = readFileSync(resolve(here, "../../app/shell.css"), "utf8");
 
   it("collapses search to a 44px control and keeps the bar on one row", () => {
     const narrow = css.slice(css.indexOf("@media (max-width: 480px)"));
