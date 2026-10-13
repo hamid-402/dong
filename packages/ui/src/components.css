@@ -599,6 +599,11 @@ textarea.dang-control {
   justify-content: flex-start;
 }
 
+.dang-prompt__form {
+  display: grid;
+  gap: var(--dang-space-4);
+}
+
 .dang-skeleton {
   display: block;
   height: 1rem;
