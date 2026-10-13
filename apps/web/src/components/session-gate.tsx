@@ -9,7 +9,6 @@ import {
   isExplicitDevAuthMode,
   markClientSession,
 } from "@/lib/api";
-import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { t } from "@/lib/i18n";
 
 /** Soft verify — don't block the shell for long when the API is cold. */
@@ -116,7 +115,8 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
   if (phase !== "ready") {
     return (
       <div className="app-viewport" style={{ padding: "1.25rem 1rem", width: "100%" }}>
-        <ContentSkeleton rows={4} label={t("sessionGate.checking")} />
+        {pathname === "/home" ? <h1>خانه</h1> : null}
+        <p role="status">{t("sessionGate.checking")}</p>
       </div>
     );
   }

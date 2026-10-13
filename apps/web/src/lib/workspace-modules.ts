@@ -1,5 +1,5 @@
 import type { WorkspaceTemplate } from "@dang/contracts";
-import { spaceKindForTemplate, workspaceTemplateCatalog } from "@dang/contracts";
+import { workspaceTemplateCatalog } from "@dang/contracts";
 import type { NavNode } from "@/lib/navigation-types";
 import { RAW_MENU_ITEMS } from "@/lib/app-navigation";
 import { hubPathFor } from "@/lib/hub-links";
@@ -82,24 +82,14 @@ export type HubTab = {
  */
 export function bottomTabsForTemplate(template: WorkspaceTemplate | undefined): HubTab[] {
   const allowed = navKeysForTemplate(template);
-  const kind = spaceKindForTemplate(template);
-
-  const spaceTab: HubTab =
-    kind === "org"
-      ? { key: "space", path: hubPathFor("/orgs"), label: "سازمان", icon: "box" }
-      : kind === "personal"
-        ? { key: "space", path: hubPathFor("/me"), label: "من", icon: "wallet" }
-        : { key: "space", path: hubPathFor("/group"), label: "گروه", icon: "partners" };
-
   const tabs: HubTab[] = [
     { key: "home", path: "/home", label: "خانه", icon: "home" },
-    spaceTab,
-    { key: "finance", path: "/me/finance", label: "خرج‌ها", icon: "wallet" },
-    { key: "more", path: "/account", label: "بیشتر", icon: "settings" },
+    { key: "spaces", path: "/home?view=spaces", label: "فضاها", icon: "partners" },
+    { key: "expenses", path: "/me/finance#txn", label: "خرج", icon: "wallet" },
+    { key: "account", path: "/account", label: "حساب", icon: "settings" },
   ];
-
   return tabs.filter((tab) => {
-    if (tab.key === "finance") return allowed.has("finance");
+    if (tab.key === "expenses") return allowed.has("finance");
     return true;
   });
 }

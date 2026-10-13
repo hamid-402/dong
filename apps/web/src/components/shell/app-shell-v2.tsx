@@ -12,7 +12,6 @@ import { AppChromeProvider, useAppChrome } from "@/lib/use-app-chrome";
 import { SessionGate } from "@/components/session-gate";
 import { ShellV2Provider, useShellV2Api } from "@/components/shell/shell-v2-context";
 import { AppTabbar } from "@/components/shell/app-tabbar";
-import { SpaceKindHeaderTabs } from "@/components/shell/space-kind-header-tabs";
 import type { BreadcrumbCrumb } from "@/components/shell/app-breadcrumb";
 import { ShellPageTrail } from "@/components/shell/shell-page-trail";
 import { ShellHeaderWayfinding } from "@/components/shell/shell-header-wayfinding";
@@ -20,7 +19,7 @@ import { ShellHeaderSearchField } from "@/components/shell/shell-header-search";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { ShellWorkspaceNavMenu } from "@/components/shell/shell-secondary-rail";
 import { DirIcon } from "@/components/dir-icon";
-import { bottomTabsV2, expenseFabHref } from "@/lib/navigation-v2";
+import { bottomTabsV2 } from "@/lib/navigation-v2";
 import {
   breadcrumbForPathname,
   domainKeyForPathname,
@@ -33,7 +32,7 @@ import { useViewportMode } from "@/lib/use-viewport";
 import { t } from "@/lib/i18n";
 import { NAV_LABELS, spaceTabLabel } from "@/lib/nav-labels";
 import { workspaceDisplayName } from "@/lib/workspace-display-name";
-import { spaceKindForTemplate, spaceKindOffered, isReadOnlyRole, type SpaceKind } from "@dang/contracts";
+import { spaceKindForTemplate, type SpaceKind } from "@dang/contracts";
 import { assignKindGems, shellKindStyle } from "@/lib/tile-gem-palettes";
 import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
 import { spaceNavFlagsFromCapabilities } from "@/lib/workspace-page-access";
@@ -73,6 +72,18 @@ function ShellUtilityCluster({
       <ApprovalQueueBadge workspaceId={workspaceId} />
       <NotificationBell workspaceId={workspaceId} />
       <HeaderProfileButton />
+      <details className="shellOverflow">
+        <summary>ابزارهای دیگر</summary>
+        <div className="shellOverflow__menu">
+          <Link href="/orgs">سازمان‌ها</Link>
+          <Link href="/home?kind=building">ساختمان‌ها</Link>
+          <Link href="/spaces/reports?kind=building">گزارش ساختمان</Link>
+          <Link href="/workspaces/procurement">تدارکات</Link>
+          <Link href="/workspaces/assets">تجهیزات</Link>
+          <Link href="/proposals">پیشنهادها</Link>
+          <Link href="/workspaces/partnership">شرکا</Link>
+        </div>
+      </details>
     </div>
   );
 }
@@ -142,9 +153,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
     inWorkspace ? chrome.workspaceId : "",
   );
   const tabs = bottomTabsV2(template, slug);
-  const fabHref = isReadOnlyRole(membershipRole)
-    ? null
-    : expenseFabHref(template, slug);
+  const fabHref = null;
   const desktop = viewport === "desktop";
   const tablet = viewport === "tablet";
   const search = searchParams?.toString() ? `?${searchParams.toString()}` : "";
@@ -174,15 +183,6 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
       : spacesListHref;
   const archived = Boolean(active?.archivedAt);
   const railFlags = spaceNavFlagsFromCapabilities(chrome.capabilities);
-  const productFlags = chrome.capabilities?.productFlags;
-  const offeredSpaceKinds = new Set<SpaceKind>(
-    (["personal", "group", "building", "org"] as const).filter((kind) =>
-      spaceKindOffered(kind, {
-        buildingSpaces: productFlags?.buildingSpaces === true,
-        orgSpaces: productFlags?.orgSpaces === true,
-      }),
-    ),
-  );
   const tabHrefs = tabs.map((tab) => tab.href).join("|");
   useEffect(() => {
     for (const tab of tabs) router.prefetch(tab.href);
@@ -321,25 +321,11 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
               />
             </div>
 
-            {desktop ? (
-              <div className="shell-v2__header-nav">
-                <SpaceKindHeaderTabs
-                  workspaces={chrome.workspaces}
-                  activeWorkspaceId={chrome.workspaceId}
-                  homeHref="/home"
-                  offeredKinds={offeredSpaceKinds}
-                />
-              </div>
-            ) : (
-              <div className="shell-v2__header-nav shell-v2__header-nav--mobileKinds">
-                <SpaceKindHeaderTabs
-                  workspaces={chrome.workspaces}
-                  activeWorkspaceId={chrome.workspaceId}
-                  homeHref="/home"
-                  offeredKinds={offeredSpaceKinds}
-                />
-              </div>
-            )}
+            <div className="shell-v2__header-nav">
+              <Link href="/home?view=spaces" className="shell-v2__spacesTextLink">
+                فضاها
+              </Link>
+            </div>
 
             <div className="shell-v2__header-end">
               {inWorkspace && desktop ? (
@@ -468,11 +454,11 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
           </main>
         </div>
 
-        {!desktop ? (
-          <div className={`shell-v2__dock${tablet ? " shell-v2__dock--tablet" : ""}`}>
-            <AppTabbar tabs={tabs} fabHref={fabHref} variant="dock" />
-          </div>
-        ) : null}
+        <div
+          className={`shell-v2__dock${tablet ? " shell-v2__dock--tablet" : ""}${desktop ? " shell-v2__dock--desktop" : ""}`}
+        >
+          <AppTabbar tabs={tabs} fabHref={fabHref} variant="dock" />
+        </div>
       </div>
       <CommandPalette />
     </div>

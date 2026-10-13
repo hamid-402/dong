@@ -44,6 +44,13 @@ describe("middleware session gate", () => {
     expect(res.headers.get("location")).toBeNull();
   });
 
+  it("sends a guest from /home to login without rendering the app", () => {
+    const res = run("/home");
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/login");
+    expect(res.headers.get("location")).toContain("next=%2Fhome");
+  });
+
   it("protects classic /group and /daily-ledger without session", () => {
     for (const path of ["/group", "/daily-ledger", "/proposals", "/onboarding", "/overview"]) {
       const res = run(path);

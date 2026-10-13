@@ -8,18 +8,14 @@ import { useAppChrome } from "@/lib/use-app-chrome";
 import { workspaceTemplateLabel } from "@/lib/status-labels";
 import { wPath } from "@/lib/workspace-paths";
 import { NAV_LABELS } from "@/lib/nav-labels";
+import { EmptyState } from "@dang/ui";
 import {
-  PageHeader,
   SectionCard,
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
-import { ContentSkeleton } from "@/components/shell/content-skeleton";
-import { SpacesBalanceOverview } from "@/components/shell/spaces-balance-overview";
 import { KindAggregatePanel } from "@/components/shell/kind-aggregate-panel";
-import { MotionSceneStrip } from "@/components/visual/motion-scene";
 import { KindMoodBadge } from "@/components/visual/kind-mood-badge";
-import { ContextualMosaicHub } from "@/components/shell/contextual-mosaic-hub";
 import { t } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import {
@@ -37,17 +33,8 @@ import { DIRECTORY_KIND_VISIBLE_CAP } from "@/lib/workspace-directory-model";
 import { fuzzyScore } from "@/lib/fuzzy-score";
 import { netFromIrrMinor, type SpaceNetRow } from "@/lib/space-net-balance";
 import { useDisplayUnit } from "@/lib/display-unit";
-import { kindDomainMosaicItems } from "@/lib/kind-hub-ops";
-import { assignKindGems, gemCssVars } from "@/lib/tile-gem-palettes";
 
 const KIND_ORDER = ["personal", "group", "building", "org"] as const;
-
-const KIND_GEM = {
-  personal: "indigo",
-  group: "teal",
-  building: "amber",
-  org: "violet",
-} as const;
 
 const KIND_LABEL = {
   personal: "شخصی",
@@ -165,25 +152,6 @@ export function SpacesHubView() {
     return buckets;
   }, [chrome.workspaces, query, kindFilter]);
 
-  const spaceGemById = useMemo(() => {
-    const idsByKind: Record<(typeof KIND_ORDER)[number], string[]> = {
-      personal: [],
-      group: [],
-      building: [],
-      org: [],
-    };
-    for (const ws of chrome.workspaces) {
-      idsByKind[spaceKindForTemplate(ws.template)].push(ws.id);
-    }
-    const map = new Map<string, string>();
-    for (const kind of KIND_ORDER) {
-      for (const [id, gem] of assignKindGems(kind, idsByKind[kind])) {
-        map.set(id, gem);
-      }
-    }
-    return map;
-  }, [chrome.workspaces]);
-
   const totals = useMemo(() => {
     const counts = { personal: 0, group: 0, building: 0, org: 0, all: chrome.workspaces.length };
     for (const ws of chrome.workspaces) {
@@ -191,36 +159,6 @@ export function SpacesHubView() {
     }
     return counts;
   }, [chrome.workspaces]);
-
-  const kindDomainSections = useMemo(
-    () => [
-      {
-        key: "life-domains",
-        label: "حوزه‌ها",
-        description: "برای گزارش تجمیعی و فهرست فضاها، یک حوزه را باز کنید",
-        items: kindDomainMosaicItems(
-          {
-            personal: totals.personal,
-            group: totals.group,
-            building: totals.building,
-            org: totals.org,
-          },
-          (kind) =>
-            spaceKindOffered(kind, {
-              buildingSpaces: productFlags?.buildingSpaces === true,
-              orgSpaces: productFlags?.orgSpaces === true,
-            }),
-        ),
-      },
-    ],
-    [totals, productFlags],
-  );
-
-  const visibleCount =
-    grouped.personal.length +
-    grouped.group.length +
-    grouped.building.length +
-    grouped.org.length;
 
   const readyRows = useMemo(() => {
     const rows: SpaceNetRow[] = [];
@@ -324,123 +262,92 @@ export function SpacesHubView() {
     };
   }, [chrome.ready, chrome.workspaces, displayUnit]);
 
+  const activeWs =
+    chrome.workspaces.find((w) => w.id === chrome.workspaceId) ??
+    chrome.workspaces.find((w) => spaceKindForTemplate(w.template) === "personal") ??
+    chrome.workspaces[0];
+  const expenseHref = activeWs ? wPath(activeWs.slug, "record") : "/me/finance#txn";
+  const settleHref = activeWs ? wPath(activeWs.slug, "settlements") : "/home?view=spaces";
+  const balancePool =
+    kindFilter === "all"
+      ? readyRows.filter((row) => row.spaceKind === "personal" || row.spaceKind === "group")
+      : readyRows.filter((row) => row.spaceKind === kindFilter);
+  const balanceRow = balancePool[0] ?? null;
+  const listKinds = KIND_ORDER.filter((kind) => {
+    if (kindFilter === "all") return kind === "personal" || kind === "group";
+    return kind === kindFilter;
+  });
+  const shownCount = listKinds.reduce((sum, kind) => sum + grouped[kind].length, 0);
+
+  useEffect(() => {
+    if (searchParams.get("view") !== "spaces") return;
+    document.getElementById("spaces")?.scrollIntoView({ block: "start" });
+  }, [searchParams]);
+
   return (
-    <div className="spaces-hubPage appHomeMosaic">
-      <div className="spaces-hubPage__chrome">
-        <PageHeader
-          eyebrow="دنگ"
-          title={NAV_LABELS.home}
-          description="جمع‌مانده زنده و فهرست فضاها — ثبت پول و تسویه داخل هر فضا."
-          actions={
-            <>
-              <Link className="textButton" href="/join">
-                پیوستن با شناسه
-              </Link>
-              <Link className="shell-v2__cta" href="/spaces/new">
-                {NAV_LABELS.createSpace}
-              </Link>
-            </>
-          }
-        />
-      </div>
-
-      {!chrome.ready ? (
-        <ContentSkeleton rows={3} label="در حال بارگذاری خانه…" />
-      ) : chrome.workspaces.length === 0 ? (
-        <div className="spaces-hub">
-          {readyHint ? (
-            <StatusLine>
-              <StatusPill tone="ok">زیرساخت</StatusPill> {readyHint}
-            </StatusLine>
-          ) : null}
-          <div className="spaces-hub__primary">
-            <ContextualMosaicHub
-              sections={kindDomainSections}
-              title="انتخاب حوزه"
-              description="هنوز فضایی ندارید — حوزه را برای ساخت باز کنید."
-              compact={false}
-              headingId="home-empty-kinds"
-            />
-          </div>
-          <SectionCard title="هنوز فضایی ندارید">
-            <p>
-              {kindOffered("org")
-                ? "برای شروع یک فضای شخصی، گروهی یا سازمانی بسازید."
-                : "برای شروع یک فضای شخصی یا گروهی بسازید."}
+    <div className="spaces-hubPage">
+      <section className="homeDay" aria-labelledby="home-day-title">
+        <h1 id="home-day-title">خانه</h1>
+        {!chrome.ready ? (
+          <p role="status">در حال بارگذاری خانه…</p>
+        ) : chrome.workspaces.length === 0 ? (
+          <EmptyState
+            title="هنوز مانده‌ای نیست"
+            description="با ثبت خرج یا ساخت گروه، مانده اینجا می‌آید."
+          />
+        ) : (
+          <div className="homeBalance">
+            <p className="homeBalance__label">مانده</p>
+            <p className="homeBalance__amount">
+              {netsLoading && !balanceRow
+                ? "…"
+                : (balanceRow?.net.label ?? "هنوز مانده‌ای نیست")}
             </p>
-            <div className="dataRowActions">
-              <Link className="shell-v2__cta" href="/spaces/new">
-                {NAV_LABELS.createSpace}
-              </Link>
-              <Link href="/spaces/new?kind=group" className="textButton">
-                گروه
-              </Link>
-              {kindOffered("building") ? (
-                <Link href="/spaces/new?kind=building" className="textButton">
-                  ساختمان
-                </Link>
-              ) : null}
-              {kindOffered("org") ? (
-                <Link href="/spaces/new?kind=org" className="textButton">
-                  سازمان
-                </Link>
-              ) : null}
-              <Link href="/spaces/new?kind=personal" className="textButton">
-                شخصی
-              </Link>
-            </div>
-          </SectionCard>
-          <MotionSceneStrip kind="home" prominence="compact" />
+            {balanceRow ? <p className="homeBalance__meta">{balanceRow.name}</p> : null}
+          </div>
+        )}
+        <div className="homeDay__actions">
+          <Link className="dang-btn dang-btn--primary dang-btn--md" href={expenseHref}>
+            خرج
+          </Link>
+          <Link className="dang-btn dang-btn--secondary dang-btn--md" href={settleHref}>
+            تسویه
+          </Link>
+          <Link className="dang-btn dang-btn--secondary dang-btn--md" href="/spaces/new?kind=group">
+            گروه
+          </Link>
         </div>
-      ) : (
-        <div className="spaces-hub">
-          {readyHint ? (
+        <p className="homeDay__quiet">
+          <Link href="/join">پیوستن با شناسه</Link>
+          <Link href="/spaces/new?kind=personal">دفتر شخصی</Link>
+          <Link href="/me/finance">{NAV_LABELS.personalFinance}</Link>
+        </p>
+        {readyHint && chrome.ready ? (
+          <StatusLine>
+            <StatusPill tone="ok">زیرساخت</StatusPill> {readyHint}
+          </StatusLine>
+        ) : null}
+      </section>
+
+      {!chrome.ready ? null : (
+        <div className="spaces-hub" id="spaces">
+          {kindFilter === "building" || kindFilter === "org" ? (
             <StatusLine>
-              <StatusPill tone="ok">زیرساخت</StatusPill> {readyHint}
+              {KIND_LABEL[kindFilter]}
+              {" · "}
+              <button type="button" className="textButton" onClick={() => setKindFilter("all")}>
+                بازگشت به خانه
+              </button>
             </StatusLine>
           ) : null}
-
-          <div className="spaces-hub__primary">
-            <SpacesBalanceOverview
-              rows={readyRows}
-              loading={netsLoading}
-              onlyKind={kindFilter === "all" ? null : kindFilter}
+          {kindFilter !== "all" && kindFilter !== "building" && kindFilter !== "org" ? (
+            <KindAggregatePanel
+              kind={kindFilter}
+              spaces={kindSpaces}
+              rows={kindRows}
+              chartsAvailable={chartsAvailable}
             />
-          </div>
-
-          <div className="spaces-hub__secondary">
-            {kindFilter === "all" ? (
-              <ContextualMosaicHub
-                sections={kindDomainSections}
-                title="حوزه‌ها"
-                description="برای صورتحساب و نمودار تجمیعی، یک حوزه را باز کنید — عملیات روزمره داخل هر فضاست."
-                compact={false}
-                weight="secondary"
-                headingId="home-all-kinds"
-              />
-            ) : (
-              <KindAggregatePanel
-                kind={kindFilter}
-                spaces={kindSpaces}
-                rows={kindRows}
-                chartsAvailable={chartsAvailable}
-              />
-            )}
-            <MotionSceneStrip
-              kind={
-                kindFilter === "personal"
-                  ? "personal"
-                  : kindFilter === "group"
-                    ? "partners"
-                    : kindFilter === "building"
-                      ? "building"
-                      : kindFilter === "org"
-                        ? "security"
-                        : "home"
-              }
-              prominence="compact"
-            />
-          </div>
+          ) : null}
 
           <div className="spaces-hub__list">
             <div className="spaces-hub__toolbar">
@@ -457,12 +364,10 @@ export function SpacesHubView() {
             <div className="spaces-hub__filters" role="tablist" aria-label="نوع فضا">
               {(
                 [
-                  { key: "all" as const, label: "همه", count: totals.all },
+                  { key: "all" as const, label: "همه", count: totals.personal + totals.group },
                   { key: "personal" as const, label: KIND_LABEL.personal, count: totals.personal },
                   { key: "group" as const, label: KIND_LABEL.group, count: totals.group },
-                  { key: "building" as const, label: KIND_LABEL.building, count: totals.building },
-                  { key: "org" as const, label: KIND_LABEL.org, count: totals.org },
-                ].filter((chip) => chip.key === "all" || kindOffered(chip.key))
+                ]
               ).map((chip) => (
                 <button
                   key={chip.key}
@@ -483,9 +388,9 @@ export function SpacesHubView() {
           </div>
 
           <StatusLine>
-            {visibleCount === 0
+            {shownCount === 0
               ? t("shell.spacesHubEmptyFilter")
-              : `${t("shell.spacesHubHint", { count: visibleCount })} · از کاشی وارد فضا شوید`}
+              : `${t("shell.spacesHubHint", { count: shownCount })}`}
           </StatusLine>
 
           {pinnedSpaces.length > 0 || recentSpaces.length > 0 ? (
@@ -528,7 +433,7 @@ export function SpacesHubView() {
           ) : null}
 
           <div id="home-hub-results" role="tabpanel" aria-live="polite">
-            {visibleCount === 0 ? (
+            {shownCount === 0 ? (
               <SectionCard
                 title={
                   kindFilter === "all"
@@ -563,7 +468,7 @@ export function SpacesHubView() {
                 </div>
               </SectionCard>
             ) : (
-              KIND_ORDER.map((kind) => {
+              listKinds.map((kind) => {
                 const list = grouped[kind];
                 if (list.length === 0) return null;
                 const dense =
@@ -590,7 +495,7 @@ export function SpacesHubView() {
                         {KIND_HINT[kind]} — عملیات مالی داخل هر فضا
                       </p>
                     </header>
-                    <ul className={`spaces-mosaic${dense ? " spaces-mosaic--dense" : ""}`}>
+                    <ul className="homeSpaceList">
                       {visible.map((ws) => {
                         const active = ws.id === chrome.workspaceId;
                         const cell = nets[ws.id];
@@ -611,8 +516,7 @@ export function SpacesHubView() {
                         return (
                           <li
                             key={ws.id}
-                            className={`dang-gem dang-gem--panel spaces-mosaic__tile${active ? " is-active" : ""}`}
-                            style={gemCssVars(spaceGemById.get(ws.id) ?? KIND_GEM[kind])}
+                            className={`homeSpaceCard${active ? " is-active" : ""}`}
                           >
                             <Link
                               href={wPath(ws.slug, "space")}
@@ -731,14 +635,6 @@ export function SpacesHubView() {
             </Link>
             <StatusLine>
               <Link href="/spaces/reports?kind=group">گزارش گروهی</Link>
-              {kindOffered("building") ? (
-                <>
-                  {" · "}
-                  <Link href="/spaces/reports?kind=building">گزارش ساختمان</Link>
-                </>
-              ) : null}
-              {" · "}
-              <Link href="/me/finance">{NAV_LABELS.personalFinance}</Link>
             </StatusLine>
           </div>
           </div>

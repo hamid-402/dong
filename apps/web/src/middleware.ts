@@ -30,6 +30,7 @@ const PROTECTED_PREFIXES = [
   "/whats-new",
   "/overview",
   "/admin",
+  "/home",
 ];
 
 /** Classic entries that map without a workspace slug (middleware can rewrite). */
@@ -109,5 +110,7 @@ export const config = {
     "/overview/:path*",
     "/admin",
     "/admin/:path*",
+    "/home",
+    "/home/:path*",
   ],
 };

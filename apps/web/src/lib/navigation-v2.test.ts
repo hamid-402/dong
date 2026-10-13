@@ -23,17 +23,24 @@ import {
 } from "@/lib/workspace-paths";
 
 describe("navigation-v2", () => {
-  it("keeps a single primary home tab", () => {
+  it("dock has four distinct destinations and skips org and building", () => {
     const group = bottomTabsV2("friends_family", "demo");
-    expect(group.map((t) => t.key)).toEqual(["home"]);
-    expect(group.map((t) => t.label)).toEqual([NAV_LABELS.home]);
+    expect(group.map((t) => t.key)).toEqual(["home", "spaces", "expenses", "more"]);
+    expect(group.map((t) => t.label)).toEqual([NAV_LABELS.home, "فضاها", "خرج", NAV_LABELS.account]);
+    const hrefs = group.map((t) => t.href);
+    expect(new Set(hrefs).size).toBe(4);
+    expect(hrefs.join(" ")).not.toMatch(/org|building|procurement/);
     expect(group.find((t) => t.key === "home")?.href).toBe("/home");
+    expect(group.find((t) => t.key === "spaces")?.href).toBe("/home?view=spaces");
+    expect(group.find((t) => t.key === "expenses")?.href).toBe("/w/demo/record");
+    expect(group.find((t) => t.key === "more")?.href).toBe("/account");
   });
 
   it("keeps app home at /home even when a workspace slug is known", () => {
     const tabs = bottomTabsV2("personal", "my-space");
     expect(tabs.find((t) => t.key === "home")?.href).toBe("/home");
-    expect(tabs).toHaveLength(1);
+    expect(tabs).toHaveLength(4);
+    expect(new Set(tabs.map((t) => t.href)).size).toBe(4);
     expect(expenseFabHref("personal", "my-space")).toBe("/w/my-space/record");
   });
 
@@ -488,6 +495,10 @@ describe("navigation-v2", () => {
     expect(isNavHrefActive("/w/demo", "/w/demo")).toBe(true);
     expect(isNavHrefActive("/w/demo/expenses", "/w/demo")).toBe(false);
     expect(isNavHrefActive("/account/security", "/account")).toBe(true);
+    expect(isNavHrefActive("/home", "/home", "")).toBe(true);
+    expect(isNavHrefActive("/home", "/home?view=spaces", "")).toBe(false);
+    expect(isNavHrefActive("/home", "/home?view=spaces", "view=spaces")).toBe(true);
+    expect(isNavHrefActive("/home", "/home", "view=spaces")).toBe(false);
   });
 });
 

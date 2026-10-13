@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ShellIconSvg } from "@/components/app-shell";
 import { isNavHrefActive, type BottomTabV2 } from "@/lib/navigation-v2";
 import { NAV_LABELS } from "@/lib/nav-labels";
@@ -17,7 +17,8 @@ export function AppTabbar({
   variant: "dock" | "header";
 }) {
   const pathname = usePathname();
-  const activeIndex = tabs.findIndex((tab) => isNavHrefActive(pathname, tab.href));
+  const search = useSearchParams()?.toString() ?? "";
+  const activeIndex = tabs.findIndex((tab) => isNavHrefActive(pathname, tab.href, search));
 
   if (variant === "header") {
     return (
@@ -53,7 +54,7 @@ export function AppTabbar({
       style={{ ["--tab-count" as string]: String(Math.max(slotCount, 1)) }}
     >
       {left.map((tab) => {
-        const active = isNavHrefActive(pathname, tab.href);
+        const active = isNavHrefActive(pathname, tab.href, search);
         return (
           <Link
             key={tab.key}
@@ -81,7 +82,7 @@ export function AppTabbar({
       ) : null}
 
       {right.map((tab) => {
-        const active = isNavHrefActive(pathname, tab.href);
+        const active = isNavHrefActive(pathname, tab.href, search);
         return (
           <Link
             key={tab.key}

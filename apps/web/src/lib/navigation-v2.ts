@@ -1215,19 +1215,34 @@ export function contextualAccountNav(
   ];
 }
 
-/** Mobile/desktop primary tabs — unified home hub; expense via FAB. */
+/**
+ * Dock: four different destinations. Org and building stay off this row.
+ * Expense recording uses the workspace record route when a slug is known.
+ */
 export function bottomTabsV2(
   template: WorkspaceTemplate | undefined,
   slug: string | null = null,
 ): BottomTabV2[] {
-  void template;
-  void slug;
+  const expenseHref = expenseFabHref(template, slug) ?? "/me/finance#txn";
   return [
+    { key: "home", label: NAV_LABELS.home, href: "/home", icon: "home" },
     {
-      key: "home",
-      label: NAV_LABELS.home,
-      href: "/home",
-      icon: "home",
+      key: "spaces",
+      label: "فضاها",
+      href: "/home?view=spaces",
+      icon: "partners",
+    },
+    {
+      key: "expenses",
+      label: "خرج",
+      href: expenseHref,
+      icon: "wallet",
+    },
+    {
+      key: "more",
+      label: NAV_LABELS.account,
+      href: "/account",
+      icon: "settings",
     },
   ] satisfies BottomTabV2[];
 }
@@ -1241,10 +1256,16 @@ export function expenseFabHref(
   return `${scoped(slug, "record", hubPathFor("/workspaces"))}`;
 }
 
-export function isNavHrefActive(pathname: string, href: string): boolean {
-  const base = href.split("#")[0] ?? href;
+export function isNavHrefActive(pathname: string, href: string, search = ""): boolean {
+  const beforeHash = href.split("#")[0] ?? href;
+  const url = new URL(beforeHash, "http://dang.local");
+  const base = url.pathname;
   if (base === "/home" || base === "/hub") {
-    return pathname === "/home" || pathname === "/hub" || pathname === "/";
+    const onHome = pathname === "/home" || pathname === "/hub" || pathname === "/";
+    if (!onHome) return false;
+    const wantSpaces = url.searchParams.get("view") === "spaces";
+    const onSpaces = new URLSearchParams(search).get("view") === "spaces";
+    return wantSpaces ? onSpaces : !onSpaces;
   }
   if (/^\/w\/[^/]+$/.test(base)) {
     return pathname === base || pathname === `${base}/`;
