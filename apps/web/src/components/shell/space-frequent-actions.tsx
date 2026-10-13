@@ -34,6 +34,7 @@ export function SpaceFrequentActions({
   approvalsHref,
   showApprovals = false,
   approvalCount,
+  includeDailyLedger = true,
 }: {
   slug: string;
   openSettlements?: number;
@@ -50,6 +51,8 @@ export function SpaceFrequentActions({
   approvalsHref?: string;
   showApprovals?: boolean;
   approvalCount?: number;
+  /** Friend-group home keeps the daily ledger under ابزارها, not this strip. */
+  includeDailyLedger?: boolean;
 }) {
   const viewport = useViewportMode();
   const mobile = viewport !== "desktop";
@@ -73,12 +76,14 @@ export function SpaceFrequentActions({
       hint: "تقسیم و جزئیات",
       primary: !showApprovals,
     });
-    items.push({
-      key: "daily",
-      href: wPath(slug, "ledger"),
-      label: NAV_LABELS.dailyEntry,
-      hint: "تیک روز×عضو",
-    });
+    if (includeDailyLedger) {
+      items.push({
+        key: "daily",
+        href: wPath(slug, "ledger"),
+        label: NAV_LABELS.dailyEntry,
+        hint: "تیک روز×عضو",
+      });
+    }
   }
   items.push({
     key: "expenses-hub",

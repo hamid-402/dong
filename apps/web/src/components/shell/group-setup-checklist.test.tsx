@@ -45,4 +45,18 @@ describe("GroupSetupChecklist", () => {
     }
     expect(screen.getByText(/منتظر دعوت از مدیر فضا/)).toBeTruthy();
   });
+
+  it("hides the checklist once every step is done", () => {
+    const { container } = render(
+      <GroupSetupChecklist
+        slug="demo"
+        memberCount={2}
+        financeManagerCount={1}
+        postedCount={1}
+        canManageMembers
+        canAddExpense
+      />,
+    );
+    expect(container.textContent).toBe("");
+  });
 });

@@ -61,7 +61,7 @@ export function GroupBalanceHero({
   const open = openSettlements ?? 0;
   const absDisplay = formatMoneyFromIrrMinor(Math.abs(mine.irrMinor), unit);
   const expensesBase = expenseHref.split("#")[0] ?? expenseHref;
-  const writeHref = recordHref ?? expenseHref;
+  void recordHref;
 
   return (
     <section className="groupBalanceHero" aria-labelledby="group-balance-hero-title">
@@ -88,34 +88,23 @@ export function GroupBalanceHero({
             {open.toLocaleString("fa-IR")} تسویه باز در این فضا
           </p>
         ) : null}
-        <div className="groupBalanceHero__actions">
+        <p className="groupBalanceHero__hint">
           {mine.tone !== "settled" || open > 0 ? (
-            <Link href={settleHref} className="shell-v2__cta">
-              {canMutate
-                ? mine.tone === "debt"
-                  ? "شروع تسویه"
-                  : "مدیریت تسویه"
-                : "مشاهدهٔ تسویه"}
-            </Link>
+            <Link href={settleHref}>تسویه</Link>
           ) : null}
-          {canMutate ? (
-            <Link href={writeHref} className="authLayout__headerBtn">
-              {NAV_LABELS.addExpense}
-            </Link>
-          ) : (
-            <Link href={expensesBase} className="authLayout__headerBtn">
-              مشاهدهٔ {NAV_LABELS.expenses}
-            </Link>
-          )}
-          {canMutate &&
-          simplifyAvailable &&
-          simplifyHref &&
-          mine.tone !== "settled" ? (
-            <Link href={simplifyHref} className="siteHero__textLink">
-              تسویهٔ کمینه
-            </Link>
+          {canMutate && simplifyAvailable && simplifyHref && mine.tone !== "settled" ? (
+            <>
+              {" · "}
+              <Link href={simplifyHref}>تسویهٔ کمینه</Link>
+            </>
           ) : null}
-        </div>
+          {!canMutate ? (
+            <>
+              {" · "}
+              <Link href={expensesBase}>مشاهدهٔ {NAV_LABELS.expenses}</Link>
+            </>
+          ) : null}
+        </p>
       </div>
 
       <div className="groupBalanceHero__side">
@@ -144,9 +133,9 @@ export function GroupBalanceHero({
 
         {recentExpenses.length > 0 ? (
           <div className="groupBalanceHero__activity">
-            <p className="groupBalanceHero__activityTitle">آخرین خرج‌ها</p>
+            <p className="groupBalanceHero__activityTitle">آخرین خرج</p>
             <ul>
-              {recentExpenses.slice(0, 3).map((e) => {
+              {recentExpenses.slice(0, 1).map((e) => {
                 const minor =
                   e.irrMinor != null
                     ? e.irrMinor

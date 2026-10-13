@@ -45,7 +45,6 @@ import { GroupSetupChecklist } from "@/components/shell/group-setup-checklist";
 import { SpaceFrequentActions } from "@/components/shell/space-frequent-actions";
 import {
   buildPersonaHomeHrefs,
-  PersonaHomeFrameActions,
   PersonaHomeRelatedLinks,
 } from "@/components/shell/persona-home-actions";
 
@@ -93,7 +92,6 @@ export function FriendsGroupView() {
   const statementsLive =
     chrome.capabilities?.providers?.statements === "csv_json_print_v1";
   const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
-  const overviewHref = slug ? wPath(slug) : "/home";
   const myRole = members.find((m) => m.userId === actorUserId)?.role;
   const readOnlySpace = isReadOnlyRole(myRole);
   const homeSpec = personaHomeSpec(myRole, "group", {
@@ -101,14 +99,6 @@ export function FriendsGroupView() {
     statementsLive,
   });
   const hrefs = slug ? buildPersonaHomeHrefs(slug) : null;
-  const frameActions =
-    homeSpec && hrefs
-      ? PersonaHomeFrameActions({
-          spec: homeSpec,
-          hrefs,
-          spaceKind: "group",
-        })
-      : null;
   const addonsLive = Boolean(chrome.capabilities?.productFlags?.addonAck);
   const allowanceLive = Boolean(chrome.capabilities?.productFlags?.allowance);
   async function refresh(workspaceId: string) {
@@ -245,6 +235,16 @@ export function FriendsGroupView() {
 
   const pageError = error ?? chrome.error;
   const postedCount = expenses.filter((e) => e.status === "posted").length;
+  const financeManagerCount = members.filter(
+    (m) => !m.disabledAt && isFinanceManagerRole(m.role),
+  ).length;
+  const setupComplete =
+    !loading &&
+    Boolean(slug) &&
+    financeManagerCount >= 1 &&
+    members.length >= 2 &&
+    postedCount > 0;
+  const canAdd = homeSpec ? homeSpec.canAddExpense : !readOnlySpace;
 
   return (
     <AppShell
@@ -267,23 +267,13 @@ export function FriendsGroupView() {
           "وضعیت پول و اقدام‌های پرتکرار این گروه — ماژول‌های کامل از نوار کناری یا مرکز فضای کاری."
         }
         primaryAction={
-          frameActions?.primaryAction ??
-          (slug && !readOnlySpace ? (
-            <Link href={wPath(slug, "record")}>{NAV_LABELS.addExpense}</Link>
-          ) : slug ? (
-            <Link href={overviewHref}>مرکز فضای کاری</Link>
-          ) : (
+          setupComplete && slug && canAdd ? (
+            <Link className="dang-btn dang-btn--primary dang-btn--md" href={wPath(slug, "record")}>
+              خرج
+            </Link>
+          ) : !slug ? (
             <Link href="/home">{NAV_LABELS.home}</Link>
-          ))
-        }
-        secondaryActions={
-          frameActions?.secondaryActions ??
-          (slug ? (
-            <>
-              <Link href={expensesHref}>{NAV_LABELS.expenses}</Link>
-              <Link href={overviewHref}>مرکز فضای کاری</Link>
-            </>
-          ) : undefined)
+          ) : undefined
         }
         state="ready"
       >
@@ -293,6 +283,17 @@ export function FriendsGroupView() {
           <ContentSkeleton rows={4} label="در حال بارگذاری خلاصهٔ گروه…" />
         ) : (
           <ProductGrid>
+            {slug && homeSpec?.panels.setupChecklist !== false ? (
+              <GroupSetupChecklist
+                slug={slug}
+                memberCount={members.length}
+                financeManagerCount={financeManagerCount}
+                postedCount={postedCount}
+                canManageMembers={isMembershipManagerRole(myRole) && !readOnlySpace}
+                canAddExpense={canAdd}
+              />
+            ) : null}
+
             {homeSpec?.panels.balanceHero !== false &&
             workspace &&
             balances &&
@@ -329,32 +330,17 @@ export function FriendsGroupView() {
             ) : null}
 
             {slug ? (
-              <>
+              <details className="reportDetails">
+                <summary>ابزارها</summary>
+                <div className="groupTools">
                 <GroupPublicIdCard slug={slug} name={workspace?.name} />
-                {homeSpec?.panels.setupChecklist !== false ? (
-                  <GroupSetupChecklist
-                    slug={slug}
-                    memberCount={members.length}
-                    financeManagerCount={members.filter(
-                      (m) => !m.disabledAt && isFinanceManagerRole(m.role),
-                    ).length}
-                    postedCount={postedCount}
-                    canManageMembers={
-                      isMembershipManagerRole(myRole) && !readOnlySpace
-                    }
-                    canAddExpense={
-                      homeSpec ? homeSpec.canAddExpense : !readOnlySpace
-                    }
-                  />
-                ) : null}
                 {homeSpec?.panels.frequentActions !== false ? (
                   <SpaceFrequentActions
                     slug={slug}
                     openSettlements={openSettlementCount}
                     memberCount={members.length}
-                    canAddExpense={
-                      homeSpec ? homeSpec.canAddExpense : !readOnlySpace
-                    }
+                    canAddExpense={canAdd}
+                    includeDailyLedger={false}
                     inviteHref={`${membersHref}#invite-create-panel`}
                     addMemberHref={`${membersHref}#member-add-panel`}
                     showInvite={homeSpec ? homeSpec.showInviteLink : true}
@@ -366,7 +352,29 @@ export function FriendsGroupView() {
                     approvalsHref={hrefs?.approvals}
                   />
                 ) : null}
-              </>
+                <Link href={wPath(slug, "ledger")}>{NAV_LABELS.dailyEntry}</Link>
+                {homeSpec && hrefs && homeSpec.panels.relatedLinks ? (
+                  <SectionCard title="مسیرهای مرتبط" tone="quiet">
+                    <PersonaHomeRelatedLinks
+                      spec={homeSpec}
+                      hrefs={hrefs}
+                      spaceKind="group"
+                    />
+                    {addonsLive || allowanceLive ? (
+                      <StatusLine>
+                        {addonsLive ? (
+                          <Link href={wPath(slug, "addons")}>{NAV_LABELS.addons}</Link>
+                        ) : null}
+                        {addonsLive && allowanceLive ? " · " : null}
+                        {allowanceLive ? (
+                          <Link href={`${membersHref}#member-allowances`}>سقف هزینه</Link>
+                        ) : null}
+                      </StatusLine>
+                    ) : null}
+                  </SectionCard>
+                ) : null}
+                </div>
+              </details>
             ) : null}
 
             {!workspace ? (
@@ -400,27 +408,6 @@ export function FriendsGroupView() {
                   </Button>
                 </FormStack>
                 <EmptyHint>هنوز گروهی فعال نیست — یکی بسازید یا از خانه فضای دیگری باز کنید.</EmptyHint>
-              </SectionCard>
-            ) : null}
-
-            {slug && homeSpec && hrefs && homeSpec.panels.relatedLinks ? (
-              <SectionCard title="مسیرهای مرتبط" tone="quiet" delayClass="delay1">
-                <PersonaHomeRelatedLinks
-                  spec={homeSpec}
-                  hrefs={hrefs}
-                  spaceKind="group"
-                />
-                {addonsLive || allowanceLive ? (
-                  <StatusLine>
-                    {addonsLive ? (
-                      <Link href={wPath(slug, "addons")}>{NAV_LABELS.addons}</Link>
-                    ) : null}
-                    {addonsLive && allowanceLive ? " · " : null}
-                    {allowanceLive ? (
-                      <Link href={`${membersHref}#member-allowances`}>سقف هزینه</Link>
-                    ) : null}
-                  </StatusLine>
-                ) : null}
               </SectionCard>
             ) : null}
 

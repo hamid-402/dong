@@ -3,10 +3,9 @@
 import Link from "next/link";
 import type { SpaceKind } from "@dang/contracts";
 import { type ShellIcon } from "@/components/shell/shell-icons";
-import { StickerSvg, type StickerName } from "@/components/visual/stickers";
 import { KindMoodBadge } from "@/components/visual/kind-mood-badge";
 import { NAV_LABELS, spaceTabLabel } from "@/lib/nav-labels";
-import { gemCssVars, ROUTE_GEM } from "@/lib/tile-gem-palettes";
+import { ROUTE_GEM } from "@/lib/tile-gem-palettes";
 import { wPath } from "@/lib/workspace-paths";
 
 type OpsItem = {
@@ -19,41 +18,8 @@ type OpsItem = {
   primary?: boolean;
 };
 
-function stickerForOpsItem(key: string, icon: ShellIcon): StickerName {
-  switch (key) {
-    case "expenses":
-    case "personal-finance":
-    case "treasury":
-      return "coinTilt"; /* X4 */
-    case "settlements":
-      return "arrows"; /* S2 */
-    case "space":
-      return "home"; /* B1 */
-    case "members":
-      return "ring"; /* G4 */
-    default:
-      break;
-  }
-  switch (icon) {
-    case "partners":
-      return "ring";
-    case "wallet":
-      return "coinTilt";
-    case "receipt":
-      return "ledger";
-    case "home":
-      return "home";
-    case "box":
-      return "folder";
-    case "cart":
-      return "cart";
-    default:
-      return "spark";
-  }
-}
-
 /**
- * Always-visible finance/ops shortcuts — same gem tile language as home mosaic.
+ * Finance shortcuts without gem glow. Friend groups keep the daily ledger under ابزارها.
  */
 export function GroupOpsRail({
   slug,
@@ -149,7 +115,7 @@ export function GroupOpsRail({
       gemKey: "amber",
       primary: true,
     });
-  } else {
+  } else if (spaceKind !== "group") {
     items.push({
       key: "ledger",
       href: wPath(slug, "ledger"),
@@ -158,6 +124,9 @@ export function GroupOpsRail({
       icon: "receipt",
       gemKey: ROUTE_GEM.ledger ?? "cyan",
     });
+  }
+
+  if (!isPersonal) {
     items.push({
       key: "treasury",
       href: wPath(slug, "payments"),
@@ -222,32 +191,23 @@ export function GroupOpsRail({
         </div>
       </header>
       <ul className="groupOpsRail__grid">
-        {items.map((item) => {
-          const stickerName = stickerForOpsItem(item.key, item.icon);
-          return (
+        {items.map((item) => (
           <li key={item.key}>
-            <Link
-              href={item.href}
-              className={`dang-gem groupOpsRail__tile${item.primary ? " groupOpsRail__tile--primary" : ""}`}
-              style={gemCssVars(item.gemKey)}
-            >
-              <span className="dang-gem__icon dang-gem__icon--sticker groupOpsRail__icon" aria-hidden>
-                <StickerSvg
-                  name={stickerName}
-                  size={36}
-                  animated={false}
-                />
-              </span>
+            <Link href={item.href} className="groupOpsRail__link">
               <strong>{item.label}</strong>
               <small>{item.hint}</small>
-              <span className="groupOpsRail__open" aria-hidden>
-                باز کردن ←
-              </span>
             </Link>
           </li>
-          );
-        })}
+        ))}
       </ul>
+      {spaceKind === "group" ? (
+        <details className="reportDetails">
+          <summary>ابزارها</summary>
+          <div className="groupTools">
+            <Link href={wPath(slug, "ledger")}>{NAV_LABELS.dailyEntry}</Link>
+          </div>
+        </details>
+      ) : null}
     </nav>
   );
 }
