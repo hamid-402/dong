@@ -226,13 +226,7 @@ export function ProfileView() {
         eyebrow="حساب"
         title="حساب من"
         description="هویت، امنیت و ترجیح‌های شخصی — جدا از خانهٔ فضای کاری."
-        actions={
-          <>
-            <Link href="/home">{NAV_LABELS.spacesList}</Link>
-            <Link href="/account/security">امنیت</Link>
-            <Link href="/account/privacy">حریم خصوصی</Link>
-          </>
-        }
+        actions={<Link href="/home">{NAV_LABELS.spacesList}</Link>}
       />
       <MotionSceneStrip kind="security" prominence="banner" />
       {debugVerifyUrl ? (
@@ -442,10 +436,16 @@ export function ProfileView() {
             </StatusLine>
           )}
 
+        </SectionCard>
+
+        <SectionCard title="منطقه خطر" className="accountDanger" id="danger">
+          <p>
+            خروج و ابطال نشست از ویرایش نام جداست. ابطال همه دستگاه‌ها شما را هم از همین نشست خارج می‌کند.
+          </p>
           <div className="profileLinks">
             <Button
               type="button"
-              variant="secondary"
+              variant="danger"
               onClick={() => {
                 void confirm("همه نشست‌ها در همه دستگاه‌ها باطل شوند؟").then((accepted) => {
                   if (!accepted) return;
@@ -466,9 +466,9 @@ export function ProfileView() {
             >
               خروج از همه دستگاه‌ها
             </Button>
-            <button type="button" className="profileLinks__chip is-danger" onClick={onLogout} disabled={pending}>
+            <Button type="button" variant="danger" onClick={onLogout} disabled={pending}>
               خروج از حساب
-            </button>
+            </Button>
           </div>
         </SectionCard>
 
