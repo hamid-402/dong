@@ -1,6 +1,7 @@
 "use client";
 
-import type { CSSProperties, HTMLAttributes } from "react";
+import type { HTMLAttributes } from "react";
+import { cx } from "./cx.js";
 import {
   displayUnitLabel,
   formatMoney,
@@ -31,6 +32,7 @@ export function Amount({
   irrMinor,
   displayUnit: displayUnitProp,
   showUnit = true,
+  className,
   style,
   ...rest
 }: AmountProps) {
@@ -41,22 +43,11 @@ export function Amount({
       ? formatMoneyFromIrrMinor(irrMinor, displayUnit)
       : formatMoney(toman ?? 0, displayUnit);
 
-  const amountStyle: CSSProperties = {
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 700,
-    letterSpacing: "0.01em",
-    lineHeight: "var(--leading-figure, 1.2)",
-    ...style,
-  };
-
   return (
-    <span style={amountStyle} dir="ltr" {...rest}>
+    <span className={cx("dang-amount", className)} dir="ltr" style={style} {...rest}>
       {formatted}
       {showUnit ? (
-        <i
-          style={{ fontStyle: "normal", fontWeight: 500, marginInlineStart: 6, opacity: 0.8 }}
-          dir="rtl"
-        >
+        <i className="dang-amount__unit" dir="rtl">
           {displayUnitLabel(displayUnit)}
         </i>
       ) : null}

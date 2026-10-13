@@ -36,7 +36,12 @@ test("latinDigits maps Persian and Arabic-Indic digits", () => {
   assert.equal(latinDigits("12۳"), "123");
 });
 
-test("formatMoneyWithUnit always includes unit label", () => {
+test("formatMoney uses Persian digits past the safe integer range", () => {
+  const huge = formatMoney("10000000000000000000", "rial");
+  assert.match(huge, /[۰-۹]/);
+  assert.doesNotMatch(huge, /[0-9]/);
+  assert.match(huge, /٬/);
+});
   assert.match(formatMoneyWithUnit(1000, "rial"), /ریال/);
   assert.match(formatMoneyWithUnit(1000, "toman"), /تومان/);
 });

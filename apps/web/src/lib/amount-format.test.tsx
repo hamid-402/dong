@@ -22,11 +22,15 @@ describe("Amount + money format (S11-05)", () => {
     expect(formatMoneyFromIrrMinor(10, "toman")).toBe(formatToman(1));
   });
 
-  it("Amount defaults to rial unit label without provider", () => {
+  it("Amount unit is full contrast, Persian, and tabular", () => {
     const { container } = render(<Amount irrMinor={1_250_000} />);
-    const span = container.querySelector("span[dir='ltr']");
-    expect(span).not.toBeNull();
-    expect(span?.textContent ?? "").toMatch(/ریال/);
+    const amount = container.querySelector(".dang-amount");
+    const unit = container.querySelector(".dang-amount__unit");
+    expect(amount).not.toBeNull();
+    expect(amount?.getAttribute("dir")).toBe("ltr");
+    expect(amount?.textContent ?? "").toMatch(/[۰-۹]/);
+    expect(unit?.textContent).toBe("ریال");
+    expect(unit?.getAttribute("style") ?? "").not.toMatch(/opacity/);
   });
 
   it("Amount follows DisplayUnitProvider when displayUnit omitted", () => {

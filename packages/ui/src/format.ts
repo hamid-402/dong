@@ -49,9 +49,20 @@ export function formatMoney(amountInUnit: number | bigint | string, _unit: Displ
         ? BigInt(amountInUnit || "0")
         : BigInt(Math.trunc(amountInUnit));
   if (value > BigInt(Number.MAX_SAFE_INTEGER) || value < BigInt(Number.MIN_SAFE_INTEGER)) {
-    return value.toString();
+    return formatFaInteger(value);
   }
   return numberFormatter.format(Number(value));
+}
+
+const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
+
+/** Grouped fa-IR digits for integers Intl cannot format safely. */
+function formatFaInteger(value: bigint): string {
+  const negative = value < 0n;
+  const digits = (negative ? -value : value).toString();
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, "٬");
+  const persian = grouped.replace(/\d/g, (digit) => PERSIAN_DIGITS[Number(digit)] ?? digit);
+  return negative ? `−${persian}` : persian;
 }
 
 /** Canonical path: IRR minor → formatted string in the chosen display unit. */

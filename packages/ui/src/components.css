@@ -713,3 +713,19 @@ textarea.dang-control {
   border-bottom: 1px solid var(--dang-line);
   min-height: var(--dang-touch);
 }
+
+.dang-table .dang-amount,
+.dang-amount {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: var(--leading-figure, 1.2);
+}
+
+.dang-amount__unit {
+  font-style: normal;
+  font-weight: 500;
+  margin-inline-start: 0.35rem;
+  color: var(--dang-muted);
+}
