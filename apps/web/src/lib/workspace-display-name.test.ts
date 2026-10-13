@@ -14,6 +14,11 @@ describe("workspaceDisplayName", () => {
     expect(workspaceDisplayName("QA Group Test", "friends_family")).toBe("QA Group Test");
   });
 
+  it("replaces a raw demo slug with the kind label", () => {
+    expect(workspaceDisplayName("demo-aftab-local", "project_partners")).toBe("سازمان");
+    expect(workspaceDisplayName("vidaverse", "project_partners")).toBe("vidaverse");
+  });
+
   it("falls back when empty", () => {
     expect(workspaceDisplayName("", "residential_building")).toBe("ساختمان");
     expect(workspaceDisplayName(null, null)).toBe("فضا");

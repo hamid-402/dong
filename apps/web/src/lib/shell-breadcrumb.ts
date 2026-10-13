@@ -1,3 +1,4 @@
+import { isRawDemoSlug } from "@/lib/demo-workspaces";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { MAX_BREADCRUMB_DEPTH } from "@/lib/page-pattern";
 import {
@@ -15,6 +16,17 @@ import {
 import { wPath, type WorkspacePage } from "@/lib/workspace-paths";
 import type { BreadcrumbCrumb } from "@/components/shell/app-breadcrumb";
 import { t } from "@/lib/i18n";
+
+/** Prefer the stored name. A raw demo slug in the URL is not a title. */
+export function breadcrumbSpaceLabel(
+  workspaceName: string | undefined,
+  slug: string,
+): string {
+  const named = workspaceName?.trim() ?? "";
+  if (named && !isRawDemoSlug(named)) return named;
+  if (!isRawDemoSlug(slug)) return named || slug;
+  return "فضا";
+}
 
 function searchFrom(search?: string | null): URLSearchParams {
   const raw = (search ?? "").startsWith("?")
@@ -224,7 +236,7 @@ export function breadcrumbForPathname(
   const segment = parts[2];
   const detail = parts[3];
   const sub = parts[4];
-  const spaceLabel = workspaceName?.trim() || slug;
+  const spaceLabel = breadcrumbSpaceLabel(workspaceName, slug);
   const crumbs: BreadcrumbCrumb[] = [{ label: spaceLabel, href: wPath(slug) }];
   const params = searchFrom(search);
 

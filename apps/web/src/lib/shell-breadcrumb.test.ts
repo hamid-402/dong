@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   breadcrumbForPathname,
+  breadcrumbSpaceLabel,
   isShellPrimaryPath,
   domainKeyForPathname,
   insertDomainCrumb,
@@ -22,6 +23,19 @@ describe("shell-breadcrumb", () => {
     ]);
     expect(crumbs.some((c) => c.label === "record")).toBe(false);
     expect(domainKeyForPathname("/w/acme/record")).toBe("finance");
+  });
+
+  it("does not show a raw demo slug in the workspace crumb", () => {
+    expect(breadcrumbSpaceLabel(undefined, "demo-aftab-local")).toBe("فضا");
+    expect(breadcrumbSpaceLabel("demo-aftab-local", "demo-aftab-local")).toBe("فضا");
+    expect(breadcrumbSpaceLabel("پروژه آفتاب", "demo-aftab-local")).toBe("پروژه آفتاب");
+    expect(breadcrumbSpaceLabel("vidaverse", "vidaverse")).toBe("vidaverse");
+    const crumbs = breadcrumbForPathname("/w/demo-aftab-local/expenses", "پروژه آفتاب");
+    expect(crumbs[0]?.label).toBe("پروژه آفتاب");
+    expect(crumbs.some((c) => c.label.includes("demo-aftab"))).toBe(false);
+    const bare = breadcrumbForPathname("/w/demo-aftab-local/record");
+    expect(bare[0]?.label).toBe("فضا");
+    expect(bare.some((c) => String(c.label).includes("demo-aftab"))).toBe(false);
   });
 
   it("builds workspace crumbs", () => {

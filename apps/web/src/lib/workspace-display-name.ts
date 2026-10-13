@@ -1,4 +1,5 @@
 import { spaceKindForTemplate, type WorkspaceTemplate } from "@dang/contracts";
+import { isRawDemoSlug } from "@/lib/demo-workspaces";
 import { spaceTabLabel } from "@/lib/nav-labels";
 
 /**
@@ -11,7 +12,7 @@ export function workspaceDisplayName(
   fallback = "فضا",
 ): string {
   const trimmed = (name ?? "").trim();
-  if (trimmed) return trimmed;
+  if (trimmed && !isRawDemoSlug(trimmed)) return trimmed;
   if (template) {
     try {
       return spaceTabLabel(spaceKindForTemplate(template as WorkspaceTemplate));
