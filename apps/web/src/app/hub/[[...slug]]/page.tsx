@@ -5,7 +5,7 @@ import { ClassicToWorkspaceRedirect } from "@/components/shell/classic-to-worksp
 import { parseHubLocation } from "@/lib/hub-nav-url";
 import { classicPathToWorkspacePage } from "@/lib/workspace-paths";
 
-/** `/hub` → app home; nested mosaic URLs map to `/w/[slug]/…` only when a page is needed. */
+/** Bare `/hub` → `/home`. Nested mosaic URLs still open `/w/[slug]/…`. */
 export default function HubPage() {
   const params = useParams<{ slug?: string[] }>();
   const splat = Array.isArray(params.slug) ? params.slug.join("/") : "";

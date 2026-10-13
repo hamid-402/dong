@@ -170,7 +170,7 @@ export function ShellToolsView() {
             <Link href={wPath(slug)}>{NAV_LABELS.home}</Link>
           )
         ) : (
-          <Link href="/home">{NAV_LABELS.spacesList}</Link>
+          <Link href="/spaces">{NAV_LABELS.spacesList}</Link>
         )
       }
       state={!chrome.ready ? "loading" : toolCount === 0 && !slug ? "empty" : "ready"}
@@ -178,7 +178,7 @@ export function ShellToolsView() {
       empty={
         <EmptyHint>
           {t("shell.toolsNoWorkspaceBefore")}{" "}
-          <Link href="/home">{t("shell.toolsMySpaces")}</Link>{" "}
+          <Link href="/spaces">{t("shell.toolsMySpaces")}</Link>{" "}
           {t("shell.toolsNoWorkspaceAfter")}
         </EmptyHint>
       }

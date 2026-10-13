@@ -58,10 +58,15 @@ type NetCell =
   | { status: "error" };
 
 /**
- * Unified app home — balances, kind hubs, searchable space list.
- * Filter lives at `/home?kind=…` (legacy `/spaces` redirects here).
+ * App home and the canonical space list (`/spaces`).
+ * Kind filters live at `/spaces?kind=…`.
  */
-export function SpacesHubView() {
+export function SpacesHubView({
+  directoryOnly = false,
+}: {
+  /** Space list only — home keeps the day summary above the same directory. */
+  directoryOnly?: boolean;
+} = {}) {
   const chrome = useAppChrome();
   const displayUnit = useDisplayUnit();
   const router = useRouter();
@@ -95,10 +100,10 @@ export function SpacesHubView() {
 
   function setKindFilter(next: (typeof KIND_ORDER)[number] | "all") {
     if (next === "all") {
-      router.replace("/home");
+      router.replace(directoryOnly ? "/spaces" : "/home");
       return;
     }
-    router.replace(`/home?kind=${next}`);
+    router.replace(`/spaces?kind=${next}`);
   }
 
   const liveIds = useMemo(
@@ -270,7 +275,7 @@ export function SpacesHubView() {
     chrome.workspaces.find((w) => spaceKindForTemplate(w.template) === "personal") ??
     chrome.workspaces[0];
   const expenseHref = activeWs ? wPath(activeWs.slug, "record") : "/me/finance#txn";
-  const settleHref = activeWs ? wPath(activeWs.slug, "settlements") : "/home?view=spaces";
+  const settleHref = activeWs ? wPath(activeWs.slug, "settlements") : "/spaces";
   const balancePool =
     kindFilter === "all"
       ? readyRows.filter((row) => row.spaceKind === "personal" || row.spaceKind === "group")
@@ -289,6 +294,11 @@ export function SpacesHubView() {
 
   return (
     <div className="spaces-hubPage">
+      {directoryOnly ? (
+        <header className="homeDay">
+          <h1 id="spaces-title">فضاها</h1>
+        </header>
+      ) : (
       <section className="homeDay" aria-labelledby="home-day-title">
         <h1 id="home-day-title">خانه</h1>
         {!chrome.ready ? (
@@ -346,6 +356,7 @@ export function SpacesHubView() {
           </StatusLine>
         ) : null}
       </section>
+      )}
 
       {!chrome.ready ? null : (
         <div className="spaces-hub" id="spaces">
@@ -354,7 +365,7 @@ export function SpacesHubView() {
               {KIND_LABEL[kindFilter]}
               {" · "}
               <button type="button" className="textButton" onClick={() => setKindFilter("all")}>
-                بازگشت به خانه
+                {directoryOnly ? "همه فضاها" : "بازگشت به خانه"}
               </button>
             </StatusLine>
           ) : null}

@@ -1229,7 +1229,7 @@ export function bottomTabsV2(
     {
       key: "spaces",
       label: "فضاها",
-      href: "/home?view=spaces",
+      href: "/spaces",
       icon: "partners",
     },
     {
@@ -1256,23 +1256,24 @@ export function expenseFabHref(
   return `${scoped(slug, "record", hubPathFor("/workspaces"))}`;
 }
 
-export function isNavHrefActive(pathname: string, href: string, search = ""): boolean {
+export function isNavHrefActive(pathname: string, href: string, _search = ""): boolean {
   const beforeHash = href.split("#")[0] ?? href;
   const url = new URL(beforeHash, "http://dang.local");
   const base = url.pathname;
-  if (base === "/home" || base === "/hub") {
-    const onHome = pathname === "/home" || pathname === "/hub" || pathname === "/";
-    if (!onHome) return false;
-    const wantSpaces = url.searchParams.get("view") === "spaces";
-    const onSpaces = new URLSearchParams(search).get("view") === "spaces";
-    return wantSpaces ? onSpaces : !onSpaces;
+  const path = pathname.replace(/\/+$/, "") || "/";
+  if (base === "/home" || base === "/hub" || base === "/overview") {
+    return path === "/home" || path === "/hub" || path === "/overview" || path === "/";
   }
   if (/^\/w\/[^/]+$/.test(base)) {
     return pathname === base || pathname === `${base}/`;
   }
   if (base === "/spaces") {
-    // Legacy list URL redirects to /home; keep /spaces/new|reports active separately.
-    return pathname === "/spaces" || pathname === "/home";
+    return (
+      path === "/spaces" ||
+      path.startsWith("/spaces/") ||
+      path === "/groups" ||
+      path === "/workspaces"
+    );
   }
   if (base === "/account") {
     return pathname === "/account" || pathname.startsWith("/account/");

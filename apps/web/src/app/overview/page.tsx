@@ -2,7 +2,7 @@
 
 import { ClassicToWorkspaceRedirect } from "@/components/shell/classic-to-workspace-redirect";
 
-/** Classic bookmark `/overview` → `/w/[slug]` home (CLASSIC_PATH_TARGETS). */
+/** Classic bookmark `/overview` → canonical `/home`. */
 export default function OverviewRedirect() {
   return <ClassicToWorkspaceRedirect />;
 }

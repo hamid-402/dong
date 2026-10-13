@@ -181,7 +181,7 @@ export function resolveStack(
 
 export const HUB_BOTTOM_TABS = [
   { key: "home", path: "/home", label: "خانه", icon: "home" as const },
-  { key: "spaces", path: "/home?view=spaces", label: "فضاها", icon: "partners" as const },
+  { key: "spaces", path: "/spaces", label: "فضاها", icon: "partners" as const },
   { key: "expenses", path: "/me/finance#txn", label: "خرج", icon: "wallet" as const },
   { key: "account", path: "/account", label: "حساب", icon: "settings" as const },
 ];

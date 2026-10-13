@@ -95,7 +95,7 @@ export const CLASSIC_REDIRECT_PATHS = [
 export const CLASSIC_PATH_TARGETS: Readonly<Record<string, ClassicCompatTarget>> = {
   "/": "home",
   "/overview": "home",
-  "/workspaces": "expenses",
+  "/workspaces": "spaces",
   "/daily-ledger": "ledger",
   "/workspaces/invite": "members",
   "/workspaces/procurement": "procurement",
@@ -104,7 +104,7 @@ export const CLASSIC_PATH_TARGETS: Readonly<Record<string, ClassicCompatTarget>>
   "/workspaces/partnership": "partners",
   "/me": "space",
   "/group": "space",
-  "/groups": "space",
+  "/groups": "spaces",
   "/orgs": "space",
   "/profile": "account",
   "/onboarding": "spaces-new",
@@ -150,8 +150,30 @@ export function classicPathToWorkspacePage(
   if (normalized === "/workspaces" && panel && WORKSPACES_HASH_TARGETS[panel]) {
     return WORKSPACES_HASH_TARGETS[panel];
   }
+  if (normalized === "/workspaces" && panel) {
+    return "expenses";
+  }
 
   return CLASSIC_PATH_TARGETS[normalized] ?? null;
+}
+
+const SPACE_KINDS = new Set(["personal", "group", "building", "org"]);
+
+/**
+ * Home query aliases that belong on the space list.
+ * `/home?view=spaces` and `/home?kind=group` → `/spaces`.
+ */
+export function homeListAlias(search: string): string | null {
+  const raw = search.startsWith("?") ? search.slice(1) : search;
+  const params = new URLSearchParams(raw);
+  const view = params.get("view");
+  const kind = params.get("kind");
+  const kindOk = Boolean(kind && SPACE_KINDS.has(kind));
+  if (view !== "spaces" && !kindOk) return null;
+  const next = new URLSearchParams();
+  if (kindOk && kind) next.set("kind", kind);
+  const q = next.toString();
+  return q ? `/spaces?${q}` : "/spaces";
 }
 
 export function absoluteForPage(
@@ -159,7 +181,7 @@ export function absoluteForPage(
   slug: string | null,
 ): string {
   if (page === "account") return "/account";
-  if (page === "spaces") return "/home";
+  if (page === "spaces") return "/spaces";
   if (page === "spaces-new") return "/spaces/new";
   if (page === "invite") return "/invite";
   /** Classic `/` and `/hub` home → app hub, not a random workspace. */

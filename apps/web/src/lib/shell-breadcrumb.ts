@@ -220,7 +220,13 @@ export function breadcrumbForPathname(
   }
 
   if (pathname.startsWith("/spaces")) {
-    const crumbs: BreadcrumbCrumb[] = [{ label: NAV_LABELS.home, href: "/home" }];
+    const exactList = pathname === "/spaces" || pathname === "/spaces/";
+    const crumbs: BreadcrumbCrumb[] = [
+      { label: NAV_LABELS.home, href: "/home" },
+      exactList
+        ? { label: NAV_LABELS.spacesList }
+        : { label: NAV_LABELS.spacesList, href: "/spaces" },
+    ];
     if (pathname.startsWith("/spaces/new")) {
       crumbs.push({ label: NAV_LABELS.createSpace });
     } else if (pathname.startsWith("/spaces/reports")) {

@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import {
   absoluteForPage,
   classicPathToWorkspacePage,
+  homeListAlias,
 } from "@/lib/workspace-paths";
 import { readStoredWorkspaceId } from "@/lib/workspace-storage";
 import { t } from "@/lib/i18n";
@@ -57,12 +58,16 @@ function RedirectInner({
         return;
       }
       if (mapped === "spaces") {
-        router.replace(`/home${suffix}`);
+        const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+        params.delete("view");
+        const next = params.toString();
+        router.replace(`/spaces${next ? `?${next}` : ""}${hash}`);
         return;
       }
       // App home — never dump the user into the last/first workspace group.
       if (mapped === "home") {
-        router.replace(`/home${suffix}`);
+        const list = homeListAlias(search);
+        router.replace(list ? `${list}${hash}` : `/home${suffix}`);
         return;
       }
 

@@ -84,7 +84,7 @@ export function bottomTabsForTemplate(template: WorkspaceTemplate | undefined): 
   const allowed = navKeysForTemplate(template);
   const tabs: HubTab[] = [
     { key: "home", path: "/home", label: "خانه", icon: "home" },
-    { key: "spaces", path: "/home?view=spaces", label: "فضاها", icon: "partners" },
+    { key: "spaces", path: "/spaces", label: "فضاها", icon: "partners" },
     { key: "expenses", path: "/me/finance#txn", label: "خرج", icon: "wallet" },
     { key: "account", path: "/account", label: "حساب", icon: "settings" },
   ];

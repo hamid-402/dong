@@ -31,7 +31,7 @@ describe("navigation-v2", () => {
     expect(new Set(hrefs).size).toBe(4);
     expect(hrefs.join(" ")).not.toMatch(/org|building|procurement/);
     expect(group.find((t) => t.key === "home")?.href).toBe("/home");
-    expect(group.find((t) => t.key === "spaces")?.href).toBe("/home?view=spaces");
+    expect(group.find((t) => t.key === "spaces")?.href).toBe("/spaces");
     expect(group.find((t) => t.key === "expenses")?.href).toBe("/w/demo/record");
     expect(group.find((t) => t.key === "more")?.href).toBe("/account");
   });
@@ -496,9 +496,11 @@ describe("navigation-v2", () => {
     expect(isNavHrefActive("/w/demo/expenses", "/w/demo")).toBe(false);
     expect(isNavHrefActive("/account/security", "/account")).toBe(true);
     expect(isNavHrefActive("/home", "/home", "")).toBe(true);
-    expect(isNavHrefActive("/home", "/home?view=spaces", "")).toBe(false);
-    expect(isNavHrefActive("/home", "/home?view=spaces", "view=spaces")).toBe(true);
-    expect(isNavHrefActive("/home", "/home", "view=spaces")).toBe(false);
+    expect(isNavHrefActive("/spaces", "/spaces", "")).toBe(true);
+    expect(isNavHrefActive("/home", "/spaces", "")).toBe(false);
+    expect(isNavHrefActive("/spaces", "/home", "")).toBe(false);
+    expect(isNavHrefActive("/groups", "/spaces", "")).toBe(true);
+    expect(isNavHrefActive("/workspaces", "/spaces", "")).toBe(true);
   });
 });
 
@@ -510,7 +512,10 @@ describe("workspace-paths", () => {
   });
 
   it("maps classic paths to pages", () => {
-    expect(classicPathToWorkspacePage("/workspaces")).toBe("expenses");
+    expect(classicPathToWorkspacePage("/workspaces")).toBe("spaces");
+    expect(classicPathToWorkspacePage("/groups")).toBe("spaces");
+    expect(classicPathToWorkspacePage("/group")).toBe("space");
+    expect(classicPathToWorkspacePage("/overview")).toBe("home");
     expect(classicPathToWorkspacePage("/profile")).toBe("account");
     expect(classicPathToWorkspacePage("/invite")).toBe("invite");
     expect(classicPathToWorkspacePage("/me")).toBe("space");

@@ -34,22 +34,29 @@ export function kindTabVisualState(input: {
     const onHome = pathname === "/home" || pathname === homeHref;
     return onHome && !kindQuery ? "list-active" : "idle";
   }
-  if (pathname === "/home" || pathname.startsWith("/spaces")) {
+  if (
+    pathname === "/home" ||
+    pathname.startsWith("/spaces") ||
+    pathname === "/groups" ||
+    pathname === "/workspaces"
+  ) {
     const onList =
       (pathname === "/home" && kindQuery === tabKey) ||
       (pathname === "/spaces" && kindQuery === tabKey) ||
+      (pathname === "/groups" && kindQuery === tabKey) ||
+      (pathname === "/workspaces" && kindQuery === tabKey) ||
       (pathname.startsWith("/spaces/new") && newKindQuery === tabKey);
     return onList ? "list-active" : "idle";
   }
   // Inside a workspace: highlight current realm but do NOT treat as current page
-  // (click always navigates to /home?kind=… — leave-space semantics).
+  // (click always navigates to /spaces?kind=… — leave-space semantics).
   if (onWorkspace && workspaceKind === tabKey) return "current-realm";
   return "idle";
 }
 
 /**
  * Primary chrome: خانه · شخصی · گروهی · ساختمان · سازمان
- * Kind tabs always open that realm’s list on /home — never auto-enter a space.
+ * Kind tabs always open that realm’s list on /spaces — never auto-enter a space.
  */
 export function SpaceKindHeaderTabs({
   workspaces,
@@ -79,22 +86,22 @@ export function SpaceKindHeaderTabs({
     {
       key: "personal",
       label: NAV_LABELS.spacePersonal,
-      href: "/home?kind=personal",
+      href: "/spaces?kind=personal",
     },
     {
       key: "group",
       label: NAV_LABELS.spaceGroup,
-      href: "/home?kind=group",
+      href: "/spaces?kind=group",
     },
     {
       key: "building",
       label: NAV_LABELS.spaceBuilding,
-      href: "/home?kind=building",
+      href: "/spaces?kind=building",
     },
     {
       key: "org",
       label: NAV_LABELS.spaceOrg,
-      href: "/home?kind=org",
+      href: "/spaces?kind=org",
     },
   ];
   const tabs = allTabs.filter(

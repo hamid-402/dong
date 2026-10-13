@@ -140,8 +140,11 @@ describe("shell-breadcrumb", () => {
     const crumbs = breadcrumbForPathname("/spaces/new");
     expect(crumbs.map((c) => c.label)).toEqual([
       NAV_LABELS.home,
+      NAV_LABELS.spacesList,
       NAV_LABELS.createSpace,
     ]);
+    expect(crumbs[1]?.href).toBe("/spaces");
+    expect(trailParentHref(crumbs)).toBe("/spaces");
   });
 
   it("builds whats-new crumbs under account", () => {
