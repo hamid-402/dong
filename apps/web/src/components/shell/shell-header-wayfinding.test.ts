@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { headerCrumbs, splitWayfinding } from "@/components/shell/shell-header-wayfinding";
+import { compactTrailCrumbs, headerCrumbs, splitWayfinding } from "@/components/shell/shell-header-wayfinding";
 
 describe("splitWayfinding", () => {
   it("splits title from ancestors", () => {
@@ -45,6 +45,21 @@ describe("splitWayfinding", () => {
       { root: { label: "خانه", href: "/home" } },
     );
     expect(items.map((item) => item.label)).toEqual(["خانه", "ساخت فضا"]);
+  });
+
+  it("drops the space name and kind the switcher already shows", () => {
+    const items = compactTrailCrumbs(
+      [
+        { label: "خانه", href: "/home" },
+        { label: "گروه", href: "/spaces?kind=group" },
+        { label: "آکمه", href: "/w/acme" },
+        { label: "مالی", href: "/w/acme?folder=finance" },
+        { label: "…" },
+        { label: "نمودارها" },
+      ],
+      ["آکمه", "گروه", ""],
+    );
+    expect(items.map((item) => item.label)).toEqual(["خانه", "مالی", "نمودارها"]);
   });
 
   it("filters ellipsis placeholders", () => {

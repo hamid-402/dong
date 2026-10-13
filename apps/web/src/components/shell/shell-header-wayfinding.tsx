@@ -43,6 +43,15 @@ export function headerCrumbs(
   return [first, { label: "…" }, parent, current];
 }
 
+/** Drop identity crumbs the space switcher already shows (name and kind). */
+export function compactTrailCrumbs(
+  crumbs: BreadcrumbCrumb[],
+  omitLabels: readonly string[],
+): BreadcrumbCrumb[] {
+  const skip = new Set(omitLabels.map((label) => label.trim()).filter(Boolean));
+  return crumbs.filter((crumb) => crumb.label && crumb.label !== "…" && !skip.has(crumb.label));
+}
+
 /**
  * Professional header breadcrumb — Linear/GitHub style:
  * muted ancestors → strong current page, thin separators, no noisy chrome.
@@ -50,10 +59,13 @@ export function headerCrumbs(
 export function ShellHeaderWayfinding({
   crumbs,
   compact = false,
+  dense = false,
   root,
 }: {
   crumbs: BreadcrumbCrumb[];
   compact?: boolean;
+  /** Short ancestor chain for the slim header line. Does not fold to the title. */
+  dense?: boolean;
   /** Prefixed ancestor, usually خانه, when the trail starts inside a space. */
   root?: BreadcrumbCrumb;
 }) {
@@ -67,15 +79,16 @@ export function ShellHeaderWayfinding({
   }, [fullPath]);
   if (clean.length === 0) return null;
 
-  const canFold = compact && clean.length > 1;
-  const items =
-    canFold && !expanded
+  const canFold = compact && !dense && clean.length > 1;
+  const items = dense
+    ? headerCrumbs(clean, { root, compact: true })
+    : canFold && !expanded
       ? [clean[clean.length - 1]!]
       : headerCrumbs(clean, { root, compact: false });
 
   return (
     <nav
-      className={`shell-v2__wayfinding${compact ? " shell-v2__wayfinding--compact" : ""}${expanded ? " is-expanded" : ""}`}
+      className={`shell-v2__wayfinding${compact ? " shell-v2__wayfinding--compact" : ""}${dense ? " shell-v2__wayfinding--slim" : ""}${expanded ? " is-expanded" : ""}`}
       aria-label={t("nav.pageTrail")}
       title={fullPath}
     >
