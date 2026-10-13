@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it } from "vitest";
-import { isAppAtmosphere, isAppTheme } from "@/lib/theme";
+import { isAppTheme, migrateStoredTheme } from "@/lib/theme";
 import {
   listRecentDestinations,
   rememberDestination,
@@ -14,14 +14,20 @@ import {
 } from "@/lib/pinned-destinations";
 
 describe("appearance helpers", () => {
-  it("accepts product themes and atmospheres including linear + aurora", () => {
-    expect(isAppTheme("dusk")).toBe(true);
-    expect(isAppTheme("mist")).toBe(true);
-    expect(isAppTheme("linear")).toBe(true);
+  it("keeps dark and maps every retired theme to light", () => {
+    expect(isAppTheme("light")).toBe(true);
+    expect(isAppTheme("dark")).toBe(true);
+    expect(isAppTheme("dusk")).toBe(false);
+    expect(isAppTheme("mist")).toBe(false);
+    expect(isAppTheme("linear")).toBe(false);
     expect(isAppTheme("neon")).toBe(false);
-    expect(isAppAtmosphere("forest")).toBe(true);
-    expect(isAppAtmosphere("ember")).toBe(true);
-    expect(isAppAtmosphere("galaxy")).toBe(false);
+    expect(migrateStoredTheme("dark")).toBe("dark");
+    expect(migrateStoredTheme("light")).toBe("light");
+    expect(migrateStoredTheme("linear")).toBe("light");
+    expect(migrateStoredTheme("dusk")).toBe("light");
+    expect(migrateStoredTheme("mist")).toBe("light");
+    expect(migrateStoredTheme(null)).toBe("light");
+    expect(migrateStoredTheme(undefined)).toBe("light");
   });
 });
 

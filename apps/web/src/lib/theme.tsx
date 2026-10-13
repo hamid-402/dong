@@ -23,13 +23,10 @@ import {
 export type { AppMotion };
 export { APP_MOTIONS, isAppMotion };
 
-/** Product surface themes — dark/light/dusk/mist + linear (دانش‌بان Linear/Vercel). */
-export type AppTheme = "dark" | "light" | "dusk" | "mist" | "linear";
+/** Product themes. Retired ids (dusk, mist, linear) migrate to light. */
+export type AppTheme = "light" | "dark";
 
-/** Selectable ambient backgrounds (orbs / wash) — independent of theme. */
-export type AppAtmosphere = "deep" | "forest" | "sand" | "ember";
-
-/** UI density — dabir-style, independent of theme/atmosphere. */
+/** UI density — compact stays available and must not shrink controls under 44px. */
 export type AppDensity = "comfortable" | "compact";
 
 const THEME_KEY = "dang-theme";
@@ -43,22 +40,8 @@ export const APP_THEMES: ReadonlyArray<{
   caption: string;
   swatch: string;
 }> = [
-  { id: "linear", label: "Linear", caption: "پرکنتراست و دقیق", swatch: "#050506" },
-  { id: "dark", label: "شب نیمه‌شب", caption: "OLED و فیروزه‌ای", swatch: "#070a0c" },
-  { id: "dusk", label: "غروب گرم", caption: "آلبالویی و کهربایی", swatch: "#171217" },
-  { id: "mist", label: "مه خنک", caption: "آبی‌خاکستری", swatch: "#e6edf4" },
-  { id: "light", label: "روز روشن", caption: "کاغذ ملایم", swatch: "#f4f7f9" },
-];
-
-export const APP_ATMOSPHERES: ReadonlyArray<{
-  id: AppAtmosphere;
-  label: string;
-  hint: string;
-}> = [
-  { id: "deep", label: "آرام", hint: "گرادیان ملایم روی بوم" },
-  { id: "forest", label: "مش", hint: "لکه‌های رنگی روی بوم" },
-  { id: "sand", label: "کاغذ", hint: "بافت نویز و خطوط ریز" },
-  { id: "ember", label: "اورورا", hint: "آبی، فیروزه و بنفش مثل دانش‌بان" },
+  { id: "light", label: "روشن", caption: "کاغذ گرم", swatch: "#F7F4EE" },
+  { id: "dark", label: "تیره", caption: "شب آرام", swatch: "#121614" },
 ];
 
 export const APP_DENSITIES: ReadonlyArray<{
@@ -67,20 +50,16 @@ export const APP_DENSITIES: ReadonlyArray<{
   hint: string;
 }> = [
   { id: "comfortable", label: "راحت", hint: "فاصلهٔ استاندارد لمسی" },
-  { id: "compact", label: "فشرده", hint: "فهرست‌های حرفه‌ای‌تر" },
+  { id: "compact", label: "فشرده", hint: "فهرست‌ها کمی جمع‌تر؛ کنترل‌ها حداقل ۴۴" },
 ];
 
 const THEME_COLORS: Record<AppTheme, string> = {
-  dark: "#070a0c",
-  light: "#f4f7f9",
-  dusk: "#171217",
-  mist: "#e6edf4",
-  linear: "#050506",
+  light: "#F7F4EE",
+  dark: "#121614",
 };
 
 type ThemeContextValue = {
   theme: AppTheme;
-  atmosphere: AppAtmosphere;
   density: AppDensity;
   /** User preference (may be overridden by OS reduced-motion). */
   motion: AppMotion;
@@ -90,34 +69,25 @@ type ThemeContextValue = {
   allowsFeedback: boolean;
   allowsNarrative: boolean;
   setTheme: (theme: AppTheme) => void;
-  setAtmosphere: (atmosphere: AppAtmosphere) => void;
   setDensity: (density: AppDensity) => void;
   setMotion: (motion: AppMotion) => void;
-  /** Cycles dark ↔ light for one-tap compatibility. */
+  /** Cycles light ↔ dark. */
   toggleTheme: () => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function isAppTheme(value: string | null | undefined): value is AppTheme {
-  return (
-    value === "dark" ||
-    value === "light" ||
-    value === "dusk" ||
-    value === "mist" ||
-    value === "linear"
-  );
+  return value === "dark" || value === "light";
 }
 
-export function isAppAtmosphere(
-  value: string | null | undefined,
-): value is AppAtmosphere {
-  return (
-    value === "deep" ||
-    value === "forest" ||
-    value === "sand" ||
-    value === "ember"
-  );
+/**
+ * Keep an explicit dark preference. Every other stored value — including
+ * retired dusk, mist, and linear — becomes the light default.
+ * Must stay in lockstep with the boot script in `app/layout.tsx`.
+ */
+export function migrateStoredTheme(raw: string | null | undefined): AppTheme {
+  return raw === "dark" ? "dark" : "light";
 }
 
 export function isAppDensity(
@@ -127,25 +97,15 @@ export function isAppDensity(
 }
 
 function readStoredTheme(): AppTheme {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   try {
     const raw = localStorage.getItem(THEME_KEY);
-    if (isAppTheme(raw)) return raw;
+    const next = migrateStoredTheme(raw);
+    if (raw && raw !== next) localStorage.setItem(THEME_KEY, next);
+    return next;
   } catch {
-    /* ignore */
+    return "light";
   }
-  return "dark";
-}
-
-function readStoredAtmosphere(): AppAtmosphere {
-  if (typeof window === "undefined") return "deep";
-  try {
-    const raw = localStorage.getItem(ATMOSPHERE_KEY);
-    if (isAppAtmosphere(raw)) return raw;
-  } catch {
-    /* ignore */
-  }
-  return "deep";
 }
 
 function readStoredDensity(): AppDensity {
@@ -172,52 +132,53 @@ function readStoredMotion(): AppMotion {
 
 function applyAppearance(
   theme: AppTheme,
-  atmosphere: AppAtmosphere,
   density: AppDensity,
   motion: AppMotion,
 ) {
-  document.documentElement.setAttribute("data-theme", theme);
-  document.documentElement.setAttribute("data-atmosphere", atmosphere);
-  document.documentElement.setAttribute("data-density", density);
-  document.documentElement.setAttribute("data-motion", motion);
+  const root = document.documentElement;
+  root.setAttribute("data-theme", theme);
+  root.removeAttribute("data-atmosphere");
+  root.setAttribute("data-density", density);
+  root.setAttribute("data-motion", motion);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", THEME_COLORS[theme]);
+  try {
+    localStorage.removeItem(ATMOSPHERE_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
-/** Persists theme + atmosphere + density + motion on <html>. */
+/** Persists theme + density + motion on <html>. */
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<AppTheme>("dark");
-  const [atmosphere, setAtmosphereState] = useState<AppAtmosphere>("deep");
+  const [theme, setThemeState] = useState<AppTheme>("light");
   const [density, setDensityState] = useState<AppDensity>("comfortable");
   const [motion, setMotionState] = useState<AppMotion>("full");
   const [osReduced, setOsReduced] = useState(false);
+  const [ready, setReady] = useState(false);
   const themeRef = useRef(theme);
-  const atmosphereRef = useRef(atmosphere);
   const densityRef = useRef(density);
   const motionRef = useRef(motion);
   useEffect(() => {
     themeRef.current = theme;
-    atmosphereRef.current = atmosphere;
     densityRef.current = density;
     motionRef.current = motion;
-  }, [theme, atmosphere, density, motion]);
+  }, [theme, density, motion]);
 
   const motionEffective = effectiveMotion(motion, osReduced);
 
   useEffect(() => {
     const nextTheme = readStoredTheme();
-    const nextAtmosphere = readStoredAtmosphere();
     const nextDensity = readStoredDensity();
     const nextMotion = readStoredMotion();
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     setOsReduced(mq.matches);
     setThemeState(nextTheme);
-    setAtmosphereState(nextAtmosphere);
     setDensityState(nextDensity);
     setMotionState(nextMotion);
+    setReady(true);
     applyAppearance(
       nextTheme,
-      nextAtmosphere,
       nextDensity,
       effectiveMotion(nextMotion, mq.matches),
     );
@@ -225,7 +186,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       setOsReduced(mq.matches);
       applyAppearance(
         themeRef.current,
-        atmosphereRef.current,
         densityRef.current,
         effectiveMotion(motionRef.current, mq.matches),
       );
@@ -235,22 +195,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    applyAppearance(theme, atmosphere, density, motionEffective);
-  }, [theme, atmosphere, density, motionEffective]);
+    if (!ready) return;
+    applyAppearance(theme, density, motionEffective);
+  }, [theme, density, motionEffective, ready]);
 
   const setTheme = useCallback((next: AppTheme) => {
     setThemeState(next);
     try {
       localStorage.setItem(THEME_KEY, next);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const setAtmosphere = useCallback((next: AppAtmosphere) => {
-    setAtmosphereState(next);
-    try {
-      localStorage.setItem(ATMOSPHERE_KEY, next);
     } catch {
       /* ignore */
     }
@@ -275,15 +227,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggleTheme = useCallback(() => {
-    const next =
-      themeRef.current === "light" || themeRef.current === "mist" ? "dark" : "light";
+    const next = themeRef.current === "light" ? "dark" : "light";
     setTheme(next);
   }, [setTheme]);
 
   const value = useMemo(
     () => ({
       theme,
-      atmosphere,
       density,
       motion,
       motionEffective,
@@ -291,19 +241,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       allowsFeedback: motionAllowsFeedback(motionEffective),
       allowsNarrative: motionAllowsNarrative(motionEffective),
       setTheme,
-      setAtmosphere,
       setDensity,
       setMotion,
       toggleTheme,
     }),
     [
       theme,
-      atmosphere,
       density,
       motion,
       motionEffective,
       setTheme,
-      setAtmosphere,
       setDensity,
       setMotion,
       toggleTheme,

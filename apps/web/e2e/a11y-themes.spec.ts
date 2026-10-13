@@ -1,12 +1,12 @@
 /**
- * R4 — axe critical/serious = 0 across the five product themes.
+ * axe critical/serious = 0 on the two product themes.
  * Themes are applied via data-theme on <html> (tokens.css).
  */
 import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-const THEMES = ["dark", "light", "dusk", "mist", "linear"] as const;
+const THEMES = ["light", "dark"] as const;
 
 async function expectNoCriticalAxe(page: Page) {
   const results = await new AxeBuilder({ page })
@@ -33,7 +33,7 @@ async function setTheme(page: Page, theme: (typeof THEMES)[number]) {
     .toBe(theme);
 }
 
-test.describe("a11y five themes (R4)", () => {
+test.describe("a11y ledger themes", () => {
   for (const theme of THEMES) {
     test(`login has no critical axe on theme=${theme}`, async ({ page }) => {
       await page.goto("/login");

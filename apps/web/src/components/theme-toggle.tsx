@@ -3,7 +3,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  APP_ATMOSPHERES,
   APP_MOTIONS,
   APP_THEMES,
   useOptionalTheme,
@@ -13,7 +12,7 @@ import { useShellV2Api } from "@/components/shell/shell-v2-context";
 const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
 
-/** Appearance dialog — دانش‌بان-style theme × background × density. */
+/** Appearance dialog — light or dark, plus motion and density. */
 export function ThemeToggleButton({ className = "" }: { className?: string }) {
   const themeApi = useOptionalTheme();
   const shell = useShellV2Api();
@@ -89,18 +88,14 @@ export function ThemeToggleButton({ className = "" }: { className?: string }) {
 
   const {
     theme,
-    atmosphere,
     density,
     motion,
     setTheme,
-    setAtmosphere,
     setDensity,
     setMotion,
   } = themeApi;
   const activeTheme = APP_THEMES.find((item) => item.id === theme) ?? APP_THEMES[0]!;
-  const activeAtm =
-    APP_ATMOSPHERES.find((item) => item.id === atmosphere) ?? APP_ATMOSPHERES[0]!;
-  const label = `ظاهر: ${activeTheme.label} · ${activeAtm.label}`;
+  const label = `ظاهر: ${activeTheme.label}`;
 
   const dialog =
     open && mounted
@@ -139,9 +134,7 @@ export function ThemeToggleButton({ className = "" }: { className?: string }) {
 
               <section>
                 <p className="appearance-panel__heading">تم رابط</p>
-                <p className="appearance-panel__sub">
-                  حالت‌های رسمی دنگ · مستقل از پس‌زمینه
-                </p>
+                <p className="appearance-panel__sub">روشن یا تیره</p>
                 <ul
                   className="appearance-theme-grid appearance-theme-grid--wide"
                   role="list"
@@ -165,31 +158,6 @@ export function ThemeToggleButton({ className = "" }: { className?: string }) {
                         />
                         <strong>{item.label}</strong>
                         <small>{item.caption}</small>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-
-              <section>
-                <p className="appearance-panel__heading">پس‌زمینهٔ فضای کار</p>
-                <p className="appearance-panel__sub">مستقل از تم رابط</p>
-                <ul className="appearance-bg-grid" role="list">
-                  {APP_ATMOSPHERES.map((item) => (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        className={
-                          item.id === atmosphere
-                            ? "appearance-bg-option is-active"
-                            : "appearance-bg-option"
-                        }
-                        data-atmosphere-preview={item.id}
-                        onClick={() => setAtmosphere(item.id)}
-                        aria-pressed={item.id === atmosphere}
-                        title={item.hint}
-                      >
-                        <span>{item.label}</span>
                       </button>
                     </li>
                   ))}
@@ -264,7 +232,7 @@ export function ThemeToggleButton({ className = "" }: { className?: string }) {
         aria-controls={panelId}
       >
         <span className="theme-toggle__icon" aria-hidden>
-          {theme === "light" || theme === "mist" ? "◐" : "◑"}
+          {theme === "light" ? "◐" : "◑"}
         </span>
       </button>
       {dialog}

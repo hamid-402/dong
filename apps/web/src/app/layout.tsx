@@ -44,19 +44,20 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f9f8" },
-    { media: "(prefers-color-scheme: dark)", color: "#090e0d" },
-    { color: "#090e0d" },
+    { media: "(prefers-color-scheme: light)", color: "#F7F4EE" },
+    { media: "(prefers-color-scheme: dark)", color: "#121614" },
+    { color: "#F7F4EE" },
   ],
 };
 
-const themeBootScript = `(function(){try{var t=localStorage.getItem("dang-theme");if(t!=="dark"&&t!=="light"&&t!=="dusk"&&t!=="mist"&&t!=="linear")t="dark";var a=localStorage.getItem("dang-atmosphere");if(a!=="deep"&&a!=="forest"&&a!=="sand"&&a!=="ember")a="deep";var d=localStorage.getItem("dang-density");if(d!=="comfortable"&&d!=="compact")d="comfortable";var m=localStorage.getItem("dang-motion");if(m!=="full"&&m!=="essential"&&m!=="off")m="full";if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches&&m!=="off")m="essential";document.documentElement.setAttribute("data-theme",t);document.documentElement.setAttribute("data-atmosphere",a);document.documentElement.setAttribute("data-density",d);document.documentElement.setAttribute("data-motion",m);}catch(e){document.documentElement.setAttribute("data-theme","dark");document.documentElement.setAttribute("data-atmosphere","deep");document.documentElement.setAttribute("data-density","comfortable");document.documentElement.setAttribute("data-motion","full");}})();`;
+/** Keep in lockstep with migrateStoredTheme() in lib/theme.tsx. */
+const themeBootScript = `(function(){try{var t=localStorage.getItem("dang-theme");if(t==="dark"){}else{if(t&&t!=="light")localStorage.setItem("dang-theme","light");t="light";}try{localStorage.removeItem("dang-atmosphere");}catch(e){}var d=localStorage.getItem("dang-density");if(d!=="comfortable"&&d!=="compact")d="comfortable";var m=localStorage.getItem("dang-motion");if(m!=="full"&&m!=="essential"&&m!=="off")m="full";if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches&&m!=="off")m="essential";var root=document.documentElement;root.setAttribute("data-theme",t);root.removeAttribute("data-atmosphere");root.setAttribute("data-density",d);root.setAttribute("data-motion",m);}catch(e){document.documentElement.setAttribute("data-theme","light");document.documentElement.removeAttribute("data-atmosphere");document.documentElement.setAttribute("data-density","comfortable");document.documentElement.setAttribute("data-motion","full");}})();`;
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fa" dir="rtl" className={vazirmatn.variable} data-theme="dark" data-atmosphere="deep" data-density="comfortable" data-motion="full" suppressHydrationWarning>
+    <html lang="fa" dir="rtl" className={vazirmatn.variable} data-theme="light" data-density="comfortable" data-motion="full" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
