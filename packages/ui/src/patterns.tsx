@@ -82,6 +82,41 @@ export function EmptyState({ title, description, action }: EmptyStateProps) {
   );
 }
 
+export type LoadingStateProps = {
+  label?: string;
+  rows?: number;
+};
+
+/** Skeleton placeholder for a view that is still fetching. */
+export function LoadingState({ label = "در حال بارگذاری…", rows = 3 }: LoadingStateProps) {
+  const count = Math.max(1, Math.min(rows, 8));
+  return (
+    <div className="dang-loading" role="status" aria-live="polite" aria-busy="true">
+      <span className="dang-visually-hidden">{label}</span>
+      {Array.from({ length: count }, (_, index) => (
+        <span key={index} className="dang-skeleton dang-loading__row" aria-hidden="true" />
+      ))}
+    </div>
+  );
+}
+
+export type ErrorStateProps = {
+  title: string;
+  description?: ReactNode;
+  action?: ReactNode;
+};
+
+/** Recoverable failure for a view. Pass action for retry. */
+export function ErrorState({ title, description, action }: ErrorStateProps) {
+  return (
+    <div className="dang-error" role="alert">
+      <strong>{title}</strong>
+      {description ? <p>{description}</p> : null}
+      {action ? <div>{action}</div> : null}
+    </div>
+  );
+}
+
 export type TabsProps = {
   items: Array<{ id: string; label: string }>;
   value: string;

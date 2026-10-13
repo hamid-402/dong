@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
-import { Badge, EmptyState, Table, Tabs, Toast } from "./patterns";
+import { Badge, EmptyState, ErrorState, LoadingState, Table, Tabs, Toast } from "./patterns";
 
 /**
  * Stories for the shared design-system patterns (dong-50 #35).
@@ -33,6 +33,22 @@ export const EmptyStateBlock: Story = {
       title="هنوز چیزی اینجا نیست"
       description="با ثبت اولین مورد، فهرست اینجا نمایش داده می‌شود."
       action={<Badge tone="ok">اقدام واقعی</Badge>}
+    />
+  ),
+};
+
+export const LoadingStateBlock: Story = {
+  name: "LoadingState",
+  render: () => <LoadingState label="در حال بارگذاری…" rows={3} />,
+};
+
+export const ErrorStateBlock: Story = {
+  name: "ErrorState",
+  render: () => (
+    <ErrorState
+      title="بارگذاری ناموفق بود"
+      description="دوباره تلاش کنید."
+      action={<Badge tone="warn">تلاش دوباره</Badge>}
     />
   ),
 };

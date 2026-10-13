@@ -6,7 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import type { ActivityItem } from "@dang/contracts";
 import { spaceKindForTemplate, isFinanceManagerRole, isReadOnlyRole, primaryCounterpartyEdge, type MembershipRole, type PettyCashFundSummary } from "@dang/contracts";
 import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
-import { formatMoney, formatMoneyFromIrrMinor, irrMinorToDisplayInteger, type DisplayUnit } from "@dang/ui";
+import { ErrorState, formatMoney, formatMoneyFromIrrMinor, irrMinorToDisplayInteger, LoadingState, type DisplayUnit } from "@dang/ui";
 import { useDisplayUnit } from "@/lib/display-unit";
 import { moneyUnitSuffix } from "@/lib/money-labels";
 import { AppShell } from "@/components/app-shell";
@@ -23,13 +23,11 @@ import { StructuralSubunitsRail } from "@/components/shell/structural-subunits-r
 import { GroupPublicIdCard } from "@/components/shell/group-public-id";
 import { GroupSetupChecklist } from "@/components/shell/group-setup-checklist";
 import { EmptyHint, StatusLine } from "@/components/ui-blocks";
-import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { ProviderStubBadges } from "@/components/shell/provider-stub-badges";
 import { api, getDevIdentity, setDevIdentity } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
-import { hubPathFor } from "@/lib/hub-links";
 import { useLiveInvalidation } from "@/lib/live-invalidation";
-import { wPath } from "@/lib/workspace-paths";
+import { canonicalHref, wPath } from "@/lib/workspace-paths";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import {
   contextualMosaicSections,
@@ -184,14 +182,12 @@ export function OverviewView() {
   const activityLive = chrome.capabilities?.providers?.activityFeed === "activity_v1";
   const activeWs = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const slug = activeWs?.slug ?? null;
-  const expensesHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
-  const recordHref = slug ? wPath(slug, "record") : hubPathFor("/workspaces");
-  const financeHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
-  const spaceHref = slug ? wPath(slug, "space") : hubPathFor("/group");
-  const procurementHref = slug ? wPath(slug, "procurement") : hubPathFor("/workspaces/procurement");
-  const settlementsHref = slug
-    ? wPath(slug, "settlements")
-    : `${hubPathFor("/workspaces")}#settlement-panel`;
+  const expensesHref = canonicalHref("expenses", slug);
+  const recordHref = canonicalHref("record", slug);
+  const financeHref = canonicalHref("expenses", slug);
+  const spaceHref = canonicalHref("space", slug);
+  const procurementHref = canonicalHref("procurement", slug);
+  const settlementsHref = canonicalHref("settlements", slug);
 
   function load(workspaceId: string, from = dashRange.from, to = dashRange.to) {
     startTransition(() => {
@@ -476,21 +472,23 @@ export function OverviewView() {
       >
       <div className="mosaicWorkspace">
         {!chrome.ready || (!data && pending) ? (
-          <ContentSkeleton rows={4} label="در حال بارگذاری خانه…" />
+          <LoadingState label="در حال بارگذاری خانه…" rows={4} />
         ) : error && !data ? (
-          <StatusLine>
-            {error}{" "}
-            <button
-              type="button"
-              className="textButton"
-              disabled={pending}
-              onClick={() => {
-                if (chrome.workspaceId) load(chrome.workspaceId);
-              }}
-            >
-              تلاش دوباره
-            </button>
-          </StatusLine>
+          <ErrorState
+            title={error}
+            action={
+              <button
+                type="button"
+                className="textButton"
+                disabled={pending}
+                onClick={() => {
+                  if (chrome.workspaceId) load(chrome.workspaceId);
+                }}
+              >
+                تلاش دوباره
+              </button>
+            }
+          />
         ) : !slug ? (
           <EmptyHint>فضای کاری را انتخاب کنید یا از فهرست فضاها یکی بسازید.</EmptyHint>
         ) : (
@@ -521,7 +519,7 @@ export function OverviewView() {
                     settleHref={settlementsHref}
                     expenseHref={recordHref}
                     spaceHref={spaceHref}
-                    approvalsHref={slug ? wPath(slug, "approvals") : settlementsHref}
+                    approvalsHref={canonicalHref("approvals", slug)}
                     needsHref={
                       spaceKind === "org" ? procurementHref : expensesHref
                     }
@@ -542,7 +540,7 @@ export function OverviewView() {
                       <TreasuryBalanceCard
                         spaceKind={spaceKind}
                         funds={data?.pettyCashFunds ?? []}
-                        paymentsHref={wPath(slug, "payments")}
+                        paymentsHref={canonicalHref("payments", slug)}
                         savingsHref="/me/finance#goals"
                         canManage={isFinanceManagerRole(data?.myRole)}
                         pending={pending}

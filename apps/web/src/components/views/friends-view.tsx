@@ -15,7 +15,7 @@ import {
   isFinanceManagerRole,
   spaceKindForTemplate,
 } from "@dang/contracts";
-import { Button, TextField, useConfirm } from "@dang/ui";
+import { Button, ErrorState, LoadingState, TextField, useConfirm } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
   EmptyStateBlock,
@@ -71,6 +71,7 @@ export function FriendsView() {
     matched: number;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [booted, setBooted] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [myRole, setMyRole] = useState<MembershipRole | "">("");
@@ -145,6 +146,8 @@ export function FriendsView() {
           }
         } catch (err: unknown) {
           setError(authErrorMessage(err, "بارگذاری دوستان ناموفق بود"));
+        } finally {
+          setBooted(true);
         }
       })();
     });
@@ -378,7 +381,19 @@ export function FriendsView() {
         description="یافتن کاربر، درخواست دوستی، و دعوت به فضای فعال — بدون فهرست عمومی."
         secondaryActions={<Link href="/account/privacy">حریم خصوصی</Link>}
       >
-        <FlashMessages error={error} successMessage={info ?? null} />
+        <FlashMessages error={booted && friends.length + incoming.length + outgoing.length > 0 ? error : null} successMessage={info ?? null} />
+
+        {!booted ? <LoadingState label="در حال بارگذاری دوستان…" rows={3} /> : null}
+        {booted && error && friends.length + incoming.length + outgoing.length === 0 ? (
+          <ErrorState
+            title={error}
+            action={
+              <Button type="button" variant="secondary" onClick={refresh} disabled={pending}>
+                تلاش دوباره
+              </Button>
+            }
+          />
+        ) : null}
 
         <ProductGrid>
         <SectionCard title="یافتن کاربر" delayClass="delay1">

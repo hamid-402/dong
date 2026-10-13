@@ -16,7 +16,7 @@ import {
   isReadOnlyRole,
   personaHomeSpec,
 } from "@dang/contracts";
-import { Button, TextField } from "@dang/ui";
+import { Button, ErrorState, LoadingState, TextField } from "@dang/ui";
 import { CreateGroupForm } from "@/components/create-group-form";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
@@ -27,13 +27,11 @@ import {
   SectionCard,
   StatusLine,
 } from "@/components/ui-blocks";
-import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { todayIsoLocal } from "@/lib/fa-datetime";
-import { hubPathFor } from "@/lib/hub-links";
 import { useLiveInvalidation } from "@/lib/live-invalidation";
-import { wPath } from "@/lib/workspace-paths";
+import { canonicalHref } from "@/lib/workspace-paths";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { membershipRoleLabel, workspaceTemplateLabel } from "@/lib/status-labels";
 import { FlashMessages, useFlashMessage } from "@/lib/use-flash-message";
@@ -79,13 +77,11 @@ export function FriendsGroupView() {
     workspace?.slug ??
     chrome.workspaces.find((w) => w.id === chrome.workspaceId)?.slug ??
     null;
-  const expensesHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
-  const settlementsHref = slug
-    ? wPath(slug, "settlements")
-    : `${hubPathFor("/workspaces")}#settlement-panel`;
+  const expensesHref = canonicalHref("expenses", slug);
+  const settlementsHref = canonicalHref("settlements", slug);
   const statementsLive =
     chrome.capabilities?.providers?.statements === "csv_json_print_v1";
-  const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
+  const membersHref = canonicalHref("members", slug);
   const myRole = members.find((m) => m.userId === actorUserId)?.role;
   const readOnlySpace = isReadOnlyRole(myRole);
   const homeSpec = personaHomeSpec(myRole, "group", {
@@ -233,11 +229,11 @@ export function FriendsGroupView() {
         }
         primaryAction={
           setupComplete && slug && canAdd ? (
-            <Link className="dang-btn dang-btn--primary dang-btn--md" href={wPath(slug, "record")}>
+            <Link className="dang-btn dang-btn--primary dang-btn--md" href={canonicalHref("record", slug)}>
               خرج
             </Link>
           ) : !slug ? (
-            <Link href="/home">{NAV_LABELS.home}</Link>
+            <Link href={canonicalHref("home")}>{NAV_LABELS.home}</Link>
           ) : undefined
         }
         state="ready"
@@ -245,7 +241,9 @@ export function FriendsGroupView() {
         <FlashMessages error={pageError} successMessage={successMessage} />
 
         {loading ? (
-          <ContentSkeleton rows={4} label="در حال بارگذاری خلاصهٔ گروه…" />
+          <LoadingState label="در حال بارگذاری خلاصهٔ گروه…" rows={4} />
+        ) : pageError && !workspace ? (
+          <ErrorState title={pageError} />
         ) : (
           <ProductGrid>
             {slug && homeSpec?.panels.setupChecklist !== false ? (
@@ -278,7 +276,7 @@ export function FriendsGroupView() {
                   }))}
                 settleHref={settlementsHref}
                 expenseHref={expensesHref}
-                recordHref={slug ? wPath(slug, "record") : undefined}
+                recordHref={slug ? canonicalHref("record", slug) : undefined}
                 simplifyHref={settlementsHref}
                 simplifyAvailable={Boolean(
                   chrome.capabilities?.productFlags?.debtSimplifyApi,
@@ -317,7 +315,7 @@ export function FriendsGroupView() {
                     approvalsHref={hrefs?.approvals}
                   />
                 ) : null}
-                <Link href={wPath(slug, "ledger")}>{NAV_LABELS.dailyEntry}</Link>
+                <Link href={canonicalHref("ledger", slug)}>{NAV_LABELS.dailyEntry}</Link>
                 {homeSpec && hrefs && homeSpec.panels.relatedLinks ? (
                   <SectionCard title="مسیرهای مرتبط" tone="quiet">
                     <PersonaHomeRelatedLinks
@@ -328,7 +326,7 @@ export function FriendsGroupView() {
                     {addonsLive || allowanceLive ? (
                       <StatusLine>
                         {addonsLive ? (
-                          <Link href={wPath(slug, "addons")}>{NAV_LABELS.addons}</Link>
+                          <Link href={canonicalHref("addons", slug)}>{NAV_LABELS.addons}</Link>
                         ) : null}
                         {addonsLive && allowanceLive ? " · " : null}
                         {allowanceLive ? (

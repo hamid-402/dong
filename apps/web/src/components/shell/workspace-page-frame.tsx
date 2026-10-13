@@ -22,6 +22,7 @@ export function WorkspacePageFrame({
   state = "ready",
   loadingLabel,
   skeletonRows = 3,
+  loading,
   empty,
   error,
   children,
@@ -38,6 +39,8 @@ export function WorkspacePageFrame({
   state?: WorkspacePageFrameState;
   loadingLabel?: string;
   skeletonRows?: number;
+  /** When set, replaces the default skeleton for state="loading". */
+  loading?: ReactNode;
   empty?: ReactNode;
   error?: ReactNode;
   children?: ReactNode;
@@ -70,7 +73,9 @@ export function WorkspacePageFrame({
       ) : null}
 
       {state === "loading" ? (
-        <ContentSkeleton rows={skeletonRows} label={loadingLabel ?? t("shell.loading")} />
+        loading ?? (
+          <ContentSkeleton rows={skeletonRows} label={loadingLabel ?? t("shell.loading")} />
+        )
       ) : null}
       {state === "error"
         ? (error ?? <StatusLine>بارگذاری ناموفق بود. صفحه را تازه‌سازی کنید.</StatusLine>)

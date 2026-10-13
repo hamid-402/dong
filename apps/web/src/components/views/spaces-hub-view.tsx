@@ -9,7 +9,7 @@ import { useAppChrome } from "@/lib/use-app-chrome";
 import { workspaceTemplateLabel } from "@/lib/status-labels";
 import { wPath } from "@/lib/workspace-paths";
 import { NAV_LABELS } from "@/lib/nav-labels";
-import { EmptyState } from "@dang/ui";
+import { EmptyState, ErrorState, LoadingState } from "@dang/ui";
 import { CreateGroupForm, GroupCreatedNext } from "@/components/create-group-form";
 import {
   SectionCard,
@@ -17,6 +17,7 @@ import {
   StatusPill,
 } from "@/components/ui-blocks";
 import { KindAggregatePanel } from "@/components/shell/kind-aggregate-panel";
+import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { KindMoodBadge } from "@/components/visual/kind-mood-badge";
 import { t } from "@/lib/i18n";
 import { api } from "@/lib/api";
@@ -302,7 +303,18 @@ export function SpacesHubView({
       <section className="homeDay" aria-labelledby="home-day-title">
         <h1 id="home-day-title">خانه</h1>
         {!chrome.ready ? (
-          <p role="status">در حال بارگذاری خانه…</p>
+          chrome.error ? (
+            <ErrorState
+              title={chrome.error}
+              action={
+                <button type="button" className="textButton" onClick={() => chrome.refreshChrome()}>
+                  تلاش دوباره
+                </button>
+              }
+            />
+          ) : (
+            <LoadingState label="در حال بارگذاری خانه…" rows={3} />
+          )
         ) : (
           <>
             {createdGroup ? <GroupCreatedNext workspace={createdGroup} /> : null}
@@ -358,7 +370,22 @@ export function SpacesHubView({
       </section>
       )}
 
-      {!chrome.ready ? null : (
+      {!chrome.ready ? (
+        directoryOnly ? (
+          chrome.error ? (
+            <ErrorState
+              title={chrome.error}
+              action={
+                <button type="button" className="textButton" onClick={() => chrome.refreshChrome()}>
+                  تلاش دوباره
+                </button>
+              }
+            />
+          ) : (
+            <LoadingState label="در حال بارگذاری فضاها…" rows={4} />
+          )
+        ) : null
+      ) : (
         <div className="spaces-hub" id="spaces">
           {kindFilter === "building" || kindFilter === "org" ? (
             <StatusLine>
@@ -593,7 +620,7 @@ export function SpacesHubView({
                                 ).then(() => setPinTick((n) => n + 1));
                               }}
                             >
-                              {pinned ? "★" : "☆"}
+                              <ShellIconSvg name={pinned ? "star" : "starOutline"} size={16} />
                             </button>
                             <div
                               className="spaces-mosaic__ops"

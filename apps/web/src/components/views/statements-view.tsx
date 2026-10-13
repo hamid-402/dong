@@ -10,7 +10,7 @@ import type {
   StatementLine,
 } from "@dang/contracts";
 import { inspectPayoutDestination, isFinanceManagerRole, sumStatementShareMinor } from "@dang/contracts";
-import { Button, SelectField } from "@dang/ui";
+import { Button, ErrorState, LoadingState, SelectField } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -19,7 +19,6 @@ import {
   SectionCard,
   StatusLine,
 } from "@/components/ui-blocks";
-import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import { useWorkspaceScope } from "@/components/shell/workspace-scope";
 import { MoneyAmount } from "@/components/money-amount";
@@ -486,7 +485,19 @@ export function StatementsView({
 
   function renderBillDocument(opts: { compactActions?: boolean }) {
     if (loading) {
-      return <ContentSkeleton rows={5} label={t("statements.loadingDetail")} />;
+      return <LoadingState label={t("statements.loadingDetail")} rows={5} />;
+    }
+    if (error && !detail) {
+      return (
+        <ErrorState
+          title={error}
+          action={
+            <Button type="button" variant="secondary" onClick={() => workspaceId && void refresh(workspaceId)}>
+              تلاش دوباره
+            </Button>
+          }
+        />
+      );
     }
     if (!detail || detail.lines.length === 0) {
       return (
@@ -914,7 +925,7 @@ export function StatementsView({
       }
       state="ready"
     >
-      <FlashMessages successMessage={successMessage} error={error} />
+      <FlashMessages successMessage={successMessage} error={detail ? error : null} />
 
       <section className={styles.toolbar} aria-label={t("statements.rangeTitle")}>
         <div className={styles.presets} role="group" aria-label={t("statements.rangeTitle")}>

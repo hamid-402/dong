@@ -13,7 +13,7 @@ import type {
   PettyCashLedgerResponse,
 } from "@dang/contracts";
 import { isFinanceManagerRole, isReadOnlyRole, spaceKindForTemplate, treasuryLabelsForKind } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField, usePrompt } from "@dang/ui";
+import { Amount, Button, ErrorState, LoadingState, SelectField, TextField, usePrompt } from "@dang/ui";
 import { membershipRoleLabel } from "@/lib/status-labels";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { TreasuryBalanceCard } from "@/components/shell/treasury-balance-card";
@@ -29,7 +29,6 @@ import {
   StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
-import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import { useWorkspaceScope } from "@/components/shell/workspace-scope";
 import { api } from "@/lib/api";
@@ -81,6 +80,7 @@ export function PaymentsView() {
   >([]);
   const [role, setRole] = useState<MembershipRole | "">("");
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [amountMinor, setAmountMinor] = useState("");
   const [destLast4, setDestLast4] = useState("");
@@ -196,9 +196,12 @@ export function PaymentsView() {
           } else {
             setLedger(null);
           }
+          setLoadError(null);
           setLoaded(true);
         } catch (err) {
-          setError(friendlyErrorMessage(err, "بارگذاری پرداخت‌ها ناموفق"));
+          const message = friendlyErrorMessage(err, "بارگذاری پرداخت‌ها ناموفق");
+          setLoadError(message);
+          setError(message);
           setLoaded(true);
         }
       })();
@@ -476,7 +479,16 @@ export function PaymentsView() {
 
       <SectionCard title="فیش‌ها">
         {!loaded ? (
-          <ContentSkeleton rows={3} label="در حال بارگذاری فیش‌ها…" />
+          <LoadingState label="در حال بارگذاری فیش‌ها…" rows={3} />
+        ) : loadError ? (
+          <ErrorState
+            title={loadError}
+            action={
+              <Button type="button" variant="secondary" onClick={reload} disabled={pending}>
+                تلاش دوباره
+              </Button>
+            }
+          />
         ) : receipts.length === 0 ? (
           <EmptyStateBlock
             title="فیشی نیست"
@@ -696,7 +708,7 @@ export function PaymentsView() {
 
           <SectionCard title={t("payments.onBehalf.pendingTitle")}>
             {!loaded ? (
-              <ContentSkeleton rows={2} label={t("common.loading")} />
+              <LoadingState label={t("common.loading")} rows={2} />
             ) : onBehalf.filter((r) => r.status === "pending").length === 0 ? (
               <EmptyStateBlock
                 title={t("payments.onBehalf.emptyTitle")}

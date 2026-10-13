@@ -22,7 +22,7 @@ import {
   isReadOnlyRole,
   spaceKindForTemplate,
 } from "@dang/contracts";
-import { Button, usePrompt } from "@dang/ui";
+import { Button, ErrorState, LoadingState, usePrompt } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
   emptySplitComposer,
@@ -40,7 +40,6 @@ import {
   setDevIdentity,
   type AuditEventDto,
 } from "@/lib/api";
-import { hubPathFor } from "@/lib/hub-links";
 import { newClientId } from "@/lib/id";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import {
@@ -53,7 +52,7 @@ import {
 } from "@/lib/irr-money";
 import { useDisplayUnit } from "@/lib/display-unit";
 import { moneyUnitSuffix } from "@/lib/money-labels";
-import { wPath } from "@/lib/workspace-paths";
+import { canonicalHref } from "@/lib/workspace-paths";
 import { templateSupportsCompanyExpenses } from "@/lib/workspace-modules";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
@@ -498,19 +497,19 @@ export function FinanceView({
     // Compatibility: classic `/workspaces#…` bookmarks may land on the wrong finance section.
     if (activeSlug) {
       if (wantSettlement && section !== "settlements") {
-        router.replace(`${wPath(activeSlug, "settlements")}${hash || "#settlement-panel"}`);
+        router.replace(`${canonicalHref("settlements", activeSlug)}${hash || "#settlement-panel"}`);
         return;
       }
       if (wantInvoice && section !== "invoices") {
-        router.replace(`${wPath(activeSlug, "invoices")}${hash || "#period-invoice-panel"}`);
+        router.replace(`${canonicalHref("invoices", activeSlug)}${hash || "#period-invoice-panel"}`);
         return;
       }
       if (wantReports && section !== "recurring") {
-        router.replace(`${wPath(activeSlug, "recurring")}${hash || "#reports-panel"}`);
+        router.replace(`${canonicalHref("recurring", activeSlug)}${hash || "#reports-panel"}`);
         return;
       }
       if (wantExpense && !wantSettlement && !wantInvoice && !wantReports && section !== "expenses") {
-        router.replace(`${wPath(activeSlug, "expenses")}${hash || "#expense-panel"}`);
+        router.replace(`${canonicalHref("expenses", activeSlug)}${hash || "#expense-panel"}`);
         return;
       }
     }
@@ -669,11 +668,9 @@ export function FinanceView({
   const selectedWorkspace = workspaces.find((w) => w.id === selectedId);
   const slug = selectedWorkspace?.slug ?? null;
   const spaceKind = spaceKindForTemplate(selectedWorkspace?.template);
-  const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
-  const settlementsHref = slug
-    ? wPath(slug, "settlements")
-    : `${hubPathFor("/workspaces")}#settlement-panel`;
-  const expensesHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
+  const membersHref = canonicalHref("members", slug);
+  const settlementsHref = canonicalHref("settlements", slug);
+  const expensesHref = canonicalHref("expenses", slug);
   const openSettlementCount = settlements.filter(
     (s) => s.status === "claimed" || s.status === "disputed",
   ).length;
@@ -717,17 +714,20 @@ export function FinanceView({
         state={frameState}
         loadingLabel="در حال بارگذاری مالی…"
         skeletonRows={4}
+        loading={<LoadingState label="در حال بارگذاری مالی…" rows={4} />}
         error={
-          <StatusLine>
-            {error ?? "بارگذاری مالی ناموفق بود."}{" "}
-            <Button type="button" variant="secondary" onClick={refresh} disabled={pending}>
-              تلاش دوباره
-            </Button>
-          </StatusLine>
+          <ErrorState
+            title={error ?? "بارگذاری مالی ناموفق بود."}
+            action={
+              <Button type="button" variant="secondary" onClick={refresh} disabled={pending}>
+                تلاش دوباره
+              </Button>
+            }
+          />
         }
         empty={
           <EmptyHint>
-            هنوز فضایی ندارید. از <Link href="/spaces/new">ساخت فضای کاری</Link> شروع کنید.
+            هنوز فضایی ندارید. از <Link href={canonicalHref("spaces-new")}>ساخت فضای کاری</Link> شروع کنید.
           </EmptyHint>
         }
       >
@@ -755,12 +755,14 @@ export function FinanceView({
         />
       ) : null}
       {error && !initialLoading && selectedId ? (
-        <StatusLine>
-          {error}{" "}
-          <Button type="button" variant="secondary" onClick={refresh} disabled={pending}>
-            تلاش دوباره
-          </Button>
-        </StatusLine>
+        <ErrorState
+          title={error}
+          action={
+            <Button type="button" variant="secondary" onClick={refresh} disabled={pending}>
+              تلاش دوباره
+            </Button>
+          }
+        />
       ) : null}
 
       {(() => {
@@ -773,7 +775,7 @@ export function FinanceView({
           <TreasuryBalanceCard
             spaceKind={spaceKind}
             funds={pettyCashFunds}
-            paymentsHref={wPath(slug, "payments")}
+            paymentsHref={canonicalHref("payments", slug)}
             savingsHref="/me/finance#goals"
             canManage={canManageFinance || spaceKind === "personal"}
             pending={pending}
@@ -1056,7 +1058,7 @@ export function FinanceView({
                   <TreasuryBalanceCard
                     spaceKind={spaceKind}
                     funds={pettyCashFunds}
-                    paymentsHref={wPath(slug, "payments")}
+                    paymentsHref={canonicalHref("payments", slug)}
                     savingsHref="/me/finance#goals"
                     canManage={canManageFinance || spaceKind === "personal"}
                     pending={pending}

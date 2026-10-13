@@ -628,6 +628,62 @@ textarea.dang-control {
   }
 }
 
+.dang-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dang-loading.dang-loading {
+  display: grid;
+  gap: var(--dang-space-3);
+  padding: var(--dang-space-5) var(--dang-space-4);
+  border: 1px dashed var(--dang-line);
+  border-radius: var(--dang-radius-md);
+  background: var(--dang-surface-2);
+}
+
+.dang-loading__row {
+  height: 0.75rem;
+}
+
+.dang-loading__row:nth-child(3n) {
+  width: 68%;
+}
+
+.dang-loading__row:nth-child(3n + 1) {
+  width: 42%;
+}
+
+.dang-error.dang-error {
+  display: grid;
+  gap: var(--dang-space-2);
+  padding: var(--dang-space-5) var(--dang-space-4);
+  border: 1px solid var(--dang-danger-line, var(--dang-line));
+  border-radius: var(--dang-radius-md);
+  background: var(--dang-danger-soft, var(--dang-surface-2));
+  color: var(--dang-text);
+  text-align: start;
+}
+
+.dang-error strong {
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.dang-error p {
+  margin: 0;
+  color: var(--dang-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+}
+
 .dang-empty.dang-empty {
   display: grid;
   gap: var(--dang-space-2);
