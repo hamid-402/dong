@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { kindTabVisualState } from "./space-kind-header-tabs";
+import { kindTabVisualState, sectionTabActive, spaceHomeTabActive } from "./space-kind-header-tabs";
 
 describe("kindTabVisualState", () => {
   it("marks home list-active on /home", () => {
@@ -56,6 +56,45 @@ describe("kindTabVisualState", () => {
         onWorkspace: true,
       }),
     ).toBe("current-realm");
+  });
+
+  it("marks the domain tab for the open page or folder", () => {
+    expect(
+      sectionTabActive({ sectionKey: "finance", activeDomain: "finance", folder: null }),
+    ).toBe(true);
+    expect(
+      sectionTabActive({ sectionKey: "buy", activeDomain: null, folder: "buy" }),
+    ).toBe(true);
+    expect(
+      sectionTabActive({ sectionKey: "people", activeDomain: "finance", folder: null }),
+    ).toBe(false);
+  });
+
+  it("marks space home only on the workspace root", () => {
+    expect(
+      spaceHomeTabActive({
+        pathname: "/w/acme",
+        slug: "acme",
+        activeDomain: null,
+        folder: null,
+      }),
+    ).toBe(true);
+    expect(
+      spaceHomeTabActive({
+        pathname: "/w/acme/charts",
+        slug: "acme",
+        activeDomain: "finance",
+        folder: null,
+      }),
+    ).toBe(false);
+    expect(
+      spaceHomeTabActive({
+        pathname: "/w/acme",
+        slug: "acme",
+        activeDomain: null,
+        folder: "finance",
+      }),
+    ).toBe(false);
   });
 
   it("keeps other kinds idle inside a different-realm workspace", () => {

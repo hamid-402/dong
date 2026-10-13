@@ -70,5 +70,9 @@ describe("narrow header css", () => {
     expect(narrow).toMatch(/\.shell-v2__search--field\s*\{[^}]*min-height:\s*44px/);
     expect(narrow).toContain("outline: 3px solid var(--dang-focus, var(--primary))");
     expect(css).toContain("max-width: 420px");
+    expect(narrow).toMatch(/\.shell-sectionTabs\s*\{[^}]*overflow-x:\s*auto/);
+    expect(narrow).toMatch(/\.shell-sectionTabs__tab[\s\S]{0,180}min-height:\s*44px/);
+    expect(narrow).toContain(".shell-sectionTabs__tab:focus-visible");
+    expect(narrow).toContain("outline: 3px solid var(--dang-focus, var(--primary))");
   });
 });

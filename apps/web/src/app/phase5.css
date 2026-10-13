@@ -175,9 +175,30 @@ summary:focus-visible,
   .shell-v2__header .shell-v2__wordmark:focus-visible,
   .shell-v2__header .header-profile:focus-visible,
   .shell-v2__header .notifBell__trigger:focus-visible,
-  .shell-v2__header .mosaic-ws-switch__trigger:focus-visible {
+  .shell-v2__header .mosaic-ws-switch__trigger:focus-visible,
+  .shell-sectionTabs__tab:focus-visible {
     outline: 3px solid var(--dang-focus, var(--primary));
     outline-offset: 2px;
+  }
+
+  .shell-v2__place--line {
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .shell-sectionTabs {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .shell-sectionTabs__tab,
+  a.shell-sectionTabs__tab,
+  a.shell-sectionTabs__tab:link {
+    min-width: 44px;
+    min-height: 44px;
+    flex: 0 0 auto;
   }
 }
 

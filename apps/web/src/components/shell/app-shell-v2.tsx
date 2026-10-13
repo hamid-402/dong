@@ -13,10 +13,11 @@ import { ShellLocationProvider, ShellV2Provider, useShellV2Api } from "@/compone
 import { resolveShellLocation } from "@/components/shell/shell-location";
 import { AppTabbar } from "@/components/shell/app-tabbar";
 import { ShellTrail } from "@/components/shell/shell-trail";
+import { ShellPageTrail } from "@/components/shell/shell-page-trail";
 import { ShellHeaderSearchField } from "@/components/shell/shell-header-search";
 import { WorkspaceSwitcher } from "@/components/mosaic/workspace-switcher";
 import { CommandPalette } from "@/components/shell/command-palette";
-import { ShellWorkspaceNavMenu } from "@/components/shell/shell-secondary-rail";
+import { WorkspaceSectionTabs } from "@/components/shell/space-kind-header-tabs";
 import { bottomTabsV2 } from "@/lib/navigation-v2";
 import { wPath } from "@/lib/workspace-paths";
 import { slugFromPathname } from "@/lib/workspace-storage";
@@ -95,7 +96,6 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
       .map((ws) => ws.id);
     return shellKindStyle(assignKindGems(realmKind, ids).get(active.id));
   })();
-  const domainTrigger = location.trail.find((crumb) => crumb.group)?.label ?? "منو";
   const showCatalog =
     Boolean(railFlags.catalogV1) && realmKind != null && realmKind !== "personal";
 
@@ -154,30 +154,24 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
             </div>
           </div>
           {inWorkspace || primary || location.trail.length > 0 ? (
-            <div className="shell-v2__place">
+            <div
+              className={`shell-v2__place${inWorkspace && slug ? " shell-v2__place--line" : ""}`}
+            >
               {inWorkspace && slug ? (
-                <ShellWorkspaceNavMenu
+                <WorkspaceSectionTabs
                   template={template}
                   slug={slug}
                   flags={railFlags}
                   role={membershipRole || null}
-                  triggerLabel={domainTrigger}
-                  leaveHref={template && template !== "personal" ? leaveMembershipHref : null}
+                  pathname={pathname}
+                  folder={searchParams?.get("folder") ?? null}
                   activeDomain={location.activeDomain}
+                  isHrefActive={location.isHrefActive}
                 />
               ) : null}
-              {inWorkspace || primary ? (
+              {!inWorkspace && primary ? (
                 <Link href="/home" className="shell-v2__mark" aria-label={t("shell.homeMarkAria")}>
                   <ShellIconSvg name="wallet" />
-                </Link>
-              ) : null}
-              {inWorkspace && realmKind ? (
-                <Link
-                  href={`/spaces?kind=${realmKind}`}
-                  className="shell-v2__kindChip"
-                  data-kind={realmKind}
-                >
-                  {spaceTabLabel(realmKind)}
                 </Link>
               ) : null}
               {showCatalog && slug ? (
@@ -196,7 +190,18 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
                   </Link>
                 </div>
               ) : null}
-              <ShellTrail />
+              {inWorkspace ? (
+                <ShellPageTrail
+                  items={location.trail}
+                  fallbackHref={slug ? wPath(slug) : "/home"}
+                  dense
+                  omitLabels={[displayWsName, realmKind ? spaceTabLabel(realmKind) : ""].filter(
+                    (label): label is string => Boolean(label),
+                  )}
+                />
+              ) : (
+                <ShellTrail />
+              )}
             </div>
           ) : null}
         </header>

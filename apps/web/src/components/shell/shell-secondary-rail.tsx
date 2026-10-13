@@ -8,12 +8,11 @@ import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { useShellLocation } from "@/components/shell/shell-v2-context";
 import { isNavHrefActive, spaceNav, spaceNavItemHint, type SpaceNavFlags } from "@/lib/navigation-v2";
 import { NAV_LABELS } from "@/lib/nav-labels";
-import { t } from "@/lib/i18n";
 import { wPath } from "@/lib/workspace-paths";
 
 /**
  * Workspace module menu — opens from the header (before trail/back).
- * Replaces the fixed side rail so the canvas stays wide.
+ * Membership leave lives in the space switcher, not in this menu.
  */
 export function ShellWorkspaceNavMenu({
   template,
@@ -21,7 +20,6 @@ export function ShellWorkspaceNavMenu({
   flags,
   role,
   triggerLabel = "منو",
-  leaveHref,
   activeDomain,
 }: {
   template: WorkspaceTemplate | undefined;
@@ -30,8 +28,6 @@ export function ShellWorkspaceNavMenu({
   role?: MembershipRole | null;
   /** Current domain when inside a page; «منو» on the space home. */
   triggerLabel?: string;
-  /** Membership leave lives here, aimed at the settings danger zone. */
-  leaveHref?: string | null;
   /** Highlights that domain. Other domains stay in the menu. */
   activeDomain?: string | null;
 }) {
@@ -128,18 +124,6 @@ export function ShellWorkspaceNavMenu({
               ))}
             </div>
           ))}
-          {leaveHref ? (
-            <div className="shell-navMenu__leave">
-              <Link
-                href={leaveHref}
-                role="menuitem"
-                className="shell-navMenu__item shell-navMenu__leaveLink"
-                onClick={() => setOpen(false)}
-              >
-                <span>{t("shell.leaveSpace")}</span>
-              </Link>
-            </div>
-          ) : null}
         </div>
       ) : null}
     </div>

@@ -4,10 +4,20 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   spaceKindForTemplate,
+  type MembershipRole,
   type SpaceKind,
   type WorkspaceSummary,
+  type WorkspaceTemplate,
 } from "@dang/contracts";
 import { NAV_LABELS } from "@/lib/nav-labels";
+import {
+  homeDomainHref,
+  parseDomainGroup,
+  spaceNav,
+  spaceNavItemHint,
+  type SpaceNavFlags,
+} from "@/lib/navigation-v2";
+import { wPath } from "@/lib/workspace-paths";
 import { t } from "@/lib/i18n";
 
 type KindTab = {
@@ -52,6 +62,27 @@ export function kindTabVisualState(input: {
   // (click always navigates to /spaces?kind=… — leave-space semantics).
   if (onWorkspace && workspaceKind === tabKey) return "current-realm";
   return "idle";
+}
+
+/** Domain tab is current when the page or `?folder=` sits in that section. */
+export function sectionTabActive(input: {
+  sectionKey: string;
+  activeDomain: string | null;
+  folder: string | null;
+}): boolean {
+  return input.activeDomain === input.sectionKey || input.folder === input.sectionKey;
+}
+
+/** Space-home tab — only the workspace root, not a domain folder or a subpage. */
+export function spaceHomeTabActive(input: {
+  pathname: string;
+  slug: string;
+  activeDomain: string | null;
+  folder: string | null;
+}): boolean {
+  if (input.activeDomain || input.folder) return false;
+  const path = input.pathname.replace(/\/+$/, "") || "/";
+  return path === `/w/${input.slug}`;
 }
 
 /**
@@ -150,6 +181,95 @@ export function SpaceKindHeaderTabs({
           >
             {tab.label}
           </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+/**
+ * Inside a space: domain tabs, then that section’s links, on one scrolling line.
+ * The catalog shortcut stays beside this row. Leave stays on the space switcher.
+ */
+export function WorkspaceSectionTabs({
+  template,
+  slug,
+  flags,
+  role,
+  pathname,
+  folder,
+  activeDomain,
+  isHrefActive,
+}: {
+  template: WorkspaceTemplate | undefined;
+  slug: string;
+  flags?: SpaceNavFlags;
+  role?: MembershipRole | null;
+  pathname: string;
+  folder?: string | null;
+  activeDomain?: string | null;
+  isHrefActive?: (href: string) => boolean;
+}) {
+  const sections = spaceNav(template, slug, flags, role);
+  const catalogHref = wPath(slug, "catalog");
+  const domain = activeDomain ?? null;
+  const folderKey = folder ?? null;
+  const homeActive = spaceHomeTabActive({
+    pathname,
+    slug,
+    activeDomain: domain,
+    folder: folderKey,
+  });
+
+  return (
+    <nav className="shell-sectionTabs" aria-label={t("shell.opsRoomDomains")}>
+      <Link
+        href={wPath(slug)}
+        className={`shell-sectionTabs__tab shell-sectionTabs__tab--section${homeActive ? " is-active" : ""}`}
+        aria-current={homeActive ? "page" : undefined}
+      >
+        {NAV_LABELS.space}
+      </Link>
+      {sections.map((section) => {
+        const key = parseDomainGroup(section.key);
+        if (!key) return null;
+        const active = sectionTabActive({
+          sectionKey: key,
+          activeDomain: domain,
+          folder: folderKey,
+        });
+        const items = section.items.filter((item) => item.href !== catalogHref);
+        return (
+          <div
+            key={key}
+            className={`shell-sectionTabs__group${active ? " is-current" : ""}`}
+            role="group"
+            aria-label={section.label}
+          >
+            <Link
+              href={homeDomainHref(slug, key)}
+              className={`shell-sectionTabs__tab shell-sectionTabs__tab--section${active ? " is-active" : ""}`}
+              aria-current={active ? "true" : undefined}
+              data-section={key}
+            >
+              {section.label}
+            </Link>
+            {items.map((item) => {
+              const itemActive = isHrefActive?.(item.href) ?? false;
+              const hint = spaceNavItemHint(item.key);
+              return (
+                <Link
+                  key={item.key}
+                  href={item.href}
+                  className={`shell-sectionTabs__tab shell-sectionTabs__tab--item${itemActive ? " is-active" : ""}`}
+                  aria-current={itemActive ? "page" : undefined}
+                  title={hint && hint !== item.label ? hint : undefined}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
         );
       })}
     </nav>
