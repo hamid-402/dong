@@ -12,6 +12,7 @@ import {
 } from "react";
 import {
   APP_MOTIONS,
+  DEFAULT_MOTION,
   effectiveMotion,
   isAppMotion,
   motionAllowsAmbient,
@@ -141,14 +142,14 @@ function readStoredDensity(): AppDensity {
 }
 
 function readStoredMotion(): AppMotion {
-  if (typeof window === "undefined") return "full";
+  if (typeof window === "undefined") return DEFAULT_MOTION;
   try {
     const raw = localStorage.getItem(MOTION_KEY);
     if (isAppMotion(raw)) return raw;
   } catch {
     /* ignore */
   }
-  return "full";
+  return DEFAULT_MOTION;
 }
 
 function applyAppearance(
@@ -175,7 +176,7 @@ function applyAppearance(
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<AppTheme>(DEFAULT_THEME);
   const [density, setDensityState] = useState<AppDensity>("comfortable");
-  const [motion, setMotionState] = useState<AppMotion>("full");
+  const [motion, setMotionState] = useState<AppMotion>(DEFAULT_MOTION);
   const [osReduced, setOsReduced] = useState(false);
   const [ready, setReady] = useState(false);
   const themeRef = useRef(theme);

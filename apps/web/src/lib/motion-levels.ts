@@ -5,6 +5,9 @@
 
 export type AppMotion = "full" | "essential" | "off";
 
+/** Decorative backgrounds stay still until the user asks for full motion. */
+export const DEFAULT_MOTION: AppMotion = "off";
+
 export const APP_MOTIONS: ReadonlyArray<{
   id: AppMotion;
   label: string;
@@ -13,7 +16,7 @@ export const APP_MOTIONS: ReadonlyArray<{
 }> = [
   {
     id: "full",
-    label: "کامل (پیشنهادی)",
+    label: "کامل",
     hint: "بنر رنگی + شناوری قوی + جرقه + orb پس‌زمینه",
     levels: "آرام · پاسخ · روایت",
   },

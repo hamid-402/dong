@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_MOTION,
   effectiveMotion,
   isAppMotion,
   motionAllowsAmbient,
@@ -8,6 +9,10 @@ import {
 } from "./motion-levels";
 
 describe("motion-levels", () => {
+  it("keeps decorative motion off unless the user stored another level", () => {
+    expect(DEFAULT_MOTION).toBe("off");
+  });
+
   it("parses known motion ids", () => {
     expect(isAppMotion("full")).toBe(true);
     expect(isAppMotion("essential")).toBe(true);
