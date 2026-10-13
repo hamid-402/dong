@@ -69,7 +69,7 @@
 }
 
 .copy span {
-  font-size: 0.84rem;
+  font-size:0.875rem;
   line-height: 1.45;
   color: var(--muted);
   max-width: 36rem;

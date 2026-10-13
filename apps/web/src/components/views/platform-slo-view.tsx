@@ -150,7 +150,7 @@ export function PlatformSloView() {
                       )}
                     </div>
                     {sig.available && Object.keys(sig.observed).length > 0 ? (
-                      <div style={{ fontSize: "0.85em", opacity: 0.8 }}>
+                      <div style={{ fontSize: "0.875rem", opacity: 0.8 }}>
                         {Object.entries(sig.observed)
                           .map(([k, v]) => `${k}=${v ?? "null"}`)
                           .join(" · ")}
@@ -169,7 +169,7 @@ export function PlatformSloView() {
                   <li key={n}>{n}</li>
                 ))}
               </ul>
-              <p style={{ fontSize: "0.85em", opacity: 0.8 }}>
+              <p style={{ fontSize: "0.875rem", opacity: 0.8 }}>
                 تولید: {formatFaDateTime(slo.generatedAt)}
               </p>
             </SectionCard>

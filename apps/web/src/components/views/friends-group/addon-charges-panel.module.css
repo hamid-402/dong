@@ -25,7 +25,7 @@
 
 .inspector > span {
   color: var(--primary);
-  font-size: 9px;
+  font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 0.09em;
 }
@@ -46,7 +46,7 @@
   justify-content: space-between;
   gap: 12px;
   border-top: 1px solid var(--line);
-  font-size: 11px;
+  font-size:0.875rem;
 }
 
 .inspector dt {

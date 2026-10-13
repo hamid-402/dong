@@ -25,7 +25,7 @@
 
 .inspector > span {
   color: var(--primary);
-  font-size: 9px;
+  font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 0.09em;
 }
@@ -47,7 +47,7 @@
   justify-content: space-between;
   gap: 10px;
   border-top: 1px solid var(--line);
-  font-size: 10px;
+  font-size:0.875rem;
 }
 
 .inspector dt {
@@ -66,7 +66,7 @@
   border-radius: 9px;
   background: color-mix(in srgb, var(--danger) 7%, transparent);
   color: var(--muted);
-  font-size: 10px;
+  font-size:0.875rem;
   line-height: 1.7;
 }
 
@@ -91,13 +91,13 @@
   border-radius: 9px;
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--surface) 70%, transparent);
-  font-size: 11px;
+  font-size:0.875rem;
   color: var(--text);
 }
 
 .fundingList__meta {
   color: var(--muted);
-  font-size: 10px;
+  font-size:0.875rem;
 }
 
 .fundingHint {
@@ -106,7 +106,7 @@
   border-radius: 9px;
   background: color-mix(in srgb, var(--primary) 7%, transparent);
   color: var(--muted);
-  font-size: 10px;
+  font-size:0.875rem;
   line-height: 1.65;
 }
 

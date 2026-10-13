@@ -49,7 +49,7 @@
 
 .rowButton span {
   color: var(--accent);
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 800;
 }
 
@@ -88,7 +88,7 @@
 
 .meta dt {
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size:0.875rem;
 }
 
 .meta dd {

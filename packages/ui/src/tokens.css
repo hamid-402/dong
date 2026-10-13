@@ -1,39 +1,19 @@
+/* دفتر آرام — one light ledger palette (default) and one dark theme.
+   Retired product themes (dusk, mist, linear) and atmospheres are not defined here.
+   Unknown saved values migrate to light in the web boot script. */
+
 :root {
-  /* Daylight — cool paper (default before data-theme hydrates) */
-  color-scheme: light;
-
-  --dang-bg: #f3f5f8;
-  --dang-surface: #ffffff;
-  --dang-surface-2: #eef1f5;
-  --dang-surface-3: #e2e7ee;
-  --dang-text: #12161c;
-  --dang-muted: #5b6573;
-  --dang-line: #d5dbe5;
-  --dang-line-strong: #bec6d3;
-  --dang-primary: #0f766e;
-  --dang-primary-deep: #115e59;
-  --dang-primary-ink: #ffffff;
-  --dang-gold: #b45309;
-  --dang-gold-soft: rgba(180, 83, 9, 0.1);
-  --dang-success: #15803d;
-  --dang-warning: #a16207;
-  --dang-danger: #b91c1c;
-  --dang-info: #2563eb;
-
-  --dang-fill-subtle: color-mix(in srgb, var(--dang-text) 3.5%, transparent);
-  --dang-fill-soft: color-mix(in srgb, var(--dang-text) 5.5%, transparent);
-  --dang-fill-hover: color-mix(in srgb, var(--dang-text) 8%, transparent);
-  --dang-fill-strong: color-mix(in srgb, var(--dang-text) 11%, transparent);
-  --dang-primary-soft: color-mix(in srgb, var(--dang-primary) 11%, transparent);
-  --dang-primary-mid: color-mix(in srgb, var(--dang-primary) 16%, transparent);
-  --dang-panel-top: #ffffff;
-  --dang-panel-bottom: #eef1f5;
-  --dang-chrome: color-mix(in srgb, var(--dang-surface) 92%, transparent);
-  --dang-dock: color-mix(in srgb, var(--dang-surface) 96%, var(--dang-bg));
-  --dang-header-bg: color-mix(in srgb, var(--dang-surface) 82%, transparent);
-  --dang-dock-bg: color-mix(in srgb, var(--dang-surface) 88%, transparent);
-  --dang-focus-ring: 0 0 0 3px color-mix(in srgb, #2563eb 40%, transparent);
-  --dang-on-accent: #fff8e8;
+  /* Type scale on a 16px root. xs is the minimum UI text size (14px). */
+  --text-xs: 0.875rem;
+  --text-sm: 0.9375rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-display: 2.25rem;
+  --leading-body: 1.6;
+  --leading-title: 1.25;
+  --leading-figure: 1.2;
 
   --dang-space-1: 4px;
   --dang-space-2: 8px;
@@ -50,65 +30,118 @@
   --dang-control-h: 48px;
   --dang-touch: 44px;
 
-  --dang-elev-1: 0 1px 0 rgba(255, 255, 255, 0.85), 0 10px 28px rgba(18, 22, 28, 0.06);
-  --dang-elev-2: 0 20px 48px rgba(18, 22, 28, 0.09);
-  --dang-shadow: var(--dang-elev-2);
   --dang-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --motion-duration-base: 200ms;
   --dang-dur: var(--motion-duration-base);
   --dang-dur-page: 220ms;
 
-  /* Atmosphere + page canvas (theme-aware via current primary/gold) */
+  /* Atmospheres are retired. Ambient layers stay in the DOM but paint nothing. */
   --atm-orb-a: var(--dang-primary);
   --atm-orb-b: var(--dang-gold);
   --atm-orb-c: var(--dang-info);
-  --atm-orb-opacity: 0.07;
+  --atm-orb-opacity: 0;
   --atm-wash: transparent;
   --atm-pattern: none;
-  --atm-vignette: radial-gradient(
-    ellipse at 50% 0%,
-    transparent 42%,
-    color-mix(in srgb, var(--dang-text) 6%, transparent) 100%
-  );
+  --atm-vignette: none;
   --atm-tint: var(--dang-primary);
   --atm-tint-strength: 0%;
-  --dang-page-background:
-    radial-gradient(
-      ellipse 80% 55% at 8% -8%,
-      color-mix(in srgb, var(--dang-primary) 14%, transparent),
-      transparent 55%
-    ),
-    radial-gradient(
-      ellipse 60% 45% at 96% 108%,
-      color-mix(in srgb, var(--dang-gold) 10%, transparent),
-      transparent 50%
-    ),
-    linear-gradient(
-      158deg,
-      color-mix(in srgb, var(--dang-bg) 90%, var(--dang-primary) 10%),
-      var(--dang-bg) 48%,
-      color-mix(in srgb, var(--dang-bg) 94%, var(--dang-info) 6%)
-    );
-  --dang-card-wash:
-    radial-gradient(
-      circle at 100% 0%,
-      color-mix(in srgb, var(--dang-primary) 8%, transparent),
-      transparent 42%
-    ),
-    radial-gradient(
-      circle at 0% 100%,
-      color-mix(in srgb, var(--dang-gold) 5%, transparent),
-      transparent 38%
-    );
+  --dang-page-background: var(--dang-bg);
+  --dang-card-wash: none;
+}
+
+/* Day — warm paper. Also the fallback before data-theme hydrates. */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --dang-bg: #f7f4ee;
+  --dang-surface: #fffcf7;
+  --dang-surface-2: #f1ede4;
+  --dang-surface-3: #e6e0d4;
+  --dang-text: #1c1915;
+  --dang-muted: #5e574e;
+  --dang-line: #7a7268;
+  --dang-line-strong: #5e574e;
+  --dang-primary: #0e6b5c;
+  --dang-primary-deep: #0a5448;
+  --dang-primary-ink: #ffffff;
+  --dang-link: #0e6b5c;
+  --dang-gold: #6b4423;
+  --dang-gold-soft: rgba(107, 68, 35, 0.12);
+  --dang-success: #146c36;
+  --dang-warning: #8a4b08;
+  --dang-danger: #9f1d1d;
+  --dang-info: #1d4e89;
+  --dang-placeholder: #6b645c;
+
+  --dang-fill-subtle: color-mix(in srgb, var(--dang-text) 4%, transparent);
+  --dang-fill-soft: color-mix(in srgb, var(--dang-text) 6%, transparent);
+  --dang-fill-hover: color-mix(in srgb, var(--dang-text) 8%, transparent);
+  --dang-fill-strong: color-mix(in srgb, var(--dang-text) 12%, transparent);
+  --dang-primary-soft: color-mix(in srgb, var(--dang-primary) 12%, transparent);
+  --dang-primary-mid: color-mix(in srgb, var(--dang-primary) 18%, transparent);
+  --dang-panel-top: #fffcf7;
+  --dang-panel-bottom: #f7f4ee;
+  --dang-chrome: color-mix(in srgb, var(--dang-surface) 92%, transparent);
+  --dang-dock: color-mix(in srgb, var(--dang-surface) 96%, var(--dang-bg));
+  --dang-header-bg: color-mix(in srgb, var(--dang-surface) 88%, transparent);
+  --dang-dock-bg: color-mix(in srgb, var(--dang-surface) 92%, transparent);
+  --dang-focus-ring: 0 0 0 3px color-mix(in srgb, var(--dang-primary) 40%, transparent);
+  --dang-on-accent: #fffcf7;
+
+  --dang-elev-1: 0 1px 2px rgba(28, 25, 21, 0.06);
+  --dang-elev-2: 0 8px 24px rgba(28, 25, 21, 0.08);
+  --dang-shadow: var(--dang-elev-2);
+}
+
+/* Night — the only alternate theme. */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --dang-bg: #121614;
+  --dang-surface: #1a211e;
+  --dang-surface-2: #222a26;
+  --dang-surface-3: #2c3531;
+  --dang-text: #f4f1ea;
+  --dang-muted: #c4beb4;
+  --dang-line: #6e7a74;
+  --dang-line-strong: #8a9690;
+  --dang-primary: #7ddec8;
+  --dang-primary-deep: #5fcbb4;
+  --dang-primary-ink: #042f29;
+  --dang-link: #9be0d2;
+  --dang-gold: #e4c48a;
+  --dang-gold-soft: rgba(228, 196, 138, 0.14);
+  --dang-success: #8ee4b0;
+  --dang-warning: #f5c16c;
+  --dang-danger: #ffb4ab;
+  --dang-info: #c5d7ff;
+  --dang-placeholder: #a8a299;
+
+  --dang-fill-subtle: rgba(255, 255, 255, 0.04);
+  --dang-fill-soft: rgba(255, 255, 255, 0.06);
+  --dang-fill-hover: rgba(255, 255, 255, 0.08);
+  --dang-fill-strong: rgba(255, 255, 255, 0.12);
+  --dang-primary-soft: color-mix(in srgb, var(--dang-primary) 14%, transparent);
+  --dang-primary-mid: color-mix(in srgb, var(--dang-primary) 22%, transparent);
+  --dang-panel-top: #222a26;
+  --dang-panel-bottom: #1a211e;
+  --dang-chrome: color-mix(in srgb, var(--dang-surface) 88%, transparent);
+  --dang-dock: color-mix(in srgb, var(--dang-bg) 88%, var(--dang-surface));
+  --dang-header-bg: color-mix(in srgb, var(--dang-surface) 82%, transparent);
+  --dang-dock-bg: color-mix(in srgb, var(--dang-surface) 90%, transparent);
+  --dang-focus-ring: 0 0 0 3px color-mix(in srgb, var(--dang-primary) 40%, transparent);
+  --dang-on-accent: #042f29;
+
+  --dang-elev-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --dang-elev-2: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --dang-shadow: var(--dang-elev-2);
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root,
   [data-theme="dark"],
-  [data-theme="light"],
-  [data-theme="dusk"],
-  [data-theme="mist"],
-  [data-theme="linear"] {
+  [data-theme="light"] {
     --motion-duration-base: 0.01ms;
     --dang-dur: 0.01ms;
     --dang-dur-page: 0.01ms;
@@ -122,488 +155,4 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-/* Midnight OLED — teal accents on near-black */
-[data-theme="dark"] {
-  color-scheme: dark;
-  --dang-bg: #070a0c;
-  --dang-surface: #10161a;
-  --dang-surface-2: #161d23;
-  --dang-surface-3: #1d262e;
-  --dang-text: #f2f4f6;
-  --dang-muted: #9aa3ad;
-  --dang-line: rgba(226, 232, 240, 0.1);
-  --dang-line-strong: rgba(226, 232, 240, 0.18);
-  --dang-primary: #57d7c5;
-  --dang-primary-deep: #0f766e;
-  --dang-primary-ink: #062f2b;
-  --dang-gold: #c9aa70;
-  --dang-gold-soft: rgba(201, 170, 112, 0.12);
-  --dang-success: #55d68b;
-  --dang-warning: #e7b85d;
-  --dang-danger: #ed7c78;
-  --dang-info: #60a5fa;
-  --dang-fill-subtle: rgba(255, 255, 255, 0.03);
-  --dang-fill-soft: rgba(255, 255, 255, 0.045);
-  --dang-fill-hover: rgba(255, 255, 255, 0.06);
-  --dang-fill-strong: rgba(255, 255, 255, 0.1);
-  --dang-primary-soft: rgba(87, 215, 197, 0.1);
-  --dang-primary-mid: rgba(87, 215, 197, 0.16);
-  --dang-panel-top: #141b21;
-  --dang-panel-bottom: #10161a;
-  --dang-chrome: color-mix(in srgb, var(--dang-surface) 86%, transparent);
-  --dang-dock: color-mix(in srgb, var(--dang-bg) 86%, var(--dang-surface));
-  --dang-header-bg: color-mix(in srgb, var(--dang-surface) 78%, transparent);
-  --dang-dock-bg: color-mix(in srgb, var(--dang-surface) 88%, transparent);
-  --dang-focus-ring: 0 0 0 3px rgba(87, 215, 197, 0.45);
-  --dang-on-accent: #fff8e8;
-  --dang-elev-1: 0 1px 0 rgba(255, 255, 255, 0.045), 0 12px 32px rgba(0, 0, 0, 0.42);
-  --dang-elev-2: 0 1px 0 rgba(255, 255, 255, 0.05), 0 28px 64px rgba(0, 0, 0, 0.52);
-  --dang-shadow: var(--dang-elev-2);
-  --atm-orb-opacity: 0.1;
-  --atm-vignette: radial-gradient(
-    ellipse at 50% 20%,
-    transparent 38%,
-    rgba(0, 0, 0, 0.38) 100%
-  );
-  --dang-page-background:
-    radial-gradient(
-      ellipse 70% 50% at 10% -5%,
-      color-mix(in srgb, var(--dang-primary) 18%, transparent),
-      transparent 55%
-    ),
-    radial-gradient(
-      ellipse 55% 40% at 100% 100%,
-      color-mix(in srgb, var(--dang-gold) 12%, transparent),
-      transparent 48%
-    ),
-    linear-gradient(
-      165deg,
-      color-mix(in srgb, #0a1216 88%, var(--dang-primary) 12%),
-      var(--dang-bg) 52%,
-      color-mix(in srgb, var(--dang-bg) 92%, #1a2836 8%)
-    );
-}
-
-/* Day — soft paper, not flat white */
-[data-theme="light"] {
-  color-scheme: light;
-  --dang-bg: #f4f7f9;
-  --dang-surface: #ffffff;
-  --dang-surface-2: #f0f3f7;
-  --dang-surface-3: #e5eaf0;
-  --dang-text: #0a1620;
-  --dang-muted: #475569;
-  --dang-line: #dde3ea;
-  --dang-line-strong: #c5ced8;
-  --dang-primary: #0f766e;
-  --dang-primary-deep: #115e59;
-  --dang-primary-ink: #ffffff;
-  --dang-gold: #9a3412;
-  --dang-gold-soft: rgba(154, 52, 18, 0.12);
-  --dang-success: #166534;
-  --dang-warning: #9a3412;
-  --dang-danger: #b91c1c;
-  --dang-info: #0369a1;
-  --dang-fill-subtle: color-mix(in srgb, var(--dang-text) 3%, transparent);
-  --dang-fill-soft: color-mix(in srgb, var(--dang-text) 5%, transparent);
-  --dang-fill-hover: color-mix(in srgb, var(--dang-primary) 8%, transparent);
-  --dang-fill-strong: color-mix(in srgb, var(--dang-primary) 14%, transparent);
-  --dang-primary-soft: color-mix(in srgb, var(--dang-primary) 12%, transparent);
-  --dang-primary-mid: color-mix(in srgb, var(--dang-primary) 18%, transparent);
-  --dang-panel-top: #ffffff;
-  --dang-panel-bottom: #f4f7f9;
-  --dang-chrome: color-mix(in srgb, #ffffff 90%, transparent);
-  --dang-dock: color-mix(in srgb, #ffffff 94%, var(--dang-bg));
-  --dang-header-bg: color-mix(in srgb, #ffffff 88%, transparent);
-  --dang-dock-bg: color-mix(in srgb, #ffffff 92%, transparent);
-  --dang-focus-ring: 0 0 0 3px color-mix(in srgb, var(--dang-primary) 42%, transparent);
-  --dang-on-accent: #fffbeb;
-  --dang-elev-1: 0 1px 0 #fff, 0 8px 24px rgba(15, 23, 42, 0.05);
-  --dang-elev-2: 0 16px 40px rgba(15, 23, 42, 0.07);
-  --dang-shadow: var(--dang-elev-2);
-  --atm-orb-opacity: 0.055;
-  --atm-vignette: radial-gradient(
-    ellipse at 50% 0%,
-    transparent 50%,
-    color-mix(in srgb, var(--dang-text) 4%, transparent) 100%
-  );
-  --dang-page-background:
-    radial-gradient(
-      ellipse 75% 50% at 0% 0%,
-      color-mix(in srgb, var(--dang-primary) 10%, transparent),
-      transparent 52%
-    ),
-    radial-gradient(
-      ellipse 50% 40% at 100% 100%,
-      color-mix(in srgb, var(--dang-gold) 8%, transparent),
-      transparent 48%
-    ),
-    linear-gradient(
-      160deg,
-      #f8fbfc 0%,
-      var(--dang-bg) 45%,
-      color-mix(in srgb, var(--dang-bg) 92%, #c8d9e6 8%) 100%
-    );
-}
-
-/* Twilight — warm plum charcoal */
-[data-theme="dusk"] {
-  color-scheme: dark;
-  --dang-bg: #171217;
-  --dang-surface: #221b21;
-  --dang-surface-2: #2c2329;
-  --dang-surface-3: #362c33;
-  --dang-text: #f7efe8;
-  --dang-muted: #b5a39a;
-  --dang-line: rgba(247, 239, 232, 0.11);
-  --dang-line-strong: rgba(247, 239, 232, 0.2);
-  --dang-primary: #e8b86d;
-  --dang-primary-deep: #b45309;
-  --dang-primary-ink: #1a1008;
-  --dang-gold: #f0c987;
-  --dang-gold-soft: rgba(240, 201, 135, 0.14);
-  --dang-success: #7dcb9a;
-  --dang-warning: #e8b86d;
-  --dang-danger: #e8958a;
-  --dang-info: #c4a5e8;
-  --dang-fill-subtle: rgba(255, 248, 240, 0.03);
-  --dang-fill-soft: rgba(255, 248, 240, 0.05);
-  --dang-fill-hover: rgba(255, 248, 240, 0.07);
-  --dang-fill-strong: rgba(255, 248, 240, 0.11);
-  --dang-primary-soft: rgba(232, 184, 109, 0.12);
-  --dang-primary-mid: rgba(232, 184, 109, 0.18);
-  --dang-panel-top: #2a2128;
-  --dang-panel-bottom: #221b21;
-  --dang-chrome: color-mix(in srgb, var(--dang-bg) 88%, transparent);
-  --dang-dock: color-mix(in srgb, var(--dang-bg) 92%, transparent);
-  --dang-header-bg: color-mix(in srgb, var(--dang-surface) 78%, transparent);
-  --dang-dock-bg: color-mix(in srgb, var(--dang-bg) 90%, transparent);
-  --dang-focus-ring: 0 0 0 3px rgba(232, 184, 109, 0.42);
-  --dang-on-accent: #1a1008;
-  --dang-elev-1: 0 1px 0 rgba(255, 248, 240, 0.04), 0 12px 32px rgba(0, 0, 0, 0.4);
-  --dang-elev-2: 0 1px 0 rgba(255, 248, 240, 0.05), 0 28px 64px rgba(0, 0, 0, 0.5);
-  --dang-shadow: var(--dang-elev-2);
-  --atm-orb-opacity: 0.12;
-  --atm-vignette: radial-gradient(
-    ellipse at 50% 15%,
-    transparent 36%,
-    rgba(20, 8, 12, 0.45) 100%
-  );
-  --dang-page-background:
-    radial-gradient(
-      ellipse 65% 48% at 85% -5%,
-      color-mix(in srgb, var(--dang-primary) 20%, transparent),
-      transparent 52%
-    ),
-    radial-gradient(
-      ellipse 50% 40% at 5% 95%,
-      color-mix(in srgb, var(--dang-info) 14%, transparent),
-      transparent 48%
-    ),
-    linear-gradient(
-      168deg,
-      color-mix(in srgb, #1f161c 80%, var(--dang-primary) 20%),
-      var(--dang-bg) 50%,
-      color-mix(in srgb, var(--dang-bg) 90%, #2a1820 10%)
-    );
-}
-
-/* Fog — cool gray-blue daylight */
-[data-theme="mist"] {
-  color-scheme: light;
-  --dang-bg: #e6edf4;
-  --dang-surface: #f4f7fb;
-  --dang-surface-2: #dde5ee;
-  --dang-surface-3: #cfd9e5;
-  --dang-text: #152033;
-  --dang-muted: #5a6b82;
-  --dang-line: #c5d0de;
-  --dang-line-strong: #aebccf;
-  --dang-primary: #0e7490;
-  --dang-primary-deep: #155e75;
-  --dang-primary-ink: #ffffff;
-  --dang-gold: #a16207;
-  --dang-gold-soft: rgba(161, 98, 7, 0.12);
-  --dang-success: #157a3c;
-  --dang-warning: #a16207;
-  --dang-danger: #b91c1c;
-  --dang-info: #2563eb;
-  --dang-fill-subtle: color-mix(in srgb, var(--dang-text) 3.5%, transparent);
-  --dang-fill-soft: color-mix(in srgb, var(--dang-text) 5.5%, transparent);
-  --dang-fill-hover: color-mix(in srgb, var(--dang-text) 8%, transparent);
-  --dang-fill-strong: color-mix(in srgb, var(--dang-text) 11%, transparent);
-  --dang-primary-soft: color-mix(in srgb, var(--dang-primary) 12%, transparent);
-  --dang-primary-mid: color-mix(in srgb, var(--dang-primary) 18%, transparent);
-  --dang-panel-top: #f4f7fb;
-  --dang-panel-bottom: #dde5ee;
-  --dang-chrome: color-mix(in srgb, var(--dang-surface) 90%, transparent);
-  --dang-dock: color-mix(in srgb, var(--dang-surface) 95%, var(--dang-bg));
-  --dang-header-bg: color-mix(in srgb, var(--dang-surface) 78%, transparent);
-  --dang-dock-bg: color-mix(in srgb, var(--dang-surface) 86%, transparent);
-  --dang-focus-ring: 0 0 0 3px color-mix(in srgb, #0e7490 38%, transparent);
-  --dang-on-accent: #fff8e8;
-  --dang-elev-1: 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 28px rgba(21, 32, 51, 0.07);
-  --dang-elev-2: 0 20px 48px rgba(21, 32, 51, 0.1);
-  --dang-shadow: var(--dang-elev-2);
-  --atm-orb-opacity: 0.08;
-  --atm-vignette: radial-gradient(
-    ellipse at 50% 0%,
-    transparent 45%,
-    color-mix(in srgb, #152033 7%, transparent) 100%
-  );
-  --dang-page-background:
-    radial-gradient(
-      ellipse 70% 48% at 12% -5%,
-      color-mix(in srgb, var(--dang-primary) 16%, transparent),
-      transparent 52%
-    ),
-    radial-gradient(
-      ellipse 55% 42% at 95% 100%,
-      color-mix(in srgb, var(--dang-info) 12%, transparent),
-      transparent 48%
-    ),
-    linear-gradient(
-      155deg,
-      color-mix(in srgb, #eef4f9 85%, var(--dang-primary) 15%),
-      var(--dang-bg) 50%,
-      color-mix(in srgb, var(--dang-bg) 90%, #b8c9db 10%)
-    );
-}
-
-/* Linear — near-black, silver accent */
-[data-theme="linear"] {
-  color-scheme: dark;
-  --dang-bg: #050506;
-  --dang-surface: #0f0f12;
-  --dang-surface-2: #141418;
-  --dang-surface-3: #1a1a1f;
-  --dang-text: #fafafa;
-  --dang-muted: #a1a1aa;
-  --dang-line: #26262b;
-  --dang-line-strong: #3a3a40;
-  --dang-primary: #e7e7ea;
-  --dang-primary-deep: #ffffff;
-  --dang-primary-ink: #070708;
-  --dang-gold: #e9b45a;
-  --dang-gold-soft: rgba(233, 180, 90, 0.12);
-  --dang-success: #71d2a0;
-  --dang-warning: #e9b45a;
-  --dang-danger: #ff6b78;
-  --dang-info: #9db7ff;
-  --dang-fill-subtle: rgba(255, 255, 255, 0.03);
-  --dang-fill-soft: rgba(255, 255, 255, 0.045);
-  --dang-fill-hover: rgba(255, 255, 255, 0.07);
-  --dang-fill-strong: rgba(255, 255, 255, 0.1);
-  --dang-primary-soft: rgba(231, 231, 234, 0.1);
-  --dang-primary-mid: rgba(231, 231, 234, 0.16);
-  --dang-panel-top: #141418;
-  --dang-panel-bottom: #0f0f12;
-  --dang-chrome: color-mix(in srgb, var(--dang-bg) 86%, transparent);
-  --dang-dock: rgba(9, 9, 11, 0.94);
-  --dang-header-bg: color-mix(in srgb, #09090b 86%, transparent);
-  --dang-dock-bg: color-mix(in srgb, #09090b 92%, transparent);
-  --dang-focus-ring: 0 0 0 3px rgba(255, 255, 255, 0.28);
-  --dang-on-accent: #070708;
-  --dang-elev-1: 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 32px rgba(0, 0, 0, 0.55);
-  --dang-elev-2: 0 1px 0 rgba(255, 255, 255, 0.05), 0 28px 64px rgba(0, 0, 0, 0.7);
-  --dang-shadow: var(--dang-elev-2);
-  --dang-radius-sm: 9px;
-  --dang-radius-md: 13px;
-  --dang-radius-lg: 18px;
-  --atm-orb-opacity: 0.08;
-  --atm-vignette: radial-gradient(
-    ellipse at 50% 10%,
-    transparent 40%,
-    rgba(0, 0, 0, 0.55) 100%
-  );
-  --dang-page-background:
-    radial-gradient(
-      ellipse 55% 40% at 90% 0%,
-      color-mix(in srgb, var(--dang-info) 14%, transparent),
-      transparent 50%
-    ),
-    radial-gradient(
-      ellipse 45% 35% at 5% 100%,
-      color-mix(in srgb, var(--dang-gold) 10%, transparent),
-      transparent 48%
-    ),
-    linear-gradient(180deg, #0a0a0c 0%, var(--dang-bg) 40%, #08080a 100%);
-}
-
-/* —— Atmospheres: theme-aware orbs + washes (no hard-coded teal clash) —— */
-
-:root,
-[data-atmosphere="deep"] {
-  --atm-orb-a: var(--dang-primary);
-  --atm-orb-b: var(--dang-gold);
-  --atm-orb-c: var(--dang-info);
-  --atm-orb-opacity: 0.07;
-  --atm-wash: transparent;
-  --atm-pattern: none;
-  --atm-tint: var(--dang-primary);
-  --atm-tint-strength: 0%;
-}
-
-[data-atmosphere="forest"] {
-  --atm-orb-a: var(--dang-primary);
-  --atm-orb-b: color-mix(in srgb, var(--dang-primary) 70%, var(--dang-info));
-  --atm-orb-c: var(--dang-primary-deep);
-  --atm-orb-opacity: 0.14;
-  --atm-wash:
-    linear-gradient(
-      105deg,
-      color-mix(in srgb, var(--dang-primary) 16%, transparent) 0%,
-      transparent 30%,
-      transparent 70%,
-      color-mix(in srgb, var(--dang-info) 10%, transparent) 100%
-    ),
-    radial-gradient(
-      ellipse at 15% 0%,
-      color-mix(in srgb, var(--dang-primary-deep) 22%, transparent),
-      transparent 50%
-    );
-  --atm-pattern: repeating-linear-gradient(
-    90deg,
-    transparent 0,
-    transparent 48px,
-    color-mix(in srgb, var(--dang-primary) 5%, transparent) 48px,
-    color-mix(in srgb, var(--dang-primary) 5%, transparent) 50px
-  );
-  --atm-vignette: radial-gradient(
-    ellipse at 50% 50%,
-    transparent 48%,
-    color-mix(in srgb, var(--dang-bg) 55%, #000) 100%
-  );
-  --atm-tint: var(--dang-primary);
-  --atm-tint-strength: 8%;
-  --dang-page-background:
-    radial-gradient(
-      circle at 82% 18%,
-      color-mix(in srgb, var(--dang-primary) 20%, transparent) 0,
-      transparent 32%
-    ),
-    radial-gradient(
-      circle at 12% 78%,
-      color-mix(in srgb, var(--dang-primary-deep) 24%, transparent) 0,
-      transparent 34%
-    ),
-    linear-gradient(
-      145deg,
-      var(--dang-bg),
-      color-mix(in srgb, var(--dang-bg) 88%, var(--dang-primary) 12%)
-    );
-}
-
-[data-atmosphere="sand"] {
-  --atm-orb-a: var(--dang-gold);
-  --atm-orb-b: color-mix(in srgb, var(--dang-gold) 75%, var(--dang-muted));
-  --atm-orb-c: color-mix(in srgb, var(--dang-gold) 55%, #fff);
-  --atm-orb-opacity: 0.11;
-  --atm-wash:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--dang-gold) 12%, transparent) 0%,
-      transparent 35%,
-      transparent 70%,
-      color-mix(in srgb, var(--dang-gold) 8%, transparent) 100%
-    ),
-    radial-gradient(
-      ellipse at 80% 8%,
-      color-mix(in srgb, var(--dang-gold) 16%, transparent),
-      transparent 45%
-    );
-  --atm-pattern: none;
-  --atm-vignette: radial-gradient(
-    ellipse at 50% 30%,
-    transparent 45%,
-    color-mix(in srgb, var(--dang-gold) 8%, transparent) 100%
-  );
-  --atm-tint: var(--dang-gold);
-  --atm-tint-strength: 10%;
-  --dang-page-background:
-    url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3e%3cfilter id='n'%3e%3cfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='4' stitchTiles='stitch'/%3e%3cfeColorMatrix type='saturate' values='0'/%3e%3cfeComponentTransfer%3e%3cfeFuncA type='table' tableValues='0 .14'/%3e%3c/feComponentTransfer%3e%3c/filter%3e%3crect width='100%25' height='100%25' filter='url(%23n)' opacity='.38'/%3e%3cpath d='M0 40H160M0 80H160M0 120H160M40 0V160M80 0V160M120 0V160' stroke='%23718096' stroke-opacity='.04'/%3e%3c/svg%3e"),
-    linear-gradient(
-      145deg,
-      var(--dang-bg),
-      color-mix(in srgb, var(--dang-bg) 94%, var(--dang-gold) 6%)
-    );
-}
-
-[data-atmosphere="ember"] {
-  --atm-orb-a: var(--dang-info);
-  --atm-orb-b: var(--dang-primary);
-  --atm-orb-c: color-mix(in srgb, var(--dang-info) 55%, #7349c6);
-  --atm-orb-opacity: 0.16;
-  --atm-wash:
-    radial-gradient(
-      ellipse at 82% 12%,
-      color-mix(in srgb, var(--dang-info) 28%, transparent),
-      transparent 38%
-    ),
-    radial-gradient(
-      ellipse at 18% 78%,
-      color-mix(in srgb, var(--dang-primary) 22%, transparent),
-      transparent 42%
-    ),
-    radial-gradient(
-      ellipse at 68% 86%,
-      color-mix(in srgb, #7349c6 20%, transparent),
-      transparent 40%
-    );
-  --atm-pattern: none;
-  --atm-vignette: radial-gradient(
-    ellipse at 50% 30%,
-    transparent 40%,
-    color-mix(in srgb, var(--dang-bg) 70%, #000) 100%
-  );
-  --atm-tint: var(--dang-info);
-  --atm-tint-strength: 8%;
-  --dang-page-background:
-    radial-gradient(
-      ellipse at 80% 10%,
-      color-mix(in srgb, var(--dang-info) 22%, transparent),
-      transparent 40%
-    ),
-    radial-gradient(
-      ellipse at 15% 85%,
-      color-mix(in srgb, var(--dang-primary) 16%, transparent),
-      transparent 42%
-    ),
-    linear-gradient(
-      165deg,
-      color-mix(in srgb, var(--dang-bg) 88%, var(--dang-info) 12%),
-      var(--dang-bg) 55%,
-      color-mix(in srgb, var(--dang-bg) 92%, #1a1028 8%)
-    );
-}
-
-/* Light themes: keep atmosphere readable, never flatten to pure white */
-[data-theme="light"][data-atmosphere="deep"],
-[data-theme="mist"][data-atmosphere="deep"] {
-  --atm-orb-opacity: 0.05;
-}
-
-[data-theme="light"][data-atmosphere="forest"],
-[data-theme="mist"][data-atmosphere="forest"] {
-  --atm-orb-opacity: 0.09;
-  --atm-wash:
-    linear-gradient(
-      105deg,
-      color-mix(in srgb, var(--dang-primary) 10%, transparent) 0%,
-      transparent 35%,
-      transparent 68%,
-      color-mix(in srgb, var(--dang-info) 8%, transparent) 100%
-    );
-}
-
-[data-theme="light"][data-atmosphere="sand"],
-[data-theme="mist"][data-atmosphere="sand"] {
-  --atm-orb-opacity: 0.08;
-}
-
-[data-theme="light"][data-atmosphere="ember"],
-[data-theme="mist"][data-atmosphere="ember"] {
-  --atm-orb-opacity: 0.1;
 }

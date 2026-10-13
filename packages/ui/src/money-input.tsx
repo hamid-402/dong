@@ -38,9 +38,9 @@ export function MoneyInput({
   return (
     <label style={{ display: "grid", gap: 6 }}>
       {label ? (
-        <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>
+        <span style={{ fontSize: "var(--text-xs, 0.875rem)", fontWeight: 500, color: "var(--dang-muted, var(--muted))" }}>
           {label}
-          <span style={{ marginInlineStart: 6, opacity: 0.7, fontWeight: 500 }}>
+          <span style={{ marginInlineStart: 6, fontWeight: 500 }}>
             ({displayUnitLabel(displayUnit)})
           </span>
         </span>
@@ -65,15 +65,15 @@ export function MoneyInput({
             ...(typeof rest.style === "object" && rest.style ? rest.style : {}),
           }}
         />
-        <span aria-hidden style={{ opacity: 0.75, whiteSpace: "nowrap" }}>
+        <span aria-hidden style={{ color: "var(--dang-muted, var(--muted))", whiteSpace: "nowrap" }}>
           {displayUnitLabel(displayUnit)}
         </span>
       </span>
       {hint && !error ? (
-        <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>{hint}</span>
+        <span style={{ fontSize: "var(--text-xs, 0.875rem)", color: "var(--dang-muted, var(--muted))" }}>{hint}</span>
       ) : null}
       {error ? (
-        <span style={{ fontSize: "0.75rem", color: "var(--danger, #b91c1c)" }}>{error}</span>
+        <span style={{ fontSize: "var(--text-xs, 0.875rem)", color: "var(--dang-danger, var(--danger))" }}>{error}</span>
       ) : null}
     </label>
   );

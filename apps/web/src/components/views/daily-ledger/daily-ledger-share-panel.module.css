@@ -32,7 +32,7 @@
 
 .headMeta {
   margin: 0;
-  font-size: 0.72rem;
+  font-size:0.875rem;
   color: var(--muted);
   line-height: 1.4;
 }
@@ -117,7 +117,7 @@
   height: 1.7rem;
   flex-shrink: 0;
   border-radius: 8px;
-  font-size: 0.68rem;
+  font-size:0.875rem;
   font-weight: 750;
   color: color-mix(in srgb, var(--share-accent) 85%, var(--text));
   background: color-mix(in srgb, var(--share-accent) 14%, transparent);
@@ -153,7 +153,7 @@
 }
 
 .rowName {
-  font-size: 0.84rem;
+  font-size:0.875rem;
   font-weight: 650;
   color: var(--text);
   overflow: hidden;
@@ -163,7 +163,7 @@
 
 .depositBadge {
   flex-shrink: 0;
-  font-size: 0.6rem;
+  font-size:0.875rem;
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 6px;
@@ -176,7 +176,7 @@
   flex: 0 1 auto;
   max-width: 46%;
   text-align: end;
-  font-size: 0.8rem;
+  font-size:0.875rem;
   font-weight: 800;
   color: var(--text);
 }
@@ -238,7 +238,7 @@
   height: 2.25rem;
   flex-shrink: 0;
   border-radius: 10px;
-  font-size: 0.82rem;
+  font-size:0.875rem;
   font-weight: 750;
   color: var(--surface);
   background: var(--share-accent);
@@ -251,7 +251,7 @@
 }
 
 .detailEyebrow {
-  font-size: 0.66rem;
+  font-size:0.875rem;
   font-weight: 650;
   letter-spacing: 0.02em;
   color: var(--muted);
@@ -277,7 +277,7 @@
 }
 
 .detailHeroLabel {
-  font-size: 0.68rem;
+  font-size:0.875rem;
   font-weight: 650;
   color: var(--muted);
 }
@@ -321,7 +321,7 @@
   gap: 6px;
   flex: 0 0 auto;
   margin: 0;
-  font-size: 0.74rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -330,13 +330,13 @@
   min-width: 0;
   max-width: 68%;
   text-align: end;
-  font-size: 0.8rem;
+  font-size:0.875rem;
   color: var(--text);
   font-weight: 650;
 }
 
 .formulaTag {
-  font-size: 0.58rem;
+  font-size:0.875rem;
   font-weight: 700;
   padding: 1px 5px;
   border-radius: 5px;
@@ -430,7 +430,7 @@
 }
 
 .depositLabel {
-  font-size: 0.74rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -439,7 +439,7 @@
   min-width: 0;
   max-width: 62%;
   text-align: end;
-  font-size: 0.8rem;
+  font-size:0.875rem;
   font-weight: 650;
 }
 
@@ -452,7 +452,7 @@
 .depositEmpty {
   margin: 0;
   padding: 8px 2px 2px;
-  font-size: 0.74rem;
+  font-size:0.875rem;
   line-height: 1.45;
   color: var(--muted);
 }
@@ -485,19 +485,19 @@
 }
 
 .statLabel {
-  font-size: 0.68rem;
+  font-size:0.875rem;
   font-weight: 650;
   color: var(--muted);
 }
 
 .statValue {
-  font-size: 0.86rem;
+  font-size:0.875rem;
   font-weight: 750;
   color: var(--text);
 }
 
 .statMeta {
-  font-size: 0.66rem;
+  font-size:0.875rem;
   color: var(--muted);
   line-height: 1.3;
 }
@@ -602,14 +602,14 @@
 }
 
 .blockLabel {
-  font-size: 0.7rem;
+  font-size:0.875rem;
   font-weight: 700;
   color: var(--muted);
 }
 
 .sectionCount {
   flex-shrink: 0;
-  font-size: 0.66rem;
+  font-size:0.875rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
@@ -637,7 +637,7 @@
   padding: 7px 8px;
   border-radius: 9px;
   background: color-mix(in srgb, var(--surface-2, var(--line)) 20%, transparent);
-  font-size: 0.76rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -670,7 +670,7 @@
 
 .moreHint {
   margin: 2px 0 0;
-  font-size: 0.68rem;
+  font-size:0.875rem;
   color: var(--muted);
   line-height: 1.35;
 }
@@ -688,7 +688,7 @@
 }
 
 .footerLabel {
-  font-size: 0.76rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -697,5 +697,5 @@
   text-align: end;
   color: var(--text);
   font-weight: 750;
-  font-size: 0.84rem;
+  font-size:0.875rem;
 }

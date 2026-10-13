@@ -26,7 +26,7 @@
 
 .inspector > span {
   color: var(--primary);
-  font-size: 0.75rem;
+  font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 0.04em;
 }
@@ -64,7 +64,7 @@
 .inspector a {
   display: inline-flex;
   color: var(--primary);
-  font-size: 0.85rem;
+  font-size:0.875rem;
   font-weight: 700;
 }
 

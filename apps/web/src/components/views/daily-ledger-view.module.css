@@ -39,7 +39,7 @@
 
 .memberTotals summary {
   cursor: pointer;
-  font-size: clamp(0.8rem, 2.2vw, 0.88rem);
+  font-size:clamp(0.875rem, 2.2vw, 0.88rem);
   font-weight: 700;
   color: var(--muted);
   list-style: none;

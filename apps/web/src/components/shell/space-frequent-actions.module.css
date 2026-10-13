@@ -19,7 +19,7 @@
 
 .lead {
   margin: 4px 0 0;
-  font-size: 0.8rem;
+  font-size:0.875rem;
   line-height: 1.45;
   color: var(--muted);
 }
@@ -81,13 +81,13 @@
   border-radius: 999px;
   background: var(--primary);
   color: var(--on-primary, #fff);
-  font-size: 0.7rem;
+  font-size:0.875rem;
   font-weight: 750;
 }
 
 .hint {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size:0.875rem;
   line-height: 1.35;
 }
 

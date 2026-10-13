@@ -44,7 +44,7 @@
 
 .eventList article span:first-child {
   color: var(--accent);
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 800;
 }
 
@@ -92,7 +92,7 @@
 
 .inspector header span {
   color: var(--accent);
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 800;
 }
 
@@ -117,13 +117,13 @@
 
 .inspector dt {
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size:0.875rem;
 }
 
 .inspector dd {
   margin: 0;
   overflow-wrap: anywhere;
-  font-size: 0.8rem;
+  font-size:0.875rem;
 }
 
 .inspector section {
@@ -132,7 +132,7 @@
 
 .inspector section p {
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size:0.875rem;
   line-height: 1.8;
 }
 

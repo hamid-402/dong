@@ -16,7 +16,7 @@
 
 .lead {
   margin: 0;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   line-height: 1.45;
   color: var(--muted);
   font-weight: 650;
@@ -56,7 +56,7 @@
   border-radius: 999px;
   border: 1px solid var(--line);
   color: var(--text);
-  font-size: 0.7rem;
+  font-size:0.875rem;
   font-weight: 650;
   line-height: 1.35;
 }
@@ -78,7 +78,7 @@
 
 .devAuth summary {
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size:0.875rem;
   font-weight: 700;
   color: var(--warning);
   line-height: 1.4;
@@ -104,12 +104,12 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--warning) 10%, var(--surface));
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size:0.875rem;
   line-height: 1.45;
 }
 
 .devAuthBody code {
-  font-size: 0.72rem;
+  font-size:0.875rem;
   padding: 1px 4px;
   border-radius: 4px;
   background: color-mix(in srgb, var(--text) 6%, transparent);

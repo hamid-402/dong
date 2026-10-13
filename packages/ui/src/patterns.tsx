@@ -21,7 +21,7 @@ export function Badge({ tone = "neutral", children, style, ...rest }: BadgeProps
     minHeight: 28,
     padding: "2px 10px",
     borderRadius: 999,
-    fontSize: "0.75rem",
+    fontSize: "0.875rem",
     fontWeight: 600,
     color: colors[tone],
     background: `color-mix(in srgb, ${colors[tone]} 14%, transparent)`,

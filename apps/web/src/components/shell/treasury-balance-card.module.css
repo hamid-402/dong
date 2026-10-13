@@ -49,7 +49,7 @@
 
 .kicker {
   margin: 0;
-  font-size: 0.72rem;
+  font-size:0.875rem;
   letter-spacing: 0.06em;
   color: var(--primary, #0f766e);
   font-weight: 650;
@@ -70,7 +70,7 @@
 
 .lede {
   margin: 0.35rem 0 0;
-  font-size: 0.86rem;
+  font-size:0.875rem;
   line-height: 1.45;
   color: var(--muted);
   max-width: 36rem;
@@ -92,7 +92,7 @@
 }
 
 .unit {
-  font-size: 0.85rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -138,7 +138,7 @@ a.ctaLink:visited {
 }
 
 .quietLink {
-  font-size: 0.82rem;
+  font-size:0.875rem;
   color: var(--primary, #0f766e);
   text-decoration: none;
 }

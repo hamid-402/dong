@@ -25,7 +25,7 @@
 
 .head a {
   color: var(--primary);
-  font-size: 13px;
+  font-size:0.875rem;
   font-weight: 650;
   text-decoration: none;
 }
@@ -33,7 +33,7 @@
 .count,
 .meta {
   color: var(--muted);
-  font-size: 12px;
+  font-size:0.875rem;
   font-weight: 600;
 }
 
@@ -41,7 +41,7 @@
 .empty {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size:0.875rem;
   line-height: 1.5;
 }
 
@@ -82,7 +82,7 @@
 }
 
 .quickMain b {
-  font-size: 13px;
+  font-size:0.875rem;
   font-weight: 650;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -92,7 +92,7 @@
 .quickMain small,
 .list small {
   color: var(--muted);
-  font-size: 11px;
+  font-size:0.875rem;
 }
 
 .pin,
@@ -121,7 +121,7 @@
   padding: 6px 8px;
   border-radius: 8px;
   color: var(--primary);
-  font-size: 12px;
+  font-size:0.875rem;
   font-weight: 650;
   text-decoration: none;
 }
@@ -139,7 +139,7 @@
   background: var(--surface);
   color: inherit;
   font: inherit;
-  font-size: 13px;
+  font-size:0.875rem;
 }
 
 .list {
@@ -167,7 +167,7 @@
 }
 
 .list b {
-  font-size: 13px;
+  font-size:0.875rem;
   font-weight: 600;
 }
 
@@ -175,6 +175,6 @@
   justify-self: start;
   padding: 6px 0;
   color: var(--primary);
-  font-size: 12px;
+  font-size:0.875rem;
   font-weight: 650;
 }

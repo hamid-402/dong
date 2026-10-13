@@ -38,7 +38,7 @@
   border-radius: 8px;
   padding: 3px 8px;
   font: inherit;
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -60,7 +60,7 @@
   flex-wrap: wrap;
   gap: 8px 12px;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size:0.875rem;
 }
 
 .stat {
@@ -84,7 +84,7 @@
 
 .axisLabel {
   fill: var(--muted);
-  font-size: 10px;
+  font-size:0.875rem;
 }
 
 .barPrimary {
@@ -171,7 +171,7 @@
 
 .valueTag {
   fill: var(--text);
-  font-size: 9px;
+  font-size:0.875rem;
   font-weight: 700;
 }
 
@@ -182,7 +182,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -206,7 +206,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.82rem;
+  font-size:0.875rem;
 }
 
 .table th,
@@ -232,7 +232,7 @@
   grid-template-columns: minmax(4rem, 28%) 1fr auto;
   gap: 8px;
   align-items: center;
-  font-size: 0.82rem;
+  font-size:0.875rem;
 }
 
 .hbarLabel {
@@ -295,7 +295,7 @@
   grid-template-columns: 12px 1fr auto;
   gap: 8px;
   align-items: center;
-  font-size: 0.8rem;
+  font-size:0.875rem;
 }
 
 .swatch {
@@ -307,7 +307,7 @@
 .hint {
   margin: 0;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size:0.875rem;
 }
 
 .progressRow {
@@ -319,7 +319,7 @@
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 0.8rem;
+  font-size:0.875rem;
 }
 
 .progressTrack {

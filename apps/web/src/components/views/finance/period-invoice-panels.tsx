@@ -475,29 +475,29 @@ export function PeriodInvoicePanels({
                   >
                     {invoiceStatusLabel(invoice.status)}
                   </StatusPill>
-                  <span style={{ color: "var(--muted)", fontSize: 12 }}>
+                  <span style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
                     عمومی <Amount irrMinor={invoice.sharedTotal.amountMinor} /> · خصوصی{" "}
                     <Amount irrMinor={invoice.privateTotal.amountMinor} />
                   </span>
                   {isInvoiceLocked(invoice.status) ? (
-                    <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
+                    <span style={{ color: "var(--muted)", fontSize: "0.875rem", display: "block" }}>
                       سند قفل‌شده — تغییرات بعدی به‌صورت اعلامیهٔ اصلاحی ثبت می‌شود
                     </span>
                   ) : invoice.recalculatedAt ? (
-                    <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
+                    <span style={{ color: "var(--muted)", fontSize: "0.875rem", display: "block" }}>
                       پیش‌نویس زنده · آخرین به‌روزرسانی {formatFaDate(invoice.recalculatedAt)}
                       {invoice.version ? ` · نسخهٔ ${invoice.version}` : ""}
                     </span>
                   ) : null}
                   {invoice.pendingTotal &&
                   invoice.pendingTotal.amountMinor !== "0" ? (
-                    <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
+                    <span style={{ color: "var(--muted)", fontSize: "0.875rem", display: "block" }}>
                       در انتظار ثبت نهایی (خارج از جمع سند){" "}
                       <Amount irrMinor={invoice.pendingTotal.amountMinor} />
                     </span>
                   ) : null}
                   {invoice.lines.length > 0 ? (
-                    <span style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
+                    <span style={{ color: "var(--muted)", fontSize: "0.875rem", display: "block" }}>
                       {invoice.lines
                         .map(
                           (line) =>

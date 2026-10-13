@@ -259,7 +259,7 @@ export function DailyLedgerSidePanels({
                     </button>
                   </SelectionActionBar>
                 ) : null}
-                <table className="dlPreviewTable" style={{ width: "100%", fontSize: 12 }}>
+                <table className="dlPreviewTable" style={{ width: "100%", fontSize: "0.875rem" }}>
                   <thead>
                     <tr>
                       {onImportPreviewChange ? <th scope="col" /> : null}

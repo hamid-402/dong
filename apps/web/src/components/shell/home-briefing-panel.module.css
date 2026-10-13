@@ -30,7 +30,7 @@
 
 .eyebrow {
   margin: 0 0 2px;
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--muted);
@@ -48,7 +48,7 @@
   flex: 0 0 auto;
   padding: 4px 10px;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size:0.875rem;
   font-weight: 700;
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--surface) 90%, transparent);
@@ -80,7 +80,7 @@
 
 .balanceLabel {
   margin: 0;
-  font-size: 0.8rem;
+  font-size:0.875rem;
   color: var(--muted);
   font-weight: 650;
 }
@@ -108,7 +108,7 @@
 
 .balanceMeta {
   margin: 2px 0 0;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -166,7 +166,7 @@
   display: grid;
   place-items: center;
   border-radius: 10px;
-  font-size: 0.85rem;
+  font-size:0.875rem;
   font-weight: 800;
   background: color-mix(in srgb, var(--text) 6%, transparent);
   color: var(--text);
@@ -190,7 +190,7 @@
 
 .queueCopy small {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size:0.875rem;
   line-height: 1.35;
 }
 
@@ -205,7 +205,7 @@
   border-radius: 12px;
   border: 1px dashed color-mix(in srgb, var(--line) 85%, transparent);
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size:0.875rem;
   line-height: 1.45;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
 }
@@ -217,7 +217,7 @@
 
 .alertsTitle {
   margin: 0;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 700;
   color: var(--muted);
 }
@@ -246,13 +246,13 @@ a.alertLink:hover {
 }
 
 .alertLink strong {
-  font-size: 0.86rem;
+  font-size:0.875rem;
   font-weight: 700;
 }
 
 .alertLink small {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size:0.875rem;
   line-height: 1.35;
 }
 

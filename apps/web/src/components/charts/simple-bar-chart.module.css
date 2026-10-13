@@ -17,7 +17,7 @@
 
 .source {
   margin: 0;
-  font-size: 0.8rem;
+  font-size:0.875rem;
   opacity: 0.72;
 }
 
@@ -45,7 +45,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size:0.875rem;
 }
 
 .table th,

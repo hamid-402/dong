@@ -1,12 +1,12 @@
 .command {
   --ls-ink: var(--text);
-  --ls-muted: color-mix(in srgb, var(--text) 62%, transparent);
-  --ls-line: color-mix(in srgb, var(--line, #cbd5e1) 88%, transparent);
-  --ls-teal: #0f766e;
-  --ls-amber: #b45309;
-  --ls-slate: #475569;
-  --ls-forest: #166534;
-  --ls-copper: #9a3412;
+  --ls-muted: var(--muted);
+  --ls-line: var(--line);
+  --ls-teal: var(--primary);
+  --ls-amber: var(--warning);
+  --ls-slate: var(--muted);
+  --ls-forest: var(--success);
+  --ls-copper: var(--warning);
 
   position: relative;
   isolation: isolate;
@@ -35,8 +35,8 @@
       color-mix(in srgb, var(--surface) 94%, var(--ls-amber) 6%) 100%
     );
   box-shadow:
-    0 1px 0 color-mix(in srgb, #fff 35%, transparent) inset,
-    0 22px 48px -32px color-mix(in srgb, #000 36%, transparent);
+    0 1px 0 color-mix(in srgb, var(--surface) 35%, transparent) inset,
+    0 22px 48px -32px color-mix(in srgb, var(--text) 20%, transparent);
   animation: lsEnter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -189,7 +189,7 @@
 }
 
 .eqLabel {
-  font-size: 0.72rem;
+  font-size:0.875rem;
   letter-spacing: 0.02em;
   color: var(--ls-muted);
 }
@@ -219,12 +219,12 @@
 }
 
 .flowSave {
-  background: linear-gradient(90deg, var(--ls-copper), #c2410c);
+  background: linear-gradient(90deg, var(--warning), color-mix(in srgb, var(--warning) 72%, var(--danger)));
   transition: flex-basis 320ms ease;
 }
 
 .flowSpend {
-  background: linear-gradient(90deg, var(--ls-teal), #14b8a6);
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 70%, var(--text)));
 }
 
 .stageMeta {
@@ -232,7 +232,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 0.85rem;
-  font-size: 0.8rem;
+  font-size:0.875rem;
   color: var(--ls-muted);
 }
 
@@ -242,15 +242,15 @@
   gap: 0.35rem;
   padding: 0.28rem 0.65rem;
   border-radius: 0.45rem;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 650;
   border: 1px solid transparent;
 }
 
 .statusOk {
-  background: color-mix(in srgb, #059669 14%, transparent);
-  color: #047857;
-  border-color: color-mix(in srgb, #059669 26%, transparent);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 26%, transparent);
 }
 
 .statusWarn {
@@ -313,7 +313,7 @@
 
 .domainsHint {
   margin: 0;
-  font-size: 0.75rem;
+  font-size:0.875rem;
   color: var(--ls-muted);
 }
 
@@ -367,7 +367,7 @@
   --d-accent: var(--ls-teal);
 }
 .domainGroup {
-  --d-accent: #ca8a04;
+  --d-accent: var(--gold);
 }
 .domainBuilding {
   --d-accent: var(--ls-slate);
@@ -383,7 +383,7 @@
   display: flex;
   justify-content: space-between;
   gap: 0.4rem;
-  font-size: 0.78rem;
+  font-size:0.875rem;
 }
 
 .domainName {
@@ -408,17 +408,17 @@
   background: linear-gradient(
     90deg,
     var(--d-accent),
-    color-mix(in srgb, var(--d-accent) 55%, #fff)
+    color-mix(in srgb, var(--d-accent) 55%, var(--surface))
   );
   transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .barFillOver {
-  background: linear-gradient(90deg, var(--ls-copper), #ea580c);
+  background: linear-gradient(90deg, var(--danger), color-mix(in srgb, var(--danger) 70%, var(--warning)));
 }
 
 .domainMeta {
-  font-size: 0.7rem;
+  font-size:0.875rem;
   color: var(--ls-muted);
   font-variant-numeric: tabular-nums;
   line-height: 1.35;
@@ -485,7 +485,7 @@
 
 .panelLead {
   margin: 0;
-  font-size: 0.82rem;
+  font-size:0.875rem;
   color: var(--ls-muted);
   line-height: 1.45;
 }
@@ -508,7 +508,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.55rem;
-  font-size: 0.82rem;
+  font-size:0.875rem;
   color: var(--ls-muted);
 }
 
@@ -518,7 +518,7 @@
 }
 
 .percentSumOk {
-  color: #047857;
+  color: var(--success);
   font-weight: 650;
 }
 
@@ -526,14 +526,14 @@
   margin: 0;
   padding: 0.55rem 0.75rem;
   border-radius: 0.55rem;
-  font-size: 0.85rem;
+  font-size:0.875rem;
   line-height: 1.4;
 }
 
 .flashError {
-  background: color-mix(in srgb, #dc2626 10%, transparent);
-  border: 1px solid color-mix(in srgb, #dc2626 28%, transparent);
-  color: #b91c1c;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
+  color: var(--danger);
 }
 
 .flashInfo {

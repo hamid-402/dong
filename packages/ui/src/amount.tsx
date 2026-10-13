@@ -45,6 +45,7 @@ export function Amount({
     fontVariantNumeric: "tabular-nums",
     fontWeight: 700,
     letterSpacing: "0.01em",
+    lineHeight: "var(--leading-figure, 1.2)",
     ...style,
   };
 

@@ -25,7 +25,7 @@
 
 .kicker {
   margin: 0;
-  font-size: 0.72rem;
+  font-size:0.875rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--primary);
@@ -42,7 +42,7 @@
 
 .closedBadge {
   margin-inline-start: 0.4rem;
-  font-size: 0.75rem;
+  font-size:0.875rem;
   font-weight: 650;
   color: var(--danger);
   vertical-align: middle;
@@ -50,7 +50,7 @@
 
 .meta {
   margin: 0.35rem 0 0;
-  font-size: 0.82rem;
+  font-size:0.875rem;
   color: var(--muted);
   line-height: 1.4;
 }
@@ -58,7 +58,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.86rem;
+  font-size:0.875rem;
 }
 
 .table th {
@@ -101,14 +101,14 @@
 .note {
   margin: 0;
   padding: 0.65rem 1.15rem 1rem;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   color: var(--muted);
   border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
 }
 
 .actor {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size:0.875rem;
 }
 
 .cashIn {

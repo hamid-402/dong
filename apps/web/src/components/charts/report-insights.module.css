@@ -30,7 +30,7 @@
 
 .label {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size:0.875rem;
   font-weight: 650;
 }
 
@@ -44,7 +44,7 @@
 
 .hint {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size:0.875rem;
   line-height: 1.35;
 }
 

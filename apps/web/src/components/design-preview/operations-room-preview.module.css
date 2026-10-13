@@ -38,7 +38,7 @@
   border-radius: 8px;
   background: rgba(234, 198, 107, 0.1);
   color: var(--ops-warning);
-  font-size: 11px;
+  font-size:0.875rem;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -55,7 +55,7 @@
   align-items: center;
   gap: 6px;
   color: var(--ops-faint);
-  font-size: 10px;
+  font-size:0.875rem;
 }
 
 .previewControls select {
@@ -93,7 +93,7 @@
   background: transparent;
   color: var(--ops-muted);
   font: inherit;
-  font-size: 10px;
+  font-size:0.875rem;
   cursor: pointer;
 }
 
@@ -171,14 +171,14 @@
 
 .brand b,
 .workspaceButton b {
-  font-size: 11px;
+  font-size:0.875rem;
 }
 
 .brand small,
 .workspaceButton small {
   margin-top: 3px;
   color: var(--ops-faint);
-  font-size: 7px;
+  font-size:0.875rem;
   letter-spacing: 0.5px;
 }
 
@@ -214,7 +214,7 @@
   border-radius: 4px;
   color: var(--ops-muted);
   font-family: inherit;
-  font-size: 8px;
+  font-size:0.875rem;
 }
 
 .headerActions {
@@ -236,7 +236,7 @@
 .headerActions .avatar {
   background: var(--ops-panel-3);
   color: var(--ops-text);
-  font-size: 9px;
+  font-size:0.875rem;
   font-weight: 800;
 }
 
@@ -245,7 +245,7 @@
   align-items: center;
   gap: 5px;
   color: var(--ops-success);
-  font-size: 7px;
+  font-size:0.875rem;
   letter-spacing: 0.6px;
 }
 
@@ -293,13 +293,13 @@
 }
 
 .workspacePopover b {
-  font-size: 10px;
+  font-size:0.875rem;
 }
 
 .workspacePopover small {
   margin-top: 3px;
   color: var(--ops-faint);
-  font-size: 8px;
+  font-size:0.875rem;
 }
 
 .workspacePopover svg {
@@ -321,7 +321,7 @@
 .eyebrow,
 .previewMark {
   color: var(--ops-accent);
-  font-size: 8px;
+  font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 1px;
 }
@@ -354,7 +354,7 @@
   background: transparent;
   color: var(--ops-faint);
   font: inherit;
-  font-size: 8px;
+  font-size:0.875rem;
   cursor: pointer;
 }
 
@@ -380,7 +380,7 @@
   gap: 12px;
   border-bottom: 1px solid var(--ops-line);
   color: var(--ops-faint);
-  font-size: 8px;
+  font-size:0.875rem;
 }
 
 .contextBar > div {
@@ -428,7 +428,7 @@
 .pageHeader p {
   margin: 5px 0 0;
   color: var(--ops-muted);
-  font-size: 10px;
+  font-size:0.875rem;
 }
 
 .pageActions {
@@ -452,7 +452,7 @@
   background: transparent;
   color: var(--ops-text);
   font: inherit;
-  font-size: 9px;
+  font-size:0.875rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -502,7 +502,7 @@
 .metricBand small,
 .compactMetrics small {
   color: var(--ops-faint);
-  font-size: 8px;
+  font-size:0.875rem;
 }
 
 .metricBand strong {
@@ -513,7 +513,7 @@
 .metricBand span {
   margin-top: 6px;
   color: var(--ops-muted);
-  font-size: 8px;
+  font-size:0.875rem;
 }
 
 .metricBand .metricPrimary {
@@ -562,21 +562,21 @@
 
 .chartHeader b,
 .panelTitle b {
-  font-size: 11px;
+  font-size:0.875rem;
 }
 
 .chartHeader small,
 .panelTitle small {
   margin-top: 4px;
   color: var(--ops-faint);
-  font-size: 8px;
+  font-size:0.875rem;
   font-weight: 400;
 }
 
 .chartLegend {
   display: flex;
   gap: 12px;
-  font-size: 8px;
+  font-size:0.875rem;
 }
 
 .doneDot {
@@ -643,7 +643,7 @@
   display: flex;
   justify-content: space-between;
   color: var(--ops-faint);
-  font-size: 7px;
+  font-size:0.875rem;
 }
 
 .decisionQueue {
@@ -659,7 +659,7 @@
   border-radius: 12px;
   background: var(--ops-warning);
   color: #372b07;
-  font-size: 9px;
+  font-size:0.875rem;
   font-weight: 900;
 }
 
@@ -686,13 +686,13 @@
 }
 
 .decisionQueue > button b {
-  font-size: 9px;
+  font-size:0.875rem;
 }
 
 .decisionQueue > button small {
   margin-top: 4px;
   color: var(--ops-faint);
-  font-size: 7px;
+  font-size:0.875rem;
 }
 
 .decisionQueue > .button {
@@ -723,13 +723,13 @@
 }
 
 .activityStrip b {
-  font-size: 9px;
+  font-size:0.875rem;
 }
 
 .activityStrip small {
   margin-top: 3px;
   color: var(--ops-faint);
-  font-size: 7px;
+  font-size:0.875rem;
 }
 
 .compactMetrics {
@@ -796,13 +796,13 @@
 }
 
 .sectionTiles b {
-  font-size: 10px;
+  font-size:0.875rem;
 }
 
 .sectionTiles small {
   margin-top: 5px;
   color: var(--ops-faint);
-  font-size: 8px;
+  font-size:0.875rem;
   line-height: 1.6;
 }
 
@@ -832,7 +832,7 @@
 .tableHead {
   padding: 9px 11px;
   color: var(--ops-faint);
-  font-size: 8px;
+  font-size:0.875rem;
 }
 
 .dataTable > button {
@@ -844,7 +844,7 @@
   color: var(--ops-muted);
   text-align: right;
   font: inherit;
-  font-size: 9px;
+  font-size:0.875rem;
   cursor: pointer;
 }
 
@@ -868,7 +868,7 @@
 .inspector > p {
   margin: 7px 0 16px;
   color: var(--ops-muted);
-  font-size: 9px;
+  font-size:0.875rem;
   line-height: 1.8;
 }
 
@@ -882,7 +882,7 @@
   justify-content: space-between;
   gap: 8px;
   border-top: 1px solid var(--ops-line);
-  font-size: 8px;
+  font-size:0.875rem;
 }
 
 .inspector dt {
@@ -935,14 +935,14 @@
 
 .readOnlyBanner b,
 .mfaBanner b {
-  font-size: 9px;
+  font-size:0.875rem;
 }
 
 .readOnlyBanner small,
 .mfaBanner small {
   margin-top: 3px;
   color: var(--ops-faint);
-  font-size: 7px;
+  font-size:0.875rem;
 }
 
 .authStage {
@@ -973,7 +973,7 @@
   max-width: 500px;
   margin: 12px 0 0;
   color: var(--ops-muted);
-  font-size: 11px;
+  font-size:0.875rem;
   line-height: 2;
 }
 
@@ -985,7 +985,7 @@
   gap: 8px;
   border-top: 1px solid var(--ops-line);
   color: var(--ops-success);
-  font-size: 9px;
+  font-size:0.875rem;
 }
 
 .authCard {
@@ -1001,7 +1001,7 @@
 .authCard > p {
   margin: 7px 0 20px;
   color: var(--ops-muted);
-  font-size: 9px;
+  font-size:0.875rem;
   line-height: 1.7;
 }
 
@@ -1010,7 +1010,7 @@
   display: grid;
   gap: 6px;
   color: var(--ops-muted);
-  font-size: 8px;
+  font-size:0.875rem;
 }
 
 .input {
@@ -1048,13 +1048,13 @@
 }
 
 .authDetails b {
-  font-size: 8px;
+  font-size:0.875rem;
 }
 
 .authDetails small {
   margin-top: 3px;
   color: var(--ops-faint);
-  font-size: 7px;
+  font-size:0.875rem;
 }
 
 .liveNotice {
@@ -1068,7 +1068,7 @@
   border-radius: 8px;
   background: var(--ops-panel-2);
   color: var(--ops-muted);
-  font-size: 8px;
+  font-size:0.875rem;
 }
 
 .mobileDock {
@@ -1086,7 +1086,7 @@
 .routeMap summary {
   padding: 14px 16px;
   color: var(--ops-muted);
-  font-size: 10px;
+  font-size:0.875rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -1109,7 +1109,7 @@
   color: var(--ops-text);
   text-align: right;
   font: inherit;
-  font-size: 8px;
+  font-size:0.875rem;
   cursor: pointer;
 }
 
@@ -1118,7 +1118,7 @@
   overflow: hidden;
   color: var(--ops-faint);
   font-family: Consolas, monospace;
-  font-size: 7px;
+  font-size:0.875rem;
   text-overflow: ellipsis;
 }
 
@@ -1177,7 +1177,7 @@
   background: transparent;
   color: var(--ops-text);
   font: inherit;
-  font-size: 12px;
+  font-size:0.875rem;
 }
 
 .commandResults {
@@ -1208,13 +1208,13 @@
 }
 
 .commandResults b {
-  font-size: 10px;
+  font-size:0.875rem;
 }
 
 .commandResults small {
   margin-top: 4px;
   color: var(--ops-faint);
-  font-size: 7px;
+  font-size:0.875rem;
 }
 
 .accessLab {
@@ -1255,13 +1255,13 @@
 }
 
 .accessRows b {
-  font-size: 10px;
+  font-size:0.875rem;
 }
 
 .accessRows small {
   margin-top: 3px;
   color: var(--ops-faint);
-  font-size: 7px;
+  font-size:0.875rem;
   line-height: 1.6;
 }
 
@@ -1270,7 +1270,7 @@
 .accessHidden {
   padding: 5px 7px;
   border-radius: 6px;
-  font-size: 8px;
+  font-size:0.875rem;
   text-align: center;
 }
 

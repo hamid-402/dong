@@ -11,7 +11,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 6px;
-  font-size: clamp(0.7rem, 2vw, 0.78rem);
+  font-size:clamp(0.875rem, 2vw, 0.875rem);
   color: var(--muted);
 }
 
@@ -68,7 +68,7 @@
   background: none;
   color: var(--muted);
   font: inherit;
-  font-size: clamp(0.75rem, 2.2vw, 0.82rem);
+  font-size:clamp(0.875rem, 2.2vw, 0.875rem);
   font-weight: 650;
   cursor: pointer;
   white-space: nowrap;
@@ -113,7 +113,7 @@
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: clamp(0.68rem, 1.9vw, 0.76rem);
+  font-size:clamp(0.875rem, 1.9vw, 0.875rem);
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -154,7 +154,7 @@
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 0.85rem;
+  font-size:0.875rem;
   text-align: start;
   cursor: pointer;
 }
@@ -164,7 +164,7 @@
 }
 
 .memberHint {
-  font-size: 0.7rem;
+  font-size:0.875rem;
   color: var(--muted);
   font-weight: 650;
 }
@@ -205,7 +205,7 @@
   padding: 6px 8px;
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-2, var(--surface)) 70%, transparent);
-  font-size: clamp(0.72rem, 2vw, 0.78rem);
+  font-size:clamp(0.875rem, 2vw, 0.875rem);
 }
 
 .metric span {
@@ -239,7 +239,7 @@
   background: none;
   color: var(--muted);
   font: inherit;
-  font-size: clamp(0.74rem, 2vw, 0.8rem);
+  font-size:clamp(0.875rem, 2vw, 0.875rem);
   font-weight: 600;
   cursor: pointer;
 }
@@ -256,7 +256,7 @@
 .note {
   margin: 0;
   color: var(--muted);
-  font-size: clamp(0.72rem, 2vw, 0.8rem);
+  font-size:clamp(0.875rem, 2vw, 0.875rem);
   line-height: 1.4;
 }
 
@@ -317,7 +317,7 @@
 
 .panelHint {
   margin: 0;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   color: var(--muted);
   line-height: 1.35;
 }
@@ -393,7 +393,7 @@
 }
 
 .shareSummaryMeta {
-  font-size: 0.78rem;
+  font-size:0.875rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -472,7 +472,7 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 4px 12px;
-  font-size: 0.75rem;
+  font-size:0.875rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -485,7 +485,7 @@
   margin-top: 4px;
   padding-top: 10px;
   border-top: 1px dashed color-mix(in srgb, var(--line) 75%, transparent);
-  font-size: 0.82rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -507,7 +507,7 @@
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: clamp(0.74rem, 2vw, 0.8rem);
+  font-size:clamp(0.875rem, 2vw, 0.875rem);
   padding: 4px 0;
   border-bottom: 1px solid color-mix(in srgb, var(--line) 45%, transparent);
 }
@@ -532,7 +532,7 @@
 
 .memberShareMeta {
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size:0.875rem;
   line-height: 1.35;
 }
 
@@ -561,7 +561,7 @@
 
 .railEmpty {
   margin: 0;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -590,7 +590,7 @@ a.relatedLink:hover {
 }
 
 .relatedTitle {
-  font-size: 0.86rem;
+  font-size:0.875rem;
   font-weight: 650;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -603,7 +603,7 @@ a.relatedLink:hover {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -620,7 +620,7 @@ a.relatedLink:hover {
   width: 100%;
   min-width: 0;
   border-collapse: collapse;
-  font-size: clamp(0.8rem, 2vw, 0.88rem);
+  font-size:clamp(0.875rem, 2vw, 0.88rem);
 }
 
 .table th,
@@ -632,7 +632,7 @@ a.relatedLink:hover {
 }
 
 .table thead th {
-  font-size: 0.68rem;
+  font-size:0.875rem;
   font-weight: 700;
   color: var(--muted);
   background: color-mix(in srgb, var(--surface-2, var(--surface)) 90%, transparent);
@@ -660,7 +660,7 @@ a.relatedLink:hover {
 }
 
 .statusText {
-  font-size: 0.74rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -693,7 +693,7 @@ a.relatedLink:hover {
   background: none;
   color: var(--primary);
   font: inherit;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 650;
   cursor: pointer;
 }
@@ -719,7 +719,7 @@ a.relatedLink:hover {
 
 .tickFold summary {
   cursor: pointer;
-  font-size: clamp(0.78rem, 2.2vw, 0.86rem);
+  font-size:clamp(0.875rem, 2.2vw, 0.875rem);
   font-weight: 700;
   padding: 10px 2px;
   list-style: none;
@@ -775,7 +775,7 @@ a.relatedLink:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 10px;
-  font-size: 0.75rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 

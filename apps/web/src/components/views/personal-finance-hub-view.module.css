@@ -12,7 +12,7 @@
 .subnavLink {
   text-decoration: none;
   color: color-mix(in srgb, var(--text) 78%, transparent);
-  font-size: 0.82rem;
+  font-size:0.875rem;
   font-weight: 600;
   padding: 0.4rem 0.75rem;
   border-radius: 0.55rem;

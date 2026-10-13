@@ -44,7 +44,7 @@
 }
 
 .hub.secondary .header p {
-  font-size: 0.76rem;
+  font-size:0.875rem;
 }
 
 .hub.secondary .sectionHead h3 {
@@ -62,7 +62,7 @@
 
 .header > div > span {
   color: var(--primary);
-  font-size: 0.75rem;
+  font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 0.1em;
 }
@@ -85,7 +85,7 @@
   border-radius: 999px;
   border: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size:0.875rem;
 }
 
 .section + .section {
@@ -248,13 +248,13 @@
 }
 
 .tile .fact b {
-  font-size: 0.8rem;
+  font-size:0.875rem;
   font-weight: 800;
   color: var(--tile-gem-ink, #0f172a);
 }
 
 .tile .fact small {
-  font-size: 0.75rem;
+  font-size:0.875rem;
   color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 70%, transparent);
 }
 
@@ -333,7 +333,7 @@
   background: color-mix(in srgb, #fff 55%, transparent);
   color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 70%, transparent);
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size:0.875rem;
   opacity: 0.85;
 }
 

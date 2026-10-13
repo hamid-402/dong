@@ -26,7 +26,7 @@
 
 .eyebrow {
   margin: 0;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   letter-spacing: 0.02em;
   opacity: 0.72;
 }
@@ -41,7 +41,7 @@
 
 .sub {
   margin: 0.35rem 0 0;
-  font-size: 0.86rem;
+  font-size:0.875rem;
   opacity: 0.72;
   display: flex;
   flex-wrap: wrap;
@@ -54,7 +54,7 @@
   display: inline-flex;
   padding: 0.12rem 0.5rem;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size:0.875rem;
   background: color-mix(in oklab, var(--dang-accent, #2f9f86) 18%, transparent);
   border: 1px solid color-mix(in oklab, var(--dang-accent, #2f9f86) 35%, transparent);
 }
@@ -84,7 +84,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   padding: 0.35rem 0.7rem;
   border-radius: 999px;
   cursor: pointer;
@@ -107,7 +107,7 @@
 .quickBtn {
   text-decoration: none;
   color: inherit;
-  font-size: 0.8rem;
+  font-size:0.875rem;
   padding: 0.4rem 0.75rem;
   border-radius: 0.65rem;
   border: 1px solid color-mix(in oklab, var(--dang-border, #555) 80%, transparent);
@@ -166,12 +166,12 @@
 }
 
 .tileLabel {
-  font-size: 0.82rem;
+  font-size:0.875rem;
   opacity: 0.8;
 }
 
 .tileCount {
-  font-size: 0.72rem;
+  font-size:0.875rem;
   opacity: 0.55;
   font-variant-numeric: tabular-nums;
 }
@@ -187,7 +187,7 @@
 }
 
 .tileHint {
-  font-size: 0.72rem;
+  font-size:0.875rem;
   opacity: 0.58;
 }
 
@@ -199,7 +199,7 @@
 .flowLabels {
   display: flex;
   justify-content: space-between;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   opacity: 0.75;
 }
 
@@ -234,7 +234,7 @@
   border-radius: 0.75rem;
   border: 1px solid color-mix(in oklab, var(--dang-border, #444) 65%, transparent);
   background: color-mix(in oklab, var(--dang-bg, #000) 30%, transparent);
-  font-size: 0.82rem;
+  font-size:0.875rem;
 }
 
 .allocCard strong {
@@ -267,7 +267,7 @@
   background: color-mix(in oklab, var(--dang-bg, #000) 55%, transparent);
   color: inherit;
   font: inherit;
-  font-size: 0.85rem;
+  font-size:0.875rem;
   padding: 0.4rem 0.65rem;
 }
 
@@ -287,7 +287,7 @@
 }
 
 .dayLabel {
-  font-size: 0.72rem;
+  font-size:0.875rem;
   opacity: 0.55;
   padding: 0.15rem 0.45rem;
   position: sticky;
@@ -326,7 +326,7 @@
 }
 
 .rowKind {
-  font-size: 0.7rem;
+  font-size:0.875rem;
   opacity: 0.62;
 }
 
@@ -338,7 +338,7 @@
 }
 
 .rowDate {
-  font-size: 0.72rem;
+  font-size:0.875rem;
   opacity: 0.52;
 }
 
@@ -408,7 +408,7 @@
 
 .goalHint {
   margin: 0;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   opacity: 0.72;
 }
 
@@ -466,7 +466,7 @@
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
-  font-size: 0.86rem;
+  font-size:0.875rem;
   margin-bottom: 0.3rem;
 }
 
@@ -474,7 +474,7 @@
   display: flex;
   gap: 0.35rem;
   align-items: baseline;
-  font-size: 0.72rem;
+  font-size:0.875rem;
   opacity: 0.65;
   margin-top: 0.25rem;
 }
@@ -487,18 +487,18 @@
 .intentMet {
   color: color-mix(in oklab, #3d9a6a 80%, white);
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size:0.875rem;
 }
 
 .intentMiss {
   color: color-mix(in oklab, #c45c4a 85%, white);
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size:0.875rem;
 }
 
 .intentUnk {
   opacity: 0.55;
-  font-size: 0.78rem;
+  font-size:0.875rem;
 }
 
 .intentRowMet {

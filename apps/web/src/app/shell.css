@@ -79,7 +79,7 @@
   align-items: center;
   min-height: 24px;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size:0.875rem;
   text-decoration: none;
 }
 
@@ -120,7 +120,7 @@
 .mosaic-ws-switch__label {
   grid-area: label;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size:0.875rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   overflow: hidden;
@@ -193,7 +193,7 @@
   background: var(--surface);
   color: inherit;
   font: inherit;
-  font-size: 0.8125rem;
+  font-size:0.875rem;
 }
 
 .mosaic-ws-switch__searchInput:focus {
@@ -206,7 +206,7 @@
   margin-top: 4px;
   padding: 0 2px;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size:0.875rem;
 }
 
 .mosaic-ws-switch__dirStatus.is-warn {
@@ -227,7 +227,7 @@
 .mosaic-ws-switch__emptyQuery {
   padding: 14px 12px;
   color: var(--muted);
-  font-size: 0.8125rem;
+  font-size:0.875rem;
 }
 
 .mosaic-ws-switch__row {
@@ -265,7 +265,7 @@
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 0.6875rem;
+  font-size:0.875rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   cursor: pointer;
@@ -284,7 +284,7 @@
   background: transparent;
   color: var(--primary);
   font: inherit;
-  font-size: 0.75rem;
+  font-size:0.875rem;
   font-weight: 650;
   cursor: pointer;
   text-align: start;
@@ -336,7 +336,7 @@
 
 .mosaic-ws-switch__option small {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size:0.875rem;
 }
 
 .mosaic-ws-switch__group {
@@ -354,7 +354,7 @@
 .mosaic-ws-switch__groupLabel {
   display: block;
   padding: 8px 12px 4px;
-  font-size: 0.6875rem;
+  font-size:0.875rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--muted);
@@ -372,7 +372,7 @@
   padding: 10px 12px;
   color: var(--primary);
   text-decoration: none;
-  font-size: 0.8125rem;
+  font-size:0.875rem;
   font-weight: 650;
   border-radius: var(--m-r-sm, 8px);
 }
@@ -390,7 +390,7 @@
   border-radius: 999px;
   border: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size:0.875rem;
   font-weight: 600;
 }
 
@@ -462,7 +462,7 @@
 }
 
 .header-profile__initial {
-  font-size: 0.82rem;
+  font-size:0.875rem;
   font-weight: 750;
   color: var(--text);
   line-height: 1;
@@ -563,7 +563,7 @@ a.shell-v2__mark:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text);
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 600;
   line-height: 1.2;
   text-decoration: none;
@@ -598,7 +598,7 @@ a.shell-v2__mark:focus-visible {
   border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
   background: color-mix(in srgb, var(--surface-2, var(--surface)) 70%, transparent);
   color: var(--text);
-  font-size: 0.74rem;
+  font-size:0.875rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   text-decoration: none;
@@ -652,7 +652,7 @@ a.shell-v2__mark:focus-visible {
 /* Spaces list = quiet underlined text (distinct from Leave chip + Home mark) */
 .shell-v2__spacesTextLink {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 500;
   letter-spacing: 0.01em;
   text-decoration: underline;
@@ -677,7 +677,7 @@ a.shell-v2__mark:focus-visible {
 
 .shell-v2__productQuiet {
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size:0.875rem;
   font-weight: 650;
   letter-spacing: 0.02em;
   padding-inline-start: 2px;
@@ -696,7 +696,7 @@ a.shell-v2__mark:focus-visible {
 
 .shell-v2__product small {
   color: var(--primary);
-  font-size: 0.58rem;
+  font-size:0.875rem;
   font-weight: 750;
   letter-spacing: 0.03em;
   white-space: nowrap;
@@ -757,7 +757,7 @@ a.shell-v2__mark:focus-visible {
   border-radius: 999px;
   background: var(--accent, #e8a317);
   color: #1a1205;
-  font-size: 0.65rem;
+  font-size:0.875rem;
   font-weight: 700;
   line-height: 1.1rem;
   text-align: center;
@@ -788,7 +788,7 @@ a.shell-v2__cta:visited,
   background: var(--primary);
   color: var(--primary-ink);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size:0.875rem;
   text-decoration: none;
 }
 
@@ -824,7 +824,7 @@ a.shell-v2__cta:visited,
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--muted);
-  font-size: 0.625rem;
+  font-size:0.875rem;
   font-weight: 650;
   line-height: 1.2;
   white-space: nowrap;
@@ -1080,7 +1080,7 @@ a.shell-v2__catalogLink:hover {
 
 .shell-v2__crumbEllipsis {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   line-height: 1;
@@ -1168,20 +1168,20 @@ html[data-theme="dusk"] a.shell-v2__crumbSeg--link,
 html[data-theme="dusk"] a.shell-v2__crumbSeg--link:link,
 html[data-theme="linear"] a.shell-v2__crumbSeg--link,
 html[data-theme="linear"] a.shell-v2__crumbSeg--link:link {
-  color: #c5ced6;
+  color: var(--link, var(--text));
 }
 
 html[data-theme="dark"] .shell-v2__crumbSeg--link:hover,
 html[data-theme="dusk"] .shell-v2__crumbSeg--link:hover,
 html[data-theme="linear"] .shell-v2__crumbSeg--link:hover {
-  color: #f8fafc;
-  background: color-mix(in srgb, #fff 7%, transparent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
 }
 
 html[data-theme="dark"] .shell-v2__crumbSeg--current,
 html[data-theme="dusk"] .shell-v2__crumbSeg--current,
 html[data-theme="linear"] .shell-v2__crumbSeg--current {
-  color: #f8fafc;
+  color: var(--text);
 }
 
 html[data-theme="dark"] .shell-v2__crumbSep,
@@ -1234,7 +1234,7 @@ html[data-theme="linear"] .shell-v2__crumbSep {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 500;
   text-align: start;
 }
@@ -1249,7 +1249,7 @@ html[data-theme="linear"] .shell-v2__crumbSep {
   background: color-mix(in srgb, var(--surface) 70%, transparent);
   color: color-mix(in srgb, var(--muted) 88%, transparent);
   font-family: inherit;
-  font-size: 0.62rem;
+  font-size:0.875rem;
   font-weight: 650;
   letter-spacing: 0.01em;
 }
@@ -1288,7 +1288,7 @@ html[data-theme="linear"] .shell-v2__search--field .shell-v2__search-kbd {
 }
 
 .shell-v2__feedback {
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 500;
   color: var(--muted, inherit);
   text-decoration: underline;
@@ -1342,7 +1342,7 @@ html[data-theme="linear"] .shell-v2__search--field .shell-v2__search-kbd {
   background: color-mix(in srgb, var(--surface-2, var(--surface)) 70%, transparent);
   color: var(--text);
   font: inherit;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -1429,7 +1429,7 @@ a.shell-navMenu__leaveLink:hover {
   margin: 0 0 0.2rem;
   padding: 0.15rem 0.55rem;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 750;
 }
 
@@ -1442,7 +1442,7 @@ a.shell-navMenu__leaveLink:hover {
   border-radius: 10px;
   color: var(--text);
   text-decoration: none;
-  font-size: 0.86rem;
+  font-size:0.875rem;
   font-weight: 600;
   border: 1px solid transparent;
 }
@@ -1456,7 +1456,7 @@ a.shell-navMenu__leaveLink:hover {
 
 .shell-navMenu__itemHint {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 500;
   line-height: 1.35;
 }
@@ -1491,7 +1491,7 @@ a.shell-navMenu__leaveLink:hover {
   border-radius: 10px;
   color: var(--muted);
   text-decoration: none;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 600;
   border: 1px solid transparent;
 }
@@ -1515,7 +1515,7 @@ a.shell-navMenu__leaveLink:hover {
   border: 1px solid color-mix(in srgb, var(--warning, #a66d00) 35%, var(--line));
   background: color-mix(in srgb, var(--warning, #a66d00) 10%, var(--surface));
   color: var(--text);
-  font-size: 0.85rem;
+  font-size:0.875rem;
   font-weight: 600;
 }
 
@@ -1531,7 +1531,7 @@ a.shell-navMenu__leaveLink:hover {
   border: 1px solid color-mix(in srgb, #b45309 35%, var(--line));
   background: color-mix(in srgb, #b45309 10%, var(--surface));
   color: var(--text);
-  font-size: 0.85rem;
+  font-size:0.875rem;
   font-weight: 600;
 }
 
@@ -1553,7 +1553,7 @@ a.shell-navMenu__leaveLink:hover {
     ),
     color-mix(in srgb, var(--surface) 92%, transparent);
   color: var(--text);
-  font-size: 0.84rem;
+  font-size:0.875rem;
   font-weight: 650;
   line-height: 1.55;
 }
@@ -1604,7 +1604,7 @@ a.shell-navMenu__leaveLink:hover {
   border-radius: 12px;
   color: var(--muted);
   text-decoration: none;
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 600;
   position: relative;
   z-index: 1;
@@ -1723,7 +1723,7 @@ a.shell-navMenu__leaveLink:hover {
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 700;
 }
 
@@ -1743,7 +1743,7 @@ a.shell-navMenu__leaveLink:hover {
   border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
   background: color-mix(in srgb, var(--surface-2) 70%, transparent);
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size:0.875rem;
 }
 
 .shell-tools__shortcuts summary {
@@ -1758,7 +1758,7 @@ a.shell-navMenu__leaveLink:hover {
 
 .shell-tools__heading {
   margin: 0 0 10px;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: color-mix(in srgb, var(--text) 55%, var(--muted));
@@ -1812,7 +1812,7 @@ a.shell-navMenu__leaveLink:hover {
   background: var(--fill-subtle);
   color: var(--text);
   text-decoration: none;
-  font-size: 0.75rem;
+  font-size:0.875rem;
   font-weight: 650;
 }
 
@@ -1910,7 +1910,7 @@ html[data-theme="linear"] .shell-tools__folder-count {
   border-radius: 999px;
   background: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 32%, transparent);
   color: var(--tile-gem-edge, var(--primary));
-  font-size: 0.8125rem;
+  font-size:0.875rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   position: relative;
@@ -1938,7 +1938,7 @@ html[data-theme="linear"] .shell-tools__folder-count {
   justify-content: center;
   background: color-mix(in srgb, var(--warning, #c47a1a) 88%, #111);
   color: #fff;
-  font-size: 0.6875rem;
+  font-size:0.875rem;
   font-weight: 800;
   line-height: 1;
 }
@@ -1958,7 +1958,7 @@ html[data-theme="linear"] .shell-tools__folder-count {
 
 .shell-tools__folder-tile small {
   color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 88%, transparent);
-  font-size: 0.78rem;
+  font-size:0.875rem;
   line-height: 1.45;
   position: relative;
   z-index: 1;
@@ -2059,7 +2059,7 @@ html[data-theme="linear"] .shell-tools__tile-icon {
 }
 
 .shell-tools__tile-label {
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 700;
   text-align: center;
   line-height: 1.25;
@@ -2088,7 +2088,7 @@ html[data-theme="linear"] .shell-tools__tile-icon {
 
 .shell-sidebar__heading {
   margin: 0 8px 8px;
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--muted);
@@ -2257,7 +2257,7 @@ html[dir="rtl"] .shell-page-trail__back:hover:not(:disabled) {
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 0.8rem;
+  font-size:0.875rem;
 }
 
 .shell-page-trail .shell-breadcrumb__item {
@@ -2307,7 +2307,7 @@ html[data-density="compact"] .shell-page-trail {
 html[data-density="compact"] .shell-page-trail__back {
   min-height: 32px;
   padding: 0 10px;
-  font-size: 0.76rem;
+  font-size:0.875rem;
 }
 
 @media (max-width: 560px) {
@@ -2338,7 +2338,7 @@ html[data-density="compact"] .shell-page-trail__back {
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: 0.85rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -2608,7 +2608,7 @@ html[data-density="compact"] .shell-page-trail__back {
 
 .spaces-hub__quickLabel {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size:0.875rem;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -2732,7 +2732,7 @@ html[data-density="compact"] .shell-page-trail__back {
   padding: 1px 6px;
   border-radius: 999px;
   background: var(--fill-soft);
-  font-size: 0.75rem;
+  font-size:0.875rem;
 }
 
 .spaces-hub__chip.is-active {
@@ -2769,7 +2769,7 @@ html[data-density="compact"] .shell-page-trail__back {
 .spaces-hub__kindHint {
   margin: 0;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size:0.875rem;
 }
 
 .spaces-hub__count {
@@ -2778,7 +2778,7 @@ html[data-density="compact"] .shell-page-trail__back {
   justify-content: center;
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size:0.875rem;
   font-weight: 650;
   background: var(--fill-soft);
   color: var(--muted);
@@ -2967,7 +2967,7 @@ html[data-theme="linear"] .spaces-mosaic__ops a {
 .kindAggregate__eyebrow {
   margin: 0;
   color: var(--primary);
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 0.04em;
 }
@@ -2993,7 +2993,7 @@ html[data-theme="linear"] .spaces-mosaic__ops a {
 .kindAggregate__head p {
   margin: 6px 0 0;
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size:0.875rem;
   line-height: 1.45;
 }
 
@@ -3120,7 +3120,7 @@ html[data-theme="linear"] .spaces-mosaic__ops a {
 .kindReports__tableLead {
   margin: 0 0 10px;
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size:0.875rem;
 }
 
 .kindReports__tableWrap {
@@ -3130,7 +3130,7 @@ html[data-theme="linear"] .spaces-mosaic__ops a {
 .kindReports__table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.86rem;
+  font-size:0.875rem;
 }
 
 .kindReports__table th,
@@ -3158,7 +3158,7 @@ html[data-theme="linear"] .spaces-mosaic__ops a {
 }
 
 .kindReports__ops a {
-  font-size: 0.8rem;
+  font-size:0.875rem;
   font-weight: 650;
   text-decoration: none;
   color: var(--primary);
@@ -3179,7 +3179,7 @@ html[data-theme="linear"] .spaces-mosaic__ops a {
   border-radius: 999px;
   padding: 5px 11px;
   font: inherit;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 650;
   cursor: pointer;
 }
@@ -3224,7 +3224,7 @@ html[data-theme="linear"] .spaces-mosaic__ops a {
 }
 
 .kindReports__mom {
-  font-size: 0.8rem;
+  font-size:0.875rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -3263,12 +3263,12 @@ html[data-theme="linear"] .spaces-mosaic__ops a {
 .kindReports__alert p {
   margin: 0;
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size:0.875rem;
   line-height: 1.45;
 }
 
 .kindReports__alert a {
-  font-size: 0.84rem;
+  font-size:0.875rem;
   font-weight: 700;
   color: var(--primary);
   text-decoration: none;
@@ -3290,7 +3290,7 @@ html[data-theme="linear"] .spaces-mosaic__ops a {
 }
 
 .kindReports__savedField span {
-  font-size: 0.8rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -3316,7 +3316,7 @@ html[data-theme="linear"] .spaces-mosaic__ops a {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
-  font-size: 0.86rem;
+  font-size:0.875rem;
 }
 
 .kindReports__savedList span {
@@ -3417,7 +3417,7 @@ html[data-theme="linear"] .kindAggregate__card {
   justify-content: space-between;
   gap: 8px;
   align-items: baseline;
-  font-size: 0.82rem;
+  font-size:0.875rem;
 }
 
 .kindAggregate__barMeta a {
@@ -3494,7 +3494,7 @@ html[data-theme="linear"] .kindAggregate__card {
   background: var(--surface);
   color: var(--text);
   text-decoration: none;
-  font-size: 0.82rem;
+  font-size:0.875rem;
   font-weight: 600;
 }
 
@@ -3512,7 +3512,7 @@ html[data-theme="linear"] .kindAggregate__card {
 .kindAggregate__foot {
   margin: 0;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size:0.875rem;
   line-height: 1.45;
 }
 
@@ -3574,7 +3574,7 @@ html[data-theme="linear"] .kindAggregate__card {
 
 .appHomeKinds__count {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size:0.875rem;
 }
 
 .appHomeKinds__hint {
@@ -3749,7 +3749,7 @@ html[data-theme="linear"] .kindAggregate__card {
   border: 1px solid var(--line);
   background: var(--fill-soft, color-mix(in srgb, var(--surface-2) 80%, transparent));
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 650;
 }
 
@@ -3769,7 +3769,7 @@ html[data-theme="linear"] .kindAggregate__card {
   border-radius: 999px;
   background: color-mix(in srgb, var(--primary) 16%, transparent);
   color: var(--primary);
-  font-size: 0.7rem;
+  font-size:0.875rem;
   font-weight: 700;
 }
 
@@ -3790,7 +3790,7 @@ html[data-theme="linear"] .kindAggregate__card {
   background: color-mix(in srgb, var(--surface) 88%, var(--primary) 8%);
   color: var(--primary);
   text-decoration: none;
-  font-size: 0.85rem;
+  font-size:0.875rem;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -3806,7 +3806,7 @@ html[data-theme="linear"] .kindAggregate__card {
 
 .spaces-list__net {
   flex-shrink: 0;
-  font-size: 0.86rem;
+  font-size:0.875rem;
   font-weight: 750;
   text-align: end;
   max-width: 42%;
@@ -3853,7 +3853,7 @@ html[data-theme="linear"] .kindAggregate__card {
 .groupBalanceHero__eyebrow {
   margin: 0 0 6px;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size:0.875rem;
   font-weight: 600;
 }
 
@@ -3892,7 +3892,7 @@ html[data-theme="linear"] .kindAggregate__card {
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--warning, #c47a1a) 40%, var(--line));
   background: color-mix(in srgb, var(--warning, #c47a1a) 12%, var(--surface));
-  font-size: 0.82rem;
+  font-size:0.875rem;
   font-weight: 650;
 }
 
@@ -3977,7 +3977,7 @@ html[data-theme="linear"] .kindAggregate__card {
 
 .groupBalanceHero__peerLink small {
   color: var(--primary);
-  font-size: 0.75rem;
+  font-size:0.875rem;
   font-weight: 700;
 }
 
@@ -3992,7 +3992,7 @@ html[data-theme="linear"] .kindAggregate__card {
 
 .groupBalanceHero__activityTitle {
   margin: 0 0 8px;
-  font-size: 0.82rem;
+  font-size:0.875rem;
   font-weight: 700;
   color: var(--muted);
 }
@@ -4263,7 +4263,7 @@ html[data-theme="linear"] .kindAggregate__card {
 .groupOpsRail__lead {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size:0.875rem;
   line-height: 1.45;
 }
 
@@ -4325,7 +4325,7 @@ html[data-theme="linear"] .kindAggregate__card {
 
 .groupOpsRail__tile small {
   color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 88%, transparent);
-  font-size: 0.74rem;
+  font-size:0.875rem;
   line-height: 1.4;
   min-height: calc(1.4em * 2);
   display: -webkit-box;
@@ -4344,7 +4344,7 @@ html[data-theme="linear"] .groupOpsRail__tile small {
   margin-top: auto;
   padding-top: 8px;
   color: var(--tile-gem-edge, #0f5c4d);
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 750;
 }
 
@@ -4414,7 +4414,7 @@ html[data-theme="linear"] .groupOpsRail__open {
 .groupSetupChecklist__lead {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size:0.875rem;
   line-height: 1.45;
 }
 
@@ -4466,19 +4466,19 @@ html[data-theme="linear"] .groupOpsRail__open {
 
 .groupSetupChecklist__body small {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size:0.875rem;
   line-height: 1.4;
 }
 
 .groupSetupChecklist__cta {
-  font-size: 0.8rem;
+  font-size:0.875rem;
   font-weight: 650;
   color: var(--primary);
   white-space: nowrap;
 }
 
 .groupSetupChecklist__ok {
-  font-size: 0.78rem;
+  font-size:0.875rem;
   color: var(--muted);
   white-space: nowrap;
 }
@@ -4497,7 +4497,7 @@ html[data-theme="linear"] .groupOpsRail__open {
   position: relative;
   padding: 8px 12px;
   border-radius: 0;
-  font-size: 0.86rem;
+  font-size:0.875rem;
   font-weight: 650;
   color: var(--muted);
   text-decoration: none;
@@ -4584,7 +4584,7 @@ html[data-theme="linear"] .groupOpsRail__open {
 @media (max-width: 720px) {
   .spaceKindTabs__tab {
     padding: 5px 10px;
-    font-size: 0.8rem;
+    font-size:0.875rem;
   }
 }
 
@@ -4784,7 +4784,7 @@ html[data-theme="mist"] .spaceKindTabs__tab[data-kind].is-current-realm {
 .groupPublicId__hint {
   margin: 8px 0 0;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size:0.875rem;
 }
 
 .groupPublicId--compact {
@@ -4801,7 +4801,7 @@ html[data-theme="mist"] .spaceKindTabs__tab[data-kind].is-current-realm {
 }
 
 .groupPublicId__label {
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 650;
   color: var(--muted);
 }
@@ -4814,7 +4814,7 @@ html[data-theme="mist"] .spaceKindTabs__tab[data-kind].is-current-realm {
 .homeBalanceCue__label {
   margin: 0 0 4px;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size:0.875rem;
   font-weight: 600;
 }
 
@@ -4842,7 +4842,7 @@ html[data-theme="mist"] .spaceKindTabs__tab[data-kind].is-current-realm {
 .homeBalanceCue__meta {
   margin: 6px 0 0;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size:0.875rem;
   line-height: 1.5;
 }
 
@@ -4893,7 +4893,7 @@ html[data-theme="mist"] .spaceKindTabs__tab[data-kind].is-current-realm {
 }
 
 .homeActivity__live {
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 650;
   color: color-mix(in srgb, var(--success, #2f9e6c) 85%, var(--text));
 }
@@ -4943,7 +4943,7 @@ html[data-theme="mist"] .spaceKindTabs__tab[data-kind].is-current-realm {
   display: block;
   margin-top: 2px;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size:0.875rem;
 }
 
 .homeActivity__footer {
@@ -4956,7 +4956,7 @@ html[data-theme="mist"] .spaceKindTabs__tab[data-kind].is-current-realm {
 .overviewTools {
   margin-top: 16px;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size:0.875rem;
 }
 
 .overviewTools summary {
@@ -5093,7 +5093,7 @@ html[data-theme="mist"] .shell-tabs__tab.is-active {
 
 .cmd-palette__count {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size:0.875rem;
 }
 
 .cmd-palette__close {
@@ -5186,7 +5186,7 @@ html[data-theme="mist"] .shell-tabs__tab.is-active {
 
 .cmd-palette__hint {
   margin: 10px 0 0;
-  font-size: 0.75rem;
+  font-size:0.875rem;
   color: var(--muted);
 }
 
@@ -5600,7 +5600,7 @@ html[data-theme="linear"] .shell-fab {
 
 .shell-v2__product small {
   color: color-mix(in srgb, var(--primary) 55%, var(--muted));
-  font-size: 0.68rem;
+  font-size:0.875rem;
   font-weight: 650;
   letter-spacing: 0.04em;
   text-transform: none;
@@ -5907,7 +5907,7 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
   }
 
   .mosaic-ws-switch__trigger strong {
-    font-size: 0.8125rem;
+    font-size:0.875rem;
     max-width: 8.5rem;
   }
 
@@ -5977,7 +5977,7 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
 
 .home-root-launcher__lead {
   margin: 0 0 8px;
-  font-size: 0.86rem;
+  font-size:0.875rem;
   line-height: 1.45;
 }
 
@@ -6000,7 +6000,7 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
   border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
   background: color-mix(in srgb, var(--surface) 92%, var(--primary) 4%);
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 600;
 }
 
@@ -6033,7 +6033,7 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
 .mosaicLauncher__eyebrow {
   margin: 0;
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size:0.875rem;
   line-height: 1.45;
 }
 
@@ -6047,7 +6047,7 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
 
 .frequent-rail__title {
   margin: 0 0 8px;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 700;
   color: var(--muted);
 }
@@ -6070,7 +6070,7 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
   border: 1px solid var(--line);
   text-decoration: none;
   color: var(--text);
-  font-size: 0.82rem;
+  font-size:0.875rem;
   font-weight: 650;
   transition: transform 120ms var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
 }
@@ -6086,7 +6086,7 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
 
 .frequent-rail__kind {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size:0.875rem;
 }
 
 .mosaicLauncher--hybrid .frequent-rail__list {
@@ -6114,7 +6114,7 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
 
 .mosaicOps__domainsTitle {
   margin: 0 0 10px;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 700;
   color: var(--muted);
 }
@@ -6146,7 +6146,7 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
 
 .mosaicOps__domainLink small {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size:0.875rem;
 }
 
 .mosaicOps__domainLink:hover {
@@ -6167,7 +6167,7 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
 .mosaicOps__pickHint {
   margin: 0;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size:0.875rem;
 }
 
 @media (max-width: 1199px) {
@@ -6212,7 +6212,7 @@ html[data-theme="mist"] .shell-tabs--dock .shell-tabs__tab.is-active {
 }
 
 .mosaicWorkspace__secondary .mosaicLauncher__eyebrow {
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 600;
   color: var(--muted);
 }

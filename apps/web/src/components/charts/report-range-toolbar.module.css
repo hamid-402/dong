@@ -23,13 +23,13 @@
 
 .label {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size:0.875rem;
   font-weight: 700;
 }
 
 .rangeHint {
   color: var(--text);
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
@@ -48,7 +48,7 @@
   border-radius: 999px;
   padding: 5px 12px;
   font: inherit;
-  font-size: 0.8rem;
+  font-size:0.875rem;
   font-weight: 650;
   cursor: pointer;
 }
@@ -84,7 +84,7 @@
   border-radius: 10px;
   padding: 5px 10px;
   font: inherit;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   font-weight: 650;
   cursor: pointer;
 }

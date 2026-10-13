@@ -22,7 +22,7 @@
   background: transparent;
   color: var(--dang-text, #f3f1e9);
   font: inherit;
-  font-size: 0.85rem;
+  font-size:0.875rem;
   cursor: pointer;
   transition: background var(--dang-dur, 180ms) var(--dang-ease),
     border-color var(--dang-dur, 180ms) var(--dang-ease);
@@ -105,7 +105,7 @@
 
 .memberCardMeta,
 .memberCardLabel {
-  font-size: 0.75rem;
+  font-size:0.875rem;
   color: var(--dang-muted, #9eaaa6);
 }
 
@@ -141,7 +141,7 @@
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
-  font-size: 0.72rem;
+  font-size:0.875rem;
   color: var(--dang-muted, #9eaaa6);
   font-variant-numeric: tabular-nums;
 }
@@ -185,7 +185,7 @@
 
 .billEyebrow {
   margin: 0 0 0.25rem;
-  font-size: 0.75rem;
+  font-size:0.875rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--dang-gold, #c9aa70);
@@ -227,7 +227,7 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 0.25rem;
-  font-size: 0.85rem;
+  font-size:0.875rem;
   color: var(--dang-muted, #9eaaa6);
   text-align: end;
 }
@@ -237,7 +237,7 @@
   margin-top: 0.35rem;
   padding: 0.2rem 0.55rem;
   border-radius: var(--dang-radius-pill, 999px);
-  font-size: 0.72rem;
+  font-size:0.875rem;
   font-weight: 600;
 }
 
@@ -279,7 +279,7 @@
 }
 
 .summaryCell > span:first-child {
-  font-size: 0.78rem;
+  font-size:0.875rem;
   color: var(--dang-muted, #9eaaa6);
 }
 
@@ -328,7 +328,7 @@
   caption-side: top;
   padding: 0.65rem 0.75rem;
   text-align: start;
-  font-size: 0.8rem;
+  font-size:0.875rem;
   font-weight: 650;
   color: var(--dang-muted, #9eaaa6);
 }
@@ -336,7 +336,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.84rem;
+  font-size:0.875rem;
 }
 
 .table th,
@@ -352,7 +352,7 @@
   top: 0;
   z-index: 1;
   font-weight: 650;
-  font-size: 0.75rem;
+  font-size:0.875rem;
   color: var(--dang-text, #f3f1e9);
   background: var(--dang-surface-3, #1b2925);
   box-shadow: 0 1px 0 var(--dang-line, rgba(220, 229, 225, 0.18));
@@ -375,7 +375,7 @@
 
 .dayBandShare {
   margin-inline-start: 0.85rem;
-  font-size: 0.8rem;
+  font-size:0.875rem;
   color: var(--dang-muted, #9eaaa6);
 }
 
@@ -402,14 +402,14 @@
   display: inline-block;
   padding: 0.12rem 0.45rem;
   border-radius: var(--dang-radius-pill, 999px);
-  font-size: 0.72rem;
+  font-size:0.875rem;
   color: var(--dang-muted, #9eaaa6);
   background: var(--dang-fill-soft, rgba(255, 255, 255, 0.045));
 }
 
 .meta {
   color: var(--dang-muted, #9eaaa6);
-  font-size: 0.8em;
+  font-size:0.875rem;
 }
 
 .billFooter {
@@ -463,7 +463,7 @@
 
 .balanceHint {
   margin: 0.65rem 0 0;
-  font-size: 0.78rem;
+  font-size:0.875rem;
   line-height: 1.5;
   color: var(--dang-muted, #9eaaa6);
 }
@@ -482,7 +482,7 @@
 
 .payoutGrid dt {
   margin: 0;
-  font-size: 0.72rem;
+  font-size:0.875rem;
   color: var(--dang-muted, #9eaaa6);
 }
 
@@ -619,7 +619,7 @@
 
 .printHint {
   margin-top: 1.5rem;
-  font-size: 0.85rem;
+  font-size:0.875rem;
   color: #53615d;
 }
 
