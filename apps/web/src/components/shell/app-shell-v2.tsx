@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, Suspense, type ReactNode } from "react";
+import { useEffect, Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ShellIconSvg } from "@/components/shell/shell-icons";
@@ -154,16 +154,12 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
   const tablet = viewport === "tablet";
   const search = searchParams?.toString() ?? "";
   const displayWsName = workspaceDisplayName(active?.name, template);
-  const location = useMemo(
-    () =>
-      resolveShellLocation({
-        pathname,
-        search,
-        workspaceName: displayWsName,
-        template,
-      }),
-    [pathname, search, displayWsName, template],
-  );
+  const location = resolveShellLocation({
+    pathname,
+    search,
+    workspaceName: displayWsName,
+    template,
+  });
   const primary = location.primary;
   const spacesListHref =
     inWorkspace && template

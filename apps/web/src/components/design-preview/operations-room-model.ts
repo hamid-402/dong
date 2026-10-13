@@ -75,7 +75,7 @@ export type PreviewScreenId = (typeof PREVIEW_SCREENS)[number]["id"];
 export const PREVIEW_ALIASES: Readonly<Record<string, PreviewScreenId>> = {
   "/": "workspace-home",
   "/overview": "workspace-home",
-  "/workspaces": "expenses",
+  "/workspaces": "spaces",
   "/workspaces#settlement-panel": "settlements",
   "/workspaces#period-invoice-panel": "invoices",
   "/workspaces#reports-panel": "recurring",
@@ -87,7 +87,7 @@ export const PREVIEW_ALIASES: Readonly<Record<string, PreviewScreenId>> = {
   "/workspaces/partnership": "partners",
   "/me": "workspace-space",
   "/group": "workspace-space",
-  "/groups": "workspace-space",
+  "/groups": "spaces",
   "/orgs": "workspace-space",
   "/profile": "account",
   "/onboarding": "spaces-new",
