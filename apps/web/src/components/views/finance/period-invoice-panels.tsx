@@ -181,6 +181,8 @@ export function PeriodInvoicePanels({
             label="عنوان دوره"
             value={periodTitle}
             onChange={(event) => onPeriodTitleChange(event.target.value)}
+            error={!periodTitle.trim() ? "عنوان دوره را بنویسید" : undefined}
+            required
           />
           <SelectField
             label="نوع دوره"
@@ -207,7 +209,11 @@ export function PeriodInvoicePanels({
               />
             </>
           ) : null}
-          <Button type="button" onClick={onCreatePeriod} disabled={pending}>
+          <Button
+            type="button"
+            onClick={onCreatePeriod}
+            disabled={pending || !periodTitle.trim()}
+          >
             ساخت دوره
           </Button>
         </FormStack>
@@ -294,13 +300,15 @@ export function PeriodInvoicePanels({
             idleHint="روی ردیف کلیک کنید یا مربع کنار صورتحساب را تیک بزنید"
             onClear={selection.clear}
           >
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="secondary"
               disabled={!barInvoice}
               onClick={() => barInvoice && setSelectedInvoiceId(barInvoice.id)}
             >
               جزئیات
-            </button>
+            </Button>
             {barInvoice && slug ? (
               <Link
                 className="textButton"
@@ -317,8 +325,9 @@ export function PeriodInvoicePanels({
             session?.actor?.userId === barInvoice.memberUserId &&
             barInvoice.status === "pending_approval" ? (
               <>
-                <button
+                <Button
                   type="button"
+                  size="sm"
                   disabled={pending}
                   onClick={() => {
                     onApproveInvoice(barInvoice.id);
@@ -326,10 +335,11 @@ export function PeriodInvoicePanels({
                   }}
                 >
                   تأیید
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className={selStyles.danger}
+                  size="sm"
+                  variant="danger"
                   disabled={pending}
                   onClick={() => {
                     onDisputeInvoice(barInvoice.id);
@@ -337,15 +347,16 @@ export function PeriodInvoicePanels({
                   }}
                 >
                   اعتراض
-                </button>
+                </Button>
               </>
             ) : null}
             {barInvoice &&
             canManageInvoices &&
             barInvoice.status === "disputed" ? (
               <>
-                <button
+                <Button
                   type="button"
+                  size="sm"
                   disabled={pending}
                   onClick={() => {
                     onResolveInvoiceDispute(barInvoice.id, "accepted");
@@ -353,10 +364,11 @@ export function PeriodInvoicePanels({
                   }}
                 >
                   پذیرش اعتراض
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className={selStyles.danger}
+                  size="sm"
+                  variant="danger"
                   disabled={pending}
                   onClick={() => {
                     onResolveInvoiceDispute(barInvoice.id, "rejected");
@@ -364,7 +376,7 @@ export function PeriodInvoicePanels({
                   }}
                 >
                   رد اعتراض
-                </button>
+                </Button>
               </>
             ) : null}
             {barInvoice &&
@@ -372,8 +384,9 @@ export function PeriodInvoicePanels({
             (barInvoice.status === "approved" ||
               barInvoice.status === "pending_approval" ||
               barInvoice.status === "draft") ? (
-              <button
+              <Button
                 type="button"
+                size="sm"
                 disabled={pending}
                 onClick={() => {
                   onIssueInvoice(barInvoice.id);
@@ -381,7 +394,7 @@ export function PeriodInvoicePanels({
                 }}
               >
                 ارسال / صدور
-              </button>
+              </Button>
             ) : null}
             {barInvoice && barInvoice.status === "issued"
               ? (() => {
@@ -406,8 +419,9 @@ export function PeriodInvoicePanels({
                         <span className="liveHint">پرداخت آنلاین منتظر PSP واقعی</span>
                       ) : null}
                       {canManageInvoices ? (
-                        <button
+                        <Button
                           type="button"
+                          size="sm"
                           disabled={pending}
                           onClick={() => {
                             onMarkInvoicePaid(barInvoice.id);
@@ -415,7 +429,7 @@ export function PeriodInvoicePanels({
                           }}
                         >
                           پرداخت شد
-                        </button>
+                        </Button>
                       ) : null}
                     </>
                   );
@@ -447,7 +461,7 @@ export function PeriodInvoicePanels({
             >
             <DataRow
               title={
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <span className={styles.rowTitle}>
                   <RowSelectCheckbox
                     checked={selection.isSelected(invoice.id)}
                     onChange={() => {
@@ -475,29 +489,29 @@ export function PeriodInvoicePanels({
                   >
                     {invoiceStatusLabel(invoice.status)}
                   </StatusPill>
-                  <span style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
+                  <span className={styles.metaLine}>
                     عمومی <Amount irrMinor={invoice.sharedTotal.amountMinor} /> · خصوصی{" "}
                     <Amount irrMinor={invoice.privateTotal.amountMinor} />
                   </span>
                   {isInvoiceLocked(invoice.status) ? (
-                    <span style={{ color: "var(--muted)", fontSize: "0.875rem", display: "block" }}>
+                    <span className={styles.metaBlock}>
                       سند قفل‌شده — تغییرات بعدی به‌صورت اعلامیهٔ اصلاحی ثبت می‌شود
                     </span>
                   ) : invoice.recalculatedAt ? (
-                    <span style={{ color: "var(--muted)", fontSize: "0.875rem", display: "block" }}>
+                    <span className={styles.metaBlock}>
                       پیش‌نویس زنده · آخرین به‌روزرسانی {formatFaDate(invoice.recalculatedAt)}
                       {invoice.version ? ` · نسخهٔ ${invoice.version}` : ""}
                     </span>
                   ) : null}
                   {invoice.pendingTotal &&
                   invoice.pendingTotal.amountMinor !== "0" ? (
-                    <span style={{ color: "var(--muted)", fontSize: "0.875rem", display: "block" }}>
+                    <span className={styles.metaBlock}>
                       در انتظار ثبت نهایی (خارج از جمع سند){" "}
                       <Amount irrMinor={invoice.pendingTotal.amountMinor} />
                     </span>
                   ) : null}
                   {invoice.lines.length > 0 ? (
-                    <span style={{ color: "var(--muted)", fontSize: "0.875rem", display: "block" }}>
+                    <span className={styles.metaBlock}>
                       {invoice.lines
                         .map(
                           (line) =>

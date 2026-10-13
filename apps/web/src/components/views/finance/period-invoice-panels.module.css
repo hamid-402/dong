@@ -110,6 +110,23 @@
   line-height: 1.65;
 }
 
+.rowTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metaLine {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.metaBlock {
+  color: var(--muted);
+  font-size: 0.875rem;
+  display: block;
+}
+
 @media (max-width: 900px) {
   .masterDetail {
     grid-template-columns: 1fr;
