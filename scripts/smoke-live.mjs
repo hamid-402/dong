@@ -34,7 +34,9 @@ async function json(url, init) {
   return { res, body, text };
 }
 
-const email = `smoke-${Date.now()}@dang.local`;
+const stamp = Date.now();
+const email = `smoke-${stamp}@dang.local`;
+const username = `smoke${stamp}`;
 const password = "SmokePass123!";
 let cookie = "";
 
@@ -62,7 +64,12 @@ await check("register", async () => {
   const { res, body } = await json(`${API}/auth/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email, password, displayName: "اسموک تست" }),
+    body: JSON.stringify({
+      email,
+      password,
+      displayName: "اسموک تست",
+      username,
+    }),
   });
   assert(res.ok || res.status === 201, `status ${res.status} ${JSON.stringify(body)}`);
   return email;
