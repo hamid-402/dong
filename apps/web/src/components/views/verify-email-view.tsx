@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState, useTransition } from "react";
+import { Suspense, useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@dang/ui";
 import { AuthAlert, AuthLinkRow, AuthShell } from "@/components/auth-shell";
 import { FormStack } from "@/components/ui-blocks";
@@ -11,18 +11,20 @@ import { api } from "@/lib/api";
 function VerifyEmailForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const token = params.get("token") ?? "";
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const started = useRef(false);
 
-  function verify(token: string) {
+  function verify(nextToken: string) {
     startTransition(() => {
       void (async () => {
         try {
-          const profile = await api.verifyEmail(token);
+          const profile = await api.verifyEmail(nextToken);
           setMessage(`ایمیل ${profile.email ?? ""} تأیید شد.`);
           setError(null);
-          router.push("/profile");
+          router.replace("/home");
         } catch (err: unknown) {
           setError(err instanceof Error ? err.message : "تأیید ناموفق");
         }
@@ -30,18 +32,25 @@ function VerifyEmailForm() {
     });
   }
 
-  const token = params.get("token") ?? "";
+  useEffect(() => {
+    if (!token || started.current) return;
+    started.current = true;
+    verify(token);
+  }, [token]);
+
   return (
     <FormStack>
-      {token ? (
-        <Button type="button" disabled={pending} onClick={() => verify(token)}>
-          {pending ? "در حال تأیید…" : "تأیید ایمیل"}
-        </Button>
-      ) : (
-        <AuthAlert tone="info">توکن تأیید در URL نیست.</AuthAlert>
-      )}
+      {!token ? <AuthAlert tone="info">توکن تأیید در URL نیست.</AuthAlert> : null}
+      {token && pending ? <p role="status">در حال تأیید…</p> : null}
       {message ? <AuthAlert tone="success">{message}</AuthAlert> : null}
-      {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
+      {error ? (
+        <>
+          <AuthAlert tone="error">{error}</AuthAlert>
+          <Button type="button" disabled={pending} onClick={() => verify(token)}>
+            تلاش دوباره
+          </Button>
+        </>
+      ) : null}
     </FormStack>
   );
 }
@@ -50,14 +59,14 @@ export function VerifyEmailView() {
   return (
     <AuthShell
       title="تأیید ایمیل"
-      description="لینک تأیید را از ایمیل باز کنید یا دکمه زیر را بزنید."
+      description="اگر لینک توکن داشته باشد، ایمیل همان لحظه تأیید می‌شود."
       footer={
         <AuthLinkRow>
           <Link href="/login">ورود</Link>
         </AuthLinkRow>
       }
     >
-      <Suspense fallback={<p className="emptyHint">…</p>}>
+      <Suspense fallback={<p role="status">در حال تأیید…</p>}>
         <VerifyEmailForm />
       </Suspense>
     </AuthShell>

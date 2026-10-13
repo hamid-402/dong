@@ -1,6 +1,6 @@
 {
   "login.title": "Sign in",
-  "login.description": "Sign in with email and password; after login you land on spaces or your active workspace home.",
+  "login.description": "Email, username, or mobile",
   "login.mfaDescription": "Enter your two-factor authentication code",
   "login.email": "Email",
   "login.password": "Password",

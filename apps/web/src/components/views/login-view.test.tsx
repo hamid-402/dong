@@ -26,13 +26,16 @@ vi.mock("@/components/auth-shell", () => ({
   AuthShell: ({
     children,
     title,
+    footer,
   }: {
     children: React.ReactNode;
     title: string;
+    footer?: React.ReactNode;
   }) => (
     <div>
       <h1>{title}</h1>
       {children}
+      {footer}
     </div>
   ),
   AuthAlert: ({ children }: { children: React.ReactNode }) => (
@@ -64,6 +67,13 @@ describe("LoginView validation", () => {
     fireEvent.submit(email.closest("form")!);
     expect(await screen.findByText("آدرس ایمیل نامعتبر است")).toBeTruthy();
     expect(api.login).not.toHaveBeenCalled();
+  });
+
+  it("keeps a single forgot-password link beside the password field", () => {
+    render(<LoginView />);
+    const links = screen.getAllByRole("link", { name: "فراموشی رمز" });
+    expect(links).toHaveLength(1);
+    expect(links[0]?.getAttribute("href")).toBe("/forgot-password");
   });
 
   it("requires password", async () => {

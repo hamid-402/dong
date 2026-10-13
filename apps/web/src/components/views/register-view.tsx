@@ -108,7 +108,7 @@ export function RegisterView() {
       {success ? <AuthAlert tone="success">{success}</AuthAlert> : null}
       {debugVerifyUrl ? (
         <AuthAlert tone="info">
-          <a href={debugVerifyUrl}>تأیید ایمیل</a>
+          فقط محیط توسعه — <a href={debugVerifyUrl}>تأیید ایمیل</a>
         </AuthAlert>
       ) : null}
       <form onSubmit={onSubmit} className="authLayout__form" noValidate>

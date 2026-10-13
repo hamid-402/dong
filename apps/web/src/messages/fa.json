@@ -1,6 +1,6 @@
 {
   "login.title": "ورود به حساب",
-  "login.description": "با ایمیل و رمز وارد شوید؛ بعد از ورود به فهرست فضاها یا خانهٔ فضای فعال می‌روید.",
+  "login.description": "ایمیل، نام کاربری یا موبایل",
   "login.mfaDescription": "کد تأیید دو مرحله‌ای را وارد کنید",
   "login.email": "ایمیل",
   "login.password": "رمز عبور",

@@ -55,7 +55,7 @@ export function ForgotPasswordView() {
       {message ? <AuthAlert tone="success">{message}</AuthAlert> : null}
       {debugUrl ? (
         <AuthAlert tone="info">
-          حالت توسعه — <a href={debugUrl}>بازیابی رمز</a>
+          فقط محیط توسعه — <a href={debugUrl}>بازیابی رمز</a>
         </AuthAlert>
       ) : null}
       <form onSubmit={onSubmit} className="authLayout__form">

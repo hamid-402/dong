@@ -104,8 +104,6 @@ export function LoginView() {
       description={loginDescription}
       footer={
         <AuthLinkRow>
-          <Link href="/forgot-password">{t("login.forgotLink")}</Link>
-          <span aria-hidden>·</span>
           <Link href="/register">{t("login.registerLink")}</Link>
           <AuthDevLink />
         </AuthLinkRow>
@@ -142,7 +140,6 @@ export function LoginView() {
                   setEmailError(null);
                   setFormError(null);
                 }}
-                hint="با ایمیل، نام کاربری یا شماره موبایل وارد شوید"
                 error={emailError ?? undefined}
                 required
               />
@@ -160,7 +157,7 @@ export function LoginView() {
                   error={passwordError ?? undefined}
                   required
                 />
-                <Link href="/forgot-password" className="authLayout__inlineLink">
+                <Link href="/forgot-password" className="authGate__inlineLink">
                   {t("login.forgotLink")}
                 </Link>
               </div>

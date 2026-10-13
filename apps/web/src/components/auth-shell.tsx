@@ -2,145 +2,77 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  type ReactNode,
-} from "react";
-import { markClientSession, bootstrapDevSession } from "@/lib/api";
-import { PageTrailBar } from "@/components/page-trail-bar";
-import { StickerSvg } from "@/components/visual/stickers";
-import { AuthMark } from "@/components/site/auth-mark";
-import {
-  SiteFooter,
-  SiteHeader,
-  SiteStatusProvider,
-  useSiteStatus,
-} from "@/components/site/marketing-shell";
+import { type ReactNode } from "react";
 import { Alert } from "@dang/ui";
-import { SITE_SERVICE_ITEMS } from "@/lib/site-nav";
+import { markClientSession, bootstrapDevSession } from "@/lib/api";
+import { AuthMark } from "@/components/site/auth-mark";
+import { SiteStatusProvider, useSiteStatus } from "@/components/site/marketing-shell";
+import { APP_THEMES, useOptionalTheme } from "@/lib/theme";
 
 export { AuthMark };
 
-const FEATURES = SITE_SERVICE_ITEMS.map((item) => ({
-  label: item.title,
-  icon:
-    item.title.includes("خرید")
-      ? ("cart" as const)
-      : item.title.includes("شرکا")
-        ? ("partners" as const)
-        : ("wallet" as const),
-}));
-
-function FeatureIcon({ name }: { name: (typeof FEATURES)[number]["icon"] }) {
-  const common = {
-    width: 16,
-    height: 16,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.7,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-  };
-  if (name === "wallet") {
-    return (
-      <svg {...common}>
-        <rect x="3" y="6" width="18" height="13" rx="2" />
-        <path d="M16 11h5" />
-      </svg>
-    );
-  }
-  if (name === "cart") {
-    return (
-      <svg {...common}>
-        <circle cx="9" cy="20" r="1" />
-        <circle cx="18" cy="20" r="1" />
-        <path d="M3 4h2l2.5 11h10l3-8H7" />
-      </svg>
-    );
-  }
+function AuthThemeSwitch() {
+  const themeApi = useOptionalTheme();
+  if (!themeApi) return null;
   return (
-    <svg {...common}>
-      <circle cx="9" cy="8" r="3" />
-      <circle cx="17" cy="9" r="2.5" />
-      <path d="M3 20v-1a6 6 0 0 1 12 0v1" />
-    </svg>
+    <div className="authGate__themes" role="group" aria-label="ظاهر">
+      {APP_THEMES.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          className={`authGate__theme${themeApi.theme === item.id ? " is-active" : ""}`}
+          aria-pressed={themeApi.theme === item.id}
+          onClick={() => themeApi.setTheme(item.id)}
+        >
+          <span
+            className="authGate__swatch"
+            style={{ background: item.swatch }}
+            aria-hidden
+          />
+          {item.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
 function AuthShellFrame({
-  eyebrow = "حساب کاربری",
   title,
   description,
   children,
   footer,
 }: {
-  eyebrow?: string;
   title: string;
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
 }) {
-  const { trustBadges } = useSiteStatus();
-
   return (
-    <div className="authLayout">
-      <div className="ambient ambient--rich ambient--atmosphere" aria-hidden />
-      <SiteHeader compactAuth />
-
-      <div className="authLayout__main">
-        <div className="authLayout__frame">
-          <aside className="authLayout__hero animated" id="features">
-            <div className="authLayout__heroCopy">
-              <StickerSvg name="handshake" className="authLayout__heroSticker" />
-              <span className="authLayout__heroEyebrow">همکاری شفاف</span>
-              <h1>دنگ همکاری</h1>
-              <p>
-                همهٔ هزینه‌ها، خریدها و حساب‌ها در یک جا — از ثبت خرج تا صورتحساب،
-                تأیید خرید و تسویه.
-              </p>
-            </div>
-
-            <ul className="authLayout__features">
-              {FEATURES.map((item) => (
-                <li key={item.label}>
-                  <span className="authLayout__featureIcon" aria-hidden>
-                    <FeatureIcon name={item.icon} />
-                  </span>
-                  {item.label}
-                </li>
-              ))}
-            </ul>
-
-            {trustBadges.length > 0 ? (
-              <div className="authLayout__trustRow" id="security">
-                {trustBadges.map((badge) => (
-                  <span key={badge} className="authLayout__trustBadge">
-                    {badge}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </aside>
-
-          <main className="authLayout__panel card animated" id="main" tabIndex={-1}>
-            <header className="authLayout__panelHead">
-              <PageTrailBar homeHref="/" homeLabel="خانه" />
-              <span className="eyebrow">{eyebrow}</span>
-              <h2>{title}</h2>
-              {description ? <p>{description}</p> : null}
-            </header>
-            <div className="authLayout__panelBody">{children}</div>
-            {footer ? <footer className="authLayout__panelFooter">{footer}</footer> : null}
-          </main>
-        </div>
-      </div>
-
-      <SiteFooter />
+    <div className="authGate">
+      <header className="authGate__bar">
+        <Link href="/" className="authGate__brand">
+          <AuthMark size="sm" />
+          <span>دنگ</span>
+        </Link>
+        <AuthThemeSwitch />
+      </header>
+      <main id="main" className="authGate__main" tabIndex={-1}>
+        <h1>{title}</h1>
+        {description ? <p className="authGate__lead">{description}</p> : null}
+        {children}
+        {footer}
+        <p className="authGate__back">
+          <Link href="/">بازگشت به سایت</Link>
+        </p>
+      </main>
     </div>
   );
 }
 
-export function AuthShell(props: {
+export function AuthShell({
+  eyebrow: _eyebrow,
+  ...props
+}: {
   eyebrow?: string;
   title: string;
   description?: string;
@@ -163,7 +95,7 @@ export function AuthDivider({ label = "یا" }: { label?: string }) {
 }
 
 export function AuthLinkRow({ children }: { children: ReactNode }) {
-  return <p className="authLayout__linkRow">{children}</p>;
+  return <p className="authGate__links">{children}</p>;
 }
 
 export function AuthDevLink() {
@@ -171,24 +103,21 @@ export function AuthDevLink() {
   const router = useRouter();
   if (!caps?.allowDevAuth) return null;
   return (
-    <>
-      <span aria-hidden>·</span>
-      <Link
-        href="/spaces/new"
-        className="authLayout__devLink"
-        onClick={(event) => {
-          event.preventDefault();
-          markClientSession("dev");
-          void bootstrapDevSession()
-            .catch(() => undefined)
-            .finally(() => {
-              router.push("/spaces/new");
-            });
-        }}
-      >
-        حالت توسعه
-      </Link>
-    </>
+    <Link
+      href="/spaces/new"
+      className="authLayout__devLink"
+      onClick={(event) => {
+        event.preventDefault();
+        markClientSession("dev");
+        void bootstrapDevSession()
+          .catch(() => undefined)
+          .finally(() => {
+            router.push("/spaces/new");
+          });
+      }}
+    >
+      فقط محیط توسعه
+    </Link>
   );
 }
 
