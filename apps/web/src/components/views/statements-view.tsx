@@ -10,7 +10,7 @@ import type {
   StatementLine,
 } from "@dang/contracts";
 import { inspectPayoutDestination, isFinanceManagerRole, sumStatementShareMinor } from "@dang/contracts";
-import { Button, ErrorState, LoadingState, SelectField } from "@dang/ui";
+import { Button, ErrorState, LoadingState, SelectField, TextField } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -751,7 +751,7 @@ export function StatementsView({
             ) : null}
             <p className={styles.balanceHint}>{t("statements.balanceHint")}</p>
             {!printMode && slug && payableActive ? (
-              <p className={styles.balanceHint} style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+              <p className={`${styles.balanceHint} ${styles.payLinks}`}>
                 <Link
                   className="textButton"
                   href={`${wPath(slug, "payments")}?amountMinor=${encodeURIComponent(detail.payableMinor)}`}
@@ -929,38 +929,46 @@ export function StatementsView({
 
       <section className={styles.toolbar} aria-label={t("statements.rangeTitle")}>
         <div className={styles.presets} role="group" aria-label={t("statements.rangeTitle")}>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             className={`${styles.preset} ${preset === "month" ? styles.presetActive : ""}`}
             aria-pressed={preset === "month"}
             onClick={() => applyPreset("month")}
           >
             {t("statements.presetMonth")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             className={`${styles.preset} ${preset === "lastMonth" ? styles.presetActive : ""}`}
             aria-pressed={preset === "lastMonth"}
             onClick={() => applyPreset("lastMonth")}
           >
             {t("statements.presetLastMonth")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             className={`${styles.preset} ${preset === "7d" ? styles.presetActive : ""}`}
             aria-pressed={preset === "7d"}
             onClick={() => applyPreset("7d")}
           >
             {t("statements.preset7d")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             className={`${styles.preset} ${preset === "30d" ? styles.presetActive : ""}`}
             aria-pressed={preset === "30d"}
             onClick={() => applyPreset("30d")}
           >
             {t("statements.preset30d")}
-          </button>
+          </Button>
         </div>
         <div className={styles.rangeFields}>
           <JalaliDateField
@@ -1017,50 +1025,37 @@ export function StatementsView({
 
       {!printMode ? (
         <section className={styles.actionsBar} aria-label={t("statements.actionsTitle")}>
-          <details className={styles.packLetterhead} style={{ width: "100%", marginBottom: 8 }}>
+          <details className={styles.packLetterhead}>
             <summary>{t("statements.packLetterheadTitle")}</summary>
-            <div
-              style={{
-                display: "grid",
-                gap: 8,
-                marginTop: 8,
-                gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
-              }}
-            >
-              <label style={{ display: "grid", gap: 4 }}>
-                <span>{t("statements.packDocumentNo")}</span>
-                <input
-                  value={packDocumentNo}
-                  onChange={(e) => setPackDocumentNo(e.target.value)}
-                  placeholder="STP-…"
-                />
-              </label>
-              <label style={{ display: "grid", gap: 4 }}>
-                <span>{t("statements.packDocTitle")}</span>
-                <input
-                  value={packDocTitle}
-                  onChange={(e) => setPackDocTitle(e.target.value)}
-                  placeholder="صورتحساب …"
-                />
-              </label>
-              <label style={{ display: "grid", gap: 4 }}>
-                <span>{t("statements.packLetterhead")}</span>
-                <input
-                  value={packLetterhead}
-                  onChange={(e) => setPackLetterhead(e.target.value)}
-                />
-              </label>
-              <label style={{ display: "grid", gap: 4 }}>
-                <span>{t("statements.packFooter")}</span>
-                <input
-                  value={packFooter}
-                  onChange={(e) => setPackFooter(e.target.value)}
-                />
-              </label>
-              <label style={{ display: "grid", gap: 4 }}>
-                <span>{t("statements.packSeal")}</span>
-                <input value={packSeal} onChange={(e) => setPackSeal(e.target.value)} />
-              </label>
+            <div className={styles.packFields}>
+              <TextField
+                label={t("statements.packDocumentNo")}
+                value={packDocumentNo}
+                onChange={(e) => setPackDocumentNo(e.target.value)}
+                placeholder="STP-…"
+                dir="ltr"
+              />
+              <TextField
+                label={t("statements.packDocTitle")}
+                value={packDocTitle}
+                onChange={(e) => setPackDocTitle(e.target.value)}
+                placeholder="صورتحساب …"
+              />
+              <TextField
+                label={t("statements.packLetterhead")}
+                value={packLetterhead}
+                onChange={(e) => setPackLetterhead(e.target.value)}
+              />
+              <TextField
+                label={t("statements.packFooter")}
+                value={packFooter}
+                onChange={(e) => setPackFooter(e.target.value)}
+              />
+              <TextField
+                label={t("statements.packSeal")}
+                value={packSeal}
+                onChange={(e) => setPackSeal(e.target.value)}
+              />
             </div>
           </details>
           <Button

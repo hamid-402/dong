@@ -28,9 +28,23 @@
     border-color var(--dang-dur, 180ms) var(--dang-ease);
 }
 
-.preset:hover {
+button.preset:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  min-width: 0;
+  min-height: 36px;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--dang-radius-pill, 999px);
+  border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
+  background: transparent;
+  color: var(--dang-text);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.preset:hover,
+button.preset:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
   background: var(--dang-fill-hover, rgba(255, 255, 255, 0.06));
   border-color: var(--dang-line-strong, rgba(220, 229, 225, 0.2));
+  color: var(--dang-text);
 }
 
 .preset:focus-visible {
@@ -38,11 +52,30 @@
   box-shadow: var(--dang-focus-ring);
 }
 
-.presetActive {
+.presetActive,
+button.presetActive:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
   border-color: color-mix(in srgb, var(--dang-primary) 55%, transparent);
   background: var(--dang-primary-soft, rgba(29, 78, 216, 0.12));
   color: var(--dang-text);
   font-weight: 650;
+}
+
+.payLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.packLetterhead {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.packFields {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
 }
 
 .rangeFields {
