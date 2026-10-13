@@ -195,6 +195,9 @@ export function usePersonalResourcesData() {
           await work();
           setError(null);
           setInfo(label);
+          window.setTimeout(() => {
+            setInfo((current) => (current === label ? null : current));
+          }, 4000);
           await refresh();
         } catch (err: unknown) {
           setError(friendlyErrorMessage(err, label));

@@ -640,6 +640,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
           await api.disputeSettlement(selectedId, settlementId);
           applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
+          showSuccess("اختلاف تسویه ثبت شد");
         } catch (err: unknown) {
           setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
@@ -655,6 +656,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
           await api.cancelSettlement(selectedId, settlementId);
           applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
+          showSuccess("تسویه لغو شد");
         } catch (err: unknown) {
           setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
@@ -670,6 +672,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
           await api.submitExpense(selectedId, expenseId);
           applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
           setError(null);
+          showSuccess("خرج برای تأیید ارسال شد");
         } catch (err: unknown) {
           setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
         }
