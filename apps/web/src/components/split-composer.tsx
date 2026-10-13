@@ -21,6 +21,7 @@ import {
 import { useRowSelection } from "@/components/selection/use-row-selection";
 import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { CatalogPicker } from "@/components/catalog-picker";
+import styles from "./split-composer.module.css";
 
 export type SplitComposerValue = {
   splitMethod: SplitMethod;
@@ -90,6 +91,12 @@ function tomanToMinor(toman: string): string | null {
   const n = Number(toman.replaceAll(",", ""));
   if (!Number.isFinite(n) || n < 0) return null;
   return String(Math.round(n) * 10);
+}
+
+function optionalMoneyError(raw: string): string | undefined {
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  return tomanToMinor(trimmed) == null ? "مبلغ معتبر نیست" : undefined;
 }
 
 export function emptySplitComposer(visibility: ExpenseVisibility = "shared"): SplitComposerValue {
@@ -401,6 +408,38 @@ export function SplitComposer({
     Math.round(multiPayerSumToman) === Math.round(totalTomanNum);
   const simpleEqual =
     value.splitMethod === "equal" && value.visibility !== "private" && !value.multiPayer;
+  const payerError =
+    value.multiPayer && !multiPayerSumOk && totalToman.trim()
+      ? "جمع پرداخت‌ها با مبلغ کل خرج برابر نیست"
+      : undefined;
+  const percentSum = value.participantUserIds.reduce((sum, userId) => {
+    const n = Number(String(value.lineInputs[userId] ?? "").replaceAll(",", ""));
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+  const percentTouched = value.participantUserIds.some((userId) =>
+    Boolean(value.lineInputs[userId]?.trim()),
+  );
+  const percentSumError =
+    value.splitMethod === "percent" &&
+    percentTouched &&
+    Math.abs(percentSum - 100) > 0.01
+      ? "جمع درصدها باید ۱۰۰ باشد"
+      : undefined;
+  const amountSum = value.participantUserIds.reduce((sum, userId) => {
+    const n = Number(String(value.lineInputs[userId] ?? "").replaceAll(",", ""));
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+  const amountTouched = value.participantUserIds.some((userId) =>
+    Boolean(value.lineInputs[userId]?.trim()),
+  );
+  const amountSumError =
+    value.splitMethod === "amount" &&
+    amountTouched &&
+    Number.isFinite(totalTomanNum) &&
+    totalTomanNum > 0 &&
+    Math.round(amountSum) !== Math.round(totalTomanNum)
+      ? "جمع مبالغ با کل خرج برابر نیست"
+      : undefined;
   const equalNames = members
     .filter((member) => value.participantUserIds.includes(member.userId))
     .map((member) =>
@@ -467,6 +506,8 @@ export function SplitComposer({
                         <TextField
                           label="مبلغ پرداخت (تومان)"
                           value={paid}
+                          inputMode="decimal"
+                          error={optionalMoneyError(paid) ?? (paid.trim() ? payerError : undefined)}
                           onChange={(event) =>
                             onChange({
                               ...value,
@@ -483,9 +524,9 @@ export function SplitComposer({
                   );
                 })}
               </DataList>
-              {!multiPayerSumOk && totalToman.trim() ? (
-                <p className="warn liveHint" role="status">
-                  جمع پرداخت‌ها هنوز با مبلغ کل خرج برابر نیست.
+              {payerError && !Object.values(payerInputs).some((raw) => raw.trim()) ? (
+                <p className="warn liveHint" role="alert">
+                  {payerError}
                 </p>
               ) : null}
             </>
@@ -651,17 +692,11 @@ export function SplitComposer({
       members.some((m) => (m.defaultShares ?? 1) !== 1) ? (
         <p className="liveHint">
           بعضی اعضا سهم پیش‌فرض غیر از ۱ دارند.{" "}
-          <button
+          <Button
             type="button"
-            className="linkish"
-            style={{
-              background: "none",
-              border: 0,
-              padding: 0,
-              color: "var(--accent, #0b6)",
-              cursor: "pointer",
-              textDecoration: "underline",
-            }}
+            variant="ghost"
+            size="sm"
+            className={styles.linkish}
             onClick={() => {
               const participantUserIds =
                 value.participantUserIds.length > 0
@@ -681,7 +716,7 @@ export function SplitComposer({
             }}
           >
             اعمال سهم پیش‌فرض
-          </button>
+          </Button>
         </p>
       ) : null}
 
@@ -720,9 +755,10 @@ export function SplitComposer({
               idleHint="روی ردیف کلیک کنید یا مربع کنار آیتم را تیک بزنید"
               onClear={itemSelection.clear}
             >
-              <button
+              <Button
                 type="button"
-                className={selStyles.danger}
+                size="sm"
+                variant="danger"
                 disabled={itemSelection.selectedCount === 0}
                 onClick={() => {
                   const ids = new Set(itemSelection.selectedIds);
@@ -741,7 +777,7 @@ export function SplitComposer({
                 }}
               >
                 حذف آیتم
-              </button>
+              </Button>
             </SelectionActionBar>
           ) : null}
           {value.items.map((item, index) => (
@@ -758,7 +794,7 @@ export function SplitComposer({
             >
               <legend className="splitComposer__legend">
                 {value.items.length > 1 ? (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span className={styles.legendCluster}>
                     <RowSelectCheckbox
                       checked={itemSelection.isSelected(item.key)}
                       onChange={() => itemSelection.toggle(item.key)}
@@ -774,6 +810,14 @@ export function SplitComposer({
                 <TextField
                   label="عنوان"
                   value={item.title}
+                  error={
+                    !item.title.trim() && item.toman.trim()
+                      ? "عنوان آیتم را بنویسید"
+                      : (item.title.trim() || item.toman.trim()) &&
+                          item.assigneeUserIds.length === 0
+                        ? "حداقل یک نفر را برای این آیتم انتخاب کنید"
+                        : undefined
+                  }
                   onChange={(event) => {
                     const items = value.items.slice();
                     items[index] = {
@@ -787,9 +831,11 @@ export function SplitComposer({
                 {item.catalogItemId ? (
                   <p className="liveHint">
                     کاتالوگ · {item.unitCode ?? "—"} · تعداد{" "}
-                    <button
+                    <Button
                       type="button"
-                      className="linkish"
+                      variant="ghost"
+                      size="sm"
+                      className={styles.linkish}
                       onClick={() => {
                         const nextQty = Math.max(1, (item.quantity ?? 1) + 1);
                         const unitPrice = item.unitPriceMinor ?? "0";
@@ -804,12 +850,14 @@ export function SplitComposer({
                       }}
                     >
                       {item.quantity ?? 1}
-                    </button>
+                    </Button>
                   </p>
                 ) : null}
                 <TextField
                   label="مبلغ (تومان)"
                   value={item.toman}
+                  inputMode="decimal"
+                  error={optionalMoneyError(item.toman)}
                   onChange={(event) => {
                     const items = value.items.slice();
                     items[index] = { ...item, toman: event.target.value };
@@ -860,16 +908,22 @@ export function SplitComposer({
             <TextField
               label="انعام"
               value={value.tipToman}
+              inputMode="decimal"
+              error={optionalMoneyError(value.tipToman)}
               onChange={(e) => onChange({ ...value, tipToman: e.target.value })}
             />
             <TextField
               label="مالیات"
               value={value.taxToman}
+              inputMode="decimal"
+              error={optionalMoneyError(value.taxToman)}
               onChange={(e) => onChange({ ...value, taxToman: e.target.value })}
             />
             <TextField
               label="تخفیف"
               value={value.discountToman}
+              inputMode="decimal"
+              error={optionalMoneyError(value.discountToman)}
               onChange={(e) => onChange({ ...value, discountToman: e.target.value })}
             />
           </div>
@@ -936,6 +990,32 @@ export function SplitComposer({
                           ? String(member.defaultShares ?? 1)
                           : "")
                       }
+                      inputMode="decimal"
+                      error={(() => {
+                        const raw =
+                          value.lineInputs[member.userId] ??
+                          (value.splitMethod === "shares"
+                            ? String(member.defaultShares ?? 1)
+                            : "");
+                        if (value.splitMethod === "amount") {
+                          return (
+                            optionalMoneyError(raw) ??
+                            (raw.trim() ? amountSumError : undefined)
+                          );
+                        }
+                        if (value.splitMethod === "percent") {
+                          const n = Number(raw.replaceAll(",", ""));
+                          if (raw.trim() && (!Number.isFinite(n) || n < 0 || n > 100)) {
+                            return "درصد معتبر نیست";
+                          }
+                          return raw.trim() ? percentSumError : undefined;
+                        }
+                        const n = Number(raw.replaceAll(",", ""));
+                        if (raw.trim() && (!Number.isFinite(n) || n < 1)) {
+                          return "سهم باید حداقل ۱ باشد";
+                        }
+                        return undefined;
+                      })()}
                       onChange={(event) =>
                         onChange({
                           ...value,
