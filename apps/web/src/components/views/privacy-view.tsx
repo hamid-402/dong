@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import type { BlockedUserSummary, DirectoryPrivacySettings } from "@dang/contracts";
-import { Button } from "@dang/ui";
+import { Button, usePrompt } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
   EmptyHint,
@@ -53,6 +53,7 @@ function ToggleRow({
 }
 
 export function PrivacyView() {
+  const promptText = usePrompt();
   const chrome = useAppChrome();
   const socialLive = chrome.capabilities?.providers?.social === "directory_friends_v1";
   const [settings, setSettings] = useState<DirectoryPrivacySettings | null>(null);
@@ -246,31 +247,39 @@ export function PrivacyView() {
               variant="secondary"
               disabled={pending}
               onClick={() => {
-                startTransition(() => {
-                  void (async () => {
-                    try {
-                      const password = window.prompt("برای خروجی داده، رمز فعلی را وارد کنید");
-                      if (!password) {
-                        setError("خروجی لغو شد — رمز لازم است");
-                        return;
+                void (async () => {
+                  const password = await promptText({
+                    title: "خروجی داده",
+                    description: "برای خروجی داده، رمز فعلی را وارد کنید",
+                    label: "رمز فعلی",
+                    inputType: "password",
+                    confirmLabel: "دریافت خروجی",
+                  });
+                  if (!password) {
+                    setError("خروجی لغو شد — رمز لازم است");
+                    return;
+                  }
+                  startTransition(() => {
+                    void (async () => {
+                      try {
+                        const payload = await api.exportMyData({ password });
+                        const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                          type: "application/json;charset=utf-8",
+                        });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `dang-account-export-${payload.exportedAt.slice(0, 10)}.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        setInfo("خروجی داده ذخیره شد");
+                        setError(null);
+                      } catch (err: unknown) {
+                        setError(friendlyErrorMessage(err, "خروجی داده ناموفق"));
                       }
-                      const payload = await api.exportMyData({ password });
-                      const blob = new Blob([JSON.stringify(payload, null, 2)], {
-                        type: "application/json;charset=utf-8",
-                      });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `dang-account-export-${payload.exportedAt.slice(0, 10)}.json`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                      setInfo("خروجی داده ذخیره شد");
-                      setError(null);
-                    } catch (err: unknown) {
-                      setError(friendlyErrorMessage(err, "خروجی داده ناموفق"));
-                    }
-                  })();
-                });
+                    })();
+                  });
+                })();
               }}
             >
               دریافت خروجی داده

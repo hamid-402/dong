@@ -11,7 +11,7 @@ import type {
   SplitMethod,
 } from "@dang/contracts";
 import { allocateExpenseSplit, allocateItemizedSplit } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
+import { Amount, Button, SelectField, TextField, useConfirm, usePrompt } from "@dang/ui";
 import { DataList, DataRow, EmptyHint, FormStack } from "@/components/ui-blocks";
 import {
   RowSelectCheckbox,
@@ -257,6 +257,7 @@ export function SplitComposer({
   compact = false,
 }: Props) {
   const confirm = useConfirm();
+  const promptText = usePrompt();
   const itemIds = useMemo(() => value.items.map((item) => item.key), [value.items]);
   const itemSelection = useRowSelection(itemIds);
   const preview = useMemo(() => {
@@ -588,9 +589,15 @@ export function SplitComposer({
           variant="ghost"
           disabled={savePresetPending}
           onClick={() => {
-            const name = window.prompt("نام قالب سهم:");
-            if (!name?.trim()) return;
-            onSavePreset(name.trim());
+            void promptText({
+              title: "قالب سهم",
+              label: "نام قالب",
+              confirmLabel: "ذخیره",
+              tone: "default",
+            }).then((name) => {
+              if (!name?.trim()) return;
+              onSavePreset(name.trim());
+            });
           }}
         >
           ذخیره تقسیم فعلی به‌عنوان قالب

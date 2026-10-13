@@ -13,7 +13,7 @@ import type {
   PettyCashLedgerResponse,
 } from "@dang/contracts";
 import { isFinanceManagerRole, isReadOnlyRole, spaceKindForTemplate, treasuryLabelsForKind } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { Amount, Button, SelectField, TextField, usePrompt } from "@dang/ui";
 import { membershipRoleLabel } from "@/lib/status-labels";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { TreasuryBalanceCard } from "@/components/shell/treasury-balance-card";
@@ -55,6 +55,7 @@ function receiptStatusLabel(status: PaymentReceiptSummary["status"]): string {
 
 export function PaymentsView() {
   const chrome = useAppChrome();
+  const promptText = usePrompt();
   const scope = useWorkspaceScope();
   const searchParams = useSearchParams();
   const displayUnit = useDisplayUnit();
@@ -553,20 +554,27 @@ export function PaymentsView() {
                         variant="ghost"
                         disabled={pending}
                         onClick={() => {
-                          const note = window.prompt("دلیل رد فیش:");
-                          if (!note?.trim()) return;
-                          startTransition(() => {
-                            void (async () => {
-                              try {
-                                await api.rejectReceipt(workspaceId, r.id, {
-                                  note: note.trim(),
-                                });
-                                flashSuccess("فیش رد شد");
-                                reload();
-                              } catch (err) {
-                                setError(friendlyErrorMessage(err, "خطای ناشناخته"));
-                              }
-                            })();
+                          const receiptId = r.id;
+                          void promptText({
+                            title: "رد فیش",
+                            label: "دلیل رد",
+                            confirmLabel: "رد فیش",
+                            tone: "danger",
+                          }).then((note) => {
+                            if (!note?.trim()) return;
+                            startTransition(() => {
+                              void (async () => {
+                                try {
+                                  await api.rejectReceipt(workspaceId, receiptId, {
+                                    note: note.trim(),
+                                  });
+                                  flashSuccess("فیش رد شد");
+                                  reload();
+                                } catch (err) {
+                                  setError(friendlyErrorMessage(err, "خطای ناشناخته"));
+                                }
+                              })();
+                            });
                           });
                         }}
                       >

@@ -11,7 +11,7 @@ import type {
   WorkspaceSummary,
 } from "@dang/contracts";
 import { spaceKindForTemplate } from "@dang/contracts";
-import { Amount, Button, TextField } from "@dang/ui";
+import { Amount, Button, TextField, usePrompt } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { TreasuryBalanceCard } from "@/components/shell/treasury-balance-card";
 import { AppShell } from "@/components/app-shell";
@@ -41,6 +41,7 @@ import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { todayIsoLocal } from "@/lib/fa-datetime";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import { createWorkspaceWithUniqueSlug } from "@/lib/group-slug";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { expenseStatusLabel, spaceKindForTemplateLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
@@ -54,6 +55,7 @@ const initialSplit: SplitComposerValue = emptySplitComposer("private");
 /** Personal space home — additive; does not remove group/org flows. */
 export function PersonalSpaceView() {
   const chrome = useAppChrome();
+  const promptText = usePrompt();
   usePersonalFinanceHashScroll();
   const scope = useOptionalWorkspaceScope();
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
@@ -129,11 +131,10 @@ export function PersonalSpaceView() {
     startTransition(() => {
       void (async () => {
         try {
-          const created = await api.createWorkspace({
-            name: "دفتر من",
-            slug: `me-${Date.now().toString(36)}`.slice(0, 48),
-            template: "personal",
-          });
+          const created = await createWorkspaceWithUniqueSlug(
+            { name: "دفتر من", template: "personal" },
+            (body) => api.createWorkspace(body, newClientId()),
+          );
           chrome.selectWorkspace(created.id);
           chrome.refreshChrome();
           flashSuccess("فضای شخصی ساخته شد");
@@ -258,14 +259,19 @@ export function PersonalSpaceView() {
           onDepositSavings={
             goalsLive
               ? () => {
-                  const raw = window.prompt("مبلغ واریز ماهانه (تومان)");
-                  if (raw == null) return;
-                  const money = tomanInputToIrrMinor(raw);
-                  if (!money) {
-                    setError("مبلغ معتبر نیست");
-                    return;
-                  }
-                  startTransition(() => {
+                  void promptText({
+                    title: "واریز ماهانه",
+                    label: "مبلغ (تومان)",
+                    confirmLabel: "ثبت واریز",
+                    tone: "default",
+                  }).then((raw) => {
+                    if (raw == null) return;
+                    const money = tomanInputToIrrMinor(raw);
+                    if (!money) {
+                      setError("مبلغ معتبر نیست");
+                      return;
+                    }
+                    startTransition(() => {
                     void (async () => {
                       try {
                         const result = await api.depositSavingsFund({
@@ -281,6 +287,7 @@ export function PersonalSpaceView() {
                         );
                       }
                     })();
+                    });
                   });
                 }
               : undefined

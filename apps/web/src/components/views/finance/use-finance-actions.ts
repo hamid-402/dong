@@ -18,7 +18,7 @@ import { useLiveInvalidation } from "@/lib/live-invalidation";
 import { displayInputToIrrMinor, irrMinorToDisplayInput } from "@/lib/irr-money";
 import { useDisplayUnit } from "@/lib/display-unit";
 import { moneyUnitSuffix } from "@/lib/money-labels";
-import { formatMoneyWithUnit } from "@dang/ui";
+import { formatMoneyWithUnit, usePrompt } from "@dang/ui";
 import { settleSuccessMessage } from "@/components/views/finance/settle-sentence";
 import {
   listOfflineExpenseDrafts,
@@ -111,6 +111,7 @@ function majorToIsoMinor(major: string, currency: string): string | null {
 export function useFinanceActions(deps: FinanceActionsDeps) {
   const displayUnit = useDisplayUnit();
   const unitLabel = moneyUnitSuffix(displayUnit);
+  const promptText = usePrompt();
   const {
     startTransition,
     selectedId,
@@ -844,18 +845,26 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
 
   function onDisputeInvoice(invoiceId: string) {
     if (!selectedId) return;
-    const note = window.prompt("دلیل اعتراض به صورتحساب:");
-    if (!note?.trim()) return;
-    startTransition(() => {
-      void (async () => {
-        try {
-          await api.disputeInvoice(selectedId, invoiceId, note.trim());
-          applyWorkspaceData(await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope));
-          setError(null);
-        } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
-        }
-      })();
+    const workspaceId = selectedId;
+    const periodId = selectedPeriodId;
+    void promptText({
+      title: "اعتراض به صورتحساب",
+      label: "دلیل اعتراض",
+      confirmLabel: "ثبت اعتراض",
+      tone: "danger",
+    }).then((note) => {
+      if (!note?.trim()) return;
+      startTransition(() => {
+        void (async () => {
+          try {
+            await api.disputeInvoice(workspaceId, invoiceId, note.trim());
+            applyWorkspaceData(await loadWorkspaceData(workspaceId, periodId, undefined, loadScope));
+            setError(null);
+          } catch (err: unknown) {
+            setError(friendlyErrorMessage(err, "عملیات ناموفق بود"));
+          }
+        })();
+      });
     });
   }
 
@@ -864,24 +873,30 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
     outcome: "accepted" | "rejected",
   ) {
     if (!selectedId) return;
-    const note = window.prompt(
-      outcome === "accepted"
-        ? "توضیح پذیرش اعتراض (اختیاری):"
-        : "دلیل رد اعتراض (اختیاری):",
-    );
-    if (note === null) return;
-    startTransition(() => {
-      void (async () => {
-        try {
-          await api.resolveInvoiceDispute(selectedId, invoiceId, outcome, note);
-          applyWorkspaceData(
-            await loadWorkspaceData(selectedId, selectedPeriodId, undefined, loadScope),
-          );
-          setError(null);
-        } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "رفع اختلاف صورتحساب ناموفق بود"));
-        }
-      })();
+    const workspaceId = selectedId;
+    const periodId = selectedPeriodId;
+    void promptText({
+      title: outcome === "accepted" ? "پذیرش اعتراض" : "رد اعتراض",
+      label: outcome === "accepted" ? "توضیح" : "دلیل رد",
+      description: "این توضیح اختیاری است",
+      required: false,
+      confirmLabel: "ثبت",
+      tone: outcome === "accepted" ? "default" : "danger",
+    }).then((note) => {
+      if (note === null) return;
+      startTransition(() => {
+        void (async () => {
+          try {
+            await api.resolveInvoiceDispute(workspaceId, invoiceId, outcome, note);
+            applyWorkspaceData(
+              await loadWorkspaceData(workspaceId, periodId, undefined, loadScope),
+            );
+            setError(null);
+          } catch (err: unknown) {
+            setError(friendlyErrorMessage(err, "رفع اختلاف صورتحساب ناموفق بود"));
+          }
+        })();
+      });
     });
   }
 

@@ -22,7 +22,7 @@ import {
   isReadOnlyRole,
   spaceKindForTemplate,
 } from "@dang/contracts";
-import { Button } from "@dang/ui";
+import { Button, usePrompt } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
   emptySplitComposer,
@@ -113,6 +113,7 @@ export function FinanceView({
   const chrome = useAppChrome();
   const displayUnit = useDisplayUnit();
   const unitLabel = moneyUnitSuffix(displayUnit);
+  const promptText = usePrompt();
   const scope = useOptionalWorkspaceScope();
   const selectedId = scope?.workspaceId || chrome.workspaceId;
   const workspaces = chrome.workspaces;
@@ -815,16 +816,19 @@ export function FinanceView({
               spaceKind === "personal" &&
               capabilities?.providers?.savingsGoals === "goals_v1"
                 ? () => {
-                    const raw = window.prompt(
-                      `مبلغ واریز ماهانه (${unitLabel})`,
-                    );
-                    if (raw == null) return;
-                    const money = displayInputToIrrMinor(raw, displayUnit);
-                    if (!money) {
-                      setError("مبلغ معتبر نیست");
-                      return;
-                    }
-                    startTransition(() => {
+                    void promptText({
+                      title: "واریز ماهانه",
+                      label: `مبلغ (${unitLabel})`,
+                      confirmLabel: "ثبت واریز",
+                      tone: "default",
+                    }).then((raw) => {
+                      if (raw == null) return;
+                      const money = displayInputToIrrMinor(raw, displayUnit);
+                      if (!money) {
+                        setError("مبلغ معتبر نیست");
+                        return;
+                      }
+                      startTransition(() => {
                       void (async () => {
                         try {
                           const result = await api.depositSavingsFund({
@@ -841,6 +845,7 @@ export function FinanceView({
                           );
                         }
                       })();
+                      });
                     });
                   }
                 : undefined
@@ -1094,16 +1099,19 @@ export function FinanceView({
                       spaceKind === "personal" &&
                       capabilities?.providers?.savingsGoals === "goals_v1"
                         ? () => {
-                            const raw = window.prompt(
-                              `مبلغ واریز ماهانه (${unitLabel})`,
-                            );
-                            if (raw == null) return;
-                            const money = displayInputToIrrMinor(raw, displayUnit);
-                            if (!money) {
-                              setError("مبلغ معتبر نیست");
-                              return;
-                            }
-                            startTransition(() => {
+                            void promptText({
+                              title: "واریز ماهانه",
+                              label: `مبلغ (${unitLabel})`,
+                              confirmLabel: "ثبت واریز",
+                              tone: "default",
+                            }).then((raw) => {
+                              if (raw == null) return;
+                              const money = displayInputToIrrMinor(raw, displayUnit);
+                              if (!money) {
+                                setError("مبلغ معتبر نیست");
+                                return;
+                              }
+                              startTransition(() => {
                               void (async () => {
                                 try {
                                   const result = await api.depositSavingsFund({
@@ -1123,6 +1131,7 @@ export function FinanceView({
                                   );
                                 }
                               })();
+                              });
                             });
                           }
                         : undefined

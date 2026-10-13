@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import type { UserProfile } from "@dang/contracts";
-import { Button, PasswordInput, SelectField, TextField, useConfirm } from "@dang/ui";
+import { Button, PasswordInput, SelectField, TextField, useConfirm, usePrompt } from "@dang/ui";
 import { AuthAlert } from "@/components/auth-shell";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -35,6 +35,7 @@ function authModeLabel(mode: UserProfile["authMode"]): string {
 
 export function ProfileView() {
   const confirm = useConfirm();
+  const promptText = usePrompt();
   const router = useRouter();
   const chrome = useAppChrome();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -481,31 +482,39 @@ export function ProfileView() {
               variant="secondary"
               disabled={pending}
               onClick={() => {
-                startTransition(() => {
-                  void (async () => {
-                    try {
-                      const password = window.prompt("برای خروجی داده، رمز فعلی را وارد کنید");
-                      if (!password) {
-                        setError("خروجی لغو شد — رمز لازم است");
-                        return;
+                void (async () => {
+                  const password = await promptText({
+                    title: "خروجی داده",
+                    description: "برای خروجی داده، رمز فعلی را وارد کنید",
+                    label: "رمز فعلی",
+                    inputType: "password",
+                    confirmLabel: "دریافت خروجی",
+                  });
+                  if (!password) {
+                    setError("خروجی لغو شد — رمز لازم است");
+                    return;
+                  }
+                  startTransition(() => {
+                    void (async () => {
+                      try {
+                        const payload = await api.exportMyData({ password });
+                        const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                          type: "application/json;charset=utf-8",
+                        });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `dang-account-export-${payload.exportedAt.slice(0, 10)}.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        setInfo("خروجی داده ذخیره شد");
+                        setError(null);
+                      } catch (err: unknown) {
+                        setError(err instanceof Error ? err.message : "خروجی داده ناموفق");
                       }
-                      const payload = await api.exportMyData({ password });
-                      const blob = new Blob([JSON.stringify(payload, null, 2)], {
-                        type: "application/json;charset=utf-8",
-                      });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `dang-account-export-${payload.exportedAt.slice(0, 10)}.json`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                      setInfo("خروجی داده ذخیره شد");
-                      setError(null);
-                    } catch (err: unknown) {
-                      setError(err instanceof Error ? err.message : "خروجی داده ناموفق");
-                    }
-                  })();
-                });
+                    })();
+                  });
+                })();
               }}
             >
               {t("privacy.dsar.export")}
@@ -515,35 +524,49 @@ export function ProfileView() {
               variant="secondary"
               disabled={pending}
               onClick={() => {
-                void confirm("حساب ناشناس می‌شود و نشست‌ها باطل می‌گردند. ادامه؟").then((accepted) => {
+                void (async () => {
+                  const accepted = await confirm(
+                    "حساب ناشناس می‌شود و نشست‌ها باطل می‌گردند. ادامه؟",
+                  );
                   if (!accepted) return;
-                  const typed = window.prompt('برای تأیید، عبارت DELETE را وارد کنید');
-                if (typed !== "DELETE") {
-                  setError("حذف لغو شد — عبارت تأیید نادرست بود");
-                  return;
-                }
-                const password = profile?.hasPassword
-                  ? window.prompt("رمز فعلی را وارد کنید") ?? ""
-                  : undefined;
-                if (profile?.hasPassword && !password) {
-                  setError("رمز برای حذف حساب لازم است");
-                  return;
-                }
-                startTransition(() => {
-                  void (async () => {
-                    try {
-                      await api.deleteMyAccount({
-                        confirm: "DELETE",
-                        ...(password ? { password } : {}),
-                      });
-                      clearClientSession();
-                      router.push("/login");
-                    } catch (err: unknown) {
-                      setError(err instanceof Error ? err.message : "حذف حساب ناموفق");
-                    }
-                  })();
-                });
-                });
+                  const typed = await promptText({
+                    title: "حذف حساب",
+                    description: "برای تأیید، عبارت DELETE را وارد کنید",
+                    label: "عبارت تأیید",
+                    confirmExact: "DELETE",
+                    confirmLabel: "ادامه",
+                    tone: "danger",
+                  });
+                  if (typed !== "DELETE") return;
+                  const password = profile?.hasPassword
+                    ? await promptText({
+                        title: "حذف حساب",
+                        description: "رمز فعلی را وارد کنید",
+                        label: "رمز فعلی",
+                        inputType: "password",
+                        confirmLabel: "حذف حساب",
+                        tone: "danger",
+                      })
+                    : undefined;
+                  if (profile?.hasPassword && !password) {
+                    setError("رمز برای حذف حساب لازم است");
+                    return;
+                  }
+                  startTransition(() => {
+                    void (async () => {
+                      try {
+                        await api.deleteMyAccount({
+                          confirm: "DELETE",
+                          ...(password ? { password } : {}),
+                        });
+                        clearClientSession();
+                        router.push("/login");
+                      } catch (err: unknown) {
+                        setError(err instanceof Error ? err.message : "حذف حساب ناموفق");
+                      }
+                    })();
+                  });
+                })();
               }}
             >
               {t("privacy.dsar.anonymize")}

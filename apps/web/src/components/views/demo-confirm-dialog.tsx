@@ -1,9 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Button, TextField } from "@dang/ui";
-import { FormStack } from "@/components/ui-blocks";
-import { AppModal } from "@/components/ui/app-modal";
+import { PromptDialog } from "@dang/ui";
 
 /** Typed-confirm gate for demo seed/purge — confirm string must match API literally. */
 export function DemoConfirmDialog({
@@ -21,37 +18,18 @@ export function DemoConfirmDialog({
   onConfirm: () => void;
   pending?: boolean;
 }) {
-  const [typed, setTyped] = useState("");
-  const ok = typed.trim() === confirmExact;
-
   return (
-    <AppModal open ariaLabel={title} onClose={onCancel}>
-      <p className="liveHint" style={{ marginTop: 0 }}>
-        برچسب {label} · اقدام صریح
-      </p>
-      <h3 id="demo-confirm-title" style={{ margin: "0 0 0.5rem", fontSize: "1.05rem" }}>
-        {title}
-      </h3>
-      <p className="liveHint">
-        برای تأیید این عبارت را دقیقاً تایپ کنید:{" "}
-        <code>{confirmExact}</code>
-      </p>
-      <FormStack>
-        <TextField
-          label="عبارت تأیید"
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          autoComplete="off"
-        />
-        <div className="appModalActions" style={{ justifyContent: "flex-end" }}>
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={pending}>
-            انصراف
-          </Button>
-          <Button type="button" onClick={onConfirm} disabled={!ok || pending}>
-            {pending ? "در حال اجرا…" : "تأیید"}
-          </Button>
-        </div>
-      </FormStack>
-    </AppModal>
+    <PromptDialog
+      open
+      title={title}
+      description={`برای تأیید این عبارت را دقیقاً تایپ کنید: ${confirmExact}`}
+      label="عبارت تأیید"
+      hint={`برچسب ${label} · اقدام صریح`}
+      confirmExact={confirmExact}
+      confirmLabel={pending ? "در حال اجرا…" : "تأیید"}
+      pending={pending}
+      onCancel={onCancel}
+      onConfirm={() => onConfirm()}
+    />
   );
 }

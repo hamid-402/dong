@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
+import { Amount, Button, SelectField, TextField, useConfirm, usePrompt } from "@dang/ui";
 import {
   DataList,
   DataRow,
@@ -36,6 +36,7 @@ import {
 /** Personal wallets / budgets — API-backed only. */
 export function PersonalResourcesPanel() {
   const confirm = useConfirm();
+  const promptText = usePrompt();
   const displayUnit = useDisplayUnit();
   const d = usePersonalResourcesData();
   const [amountError, setAmountError] = useState<string | null>(null);
@@ -56,12 +57,20 @@ export function PersonalResourcesPanel() {
 
   function renameSelectedCategory() {
     if (!barCategory) return;
-    const next = window.prompt("نام جدید دسته", barCategory.name);
-    if (!next?.trim()) return;
-    d.run("دسته به‌روز شد", async () => {
-      await api.updatePersonalCategory(barCategory.id, { name: next.trim() });
+    const category = barCategory;
+    void promptText({
+      title: "تغییر نام دسته",
+      label: "نام دسته",
+      defaultValue: category.name,
+      confirmLabel: "ذخیره",
+      tone: "default",
+    }).then((next) => {
+      if (!next?.trim()) return;
+      d.run("دسته به‌روز شد", async () => {
+        await api.updatePersonalCategory(category.id, { name: next.trim() });
+      });
+      categorySel.clear();
     });
-    categorySel.clear();
   }
 
   function deleteSelectedCategories() {
