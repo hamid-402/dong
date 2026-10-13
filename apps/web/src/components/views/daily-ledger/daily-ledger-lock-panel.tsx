@@ -2,7 +2,7 @@
 
 import type { DailyLedgerResponse } from "@dang/contracts";
 import { formatJalaliIso } from "@dang/contracts";
-import { Button, TextField } from "@dang/ui";
+import { Button, TextField, useConfirm } from "@dang/ui";
 import { StatusLine } from "@/components/ui-blocks";
 import {
   RowSelectCheckbox,
@@ -37,6 +37,7 @@ export function DailyLedgerLockPanel({
   onUnlock,
   pending,
 }: DailyLedgerLockPanelProps) {
+  const confirm = useConfirm();
   const activeLocks = rangeLocks.filter((l) => l.active);
   const selection = useRowSelection(activeLocks.map((l) => l.id));
 
@@ -47,9 +48,11 @@ export function DailyLedgerLockPanel({
       ids.length === 1
         ? "این قفل بازه باز شود؟"
         : `${ids.length.toLocaleString("fa-IR")} قفل باز شوند؟`;
-    if (!window.confirm(label)) return;
-    for (const id of ids) onUnlock(id);
-    selection.clear();
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      for (const id of ids) onUnlock(id);
+      selection.clear();
+    });
   }
 
   return (

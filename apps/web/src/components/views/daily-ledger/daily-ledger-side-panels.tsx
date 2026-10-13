@@ -7,7 +7,7 @@ import type {
   WorkspaceBalancesResponse,
 } from "@dang/contracts";
 import { suggestMinimalSettlements, settlementEdgeLabelFa } from "@dang/contracts";
-import { Amount, Button, displayUnitLabel, formatMoneyFromIrrMinor } from "@dang/ui";
+import { Amount, Button, displayUnitLabel, formatMoneyFromIrrMinor, useConfirm } from "@dang/ui";
 import { EmptyHint, StatusLine } from "@/components/ui-blocks";
 import {
   RowSelectCheckbox,
@@ -72,6 +72,7 @@ export function DailyLedgerSidePanels({
   pending,
   readOnly = false,
 }: DailyLedgerSidePanelsProps) {
+  const confirm = useConfirm();
   const displayUnit = useDisplayUnit();
   const unitLabel = displayUnitLabel(displayUnit);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -104,9 +105,11 @@ export function DailyLedgerSidePanels({
       idxs.size === 1
         ? "این ردیف پیش‌نمایش حذف شود؟"
         : `${idxs.size.toLocaleString("fa-IR")} ردیف حذف شوند؟`;
-    if (!window.confirm(label)) return;
-    onImportPreviewChange(importPreview.filter((_, i) => !idxs.has(i)));
-    previewSelection.clear();
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      onImportPreviewChange(importPreview.filter((_, i) => !idxs.has(i)));
+      previewSelection.clear();
+    });
   }
 
   return (

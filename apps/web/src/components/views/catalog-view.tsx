@@ -10,7 +10,7 @@ import type {
   CatalogUnit,
 } from "@dang/contracts";
 import { isFinanceManagerRole } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -49,6 +49,7 @@ function flattenCategories(nodes: CatalogCategory[], depth = 0): Array<CatalogCa
 }
 
 export function CatalogView() {
+  const confirm = useConfirm();
   const chrome = useAppChrome();
   const scope = useWorkspaceScope();
   const workspaceId = scope.workspaceId || chrome.workspaceId;
@@ -246,8 +247,9 @@ export function CatalogView() {
       targets.length === 1
         ? "این قلم غیرفعال شود؟"
         : `${targets.length.toLocaleString("fa-IR")} قلم غیرفعال شوند؟`;
-    if (!window.confirm(label)) return;
-    startTransition(() => {
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      startTransition(() => {
       void Promise.all(
         targets.map((i) => api.deactivateCatalogItem(workspaceId, i.id)),
       )
@@ -263,6 +265,7 @@ export function CatalogView() {
         .catch((reason: unknown) => {
           setError(friendlyErrorMessage(reason, "غیرفعال‌سازی ناموفق بود"));
         });
+    });
     });
   }
 
@@ -293,9 +296,11 @@ export function CatalogView() {
       remove.size === 1
         ? "این پین برداشته شود؟"
         : `${remove.size.toLocaleString("fa-IR")} پین برداشته شوند؟`;
-    if (!window.confirm(label)) return;
-    onReplacePins(pins.map((p) => p.itemId).filter((id) => !remove.has(id)));
-    pinSelection.clear();
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      onReplacePins(pins.map((p) => p.itemId).filter((id) => !remove.has(id)));
+      pinSelection.clear();
+    });
   }
 
   function onImportPersonal() {

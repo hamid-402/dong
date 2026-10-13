@@ -5,7 +5,7 @@ import type {
   PersonalMoneyAccountKind,
   PersonalMoneyAccountSummary,
 } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
 import { DataList, DataRow, EmptyHint } from "@/components/ui-blocks";
 import {
   RowSelectCheckbox,
@@ -56,6 +56,7 @@ export function PersonalResourcesAccountList({
   onRenameAccount,
   onToggleArchive,
 }: Props) {
+  const confirm = useConfirm();
   const accountIds = useMemo(() => accounts.map((a) => a.id), [accounts]);
   const selection = useRowSelection(accountIds);
   const barAccount =
@@ -89,11 +90,13 @@ export function PersonalResourcesAccountList({
         : allArchived
           ? `${targets.length.toLocaleString("fa-IR")} حساب از بایگانی خارج شوند؟`
           : `${targets.length.toLocaleString("fa-IR")} حساب بایگانی شوند؟`;
-    if (!window.confirm(label)) return;
-    for (const account of targets) {
-      onToggleArchive(account);
-    }
-    selection.clear();
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      for (const account of targets) {
+        onToggleArchive(account);
+      }
+      selection.clear();
+    });
   }
 
   return (

@@ -11,7 +11,7 @@ import type {
   SplitMethod,
 } from "@dang/contracts";
 import { allocateExpenseSplit, allocateItemizedSplit } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
 import { DataList, DataRow, EmptyHint, FormStack } from "@/components/ui-blocks";
 import {
   RowSelectCheckbox,
@@ -235,6 +235,7 @@ export function SplitComposer({
   savePresetPending = false,
   allowFormula = false,
 }: Props) {
+  const confirm = useConfirm();
   const itemIds = useMemo(() => value.items.map((item) => item.key), [value.items]);
   const itemSelection = useRowSelection(itemIds);
   const preview = useMemo(() => {
@@ -683,12 +684,14 @@ export function SplitComposer({
                     ids.size === 1
                       ? "این آیتم حذف شود؟"
                       : `${ids.size.toLocaleString("fa-IR")} آیتم حذف شوند؟`;
-                  if (!window.confirm(label)) return;
-                  onChange({
-                    ...value,
-                    items: value.items.filter((row) => !ids.has(row.key)),
+                  void confirm(label).then((accepted) => {
+                    if (!accepted) return;
+                    onChange({
+                      ...value,
+                      items: value.items.filter((row) => !ids.has(row.key)),
+                    });
+                    itemSelection.clear();
                   });
-                  itemSelection.clear();
                 }}
               >
                 حذف آیتم

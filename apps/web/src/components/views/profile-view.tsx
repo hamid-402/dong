@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import type { UserProfile } from "@dang/contracts";
-import { Button, SelectField, TextField } from "@dang/ui";
+import { Button, PasswordInput, SelectField, TextField, useConfirm } from "@dang/ui";
 import { AuthAlert } from "@/components/auth-shell";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -34,6 +34,7 @@ function authModeLabel(mode: UserProfile["authMode"]): string {
 }
 
 export function ProfileView() {
+  const confirm = useConfirm();
   const router = useRouter();
   const chrome = useAppChrome();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -387,10 +388,9 @@ export function ProfileView() {
                   onChange={(e) => setNewEmail(e.target.value)}
                   hint="پس از تغییر باید دوباره تأیید شود"
                 />
-                <TextField
+                <PasswordInput
                   id="profile-email-password"
                   label="رمز فعلی"
-                  type="password"
                   autoComplete="current-password"
                   value={emailPassword}
                   onChange={(e) => setEmailPassword(e.target.value)}
@@ -414,18 +414,16 @@ export function ProfileView() {
               </summary>
               <div className="reportDetails__body">
                 <FormStack density="compact">
-                  <TextField
+                  <PasswordInput
                     id="profile-current-password"
                     label="رمز فعلی"
-                    type="password"
                     autoComplete="current-password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                   />
-                  <TextField
+                  <PasswordInput
                     id="profile-new-password"
                     label="رمز جدید"
-                    type="password"
                     autoComplete="new-password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -449,17 +447,19 @@ export function ProfileView() {
               type="button"
               variant="secondary"
               onClick={() => {
-                if (!window.confirm("همه نشست‌ها در همه دستگاه‌ها باطل شوند؟")) return;
-                startTransition(() => {
-                  void (async () => {
-                    try {
-                      await api.revokeSessions();
-                      clearClientSession();
-                      router.push("/login");
-                    } catch (err: unknown) {
-                      setError(err instanceof Error ? err.message : "ابطال نشست ناموفق");
-                    }
-                  })();
+                void confirm("همه نشست‌ها در همه دستگاه‌ها باطل شوند؟").then((accepted) => {
+                  if (!accepted) return;
+                  startTransition(() => {
+                    void (async () => {
+                      try {
+                        await api.revokeSessions();
+                        clearClientSession();
+                        router.push("/login");
+                      } catch (err: unknown) {
+                        setError(err instanceof Error ? err.message : "ابطال نشست ناموفق");
+                      }
+                    })();
+                  });
                 });
               }}
               disabled={pending}
@@ -515,14 +515,9 @@ export function ProfileView() {
               variant="secondary"
               disabled={pending}
               onClick={() => {
-                if (
-                  !window.confirm(
-                    "حساب ناشناس می‌شود و نشست‌ها باطل می‌گردند. ادامه؟",
-                  )
-                ) {
-                  return;
-                }
-                const typed = window.prompt('برای تأیید، عبارت DELETE را وارد کنید');
+                void confirm("حساب ناشناس می‌شود و نشست‌ها باطل می‌گردند. ادامه؟").then((accepted) => {
+                  if (!accepted) return;
+                  const typed = window.prompt('برای تأیید، عبارت DELETE را وارد کنید');
                 if (typed !== "DELETE") {
                   setError("حذف لغو شد — عبارت تأیید نادرست بود");
                   return;
@@ -547,6 +542,7 @@ export function ProfileView() {
                       setError(err instanceof Error ? err.message : "حذف حساب ناموفق");
                     }
                   })();
+                });
                 });
               }}
             >

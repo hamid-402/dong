@@ -5,6 +5,7 @@ import "./globals.css";
 import "./shell.css";
 import { PwaRegister } from "../components/pwa-register";
 import { ThemeProvider } from "../lib/theme";
+import { ConfirmProvider } from "@dang/ui";
 
 const vazirmatn = Vazirmatn({
   subsets: ["arabic"],
@@ -63,11 +64,13 @@ export default function RootLayout({
       </head>
       <body className={vazirmatn.className} suppressHydrationWarning>
         <ThemeProvider>
-          <a className="skip-link" href="#main">
-            پرش به محتوا
-          </a>
-          <PwaRegister />
-          {children}
+          <ConfirmProvider>
+            <a className="skip-link" href="#main">
+              پرش به محتوا
+            </a>
+            <PwaRegister />
+            {children}
+          </ConfirmProvider>
         </ThemeProvider>
       </body>
     </html>

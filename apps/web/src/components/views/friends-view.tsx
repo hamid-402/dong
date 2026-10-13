@@ -15,7 +15,7 @@ import {
   isFinanceManagerRole,
   spaceKindForTemplate,
 } from "@dang/contracts";
-import { Button, TextField } from "@dang/ui";
+import { Button, TextField, useConfirm } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
   EmptyStateBlock,
@@ -55,6 +55,7 @@ const rowTitleStyle = {
 } as const;
 
 export function FriendsView() {
+  const confirm = useConfirm();
   const chrome = useAppChrome();
   const [friends, setFriends] = useState<FriendshipSummary[]>([]);
   const [incoming, setIncoming] = useState<FriendshipSummary[]>([]);
@@ -251,8 +252,9 @@ export function FriendsView() {
       ids.length === 1
         ? "این درخواست رد شود؟"
         : `${ids.length.toLocaleString("fa-IR")} درخواست رد شوند؟`;
-    if (!window.confirm(label)) return;
-    startTransition(() => {
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      startTransition(() => {
       void (async () => {
         try {
           for (const id of ids) await api.declineFriendRequest(id);
@@ -263,6 +265,7 @@ export function FriendsView() {
         }
       })();
     });
+    });
   }
 
   function cancelOutgoingSelected() {
@@ -272,8 +275,9 @@ export function FriendsView() {
       ids.length === 1
         ? "این درخواست لغو شود؟"
         : `${ids.length.toLocaleString("fa-IR")} درخواست لغو شوند؟`;
-    if (!window.confirm(label)) return;
-    startTransition(() => {
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      startTransition(() => {
       void (async () => {
         try {
           for (const id of ids) await api.cancelFriendRequest(id);
@@ -289,6 +293,7 @@ export function FriendsView() {
         }
       })();
     });
+    });
   }
 
   function removeFriendsSelected() {
@@ -298,8 +303,9 @@ export function FriendsView() {
       rows.length === 1
         ? "این دوستی حذف شود؟"
         : `${rows.length.toLocaleString("fa-IR")} دوستی حذف شوند؟`;
-    if (!window.confirm(label)) return;
-    startTransition(() => {
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      startTransition(() => {
       void (async () => {
         try {
           for (const row of rows) await api.removeFriend(row.otherUser.userId);
@@ -310,12 +316,14 @@ export function FriendsView() {
         }
       })();
     });
+    });
   }
 
   function blockFriendSelected() {
     if (!barFriend) return;
-    if (!window.confirm("این کاربر مسدود شود؟")) return;
-    startTransition(() => {
+    void confirm("این کاربر مسدود شود؟").then((accepted) => {
+      if (!accepted) return;
+      startTransition(() => {
       void api
         .blockUser(barFriend.otherUser.userId)
         .then(() => {
@@ -324,6 +332,7 @@ export function FriendsView() {
           refresh();
         })
         .catch((err: unknown) => setError(authErrorMessage(err, "مسدودسازی ناموفق بود")));
+    });
     });
   }
 

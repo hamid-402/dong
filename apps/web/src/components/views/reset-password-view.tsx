@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, useTransition } from "react";
-import { Button, TextField } from "@dang/ui";
+import { Button, PasswordInput, TextField } from "@dang/ui";
 import { AuthAlert, AuthLinkRow, AuthShell } from "@/components/auth-shell";
 import { FormStack } from "@/components/ui-blocks";
 import { validatePassword } from "@/lib/auth-validation";
@@ -54,10 +54,9 @@ function ResetPasswordForm() {
           onChange={(e) => setToken(e.target.value)}
           required
         />
-        <TextField
+        <PasswordInput
           id="reset-password"
           label="رمز جدید"
-          type="password"
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

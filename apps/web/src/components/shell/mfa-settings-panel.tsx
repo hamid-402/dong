@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Button, TextField } from "@dang/ui";
+import { Button, PasswordInput, TextField } from "@dang/ui";
 import type { MfaSetupResponse, UserProfile } from "@dang/contracts";
 import { AuthAlert } from "@/components/auth-shell";
 import { MfaQrCode } from "@/components/shell/mfa-qr-code";
@@ -127,10 +127,9 @@ export function MfaSettingsPanel({ profile, onProfileChange }: Props) {
 
       {profile?.mfaEnabled ? (
         <FormStack density="compact">
-          <TextField
+          <PasswordInput
             id="mfa-disable-password"
             label={t("shell.mfaPassword")}
-            type="password"
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

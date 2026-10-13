@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { ExpenseSummary, ExpenseVisibility, SpaceKind } from "@dang/contracts";
 import { explainExpenseFundingSettlement } from "@dang/contracts";
-import { Amount, Button } from "@dang/ui";
+import { Amount, Button, useConfirm } from "@dang/ui";
 import {
   DataList,
   DataRow,
@@ -138,6 +138,7 @@ export function ExpenseListPanel({
   const [showReversed, setShowReversed] = useState(false);
   const [forUserId, setForUserId] = useState("");
   const [listLimit, setListLimit] = useState(40);
+  const confirm = useConfirm();
   useEffect(() => {
     setListLimit(40);
   }, [
@@ -1008,16 +1009,13 @@ export function ExpenseListPanel({
                           variant="danger"
                           disabled={pending}
                           onClick={() => {
-                            if (
-                              typeof window !== "undefined" &&
-                              !window.confirm(
-                                `«${selectedExpense.title}» برای همیشه از فهرست حذف شود؟ این عمل برگشت‌پذیر نیست.`,
-                              )
-                            ) {
-                              return;
-                            }
-                            onPurgeExpense(selectedExpense.id);
-                            setSelectedExpenseId("");
+                            void confirm(
+                              `«${selectedExpense.title}» برای همیشه از فهرست حذف شود؟ این عمل برگشت‌پذیر نیست.`,
+                            ).then((accepted) => {
+                              if (!accepted) return;
+                              onPurgeExpense(selectedExpense.id);
+                              setSelectedExpenseId("");
+                            });
                           }}
                         >
                           حذف کامل

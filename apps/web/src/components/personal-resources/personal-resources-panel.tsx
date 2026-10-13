@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
 import {
   DataList,
   DataRow,
@@ -35,6 +35,7 @@ import {
 
 /** Personal wallets / budgets — API-backed only. */
 export function PersonalResourcesPanel() {
+  const confirm = useConfirm();
   const d = usePersonalResourcesData();
   const categoryIds = useMemo(() => d.categories.map((c) => c.id), [d.categories]);
   const categorySel = useRowSelection(categoryIds);
@@ -67,9 +68,11 @@ export function PersonalResourcesPanel() {
       ids.length === 1
         ? "این دسته حذف شود؟"
         : `${ids.length.toLocaleString("fa-IR")} دسته حذف شوند؟`;
-    if (!window.confirm(label)) return;
-    for (const id of ids) d.onDeleteCategory(id);
-    categorySel.clear();
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      for (const id of ids) d.onDeleteCategory(id);
+      categorySel.clear();
+    });
   }
 
   function contributeSelectedTxn() {

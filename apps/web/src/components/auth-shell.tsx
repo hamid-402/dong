@@ -15,6 +15,7 @@ import {
   SiteStatusProvider,
   useSiteStatus,
 } from "@/components/site/marketing-shell";
+import { Alert } from "@dang/ui";
 import { SITE_SERVICE_ITEMS } from "@/lib/site-nav";
 
 export { AuthMark };
@@ -198,15 +199,10 @@ export function AuthAlert({
   tone: "error" | "success" | "info";
   children: ReactNode;
 }) {
-  const className =
-    tone === "error"
-      ? "liveError authLayout__alert"
-      : tone === "success"
-        ? "liveSuccess authLayout__alert"
-        : "emptyHint authLayout__alert";
+  const alertTone = tone === "error" ? "danger" : tone;
   return (
-    <p className={className} role={tone === "error" ? "alert" : "status"}>
+    <Alert tone={alertTone} className="authLayout__alert">
       {children}
-    </p>
+    </Alert>
   );
 }

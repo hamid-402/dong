@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Button, TextField } from "@dang/ui";
+import { Button, PasswordInput, TextField } from "@dang/ui";
 import { AuthAlert, AuthDevLink, AuthLinkRow, AuthShell } from "@/components/auth-shell";
 import { FormStack } from "@/components/ui-blocks";
 import {
@@ -168,10 +168,9 @@ export function RegisterView() {
             hint="تا اتصال SMS، تأییدشده اعلام نمی‌شود"
             error={phoneError ?? undefined}
           />
-          <TextField
+          <PasswordInput
             id="register-password"
             label="رمز عبور"
-            type="password"
             autoComplete="new-password"
             value={password}
             onChange={(e) => {

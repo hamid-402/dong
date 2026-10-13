@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import type { AccountSessionSummary, UserProfile } from "@dang/contracts";
-import { Button } from "@dang/ui";
+import { Button, useConfirm } from "@dang/ui";
 import { AuthAlert } from "@/components/auth-shell";
 import { AppShell } from "@/components/app-shell";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import styles from "./account-security-view.module.css";
 
 export function AccountSecurityView() {
+  const confirm = useConfirm();
   const chrome = useAppChrome();
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -45,8 +46,9 @@ export function AccountSecurityView() {
   }, [router]);
 
   function revokeAllSessions() {
-    if (!window.confirm("همه نشست‌های فعال، شامل همین دستگاه، باطل شوند؟")) return;
-    startTransition(() => {
+    void confirm("همه نشست‌های فعال، شامل همین دستگاه، باطل شوند؟").then((accepted) => {
+      if (!accepted) return;
+      startTransition(() => {
       void api
         .revokeSessions()
         .then(() => {
@@ -57,28 +59,31 @@ export function AccountSecurityView() {
           setError(reason instanceof Error ? reason.message : "ابطال نشست‌ها ناموفق بود");
         });
     });
+    });
   }
 
   function revokeOneSession(session: AccountSessionSummary) {
-    if (!window.confirm(session.current ? "نشست همین دستگاه باطل شود؟" : "این نشست باطل شود؟")) {
-      return;
-    }
-    startTransition(() => {
-      void api
-        .revokeSession(session.id)
-        .then((result) => {
-          if (result.currentRevoked) {
-            clearClientSession();
-            router.push("/login");
-            return;
-          }
-          setSessions((current) => current.filter((item) => item.id !== session.id));
-          setError(null);
-        })
-        .catch((reason: unknown) => {
-          setError(reason instanceof Error ? reason.message : "ابطال نشست ناموفق بود");
+    void confirm(session.current ? "نشست همین دستگاه باطل شود؟" : "این نشست باطل شود؟").then(
+      (accepted) => {
+        if (!accepted) return;
+        startTransition(() => {
+          void api
+            .revokeSession(session.id)
+            .then((result) => {
+              if (result.currentRevoked) {
+                clearClientSession();
+                router.push("/login");
+                return;
+              }
+              setSessions((current) => current.filter((item) => item.id !== session.id));
+              setError(null);
+            })
+            .catch((reason: unknown) => {
+              setError(reason instanceof Error ? reason.message : "ابطال نشست ناموفق بود");
+            });
         });
-    });
+      },
+    );
   }
 
   return (

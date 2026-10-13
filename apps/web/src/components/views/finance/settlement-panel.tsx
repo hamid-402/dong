@@ -20,7 +20,7 @@ import {
   settlePayIntentNeedsFund,
   suggestedPairwiseSettleMinor,
 } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
 import { BankSmsPaste } from "@/components/bank-sms-paste";
 import {
   DataList,
@@ -153,6 +153,7 @@ export function SettlementPanel({
   const chrome = useOptionalAppChrome();
   const messaging = chrome?.capabilities?.providers?.messaging;
   const messagingLive = messaging === "telegram" || messaging === "bale";
+  const confirm = useConfirm();
   const fundGiftsAllowed =
     spaceKind == null ? true : pettyCashAllowedForKind(spaceKind);
   const availableIntents = INTENT_OPTIONS.filter(
@@ -662,9 +663,11 @@ export function SettlementPanel({
                     cancelable.length === 1
                       ? "این ادعای تسویه لغو شود؟"
                       : `${cancelable.length.toLocaleString("fa-IR")} ادعا لغو شوند؟`;
-                  if (!window.confirm(label)) return;
-                  for (const id of cancelable) onCancelSettlement(id);
-                  selection.clear();
+                  void confirm(label).then((accepted) => {
+                    if (!accepted) return;
+                    for (const id of cancelable) onCancelSettlement(id);
+                    selection.clear();
+                  });
                 }}
               >
                 لغو

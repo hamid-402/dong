@@ -1,5 +1,6 @@
 "use client";
 
+import { Skeleton } from "@dang/ui";
 import { t } from "@/lib/i18n";
 
 /** Content-shaped loading skeleton — beyond route-level RouteLoadingHint / EmptyHint.loading. */
@@ -22,9 +23,9 @@ export function ContentSkeleton({
       <span className="visually-hidden">{resolvedLabel}</span>
       {Array.from({ length: count }, (_, i) => (
         <div key={i} className="contentSkeleton__block" aria-hidden>
-          <span className="contentSkeleton__line" />
-          <span className="contentSkeleton__line contentSkeleton__line--short" />
-          <span className="contentSkeleton__line contentSkeleton__line--mid" />
+          <Skeleton className="contentSkeleton__line" height="0.75rem" />
+          <Skeleton className="contentSkeleton__line contentSkeleton__line--short" height="0.75rem" width="42%" />
+          <Skeleton className="contentSkeleton__line contentSkeleton__line--mid" height="0.75rem" width="68%" />
         </div>
       ))}
     </div>

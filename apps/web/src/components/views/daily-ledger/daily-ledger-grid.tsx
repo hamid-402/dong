@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import type { DailyLedgerItem, DailyLedgerResponse } from "@dang/contracts";
 import { formatJalaliIso, weekdayFaSatFirst } from "@dang/contracts";
-import { Amount } from "@dang/ui";
+import { Amount, useConfirm } from "@dang/ui";
 import { StatusPill } from "@/components/ui-blocks";
 import {
   RowSelectCheckbox,
@@ -131,6 +131,7 @@ export function DailyLedgerGrid({
   onToggleHoliday,
   onEditNote,
 }: DailyLedgerGridProps) {
+  const confirm = useConfirm();
   const locatable = useMemo(() => collectItems(ledger), [ledger]);
   const selection = useRowSelection(locatable.map((l) => l.expenseId));
   const canMutate = !readOnly;
@@ -151,9 +152,11 @@ export function DailyLedgerGrid({
       ids.length === 1
         ? "این قلم حذف شود؟"
         : `${ids.length.toLocaleString("fa-IR")} قلم حذف شوند؟`;
-    if (!window.confirm(label)) return;
-    for (const id of ids) onDeleteItem(id);
-    selection.clear();
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      for (const id of ids) onDeleteItem(id);
+      selection.clear();
+    });
   }
 
   return (

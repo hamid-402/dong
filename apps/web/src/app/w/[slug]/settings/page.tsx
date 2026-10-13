@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import type { MembershipRole, WorkspacePayoutInstructions, WorkspaceSummary } from "@dang/contracts";
 import { inspectPayoutDestination, personaSettingsSpec, spaceKindForTemplate } from "@dang/contracts";
-import { Button, SelectField, TextField } from "@dang/ui";
+import { Button, SelectField, TextField, useConfirm } from "@dang/ui";
 import { FormStack, EmptyHint, SectionCard, StatusLine, StatusPill } from "@/components/ui-blocks";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { GroupPublicIdCard } from "@/components/shell/group-public-id";
@@ -32,6 +32,7 @@ function maskPayoutValue(kind: "card" | "iban", value: string): string {
 }
 
 export default function WorkspaceSettingsPage() {
+  const confirm = useConfirm();
   const chrome = useAppChrome();
   const scope = useWorkspaceScope();
   const chromeWorkspace =
@@ -214,8 +215,9 @@ export default function WorkspaceSettingsPage() {
 
   function clearPayout() {
     if (!workspace || !canEdit || !payoutLive || !payout) return;
-    if (!window.confirm(t("settings.payoutClearConfirm"))) return;
-    startTransition(() => {
+    void confirm(t("settings.payoutClearConfirm")).then((accepted) => {
+      if (!accepted) return;
+      startTransition(() => {
       void api
         .clearPayoutInstructions(workspace.id)
         .then((result) => {
@@ -232,6 +234,7 @@ export default function WorkspaceSettingsPage() {
           setSuccess(null);
           setError(friendlyErrorMessage(reason, t("settings.payoutClearError")));
         });
+      });
     });
   }
 

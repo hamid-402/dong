@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { CostCenterSummary, ExpensePeriodSummary, MembershipSummary, PettyCashFundSummary, SessionSummary, SpaceKind, SplitMethod } from "@dang/contracts";
 import { pettyCashAllowedForKind, treasuryLabelsForKind } from "@dang/contracts";
-import { Button, SelectField, TextField } from "@dang/ui";
+import { Button, SelectField, TextField, useConfirm } from "@dang/ui";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import {
   SplitComposer,
@@ -153,6 +153,7 @@ export function ExpenseFormPanel({
   onOriginalAmountMajorChange,
   ledgerHref = null,
 }: ExpenseFormPanelProps) {
+  const confirm = useConfirm();
   const displayUnit = useDisplayUnit();
   const [fromLedger, setFromLedger] = useState(false);
   useEffect(() => {
@@ -518,9 +519,11 @@ export function ExpenseFormPanel({
                   ids.length === 1
                     ? "این پیش‌نویس حذف شود؟"
                     : `${ids.length.toLocaleString("fa-IR")} پیش‌نویس حذف شوند؟`;
-                if (!window.confirm(label)) return;
-                for (const id of ids) onRemoveOfflineDraft(id);
-                draftSelection.clear();
+                void confirm(label).then((accepted) => {
+                  if (!accepted) return;
+                  for (const id of ids) onRemoveOfflineDraft(id);
+                  draftSelection.clear();
+                });
               }}
             >
               حذف

@@ -21,7 +21,7 @@ import type {
   WorkspaceBalancesResponse,
   WorkspaceSummary,
 } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import {
@@ -66,6 +66,7 @@ import styles from "./daily-ledger-view.module.css";
 
 /** Professional consumption ledger — range overview ↔ day detail (?date=). */
 export function DailyLedgerView() {
+  const confirm = useConfirm();
   const chrome = useAppChrome();
   const displayUnit = useDisplayUnit();
   const unitLabel = moneyUnitSuffix(displayUnit);
@@ -515,59 +516,69 @@ export function DailyLedgerView() {
 
   function deleteItem(expenseId: string, options?: { skipConfirm?: boolean }) {
     if (!workspaceId) return;
-    if (!options?.skipConfirm && !window.confirm("این قلم ابطال شود؟")) return;
-    startTransition(() => {
-      void (async () => {
-        try {
-          await api.deleteDailyLedgerEntry(workspaceId, expenseId);
-          setError(null);
-          load();
-        } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "حذف قلم ناموفق"));
-        }
-      })();
+    const run = () => {
+      startTransition(() => {
+        void (async () => {
+          try {
+            await api.deleteDailyLedgerEntry(workspaceId, expenseId);
+            setError(null);
+            load();
+          } catch (err: unknown) {
+            setError(friendlyErrorMessage(err, "حذف قلم ناموفق"));
+          }
+        })();
+      });
+    };
+    if (options?.skipConfirm) {
+      run();
+      return;
+    }
+    void confirm("این قلم ابطال شود؟").then((accepted) => {
+      if (accepted) run();
     });
   }
 
   function toggleHoliday(date: string, current: boolean) {
     if (!workspaceId || !ledger) return;
+    const run = () => {
+      startTransition(() => {
+        void (async () => {
+          try {
+            const result = await api.upsertDailyLedgerDay(workspaceId, date, { isHoliday: !current });
+            if (current && result.restore) {
+              setInfo(
+                `تعطیلی برداشته شد · بازیابی ${result.restore.restored} قلم` +
+                  (result.restore.failed > 0 ? ` · ناموفق ${result.restore.failed}` : ""),
+              );
+            } else {
+              setInfo(current ? "تعطیلی برداشته شد" : "روز تعطیل شد");
+            }
+            load();
+          } catch (err: unknown) {
+            setError(friendlyErrorMessage(err, "ثبت تعطیلی ناموفق"));
+          }
+        })();
+      });
+    };
     if (!current) {
       const count = dayItemCount(ledger, date);
-      if (
-        count > 0 &&
-        !window.confirm(
+      if (count > 0) {
+        void confirm(
           `با تعطیل کردن این روز، ${count} قلم دفتر ابطال می‌شود (قابل بازیابی با برداشتن تعطیلی). ادامه؟`,
-        )
-      ) {
+        ).then((accepted) => {
+          if (accepted) run();
+        });
         return;
       }
     } else {
-      if (
-        !window.confirm(
-          "با برداشتن تعطیلی، قلم‌های ابطال‌شدهٔ همان روز (در صورت موجود بودن) دوباره ثبت می‌شوند.",
-        )
-      ) {
-        return;
-      }
+      void confirm(
+        "با برداشتن تعطیلی، قلم‌های ابطال‌شدهٔ همان روز (در صورت موجود بودن) دوباره ثبت می‌شوند.",
+      ).then((accepted) => {
+        if (accepted) run();
+      });
+      return;
     }
-    startTransition(() => {
-      void (async () => {
-        try {
-          const result = await api.upsertDailyLedgerDay(workspaceId, date, { isHoliday: !current });
-          if (current && result.restore) {
-            setInfo(
-              `تعطیلی برداشته شد · بازیابی ${result.restore.restored} قلم` +
-                (result.restore.failed > 0 ? ` · ناموفق ${result.restore.failed}` : ""),
-            );
-          } else {
-            setInfo(current ? "تعطیلی برداشته شد" : "روز تعطیل شد");
-          }
-          load();
-        } catch (err: unknown) {
-          setError(friendlyErrorMessage(err, "ثبت تعطیلی ناموفق"));
-        }
-      })();
-    });
+    run();
   }
 
   function lockRange() {

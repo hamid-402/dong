@@ -14,7 +14,7 @@ import {
   sumDayFundDeposits,
   weekdayFaSatFirst,
 } from "@dang/contracts";
-import { Amount, Button } from "@dang/ui";
+import { Amount, Button, useConfirm } from "@dang/ui";
 import { EmptyHint, StatusLine, StatusPill } from "@/components/ui-blocks";
 import {
   RowSelectCheckbox,
@@ -153,6 +153,7 @@ export function DailyLedgerDayView({
   onError,
   expensesHref = null,
 }: DailyLedgerDayViewProps) {
+  const confirm = useConfirm();
   const lines = flattenDailyLedgerDay(day, members);
   const lineIds = lines.map((l) => l.expenseId);
   const selection = useRowSelection(lineIds);
@@ -187,9 +188,11 @@ export function DailyLedgerDayView({
       ids.length === 1
         ? "این قلم ابطال شود؟"
         : `${ids.length.toLocaleString("fa-IR")} قلم ابطال شوند؟`;
-    if (!window.confirm(label)) return;
-    for (const id of ids) onDeleteItem(id, { skipConfirm: true });
-    selection.clear();
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      for (const id of ids) onDeleteItem(id, { skipConfirm: true });
+      selection.clear();
+    });
   }
 
   useEffect(() => {

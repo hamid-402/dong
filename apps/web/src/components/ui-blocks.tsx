@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Badge, Skeleton, type BadgeProps } from "@dang/ui";
 import { StickerSvg, stickerDefaultMotion, type StickerName } from "@/components/visual/stickers";
 import { useHubEmbed } from "@/components/mosaic/hub-embed";
 import { useOptionalTheme } from "@/lib/theme";
@@ -123,9 +124,10 @@ export function StatusPill({
   tone = "neutral",
 }: {
   children: ReactNode;
-  tone?: "neutral" | "ok" | "warn" | "danger" | "gold";
+  tone?: BadgeProps["tone"];
 }) {
-  return <span className={`statusPill tone-${tone}`}>{children}</span>;
+  const badgeTone = tone === "neutral" ? "neutral" : tone;
+  return <Badge tone={badgeTone}>{children}</Badge>;
 }
 
 export function EmptyHint({
@@ -140,8 +142,8 @@ export function EmptyHint({
     return (
       <div className="emptyHint emptyHint--loading" role="status" aria-live="polite" aria-busy="true">
         <span className="visually-hidden">در حال بارگذاری…</span>
-        <span className="emptyHint__skeleton" aria-hidden />
-        <span className="emptyHint__skeleton emptyHint__skeleton--short" aria-hidden />
+        <Skeleton className="emptyHint__skeleton" height="0.75rem" />
+        <Skeleton className="emptyHint__skeleton emptyHint__skeleton--short" height="0.75rem" width="55%" />
       </div>
     );
   }

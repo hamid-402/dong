@@ -8,6 +8,7 @@ import {
   type ReportViewSummary,
   type SpaceKind,
 } from "@dang/contracts";
+import { useConfirm } from "@dang/ui";
 import { ProChart } from "@/components/charts/pro-chart";
 import { ReportInsights } from "@/components/charts/report-insights";
 import {
@@ -64,6 +65,7 @@ export function KindReportsView({
   months?: ReportMonths;
   onMonthsChange?: (months: ReportMonths) => void;
 }) {
+  const confirm = useConfirm();
   const chrome = useAppChrome();
   const displayUnit = useDisplayUnit();
   const chartsEnabled = chrome.capabilities?.providers?.charts === "charts_v1";
@@ -309,8 +311,9 @@ export function KindReportsView({
       ids.length === 1
         ? "این نما حذف شود؟"
         : `${ids.length.toLocaleString("fa-IR")} نما حذف شوند؟`;
-    if (!window.confirm(label)) return;
-    startTransition(() => {
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      startTransition(() => {
       void (async () => {
         try {
           for (const id of ids) await api.deleteReportView(id);
@@ -325,6 +328,7 @@ export function KindReportsView({
           setViewMsg(friendlyErrorMessage(err, "حذف نما ناموفق"));
         }
       })();
+    });
     });
   }
 

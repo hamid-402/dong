@@ -8,7 +8,7 @@ import type {
   LedgerDayLineInput,
   PettyCashFundSummary,
 } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
 import { CatalogPicker } from "@/components/catalog-picker";
 import { EmptyHint, FormStack, StatusLine } from "@/components/ui-blocks";
 import {
@@ -172,6 +172,7 @@ export function DailyTickPanel({
   onPosted,
   onError,
 }: DailyTickPanelProps) {
+  const confirm = useConfirm();
   const displayUnit = useDisplayUnit();
   const [template, setTemplate] = useState<DailyLedgerDayTemplateResponse | null>(null);
   const [shared, setShared] = useState<TickShared[]>([]);
@@ -340,9 +341,11 @@ export function DailyTickPanel({
       ids.length === 1
         ? "این قلم جمعی حذف شود؟"
         : `${ids.length.toLocaleString("fa-IR")} قلم جمعی حذف شوند؟`;
-    if (!window.confirm(label)) return;
-    for (const id of ids) removeShared(id);
-    sharedSelection.clear();
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      for (const id of ids) removeShared(id);
+      sharedSelection.clear();
+    });
   }
 
   function removePersonalCol(catalogItemId: string) {
@@ -365,9 +368,11 @@ export function DailyTickPanel({
       ids.length === 1
         ? "این ستون فردی حذف شود؟"
         : `${ids.length.toLocaleString("fa-IR")} ستون فردی حذف شوند؟`;
-    if (!window.confirm(label)) return;
-    for (const id of ids) removePersonalCol(id);
-    colSelection.clear();
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      for (const id of ids) removePersonalCol(id);
+      colSelection.clear();
+    });
   }
 
   function reloadSuggestions() {

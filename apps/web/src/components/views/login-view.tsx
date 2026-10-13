@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { Button, TextField } from "@dang/ui";
+import { Button, PasswordInput, TextField } from "@dang/ui";
 import { AuthAlert, AuthDevLink, AuthDivider, AuthLinkRow, AuthShell } from "@/components/auth-shell";
 import { FormStack } from "@/components/ui-blocks";
 import { normalizeEmail, validateLoginIdentifier } from "@/lib/auth-validation";
@@ -147,10 +147,9 @@ export function LoginView() {
                 required
               />
               <div className="authLayout__passwordRow">
-                <TextField
+                <PasswordInput
                   id="login-password"
                   label={t("login.password")}
-                  type="password"
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => {

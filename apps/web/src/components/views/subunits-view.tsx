@@ -8,7 +8,7 @@ import type {
   WorkspaceSubunitSummary,
 } from "@dang/contracts";
 import { isFinanceManagerRole, isReadOnlyRole, spaceKindForTemplate } from "@dang/contracts";
-import { Button, SelectField, TextField } from "@dang/ui";
+import { Button, SelectField, TextField, useConfirm } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
   DataList,
@@ -44,6 +44,7 @@ const KIND_LABEL: Record<WorkspaceSubunitKind, string> = {
 };
 
 export function SubunitsView() {
+  const confirm = useConfirm();
   const chrome = useAppChrome();
   const scope = useOptionalWorkspaceScope();
   const workspaceId = scope?.workspaceId || chrome.workspaceId;
@@ -188,8 +189,9 @@ export function SubunitsView() {
       ids.length === 1
         ? `این ${noun} حذف شود؟`
         : `${ids.length.toLocaleString("fa-IR")} مورد حذف شوند؟`;
-    if (!window.confirm(label)) return;
-    startTransition(() => {
+    void confirm(label).then((accepted) => {
+      if (!accepted) return;
+      startTransition(() => {
       void (async () => {
         try {
           for (const id of ids) {
@@ -202,6 +204,7 @@ export function SubunitsView() {
           setError(friendlyErrorMessage(err, "حذف ناموفق"));
         }
       })();
+    });
     });
   }
 
