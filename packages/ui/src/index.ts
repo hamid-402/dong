@@ -7,4 +7,5 @@ export * from "./surface.js";
 export * from "./amount.js";
 export * from "./money-input.js";
 export * from "./modal.js";
+export * from "./confirm.js";
 export * from "./patterns.js";

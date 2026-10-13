@@ -1,59 +1,70 @@
 "use client";
 
-import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
+import { useState, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from "react";
+import { cx } from "./cx.js";
 
 export type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
-  tone?: "neutral" | "ok" | "warn" | "danger" | "gold";
+  tone?: "neutral" | "ok" | "warn" | "danger" | "gold" | "info";
   children: ReactNode;
 };
 
-export function Badge({ tone = "neutral", children, style, ...rest }: BadgeProps) {
-  const tones: Record<NonNullable<BadgeProps["tone"]>, { color: string; background: string; border: string }> = {
-    neutral: {
-      color: "var(--dang-muted)",
-      background: "var(--dang-fill-soft)",
-      border: "var(--dang-line)",
-    },
-    ok: {
-      color: "var(--dang-success)",
-      background: "var(--dang-success-soft)",
-      border: "var(--dang-success-line)",
-    },
-    warn: {
-      color: "var(--dang-warning)",
-      background: "var(--dang-warning-soft)",
-      border: "var(--dang-warning-line)",
-    },
-    danger: {
-      color: "var(--dang-danger)",
-      background: "var(--dang-danger-soft)",
-      border: "var(--dang-danger-line)",
-    },
-    gold: {
-      color: "var(--dang-gold)",
-      background: "var(--dang-gold-soft)",
-      border: "var(--dang-gold-line)",
-    },
-  };
-  const badgeStyle: CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    minHeight: 28,
-    padding: "2px 10px",
-    borderRadius: 999,
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    color: tones[tone].color,
-    background: tones[tone].background,
-    border: `1px solid ${tones[tone].border}`,
-    ...style,
-  };
+const BADGE_TONE: Record<NonNullable<BadgeProps["tone"]>, string | undefined> = {
+  neutral: undefined,
+  ok: "dang-badge--ok",
+  warn: "dang-badge--warn",
+  danger: "dang-badge--danger",
+  gold: "dang-badge--gold",
+  info: "dang-badge--info",
+};
+
+export function Badge({ tone = "neutral", children, className, ...rest }: BadgeProps) {
   return (
-    <span style={badgeStyle} {...rest}>
+    <span className={cx("dang-badge", BADGE_TONE[tone], className)} {...rest}>
       {children}
     </span>
   );
 }
+
+export type ChipProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  pressed?: boolean;
+};
+
+export function Chip({ pressed = false, children, className, type = "button", ...rest }: ChipProps) {
+  return (
+    <button
+      type={type}
+      className={cx("dang-chip", className)}
+      aria-pressed={pressed}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
+export type AlertTone = "info" | "success" | "warning" | "danger";
+
+export type AlertProps = HTMLAttributes<HTMLDivElement> & {
+  tone?: AlertTone;
+  title?: ReactNode;
+  children: ReactNode;
+};
+
+export function Alert({ tone = "info", title, children, className, ...rest }: AlertProps) {
+  const role = tone === "danger" || tone === "warning" ? "alert" : "status";
+  return (
+    <div
+      role={role}
+      className={cx("dang-alert", tone !== "info" && `dang-alert--${tone}`, className)}
+      {...rest}
+    >
+      {title ? <strong>{title}</strong> : null}
+      <div>{children}</div>
+    </div>
+  );
+}
+
+export const Callout = Alert;
 
 export type EmptyStateProps = {
   title: string;
@@ -63,26 +74,10 @@ export type EmptyStateProps = {
 
 export function EmptyState({ title, description, action }: EmptyStateProps) {
   return (
-    <div
-      className="dang-empty-state"
-      role="status"
-      style={{
-        display: "grid",
-        gap: 10,
-        padding: "20px 16px",
-        borderRadius: 12,
-        border: "1px dashed var(--dang-line)",
-        background: "var(--dang-surface-2, var(--dang-surface))",
-        textAlign: "start",
-      }}
-    >
-      <strong style={{ fontSize: "0.9375rem" }}>{title}</strong>
-      {description ? (
-        <p style={{ margin: 0, color: "var(--dang-muted)", fontSize: "0.875rem", lineHeight: 1.6 }}>
-          {description}
-        </p>
-      ) : null}
-      {action ? <div style={{ marginTop: 4 }}>{action}</div> : null}
+    <div className="dang-empty" role="status">
+      <strong>{title}</strong>
+      {description ? <p>{description}</p> : null}
+      {action ? <div>{action}</div> : null}
     </div>
   );
 }
@@ -95,8 +90,41 @@ export type TabsProps = {
 };
 
 export function Tabs({ items, value, onChange, "aria-label": ariaLabel }: TabsProps) {
+  const selectedIndex = Math.max(
+    0,
+    items.findIndex((item) => item.id === value),
+  );
+
+  const move = (nextIndex: number) => {
+    const count = items.length;
+    if (count === 0) return;
+    const wrapped = (nextIndex + count) % count;
+    const next = items[wrapped];
+    if (next) onChange(next.id);
+  };
+
   return (
-    <div role="tablist" aria-label={ariaLabel} style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+    <div
+      role="tablist"
+      aria-label={ariaLabel}
+      className="dang-tabs"
+      onKeyDown={(event) => {
+        const rtl = document.documentElement.dir === "rtl";
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          move(selectedIndex + (rtl ? 1 : -1));
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          move(selectedIndex + (rtl ? -1 : 1));
+        } else if (event.key === "Home") {
+          event.preventDefault();
+          move(0);
+        } else if (event.key === "End") {
+          event.preventDefault();
+          move(items.length - 1);
+        }
+      }}
+    >
       {items.map((item) => {
         const selected = item.id === value;
         return (
@@ -104,22 +132,11 @@ export function Tabs({ items, value, onChange, "aria-label": ariaLabel }: TabsPr
             key={item.id}
             type="button"
             role="tab"
+            id={`dang-tab-${item.id}`}
             aria-selected={selected}
+            tabIndex={selected ? 0 : -1}
+            className="dang-tab"
             onClick={() => onChange(item.id)}
-            style={{
-              minHeight: 48,
-              minWidth: 48,
-              padding: "8px 14px",
-              borderRadius: 10,
-              border: selected
-                ? "1px solid var(--dang-primary-line)"
-                : "1px solid var(--dang-line)",
-              background: selected ? "var(--dang-primary-soft)" : "transparent",
-              color: "inherit",
-              font: "inherit",
-              fontWeight: selected ? 700 : 500,
-              cursor: "pointer",
-            }}
           >
             {item.label}
           </button>
@@ -137,42 +154,23 @@ export type TableProps = {
 
 export function Table({ caption, headers, rows }: TableProps) {
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
-        {caption ? <caption style={{ textAlign: "start", marginBottom: 8 }}>{caption}</caption> : null}
+    <div className="dang-table-wrap">
+      <table className="dang-table">
+        {caption ? <caption>{caption}</caption> : null}
         <thead>
           <tr>
-            {headers.map((h) => (
-              <th
-                key={h}
-                scope="col"
-                style={{
-                  textAlign: "start",
-                  padding: "10px 8px",
-                  borderBottom: "1px solid var(--dang-line)",
-                  color: "var(--dang-muted)",
-                  fontWeight: 600,
-                }}
-              >
-                {h}
+            {headers.map((header) => (
+              <th key={header} scope="col">
+                {header}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => (
-            <tr key={i}>
-              {row.map((cell, j) => (
-                <td
-                  key={j}
-                  style={{
-                    padding: "12px 8px",
-                    borderBottom: "1px solid var(--dang-line)",
-                    minHeight: 48,
-                  }}
-                >
-                  {cell}
-                </td>
+          {rows.map((row, index) => (
+            <tr key={index}>
+              {row.map((cell, cellIndex) => (
+                <td key={cellIndex}>{cell}</td>
               ))}
             </tr>
           ))}
@@ -182,35 +180,91 @@ export function Table({ caption, headers, rows }: TableProps) {
   );
 }
 
+export type ToastTone = "success" | "error" | "info" | "warning";
+
 export type ToastProps = {
-  tone?: "success" | "error" | "info";
+  tone?: ToastTone;
   children: ReactNode;
+  onDismiss?: () => void;
 } & HTMLAttributes<HTMLDivElement>;
 
-/** Live region toast — use for flash success/error. */
-export function Toast({ tone = "info", children, style, ...rest }: ToastProps) {
-  const role = tone === "error" ? "alert" : "status";
-  const surface =
-    tone === "error"
-      ? { background: "var(--dang-danger-soft)", border: "var(--dang-danger-line)" }
-      : tone === "success"
-        ? { background: "var(--dang-success-soft)", border: "var(--dang-success-line)" }
-        : { background: "var(--dang-info-soft)", border: "var(--dang-info-line)" };
+const TOAST_TONE: Record<ToastTone, string | undefined> = {
+  info: undefined,
+  success: "dang-toast--success",
+  error: "dang-toast--error",
+  warning: "dang-toast--warning",
+};
+
+/** Live region toast. Pass onDismiss for a manual close control. */
+export function Toast({ tone = "info", children, onDismiss, className, ...rest }: ToastProps) {
+  const role = tone === "error" || tone === "warning" ? "alert" : "status";
   return (
     <div
       role={role}
-      aria-live={tone === "error" ? "assertive" : "polite"}
-      style={{
-        padding: "12px 14px",
-        borderRadius: 12,
-        border: `1px solid ${surface.border}`,
-        background: surface.background,
-        color: "inherit",
-        ...style,
-      }}
+      className={cx("dang-toast", TOAST_TONE[tone], className)}
       {...rest}
     >
-      {children}
+      <div className="dang-toast__body">{children}</div>
+      {onDismiss ? (
+        <button type="button" className="dang-toast__close" onClick={onDismiss}>
+          بستن
+        </button>
+      ) : null}
     </div>
   );
+}
+
+export type ToastItem = {
+  id: string;
+  tone?: ToastTone;
+  message: ReactNode;
+};
+
+export function ToastRegion({
+  items,
+  onDismiss,
+  label = "اعلان‌ها",
+}: {
+  items: ToastItem[];
+  onDismiss?: (id: string) => void;
+  label?: string;
+}) {
+  return (
+    <div className="dang-toast-region" aria-live="polite" aria-label={label}>
+      {items.map((item) => (
+        <Toast
+          key={item.id}
+          tone={item.tone}
+          onDismiss={onDismiss ? () => onDismiss(item.id) : undefined}
+        >
+          {item.message}
+        </Toast>
+      ))}
+    </div>
+  );
+}
+
+export type ToastInput = {
+  tone?: ToastTone;
+  message: ReactNode;
+};
+
+/** Queued toasts with manual dismiss. Success items leave after four seconds. */
+export function useToastQueue() {
+  const [items, setItems] = useState<ToastItem[]>([]);
+
+  const dismiss = (id: string) => {
+    setItems((current) => current.filter((item) => item.id !== id));
+  };
+
+  const push = (input: ToastInput) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setItems((current) => [...current, { id, tone: input.tone ?? "info", message: input.message }]);
+    if (input.tone !== "error" && input.tone !== "warning") {
+      window.setTimeout(() => dismiss(id), 4000);
+    }
+    return id;
+  };
+
+  return { items, push, dismiss };
 }

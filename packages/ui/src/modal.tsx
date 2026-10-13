@@ -4,15 +4,17 @@ import {
   useEffect,
   useId,
   useRef,
-  type CSSProperties,
   type HTMLAttributes,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { cx } from "./cx.js";
 
-export type ModalProps = HTMLAttributes<HTMLDivElement> & {
+export type ModalProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
   open: boolean;
   title: string;
+  titleVisible?: boolean;
+  describedBy?: string;
   children: ReactNode;
   onClose?: () => void;
 };
@@ -32,11 +34,19 @@ function getFocusable(container: HTMLElement): HTMLElement[] {
   );
 }
 
-/** Accessible dialog shell for forms (not decorative card chrome). */
-export function Modal({ open, title, children, onClose, style, ...rest }: ModalProps) {
+/** Accessible dialog shell. Focus stays inside until close. */
+export function Modal({
+  open,
+  title,
+  titleVisible = true,
+  describedBy,
+  children,
+  onClose,
+  className,
+  ...rest
+}: ModalProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLHeadingElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -48,7 +58,7 @@ export function Modal({ open, title, children, onClose, style, ...rest }: ModalP
     const panel = panelRef.current;
     if (panel) {
       const focusable = getFocusable(panel);
-      const target = focusable[0] ?? titleRef.current ?? panel;
+      const target = focusable[0] ?? panel;
       target.focus();
     }
 
@@ -76,26 +86,6 @@ export function Modal({ open, title, children, onClose, style, ...rest }: ModalP
   }, [open, onClose]);
 
   if (!open) return null;
-
-  const backdrop: CSSProperties = {
-    position: "fixed",
-    inset: 0,
-    background: "color-mix(in srgb, var(--dang-ink, #111) 45%, transparent)",
-    display: "grid",
-    placeItems: "center",
-    padding: "var(--dang-space-4, 16px)",
-    zIndex: 40,
-  };
-  const panel: CSSProperties = {
-    width: "min(100%, 28rem)",
-    background: "var(--dang-surface, #fff)",
-    color: "var(--dang-ink, #111)",
-    border: "1px solid var(--dang-line, #ddd)",
-    borderRadius: "var(--dang-radius-lg, 16px)",
-    padding: "var(--dang-space-5, 24px)",
-    boxShadow: "var(--dang-elev-2, 0 8px 24px rgba(0,0,0,.12))",
-    ...style,
-  };
 
   const trapTab = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Tab" || !panelRef.current) return;
@@ -130,30 +120,26 @@ export function Modal({ open, title, children, onClose, style, ...rest }: ModalP
   };
 
   return (
-    <div style={backdrop} role="presentation" onClick={onClose}>
+    <div className="dang-modal" role="presentation" onClick={onClose}>
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        aria-describedby={describedBy}
         tabIndex={-1}
-        style={panel}
+        className={cx("dang-modal__panel", className)}
         {...rest}
-        onClick={(e) => {
-          e.stopPropagation();
-          rest.onClick?.(e);
+        onClick={(event) => {
+          event.stopPropagation();
+          rest.onClick?.(event);
         }}
-        onKeyDown={(e) => {
-          trapTab(e);
-          rest.onKeyDown?.(e);
+        onKeyDown={(event) => {
+          trapTab(event);
+          rest.onKeyDown?.(event);
         }}
       >
-        <h2
-          ref={titleRef}
-          id={titleId}
-          tabIndex={-1}
-          style={{ margin: "0 0 1rem", fontSize: "1.125rem", outline: "none" }}
-        >
+        <h2 id={titleId} className={titleVisible ? "dang-modal__title" : "dang-sr"}>
           {title}
         </h2>
         {children}
@@ -167,16 +153,13 @@ export type SkeletonProps = HTMLAttributes<HTMLDivElement> & {
   width?: number | string;
 };
 
-export function Skeleton({ height = "1rem", width = "100%", style, ...rest }: SkeletonProps) {
-  const skeletonStyle: CSSProperties = {
-    height,
-    width,
-    borderRadius: "var(--dang-radius-sm, 8px)",
-    background:
-      "linear-gradient(90deg, color-mix(in srgb, var(--dang-line, #ddd) 70%, transparent), color-mix(in srgb, var(--dang-line, #ddd) 35%, transparent), color-mix(in srgb, var(--dang-line, #ddd) 70%, transparent))",
-    backgroundSize: "200% 100%",
-    animation: "dang-skeleton 1.2s ease-in-out infinite",
-    ...style,
-  };
-  return <div aria-hidden style={skeletonStyle} {...rest} />;
+export function Skeleton({ height = "1rem", width = "100%", className, style, ...rest }: SkeletonProps) {
+  return (
+    <div
+      aria-hidden
+      className={cx("dang-skeleton", className)}
+      style={{ height, width, ...style }}
+      {...rest}
+    />
+  );
 }

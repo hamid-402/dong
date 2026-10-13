@@ -3,6 +3,7 @@
 import type { InputHTMLAttributes } from "react";
 import { displayUnitLabel, type DisplayUnit } from "./format.js";
 import { useDisplayUnit } from "./display-unit-context.js";
+import { cx } from "./cx.js";
 
 export type MoneyInputProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -35,19 +36,18 @@ export function MoneyInput({
   const contextUnit = useDisplayUnit();
   const displayUnit = displayUnitProp ?? contextUnit;
   const fieldId = id ?? "money-input";
+  const { className, style, ...inputRest } = rest;
   return (
-    <label style={{ display: "grid", gap: 6 }}>
+    <div className="dang-field">
       {label ? (
-        <span style={{ fontSize: "var(--text-xs, 0.875rem)", fontWeight: 500, color: "var(--dang-muted, var(--muted))" }}>
+        <label className="dang-label" htmlFor={fieldId}>
           {label}
-          <span style={{ marginInlineStart: 6, fontWeight: 500 }}>
-            ({displayUnitLabel(displayUnit)})
-          </span>
-        </span>
+          <span> ({displayUnitLabel(displayUnit)})</span>
+        </label>
       ) : null}
-      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <span className="dang-password">
         <input
-          {...rest}
+          {...inputRest}
           id={fieldId}
           type="text"
           inputMode="numeric"
@@ -59,22 +59,19 @@ export function MoneyInput({
             const digits = event.target.value.replace(/[^\d]/g, "");
             onValueChange(digits);
           }}
-          style={{
-            flex: 1,
-            fontVariantNumeric: "tabular-nums",
-            ...(typeof rest.style === "object" && rest.style ? rest.style : {}),
-          }}
+          className={cx("dang-control", className)}
+          style={{ ...style, fontVariantNumeric: "tabular-nums" }}
         />
-        <span aria-hidden style={{ color: "var(--dang-muted, var(--muted))", whiteSpace: "nowrap" }}>
+        <span aria-hidden className="dang-field__hint">
           {displayUnitLabel(displayUnit)}
         </span>
       </span>
-      {hint && !error ? (
-        <span style={{ fontSize: "var(--text-xs, 0.875rem)", color: "var(--dang-muted, var(--muted))" }}>{hint}</span>
-      ) : null}
+      {hint && !error ? <span className="dang-field__hint">{hint}</span> : null}
       {error ? (
-        <span style={{ fontSize: "var(--text-xs, 0.875rem)", color: "var(--dang-danger, var(--danger))" }}>{error}</span>
+        <span className="dang-field__error" role="alert">
+          {error}
+        </span>
       ) : null}
-    </label>
+    </div>
   );
 }

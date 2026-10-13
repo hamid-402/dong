@@ -1,4 +1,5 @@
-import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
+import { cx } from "./cx.js";
 
 export type SurfaceProps = HTMLAttributes<HTMLElement> & {
   as?: "section" | "div" | "article" | "aside";
@@ -10,21 +11,14 @@ export function Surface({
   as: Tag = "section",
   children,
   padded = true,
-  style,
+  className,
   ...rest
 }: SurfaceProps) {
-  const surfaceStyle: CSSProperties = {
-    background: "var(--dang-surface)",
-    border: "1px solid var(--dang-line)",
-    borderRadius: "var(--dang-radius-lg, 16px)",
-    padding: padded ? "var(--dang-space-5, 24px)" : 0,
-    boxShadow: "var(--dang-elev-1, none)",
-    ...style,
-  };
-
   return (
-    <Tag style={surfaceStyle} {...rest}>
+    <Tag className={cx("dang-card", padded && "dang-card--padded", className)} {...rest}>
       {children}
     </Tag>
   );
 }
+
+export const Card = Surface;
