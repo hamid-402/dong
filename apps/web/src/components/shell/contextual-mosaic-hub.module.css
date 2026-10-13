@@ -1,6 +1,6 @@
 /* Mosaic launcher — gem tiles, URL drill-down. Not a dashboard card grid. */
 
-.hub {
+.hub{
   margin: 0;
   padding: 0;
   border: none;
@@ -8,7 +8,7 @@
   box-shadow: none;
 }
 
-.hub:not(.compact) {
+.hub:not(.compact){
   margin-block: 8px;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
@@ -19,7 +19,7 @@
 }
 
 /* Demoted mosaic — quieter chrome, same tiles/links */
-.hub.secondary:not(.compact) {
+.hub.secondary:not(.compact){
   margin-block: 2px 6px;
   padding: 10px 12px;
   border-color: color-mix(in srgb, var(--line) 88%, transparent);
@@ -27,31 +27,31 @@
   box-shadow: none;
 }
 
-.hub.secondary .header {
+.hub.secondary .header{
   margin-bottom: 8px;
   opacity: 0.88;
 }
 
-.hub.secondary .header h2 {
+.hub.secondary .header h2{
   font-size: 1rem;
   font-weight: 650;
   color: color-mix(in srgb, var(--text) 82%, var(--muted));
 }
 
-.hub.secondary .header > div > span {
+.hub.secondary .header > div > span{
   color: var(--muted);
   letter-spacing: 0.06em;
 }
 
-.hub.secondary .header p {
+.hub.secondary .header p{
   font-size:0.875rem;
 }
 
-.hub.secondary .sectionHead h3 {
+.hub.secondary .sectionHead h3{
   font-weight: 600;
 }
 
-.header {
+.header{
   margin-bottom: 12px;
   display: flex;
   flex-wrap: wrap;
@@ -60,27 +60,27 @@
   gap: 12px;
 }
 
-.header > div > span {
+.header > div > span{
   color: var(--primary);
   font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 0.1em;
 }
 
-.header h2 {
+.header h2{
   margin: 4px 0 0;
   font-size: clamp(1.1rem, 1.6vw, 1.35rem);
   line-height: 1.3;
 }
 
-.header p {
+.header p{
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 0.95rem;
   line-height: 1.5;
 }
 
-.header > small {
+.header > small{
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -88,11 +88,11 @@
   font-size:0.875rem;
 }
 
-.section + .section {
+.section + .section{
   margin-top: 18px;
 }
 
-.sectionHead {
+.sectionHead{
   margin: 0 0 12px;
   display: flex;
   flex-wrap: wrap;
@@ -101,14 +101,14 @@
   gap: 6px 16px;
 }
 
-.sectionHead h3 {
+.sectionHead h3{
   margin: 0;
   color: var(--text);
   font-size: 1.05rem;
   font-weight: 750;
 }
 
-.sectionHead p {
+.sectionHead p{
   margin: 0;
   color: var(--muted);
   font-size: 0.9rem;
@@ -117,7 +117,7 @@
 }
 
 /* Equal-width gem grid — same token language as groupOpsRail */
-.grid {
+.grid{
   --mosaic-gap: var(--dang-gem-gap, 12px);
   margin: 0;
   padding: 4px 0 8px;
@@ -131,7 +131,7 @@
   animation: mosaic-fade-in 0.22s ease-out;
 }
 
-.grid li {
+.grid li{
   position: relative;
   display: flex;
   width: auto;
@@ -139,13 +139,13 @@
   max-width: none;
 }
 
-.enter {
+.enter{
   animation: mosaic-tile-in 200ms ease both;
   animation-delay: var(--tile-delay, 0ms);
 }
 
 .noMotion .enter,
-.noMotion .tile {
+.noMotion .tile{
   animation: none !important;
   transition: none !important;
 }
@@ -172,8 +172,8 @@
   }
 }
 
-/* Daneshban-style path cards — surface from shared .dang-gem */
-.tile {
+/* Path cards use the shell icon and token surface. */
+.tile{
   position: relative;
   flex: 1 1 auto;
   width: 100%;
@@ -190,11 +190,11 @@
   cursor: pointer;
 }
 
-.tilePinned {
+.tilePinned{
   /* room for pin */
 }
 
-.body {
+.body{
   display: grid;
   gap: 4px;
   min-width: 0;
@@ -202,7 +202,7 @@
   z-index: 1;
 }
 
-.body > strong {
+.body > strong{
   margin: 0;
   font-size: 1.05rem;
   font-weight: 750;
@@ -211,18 +211,18 @@
   color: inherit;
 }
 
-.body > p {
+.body > p{
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.45;
   color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 88%, transparent);
 }
 
-.body .intent {
+.body .intent{
   display: none;
 }
 
-.tile .footer {
+.tile .footer{
   display: block;
   position: absolute;
   top: 10px;
@@ -234,7 +234,7 @@
   z-index: 2;
 }
 
-.tile .fact {
+.tile .fact{
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -247,24 +247,24 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
-.tile .fact b {
+.tile .fact b{
   font-size:0.875rem;
   font-weight: 800;
   color: var(--tile-gem-ink, #0f172a);
 }
 
-.tile .fact small {
+.tile .fact small{
   font-size:0.875rem;
   color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 70%, transparent);
 }
 
-.tile .fact_attention {
+.tile .fact_attention{
   background: color-mix(in srgb, #fbbf24 55%, #fff);
 }
 
-/* Decorative facet rings only — fill comes from .dang-gem */
+/* Decorative facet rings. Fill stays on the token surface. */
 .tile::before,
-.tile::after {
+.tile::after{
   content: "";
   position: absolute;
   border-radius: 50%;
@@ -272,7 +272,7 @@
   border: 1px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 35%, transparent);
 }
 
-.tile::before {
+.tile::before{
   width: 88px;
   height: 88px;
   inset-block-start: -48px;
@@ -280,7 +280,7 @@
   opacity: 0.55;
 }
 
-.tile::after {
+.tile::after{
   width: 56px;
   height: 56px;
   inset-block-start: -28px;
@@ -288,22 +288,22 @@
   opacity: 0.35;
 }
 
-.tile:focus-visible {
+.tile:focus-visible{
   outline: 3px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 70%, transparent);
   outline-offset: 3px;
 }
 
-:global(html[data-motion="full"]) .tile:active {
+:global(html[data-motion="full"]) .tile:active{
   transform: scale(0.94);
   transition: transform 120ms ease;
 }
 
-:global(html[data-motion="full"]) .tile:hover {
+:global(html[data-motion="full"]) .tile:hover{
   transform: translateY(-3px);
   transition: transform 180ms ease;
 }
 
-.icon {
+.icon{
   order: -1;
   flex: 0 0 auto;
   width: auto;
@@ -314,12 +314,12 @@
   box-shadow: none !important;
 }
 
-.icon svg {
+.icon svg{
   width: auto;
   height: auto;
 }
 
-.pin {
+.pin{
   position: absolute;
   top: 8px;
   inset-inline-end: 8px;
@@ -338,13 +338,13 @@
 }
 
 .pin:hover,
-.pinActive {
+.pinActive{
   opacity: 1;
   background: #fff;
   color: var(--gold, #b45309);
 }
 
-.compact {
+.compact{
   margin: 0;
   padding: 0;
   border: none;
@@ -352,165 +352,142 @@
   box-shadow: none;
 }
 
-.compact .header {
+.compact .header{
   display: none;
 }
 
-.compact .sectionHead {
+.compact .sectionHead{
   display: grid;
   margin: 0 0 8px;
 }
 
-.compact .sectionHead p {
+.compact .sectionHead p{
   display: none;
 }
 
-.compact .section + .section {
+.compact .section + .section{
   margin-top: 20px;
   padding-top: 4px;
 }
 
 @media (min-width: 700px) {
-  .grid {
+  .grid{
     --mosaic-gap: var(--dang-gem-gap, 12px);
   }
 
-  .grid li {
+  .grid li{
     flex-basis: 15rem;
   }
 
-  .tile {
+  .tile{
     min-height: var(--dang-gem-tile-h, 132px);
     padding: var(--dang-gem-pad, 14px);
   }
 
-  .icon {
+  .icon{
     width: auto;
     height: auto;
   }
 
-  .body > strong {
+  .body > strong{
     font-size: 1.02rem;
   }
 }
 
 @media (min-width: 1024px) {
-  .grid li {
+  .grid li{
     flex-basis: 16rem;
   }
 
-  .tile {
+  .tile{
     min-height: var(--dang-gem-tile-h, 132px);
   }
 }
 
 @media (min-width: 1200px) {
-  .grid {
+  .grid{
     --mosaic-gap: var(--dang-gem-gap, 12px);
   }
 
-  .grid li {
+  .grid li{
     flex-basis: 16rem;
   }
 }
 
 @media (max-width: 699px) {
-  .grid {
+  .grid{
     --mosaic-cols: 2;
     --mosaic-gap: 10px;
   }
 
-  .tile {
+  .tile{
     min-height: 120px;
     padding: 12px;
   }
 }
 
 @media (max-width: 380px) {
-  .grid {
+  .grid{
     --mosaic-cols: 2;
     --mosaic-gap: 8px;
   }
 
-  .tile {
+  .tile{
     min-height: 112px;
     padding: 12px;
   }
 
-  .body > strong {
+  .body > strong{
     font-size: 0.9rem;
   }
 
-  .icon {
+  .icon{
     width: auto;
     height: auto;
   }
 }
 
-/* Theme text / chips — surface comes from shared .dang-gem */
+/* Theme text and chips. */
 :global(html[data-scheme="dark"]) .tile::before,
-:global(html[data-theme="dusk"]) .tile::before,
-:global(html[data-scheme="dark"]) .tile::after,
-:global(html[data-theme="dusk"]) .tile::after {
+:global(html[data-scheme="dark"]) .tile::after{
   border-color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 55%, transparent);
   opacity: 0.65;
 }
 
-:global(html[data-scheme="dark"]) .body > p,
-:global(html[data-theme="dusk"]) .body > p,
-:global(html[data-theme="linear"]) .body > p {
+:global(html[data-scheme="dark"]) .body > p{
   color: color-mix(in srgb, #f8fafc 82%, transparent);
 }
 
-:global(html[data-theme="linear"]) .body > p {
-  color: color-mix(in srgb, #f4f4f5 80%, transparent);
-}
 
-:global(html[data-scheme="dark"]) .tile .fact,
-:global(html[data-theme="dusk"]) .tile .fact {
+
+:global(html[data-scheme="dark"]) .tile .fact{
   background: color-mix(in srgb, #0f0f12 70%, var(--tile-gem-edge, #000) 12%);
   border: 1px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 35%, transparent);
 }
 
 :global(html[data-scheme="dark"]) .tile .fact b,
-:global(html[data-theme="dusk"]) .tile .fact b,
-:global(html[data-scheme="dark"]) .tile .fact small,
-:global(html[data-theme="dusk"]) .tile .fact small {
+:global(html[data-scheme="dark"]) .tile .fact small{
   color: #f8fafc;
 }
 
-:global(html[data-scheme="dark"]) .pin,
-:global(html[data-theme="dusk"]) .pin {
+:global(html[data-scheme="dark"]) .pin{
   background: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 28%, transparent);
   color: #e4e4e7;
   border-color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 40%, transparent);
 }
 
-:global(html[data-theme="linear"]) .tile::before,
-:global(html[data-theme="linear"]) .tile::after {
-  border-color: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 42%, transparent);
-  opacity: 0.45;
-}
 
-:global(html[data-theme="linear"]) .tile .fact {
-  background: color-mix(in srgb, #0f0f12 78%, transparent);
-  border: 1px solid color-mix(in srgb, #fff 10%, transparent);
-}
 
-:global(html[data-theme="linear"]) .tile .fact b,
-:global(html[data-theme="linear"]) .tile .fact small {
-  color: #f4f4f5;
-}
 
-:global(html[data-theme="linear"]) .pin {
-  background: color-mix(in srgb, #fff 8%, transparent);
-  color: #a1a1aa;
-}
+
+
+
+
 
 @media (prefers-reduced-motion: reduce) {
   .tile,
-  .enter,
-  .grid {
+.enter,
+.grid{
     animation: none !important;
     transition: none !important;
     view-transition-name: none !important;
@@ -519,7 +496,7 @@
 
 /* Soft morph when browser supports View Transitions (Chromium / Safari 18+). */
 :global(::view-transition-old(root)),
-:global(::view-transition-new(root)) {
+:global(::view-transition-new(root)){
   animation-duration: 180ms;
   animation-timing-function: ease;
 }
