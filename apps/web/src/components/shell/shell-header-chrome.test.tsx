@@ -1,0 +1,74 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { HeaderProfileButton } from "@/components/header-profile-button";
+import { headerToolLinks } from "@/components/shell/app-shell-v2";
+
+vi.mock("@/lib/use-app-chrome", () => ({
+  useAppChrome: () => ({
+    ready: true,
+    error: null,
+    userName: "حمید",
+  }),
+}));
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+describe("header tool links", () => {
+  it("keeps every overflow destination, scoped to the open space when one exists", () => {
+    expect(headerToolLinks(null).map((item) => [item.label, item.href])).toEqual([
+      ["سازمان‌ها", "/orgs"],
+      ["ساختمان‌ها", "/spaces?kind=building"],
+      ["گزارش ساختمان", "/spaces/reports?kind=building"],
+      ["تدارکات", "/workspaces/procurement"],
+      ["تجهیزات", "/workspaces/assets"],
+      ["پیشنهادها", "/proposals"],
+      ["شرکا", "/workspaces/partnership"],
+    ]);
+    expect(headerToolLinks("acme").map((item) => item.href)).toEqual([
+      "/orgs",
+      "/spaces?kind=building",
+      "/spaces/reports?kind=building",
+      "/w/acme/procurement",
+      "/w/acme/assets",
+      "/w/acme/proposals",
+      "/w/acme/partners",
+    ]);
+  });
+});
+
+describe("profile menu", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("puts the extra tools under a section and keeps the account link", () => {
+    render(<HeaderProfileButton tools={headerToolLinks("acme")} />);
+    fireEvent.click(screen.getByRole("button", { name: "پروفایل حمید" }));
+    expect(screen.getByRole("link", { name: "پروفایل حمید" }).getAttribute("href")).toBe(
+      "/account",
+    );
+    expect(screen.getByText("ابزارهای دیگر")).toBeTruthy();
+    for (const tool of headerToolLinks("acme")) {
+      expect(screen.getByRole("link", { name: tool.label }).getAttribute("href")).toBe(tool.href);
+    }
+  });
+});
+
+describe("narrow header css", () => {
+  const css = readFileSync(resolve(here, "../../app/phase5.css"), "utf8");
+
+  it("collapses search to a 44px control and keeps the bar on one row", () => {
+    const narrow = css.slice(css.indexOf("@media (max-width: 480px)"));
+    expect(narrow).toContain("flex-wrap: nowrap");
+    expect(narrow).toMatch(/\.shell-v2__search--field\s*\{[^}]*width:\s*44px/);
+    expect(narrow).toMatch(/\.shell-v2__search--field\s*\{[^}]*min-height:\s*44px/);
+    expect(narrow).toContain("outline: 3px solid var(--dang-focus, var(--primary))");
+    expect(css).toContain("max-width: 420px");
+  });
+});

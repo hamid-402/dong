@@ -39,6 +39,25 @@ a.shell-v2__cta,
   min-height: 44px;
 }
 
+/* Expanded search stays a field; the 44px rule above is the icon floor. */
+.shell-v2__search--field {
+  width: min(100%, 28rem);
+  min-width: 0;
+  max-width: 28rem;
+  height: 44px;
+  min-height: 44px;
+}
+
+.shell-v2__search--field .shell-v2__search-label,
+.shell-v2__search--field .shell-v2__search-kbd {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: hidden;
+  clip: auto;
+}
+
 .shell-v2__header {
   min-height: 56px;
 }
@@ -74,20 +93,118 @@ summary:focus-visible,
   outline-offset: 2px;
 }
 
+@media (max-width: 480px) {
+  .shell-v2__header,
+  .shell-v2__header--workspace,
+  .shell-v2__header--spaceFirst,
+  .shell-v2__header--sub,
+  .shell-v2__bar {
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .shell-v2__bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .shell-v2__zone--start {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .shell-v2__zone--center,
+  .shell-v2__zone--end,
+  .shell-v2__user {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+
+  .shell-v2__zone--start .mosaic-ws-switch {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .shell-v2__zone--start .mosaic-ws-switch__trigger {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .shell-v2__search--field {
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    gap: 0;
+    flex: 0 0 44px;
+    justify-content: center;
+  }
+
+  .shell-v2__search--field .shell-v2__search-label,
+  .shell-v2__search--field .shell-v2__search-kbd {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .shell-v2__header a,
+  .shell-v2__header button,
+  .shell-v2__header .shell-v2__wordmark,
+  .shell-v2__header .mosaic-ws-switch__trigger,
+  .shell-v2__header .shell-v2__search,
+  .shell-v2__header .notifBell__trigger,
+  .shell-v2__header .header-profile,
+  .shell-v2__header .shell-v2__approval-badge {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .shell-v2__header a:focus-visible,
+  .shell-v2__header button:focus-visible,
+  .shell-v2__header .shell-v2__search:focus-visible,
+  .shell-v2__header .shell-v2__wordmark:focus-visible,
+  .shell-v2__header .header-profile:focus-visible,
+  .shell-v2__header .notifBell__trigger:focus-visible,
+  .shell-v2__header .mosaic-ws-switch__trigger:focus-visible {
+    outline: 3px solid var(--dang-focus, var(--primary));
+    outline-offset: 2px;
+  }
+}
+
 @media (max-width: 420px) {
   .shell-v2__header,
+  .shell-v2__header--workspace,
   .shell-v2__header--spaceFirst,
   .shell-v2__header--sub {
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
     min-height: 0;
     height: auto;
   }
 
+  .shell-v2__bar {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
   .shell-v2__header-end,
   .shell-v2__user,
+  .shell-v2__zone--end,
   .shell-v2__sub-end {
-    justify-content: flex-start;
-    flex-wrap: wrap;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
   }
 
   .shell-v2__wordmark,

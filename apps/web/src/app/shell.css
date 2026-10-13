@@ -408,6 +408,12 @@
   background: var(--primary-soft);
 }
 
+.mosaic-ws-switch__footer a.mosaic-ws-switch__leave{
+  color: var(--text);
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+}
+
 .mosaic-status{
   display: none;
   align-items: center;
@@ -446,6 +452,8 @@
   min-height: 36px;
   max-width: none;
   padding: 0;
+  font: inherit;
+  cursor: pointer;
   border-radius: 10px;
   text-decoration: none;
   color: inherit;
@@ -504,6 +512,74 @@
   color: var(--text);
 }
 
+.header-profileMenu{
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.header-profileMenu__panel{
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 6px);
+  inset-inline-end: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 14rem;
+  max-width: min(18rem, calc(100vw - 16px));
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--m-elev-2, var(--elev-1));
+}
+
+.header-profileMenu__item{
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.header-profileMenu__item:hover{
+  background: var(--primary-soft);
+}
+
+.header-profileMenu__item:focus-visible{
+  outline: 3px solid var(--dang-focus, var(--primary));
+  outline-offset: 2px;
+}
+
+.header-profileMenu__theme{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding-inline: 4px;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.header-profileMenu__section{
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.header-profileMenu__label{
+  margin: 4px 0.75rem 2px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
 .shell-v2{
   position: relative;
   z-index: 1;
@@ -522,15 +598,68 @@
   position: sticky;
   top: 0;
   z-index: 40;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
   min-height: 46px;
   padding: 6px 14px;
   border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   backdrop-filter: blur(14px) saturate(1.08);
+}
+
+.shell-v2__bar{
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.shell-v2__zone{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.shell-v2__zone--start{
+  justify-content: flex-start;
+}
+
+.shell-v2__zone--center{
+  justify-content: center;
+}
+
+.shell-v2__zone--end{
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.shell-v2__zone--start .shell-v2__wordmark{
+  flex: 0 0 auto;
+}
+
+.shell-v2__zone--center .shell-v2__search--field{
+  width: min(100%, 28rem);
+  max-width: 28rem;
+}
+
+.shell-v2__place:empty{
+  display: none;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* فضاها is already desktop-only; don't leave an empty strip under the bar. */
+@media (max-width: 1023px) {
+  .shell-v2__header--spaceFirst .shell-v2__place{
+    display: none;
+  }
 }
 
 .shell-v2__brand{
@@ -572,6 +701,9 @@ a.shell-v2__mark:focus-visible{
 }
 
 .shell-v2__wordmark{
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: var(--text);
   font-size: 0.98rem;
   font-weight: 800;
@@ -582,6 +714,12 @@ a.shell-v2__mark:focus-visible{
 
 .shell-v2__wordmark:hover{
   color: var(--primary);
+}
+
+.shell-v2__wordmark:focus-visible{
+  outline: 3px solid var(--dang-focus, var(--primary));
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 .shell-v2__contextLink{
@@ -912,6 +1050,7 @@ a.shell-v2__cta:visited,
 }
 
 .shell-v2__place{
+  flex-wrap: wrap;
   min-height: 2.75rem;
   margin-inline: -0.15rem;
   padding: 0.15rem 0.15rem 0.2rem;

@@ -7,7 +7,6 @@ import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { NotificationBell } from "@/components/notification-bell";
 import { ApprovalQueueBadge } from "@/components/shell/approval-queue-badge";
 import { HeaderProfileButton } from "@/components/header-profile-button";
-import { ThemeToggleButton } from "@/components/theme-toggle";
 import { AppChromeProvider, useAppChrome } from "@/lib/use-app-chrome";
 import { SessionGate } from "@/components/session-gate";
 import { ShellLocationProvider, ShellV2Provider, useShellV2Api } from "@/components/shell/shell-v2-context";
@@ -18,7 +17,6 @@ import { ShellHeaderSearchField } from "@/components/shell/shell-header-search";
 import { WorkspaceSwitcher } from "@/components/mosaic/workspace-switcher";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { ShellWorkspaceNavMenu } from "@/components/shell/shell-secondary-rail";
-import { DirIcon } from "@/components/dir-icon";
 import { bottomTabsV2 } from "@/lib/navigation-v2";
 import { wPath } from "@/lib/workspace-paths";
 import { slugFromPathname } from "@/lib/workspace-storage";
@@ -31,107 +29,17 @@ import { assignKindGems, shellKindStyle } from "@/lib/tile-gem-palettes";
 import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
 import { spaceNavFlagsFromCapabilities } from "@/lib/workspace-page-access";
 
-function ShellUtilityCluster({
-  workspaceId,
-  slug,
-  dense = false,
-  hideSearch = false,
-}: {
-  workspaceId?: string;
-  slug?: string | null;
-  /** Hide secondary tools on narrow shell. */
-  dense?: boolean;
-  /** Search lives in the sub-header center — avoid duplicate control. */
-  hideSearch?: boolean;
-}) {
-  const shell = useShellV2Api();
-  const paletteOpen = shell?.commandPaletteOpen ?? false;
-  return (
-    <div className={`shell-v2__user${dense ? " shell-v2__user--dense" : ""}`}>
-      {hideSearch ? null : (
-        <button
-          type="button"
-          className="shell-v2__search shell-v2__search--icon"
-          onClick={() => shell?.openCommandPalette()}
-          title={t("shell.searchTitle")}
-          aria-label={t("shell.searchOpen")}
-          aria-haspopup="dialog"
-          aria-expanded={paletteOpen}
-          aria-keyshortcuts="Control+K Meta+K"
-        >
-          <span className="shell-v2__search-icon" aria-hidden>
-            <ShellIconSvg name="search" />
-          </span>
-        </button>
-      )}
-      {dense ? null : <ThemeToggleButton />}
-      <ApprovalQueueBadge workspaceId={workspaceId} />
-      <NotificationBell workspaceId={workspaceId} />
-      <HeaderProfileButton />
-      <details className="shellOverflow">
-        <summary>ابزارهای دیگر</summary>
-        <div className="shellOverflow__menu">
-          <Link href="/orgs">سازمان‌ها</Link>
-          <Link href="/spaces?kind=building">ساختمان‌ها</Link>
-          <Link href="/spaces/reports?kind=building">گزارش ساختمان</Link>
-          <Link href={slug ? wPath(slug, "procurement") : "/workspaces/procurement"}>تدارکات</Link>
-          <Link href={slug ? wPath(slug, "assets") : "/workspaces/assets"}>تجهیزات</Link>
-          <Link href={slug ? wPath(slug, "proposals") : "/proposals"}>پیشنهادها</Link>
-          <Link href={slug ? wPath(slug, "partners") : "/workspaces/partnership"}>شرکا</Link>
-        </div>
-      </details>
-    </div>
-  );
-}
-
-function LeaveSpaceControl({
-  href,
-  compact = false,
-}: {
-  href: string;
-  /** Icon-only on narrow sub-header. */
-  compact?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`shell-v2__leaveSpace${compact ? " shell-v2__leaveSpace--compact" : ""}`}
-      aria-label={t("shell.leaveSpaceAria")}
-      title={t("shell.leaveSpace")}
-    >
-      <span className="shell-v2__leaveSpaceIcon" aria-hidden>
-        <DirIcon>→</DirIcon>
-      </span>
-      {compact ? null : (
-        <span className="shell-v2__leaveSpaceLabel">{t("shell.leaveSpace")}</span>
-      )}
-    </Link>
-  );
-}
-
-function BrandWordmark({
-  workspaceName,
-  workspaceHref,
-}: {
-  workspaceName?: string | null;
-  workspaceHref?: string | null;
-}) {
-  return (
-    <div className="shell-v2__brand-text">
-      <Link
-        href="/home"
-        className="shell-v2__wordmark"
-        aria-label={t("shell.homeMarkAria")}
-      >
-        دنگ
-      </Link>
-      {workspaceName && workspaceHref ? (
-        <Link href={workspaceHref} className="shell-v2__contextLink" title={workspaceName}>
-          {workspaceName}
-        </Link>
-      ) : null}
-    </div>
-  );
+/** Extra destinations that used to live in the header overflow. */
+export function headerToolLinks(slug: string | null): { href: string; label: string }[] {
+  return [
+    { href: "/orgs", label: "سازمان‌ها" },
+    { href: "/spaces?kind=building", label: "ساختمان‌ها" },
+    { href: "/spaces/reports?kind=building", label: "گزارش ساختمان" },
+    { href: slug ? wPath(slug, "procurement") : "/workspaces/procurement", label: "تدارکات" },
+    { href: slug ? wPath(slug, "assets") : "/workspaces/assets", label: "تجهیزات" },
+    { href: slug ? wPath(slug, "proposals") : "/proposals", label: "پیشنهادها" },
+    { href: slug ? wPath(slug, "partners") : "/workspaces/partnership", label: "شرکا" },
+  ];
 }
 
 function AppShellV2Inner({ children }: { children: ReactNode }) {
@@ -213,22 +121,57 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
         data-kind={realmKind ?? undefined}
         style={realmStyle}
       >
-        {inWorkspace && slug ? (
-          <header className="shell-v2__header shell-v2__header--workspace">
-            <div className="shell-v2__identity">
-              <ShellWorkspaceNavMenu
-                template={template}
-                slug={slug}
-                flags={railFlags}
-                role={membershipRole || null}
-                triggerLabel={domainTrigger}
-                leaveHref={template && template !== "personal" ? leaveMembershipHref : null}
-                activeDomain={location.activeDomain}
-              />
-              <Link href="/home" className="shell-v2__mark" aria-label={t("shell.homeMarkAria")}>
-                <ShellIconSvg name="wallet" />
+        <header
+          className={`shell-v2__header${
+            inWorkspace && slug
+              ? " shell-v2__header--workspace"
+              : primary
+                ? " shell-v2__header--spaceFirst"
+                : " shell-v2__header--sub"
+          }`}
+        >
+          <div className="shell-v2__bar">
+            <div className="shell-v2__zone shell-v2__zone--start">
+              <Link
+                href="/home"
+                className="shell-v2__wordmark"
+                aria-label={t("shell.homeMarkAria")}
+              >
+                دنگ
               </Link>
-              {realmKind ? (
+              <WorkspaceSwitcher
+                compact={!desktop}
+                leaveHref={inWorkspace ? leaveMembershipHref : null}
+              />
+            </div>
+            <div className="shell-v2__zone shell-v2__zone--center">
+              <ShellHeaderSearchField variant="field" />
+            </div>
+            <div className="shell-v2__zone shell-v2__zone--end shell-v2__user">
+              <ApprovalQueueBadge workspaceId={chrome.workspaceId ?? undefined} />
+              <NotificationBell workspaceId={chrome.workspaceId ?? undefined} />
+              <HeaderProfileButton tools={headerToolLinks(slug)} />
+            </div>
+          </div>
+          {inWorkspace || primary || location.trail.length > 0 ? (
+            <div className="shell-v2__place">
+              {inWorkspace && slug ? (
+                <ShellWorkspaceNavMenu
+                  template={template}
+                  slug={slug}
+                  flags={railFlags}
+                  role={membershipRole || null}
+                  triggerLabel={domainTrigger}
+                  leaveHref={template && template !== "personal" ? leaveMembershipHref : null}
+                  activeDomain={location.activeDomain}
+                />
+              ) : null}
+              {inWorkspace || primary ? (
+                <Link href="/home" className="shell-v2__mark" aria-label={t("shell.homeMarkAria")}>
+                  <ShellIconSvg name="wallet" />
+                </Link>
+              ) : null}
+              {inWorkspace && realmKind ? (
                 <Link
                   href={`/spaces?kind=${realmKind}`}
                   className="shell-v2__kindChip"
@@ -237,117 +180,26 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
                   {spaceTabLabel(realmKind)}
                 </Link>
               ) : null}
-              <BrandWordmark />
-              <WorkspaceSwitcher compact={!desktop} />
-              {showCatalog ? (
+              {showCatalog && slug ? (
                 <Link href={wPath(slug, "catalog")} className="shell-v2__catalogLink">
                   {NAV_LABELS.catalog}
                 </Link>
               ) : null}
-              <div className="shell-v2__identity-end">
-                <ShellHeaderSearchField variant={desktop ? "field" : "icon"} />
-                <ShellUtilityCluster
-                  workspaceId={chrome.workspaceId ?? undefined}
-                  slug={slug}
-                  dense={!desktop}
-                  hideSearch
-                />
-              </div>
-            </div>
-            <div className="shell-v2__place">
+              {primary && !inWorkspace ? (
+                <div className="shell-v2__header-nav">
+                  <Link
+                    href="/spaces"
+                    className={`shell-v2__spacesTextLink${location.section === "spaces" ? " is-active" : ""}`}
+                    aria-current={location.section === "spaces" ? "page" : undefined}
+                  >
+                    فضاها
+                  </Link>
+                </div>
+              ) : null}
               <ShellTrail />
             </div>
-          </header>
-        ) : primary ? (
-          <header className="shell-v2__header shell-v2__header--spaceFirst">
-            <div className="shell-v2__brand">
-              {inWorkspace && slug ? (
-                <ShellWorkspaceNavMenu
-                  template={template}
-                  slug={slug}
-                  flags={railFlags}
-                  role={membershipRole || null}
-                />
-              ) : null}
-              {inWorkspace ? (
-                <LeaveSpaceControl href={leaveMembershipHref} />
-              ) : (
-                <Link href="/home" className="shell-v2__mark" aria-label={t("shell.homeMarkAria")}>
-                  <ShellIconSvg name="wallet" />
-                </Link>
-              )}
-              <BrandWordmark />
-              <WorkspaceSwitcher compact={!desktop} />
-            </div>
-
-            <div className="shell-v2__header-nav">
-              <Link
-                href="/spaces"
-                className={`shell-v2__spacesTextLink${location.section === "spaces" ? " is-active" : ""}`}
-                aria-current={location.section === "spaces" ? "page" : undefined}
-              >
-                فضاها
-              </Link>
-            </div>
-
-            <div className="shell-v2__header-end">
-              {inWorkspace && desktop ? (
-                <Link
-                  href={spacesListHref}
-                  className="shell-v2__spacesTextLink"
-                  aria-label={t("shell.spacesListLinkAria")}
-                >
-                  {NAV_LABELS.home}
-                </Link>
-              ) : null}
-              <ShellUtilityCluster
-                workspaceId={chrome.workspaceId ?? undefined}
-                slug={slug}
-                dense={!desktop}
-              />
-            </div>
-          </header>
-        ) : (
-          <header className="shell-v2__header shell-v2__header--sub">
-            <div className="shell-v2__sub-start">
-              {inWorkspace && slug ? (
-                <ShellWorkspaceNavMenu
-                  template={template}
-                  slug={slug}
-                  flags={railFlags}
-                  role={membershipRole || null}
-                />
-              ) : null}
-              {inWorkspace ? (
-                <LeaveSpaceControl href={leaveMembershipHref} compact />
-              ) : null}
-              <WorkspaceSwitcher compact />
-              <ShellTrail />
-            </div>
-            <div className="shell-v2__sub-center">
-              <ShellHeaderSearchField
-                variant={viewport === "mobile" ? "icon" : "field"}
-              />
-            </div>
-            <div className="shell-v2__sub-end">
-              {inWorkspace ? (
-                <Link
-                  href={spacesListHref}
-                  className="shell-v2__spacesTextLink"
-                  aria-label={t("shell.spacesListLinkAria")}
-                >
-                  {NAV_LABELS.home}
-                </Link>
-              ) : null}
-              <ShellUtilityCluster
-                workspaceId={chrome.workspaceId ?? undefined}
-                slug={slug}
-                dense={!desktop}
-                hideSearch
-              />
-            </div>
-          </header>
-        )}
+          ) : null}
+        </header>
 
         <div className="shell-v2__body">
           {inWorkspace && archived && slug ? (
