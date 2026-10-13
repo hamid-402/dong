@@ -204,7 +204,7 @@ export function ShellToolsView() {
               {pins.map((item) => (
                 <li key={`pin:${item.href}`}>
                   <Link href={item.href} className="shell-tools__recent-chip is-pinned">
-                    ★ {item.label}
+                    <ShellIconSvg name="star" size={16} /> {item.label}
                   </Link>
                 </li>
               ))}

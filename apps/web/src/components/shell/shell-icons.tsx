@@ -10,7 +10,13 @@ export type ShellIcon =
   | "search"
   | "bell"
   | "receipt"
-  | "menu";
+  | "menu"
+  | "star"
+  | "starOutline"
+  | "check"
+  | "circle"
+  | "refresh"
+  | "close";
 
 export function ShellIconSvg({
   name,
@@ -99,6 +105,47 @@ export function ShellIconSvg({
       return (
         <svg {...common}>
           <path d="M4 7h16M4 12h16M4 17h16" {...accent} />
+        </svg>
+      );
+    case "star":
+      return (
+        <svg {...common}>
+          <path
+            d="m12 3 2.4 5.2 5.6.6-4.2 3.8 1.2 5.5L12 15.8 7 18.1l1.2-5.5L4 8.8l5.6-.6L12 3z"
+            fill="currentColor"
+            {...accent}
+          />
+        </svg>
+      );
+    case "starOutline":
+      return (
+        <svg {...common}>
+          <path d="m12 3 2.4 5.2 5.6.6-4.2 3.8 1.2 5.5L12 15.8 7 18.1l1.2-5.5L4 8.8l5.6-.6L12 3z" />
+        </svg>
+      );
+    case "check":
+      return (
+        <svg {...common}>
+          <path d="m5 12 5 5L20 7" {...accent} />
+        </svg>
+      );
+    case "circle":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="7" />
+        </svg>
+      );
+    case "refresh":
+      return (
+        <svg {...common}>
+          <path d="M20 12a8 8 0 1 1-2.3-5.7" />
+          <path d="M20 4v5h-5" {...accent} />
+        </svg>
+      );
+    case "close":
+      return (
+        <svg {...common}>
+          <path d="M6 6 18 18M18 6 6 18" {...accent} />
         </svg>
       );
     default:

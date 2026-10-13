@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { wPath } from "@/lib/workspace-paths";
 
 type SetupStep = {
@@ -109,7 +110,7 @@ export function GroupSetupChecklist({
             }
           >
             <span className="groupSetupChecklist__mark" aria-hidden>
-              {step.done ? "✓" : "○"}
+              <ShellIconSvg name={step.done ? "check" : "circle"} size={16} />
             </span>
             <div className="groupSetupChecklist__body">
               <strong>{step.label}</strong>

@@ -17,6 +17,7 @@ import {
   prefetchRoute,
   softTileHaptic,
 } from "@/lib/tile-press";
+import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { t } from "@/lib/i18n";
 
 export type FrequentRailItem = {
@@ -136,7 +137,7 @@ export function FrequentDestinationsRail({
               }}
             >
               <span className="frequent-rail__kind" aria-hidden>
-                {item.kind === "pin" ? "★" : "↻"}
+                <ShellIconSvg name={item.kind === "pin" ? "star" : "refresh"} size={16} />
               </span>
               {item.label}
             </Link>

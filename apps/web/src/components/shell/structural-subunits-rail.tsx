@@ -19,6 +19,7 @@ import {
   togglePinnedSubunit,
 } from "@/lib/subunit-directory-prefs";
 import { wPath } from "@/lib/workspace-paths";
+import { ShellIconSvg } from "@/components/shell/shell-icons";
 import styles from "@/components/shell/structural-subunits-rail.module.css";
 
 /**
@@ -186,7 +187,7 @@ export function StructuralSubunitsRail({
                     setTick((n) => n + 1);
                   }}
                 >
-                  {pinned ? "★" : "☆"}
+                  <ShellIconSvg name={pinned ? "star" : "starOutline"} size={16} />
                 </button>
                 {canCharge ? (
                   <Link

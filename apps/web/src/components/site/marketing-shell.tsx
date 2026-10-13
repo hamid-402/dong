@@ -18,6 +18,7 @@ import {
   type SystemCapabilities,
 } from "@/lib/api";
 import { ThemeToggleButton } from "@/components/theme-toggle";
+import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { AuthMark } from "@/components/site/auth-mark";
 import {
   SITE_FOOTER_ACCOUNT,
@@ -212,7 +213,7 @@ export function SiteHeader({ compactAuth = false }: { compactAuth?: boolean }) {
             aria-label={menuOpen ? "بستن فهرست" : "باز کردن فهرست"}
             onClick={() => setMenuOpen((v) => !v)}
           >
-            <span aria-hidden>{menuOpen ? "✕" : "☰"}</span>
+            <ShellIconSvg name={menuOpen ? "close" : "menu"} size={18} />
           </button>
         </div>
       </div>

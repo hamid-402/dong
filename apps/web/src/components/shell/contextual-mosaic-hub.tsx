@@ -190,7 +190,7 @@ export function ContextualMosaicHub({
                         });
                       }}
                     >
-                      {pinned ? "★" : "☆"}
+                      <ShellIconSvg name={pinned ? "star" : "starOutline"} size={16} />
                     </button>
                   ) : null}
                 </li>

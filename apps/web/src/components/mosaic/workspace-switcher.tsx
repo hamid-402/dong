@@ -15,6 +15,7 @@ import { spaceKindForTemplate } from "@dang/contracts";
 import { membershipRoleLabel, workspaceTemplateLabel } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useDisplayUnit } from "@/lib/display-unit";
+import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { wPath } from "@/lib/workspace-paths";
 import {
   buildDirectorySections,
@@ -507,7 +508,7 @@ export function WorkspaceSwitcher({
                               aria-pressed={pinned}
                               onClick={(event) => onPinClick(ws.id, event)}
                             >
-                              {pinned ? "★" : "☆"}
+                              <ShellIconSvg name={pinned ? "star" : "starOutline"} size={16} />
                             </button>
                           </li>
                         );
