@@ -12,6 +12,7 @@ import type {
 import { formatMoneyFromIrrMinor } from "@dang/ui";
 import { HeroBalance, ProductGrid } from "@/components/ui-blocks";
 import { GroupEmailVerificationNotice } from "@/components/group-email-verification-notice";
+import { GroupMfaEnrollmentNotice } from "@/components/group-mfa-enrollment-notice";
 import { SettlementPanel } from "@/components/views/finance/settlement-panel";
 import { DebtSimplifyPanel } from "@/components/views/friends-group/debt-simplify-panel";
 import { useDisplayUnit } from "@/lib/display-unit";
@@ -79,6 +80,7 @@ export function FinanceSettlementsSection(props: {
       </div>
       <ProductGrid>
         <GroupEmailVerificationNotice active={props.spaceKind === "group"} />
+        <GroupMfaEnrollmentNotice active={props.spaceKind === "group"} />
         <SettlementPanel
           workspaceId={props.workspaceId}
           members={props.members}

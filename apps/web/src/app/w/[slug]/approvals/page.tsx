@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import type { ApprovalQueueItem, MembershipSummary } from "@dang/contracts";
-import { isExpenseApproverRole, isReadOnlyRole } from "@dang/contracts";
+import {
+  isExpenseApproverRole,
+  isReadOnlyRole,
+  spaceKindForTemplate,
+} from "@dang/contracts";
 import { Amount, Button } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -27,6 +31,7 @@ import { useAppChrome } from "@/lib/use-app-chrome";
 import { t } from "@/lib/i18n";
 import { formatFaDate, formatFaDateTime } from "@/lib/fa-datetime";
 import { wPath, type WorkspacePage } from "@/lib/workspace-paths";
+import { GroupMfaEnrollmentNotice } from "@/components/group-mfa-enrollment-notice";
 import { ConfirmSettlementDialog } from "@/components/views/finance/confirm-settlement-dialog";
 import { WorkspacePageGate } from "@/components/shell/workspace-page-gate";
 import { NAV_LABELS } from "@/lib/nav-labels";
@@ -55,6 +60,9 @@ function WorkspaceApprovalsPageInner() {
     chrome.capabilities?.productFlags?.settlementEvidence,
   );
   const workspace = chrome.workspaces.find((row) => row.id === chrome.workspaceId);
+  const groupSpace = workspace
+    ? spaceKindForTemplate(workspace.template) === "group"
+    : false;
   const readOnly = isReadOnlyRole(myRole);
   const canApproveActions = isExpenseApproverRole(myRole) && !readOnly;
   const selectedItem =
@@ -266,6 +274,7 @@ function WorkspaceApprovalsPageInner() {
         <ContentSkeleton rows={3} label="در حال بارگذاری مرکز تأیید…" />
       ) : (
         <SectionCard title="در انتظار اقدام" badge={items.length}>
+          <GroupMfaEnrollmentNotice active={groupSpace} />
           {readOnly || !canApproveActions ? (
             <StatusLine>
               {readOnly
