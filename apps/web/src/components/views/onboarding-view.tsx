@@ -11,6 +11,7 @@ import type {
 } from "@dang/contracts";
 import { spaceKindForTemplate } from "@dang/contracts";
 import { Button, SelectField, TextField } from "@dang/ui";
+import styles from "./onboarding-view.module.css";
 import { GroupCreatedNext } from "@/components/create-group-form";
 import { AppShell } from "@/components/app-shell";
 import { GroupEmailVerificationNotice } from "@/components/group-email-verification-notice";
@@ -312,7 +313,7 @@ export function OnboardingView() {
                 </Button>
               </FormStack>
               {me ? (
-                <p className="emptyHint" style={{ border: "none", padding: 0 }}>
+                <p className={`emptyHint ${styles.flatHint}`}>
                   کاربر: {me.actor.displayName} · {authModeLabel(me.actor.authMode)} · فضاها:{" "}
                   {me.workspaces.length}
                 </p>
@@ -320,7 +321,7 @@ export function OnboardingView() {
             </SectionCard>
           ) : me ? (
             <SectionCard title="حساب شما" delayClass="delay1">
-              <p className="emptyHint" style={{ border: "none", padding: 0 }}>
+              <p className={`emptyHint ${styles.flatHint}`}>
                 {me.actor.displayName} · {authModeLabel(me.actor.authMode)} · {me.workspaces.length}{" "}
                 فضای کاری
               </p>
@@ -370,7 +371,7 @@ export function OnboardingView() {
                   ))}
                 </SelectField>
                 {selectedTemplate?.summaryFa ? (
-                  <p className="emptyHint" style={{ border: "none", padding: 0 }}>
+                  <p className={`emptyHint ${styles.flatHint}`}>
                     {selectedTemplate.summaryFa}
                   </p>
                 ) : null}
@@ -391,11 +392,11 @@ export function OnboardingView() {
               created.template === "household" ? (
                 <GroupCreatedNext workspace={created} />
               ) : (
-              <div className="liveSuccess" style={{ marginTop: 12 }}>
-                <p style={{ margin: "0 0 8px" }}>
+              <div className={`liveSuccess ${styles.created}`}>
+                <p className={styles.createdLead}>
                   ساخته شد: {created.name} ({created.slug})
                 </p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                <div className={styles.createdActions}>
                   <Button type="button" onClick={() => goToWorkspaceHome(created)}>
                     باز کردن خانهٔ فضا
                   </Button>

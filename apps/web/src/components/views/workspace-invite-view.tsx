@@ -161,16 +161,22 @@ export function WorkspaceInviteView() {
     });
   }
 
+  const expiresError = (() => {
+    const raw = expiresInHours.trim();
+    if (!raw) return "انقضا را به ساعت بنویسید";
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) return "انقضا باید ساعتی بزرگ‌تر از صفر باشد";
+    if (n > 24 * 30) return "انقضا حداکثر ۳۰ روز است";
+    return undefined;
+  })();
+
   function onCreate() {
-    if (!workspaceId) return;
+    if (!workspaceId || expiresError) return;
     run("ساخت دعوت ناموفق", async () => {
       const invite = await api.createInvite(workspaceId, {
         role: role as CreateInviteResponse["role"],
         invitedSubject: invitedSubject || undefined,
-        expiresInHours: (() => {
-          const n = Number(expiresInHours);
-          return Number.isFinite(n) && n > 0 ? Math.min(24 * 30, Math.floor(n)) : undefined;
-        })(),
+        expiresInHours: Math.floor(Number(expiresInHours)),
       });
       setCreated(invite);
     });
@@ -255,9 +261,11 @@ export function WorkspaceInviteView() {
         }
         primaryAction={
           canManage ? (
-            <button
+            <Button
               type="button"
-              className="textButton"
+              variant="ghost"
+              size="sm"
+              className={styles.headerAction}
               onClick={() =>
                 document
                   .getElementById("member-add-panel")
@@ -265,7 +273,7 @@ export function WorkspaceInviteView() {
               }
             >
               افزودن عضو
-            </button>
+            </Button>
           ) : slug ? (
             <Link href={wPath(slug, "expenses")}>{NAV_LABELS.expenses}</Link>
           ) : undefined
@@ -360,8 +368,10 @@ export function WorkspaceInviteView() {
                       );
                     return (
                       <li key={m.userId} role="option" aria-selected={selectedRow}>
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           className={styles.memberRow}
                           aria-pressed={selectedRow}
                           onClick={() => setSelectedMemberId(m.userId)}
@@ -411,7 +421,7 @@ export function WorkspaceInviteView() {
                                 : membershipRoleLabel(m.role)}
                             </StatusPill>
                           </span>
-                        </button>
+                        </Button>
                       </li>
                     );
                   })}
@@ -544,6 +554,12 @@ export function WorkspaceInviteView() {
                             onChange={(event) =>
                               setDisableReason(event.target.value)
                             }
+                            error={
+                              disableReason.length > 0 && !disableReason.trim()
+                                ? "دلیل غیرفعال‌سازی را بنویسید"
+                                : undefined
+                            }
+                            required
                           />
                           <Button
                             type="button"
@@ -612,6 +628,12 @@ export function WorkspaceInviteView() {
                     setAddUsername(event.target.value);
                     setLookupPreview(null);
                   }}
+                  error={
+                    addUsername.trim().length > 0 && addUsername.trim().length < 3
+                      ? "نام‌کاربری حداقل ۳ نویسه است"
+                      : undefined
+                  }
+                  required
                 />
                 <Button
                   type="button"
@@ -808,7 +830,7 @@ export function WorkspaceInviteView() {
             </StatusLine>
           ) : (
             <FormStack>
-              <p className="liveHint" style={{ marginBottom: 8 }}>
+              <p className={`liveHint ${styles.hintTight}`}>
                 فضای فعال: <strong>{selected?.name ?? "—"}</strong>
               </p>
               <SelectField
@@ -830,12 +852,12 @@ export function WorkspaceInviteView() {
                   برای دعوت، نقش را مادرخرج یا ادمین بگذارید تا حداقل یک مدیر مالی فعال داشته باشید.
                 </StatusLine>
               ) : (
-                <p className="emptyHint" style={{ border: "none", padding: 0, marginTop: -4 }}>
+                <p className={`emptyHint ${styles.flatHint}`}>
                   یک مادرخرج/مدیر مالی فعال کافی است؛ نفر دوم اختیاری است.
                 </p>
               )}
               {role === "finance" ? (
-                <p className="emptyHint" style={{ border: "none", padding: 0, marginTop: -4 }}>
+                <p className={`emptyHint ${styles.flatHint}`}>
                   مادرخرج می‌تواند صورتحساب بسازد، تسویه را تأیید کند و دوره‌های مالی را ببندد —
                   برای نقش‌های حساس فعال‌سازی MFA توصیه می‌شود.
                 </p>
@@ -851,13 +873,17 @@ export function WorkspaceInviteView() {
                 value={expiresInHours}
                 onChange={(event) => setExpiresInHours(event.target.value)}
                 hint="پیش‌فرض ۷۲؛ حداکثر ۳۰ روز — یادآوری نزدیک انقضا از job‏ invite.remind"
+                error={expiresError}
                 dir="ltr"
+                inputMode="numeric"
+                required
               />
               <Button
                 onClick={onCreate}
                 disabled={
                   pending ||
                   !workspaceId ||
+                  Boolean(expiresError) ||
                   (needsSecondFinance && !isFinanceManagerRole(role))
                 }
               >
@@ -869,7 +895,7 @@ export function WorkspaceInviteView() {
 
         {created ? (
           <SectionCard title="نتیجه دعوت" delayClass="delay2">
-            <p className="emptyHint" style={{ border: "none", padding: 0 }}>
+            <p className={`emptyHint ${styles.flatHintPlain}`}>
               <StatusPill tone="ok">دعوت ساخته شد</StatusPill>
               {created.emailDelivered ? " · ایمیل ارسال شد" : null}
             </p>
@@ -880,18 +906,10 @@ export function WorkspaceInviteView() {
               </p>
             ) : null}
             <FormStack>
-              <code
-                style={{
-                  display: "block",
-                  padding: 12,
-                  borderRadius: 12,
-                  background: "var(--surface-2)",
-                  wordBreak: "break-all",
-                }}
-              >
+              <code className={styles.inviteLink}>
                 {created.debugInviteUrl ?? created.acceptPath}
               </code>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+              <div className={styles.inviteActions}>
                 <Button
                   type="button"
                   onClick={() => {
@@ -910,7 +928,7 @@ export function WorkspaceInviteView() {
                 </Button>
                 <Link href={created.acceptPath}>باز کردن لینک پذیرش</Link>
               </div>
-              <div style={{ marginTop: 12 }}>
+              <div className={styles.inviteQr}>
                 <StatusLine>QR دعوت — با دوربین گوشی اسکن کنید</StatusLine>
                 <LinkQrCode
                   value={
