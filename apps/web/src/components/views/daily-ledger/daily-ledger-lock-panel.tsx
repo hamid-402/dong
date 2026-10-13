@@ -11,6 +11,7 @@ import {
 } from "@/components/selection/selection-action-bar";
 import { useRowSelection } from "@/components/selection/use-row-selection";
 import selStyles from "@/components/selection/selection-action-bar.module.css";
+import styles from "./daily-ledger-lock-panel.module.css";
 
 type DailyLedgerLockPanelProps = {
   rangeLocks: DailyLedgerResponse["rangeLocks"];
@@ -83,14 +84,13 @@ export function DailyLedgerLockPanel({
               idleHint="روی ردیف کلیک کنید یا مربع کنارش را تیک بزنید"
               onClear={selection.clear}
             >
-              <button
+              <Button
                 type="button"
-                className={selStyles.danger}
                 disabled={selection.selectedCount === 0 || pending}
                 onClick={unlockSelected}
-              >
+               size="sm" variant="danger">
                 باز کردن
-              </button>
+              </Button>
             </SelectionActionBar>
             <ul className="dlLockList">
               {activeLocks.map((l) => (
@@ -101,7 +101,7 @@ export function DailyLedgerLockPanel({
                     onActivate: () => selection.toggle(l.id),
                   })}
                 >
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span className={styles.lockRow}>
                     <RowSelectCheckbox
                       checked={selection.isSelected(l.id)}
                       onChange={() => selection.toggle(l.id)}

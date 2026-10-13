@@ -1106,8 +1106,8 @@ export function DailyLedgerView() {
                         <Amount irrMinor={minor} />
                       </div>
                       <div
-                        className="pfTrendBar"
-                        style={{ width: `${Math.max(pct, minor === "0" ? 0 : 4)}%` }}
+                        className={`${styles.trendBar} pfTrendBar`}
+                        style={{ ["--trend-pct" as string]: `${Math.max(pct, minor === "0" ? 0 : 4)}%` }}
                         aria-hidden
                       />
                     </li>
@@ -1119,9 +1119,9 @@ export function DailyLedgerView() {
                     <Amount irrMinor={ledger.totals.shared.amountMinor} />
                   </div>
                   <div
-                    className="pfTrendBar dlTrendShared"
+                    className={`${styles.trendBar} pfTrendBar dlTrendShared`}
                     style={{
-                      width: `${Math.max(
+                      ["--trend-pct" as string]: `${Math.max(
                         (Number(ledger.totals.shared.amountMinor) / trendMax) * 100,
                         ledger.totals.shared.amountMinor === "0" ? 0 : 4,
                       )}%`,

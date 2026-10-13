@@ -699,3 +699,33 @@
   font-weight: 750;
   font-size:0.875rem;
 }
+
+button.rowBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  justify-content: stretch;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font-weight: inherit;
+  text-align: start;
+}
+
+button.rowBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  color: inherit;
+}
+
+button.rowBtnSelected:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--share-accent) 32%, var(--line));
+}

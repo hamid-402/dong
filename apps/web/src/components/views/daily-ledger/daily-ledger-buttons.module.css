@@ -1,0 +1,133 @@
+/* Keep ledger chrome when the control is a shared Button. */
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlAdd) {
+  min-width: 0;
+  min-height: 0;
+  border: 1px dashed color-mix(in srgb, var(--line) 90%, transparent);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: start;
+  justify-content: flex-start;
+}
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlAdd):hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--dang-primary) 60%, var(--line));
+  color: var(--ink);
+  background: transparent;
+}
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlItemBtn) {
+  min-width: 0;
+  min-height: 28px;
+  border: 1px solid var(--line);
+  background: var(--panel, var(--surface));
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlItemBtn):hover:not(:disabled) {
+  background: var(--fill-hover, color-mix(in srgb, var(--primary) 10%, transparent));
+  color: var(--text);
+}
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlItemBtn.isDanger) {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+}
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlNoteBtn),
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlHolidayBtn) {
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-weight: inherit;
+  text-align: start;
+  justify-content: flex-start;
+  max-width: 140px;
+}
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlNoteBtn):hover:not(:disabled),
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlHolidayBtn):hover:not(:disabled) {
+  background: transparent;
+  color: inherit;
+}
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlNavBtn) {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 500;
+}
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlNavBtn):hover:not(:disabled) {
+  background: var(--fill-hover, color-mix(in srgb, var(--primary) 10%, transparent));
+  color: var(--text);
+}
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.focusChip),
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.pfFocusChip) {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text, var(--ink));
+  border-radius: var(--r-pill, 999px);
+  padding: 6px 14px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.focusChip):hover:not(:disabled),
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.pfFocusChip):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text, var(--ink));
+}
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.focusChip.isActive),
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.pfFocusChip.isActive) {
+  border-color: color-mix(in srgb, var(--primary, var(--dang-primary)) 70%, var(--line));
+  background: color-mix(in srgb, var(--primary, var(--dang-primary)) 16%, transparent);
+}
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.textButton) {
+  min-width: 0;
+  min-height: 0;
+  margin-top: var(--space-3);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.textButton):hover:not(:disabled) {
+  background: transparent;
+  color: var(--primary);
+}
+
+@media (max-width: 720px) {
+  button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlNavBtn) {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+}

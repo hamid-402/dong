@@ -903,3 +903,93 @@ a.relatedLink:hover {
     font-size: 0.92rem;
   }
 }
+
+button.crumbLink:global(.dang-btn.dang-btn--ghost.dang-btn--sm),
+button.back:global(.dang-btn.dang-btn--ghost.dang-btn--sm),
+button.linkBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 650;
+  justify-content: flex-start;
+}
+
+button.linkBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  padding: 4px 2px;
+  min-height: 32px;
+  color: var(--primary);
+}
+
+button.crumbLink:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled),
+button.back:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
+  background: none;
+  color: var(--primary);
+}
+
+button.linkBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
+  background: none;
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+button.navBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm),
+button.quietLink:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  justify-content: flex-start;
+}
+
+button.navBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  min-height: 36px;
+  padding: 6px 10px;
+  max-width: min(11rem, 42vw);
+  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+}
+
+button.quietLink:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  min-height: 36px;
+  padding: 6px 8px;
+}
+
+button.navBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled),
+button.quietLink:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
+  background: transparent;
+  color: var(--primary);
+}
+
+button.memberMenuItem:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  text-align: start;
+}
+
+button.memberMenuItem:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--text);
+}

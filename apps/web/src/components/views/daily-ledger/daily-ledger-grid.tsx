@@ -3,7 +3,8 @@
 import { useMemo } from "react";
 import type { DailyLedgerItem, DailyLedgerResponse } from "@dang/contracts";
 import { formatJalaliIso, weekdayFaSatFirst } from "@dang/contracts";
-import { Amount, useConfirm } from "@dang/ui";
+import { Amount, Button, useConfirm } from "@dang/ui";
+import "./daily-ledger-buttons.module.css";
 import { StatusPill } from "@/components/ui-blocks";
 import {
   RowSelectCheckbox,
@@ -166,21 +167,24 @@ export function DailyLedgerGrid({
           selectedCount={selection.selectedCount}
           onClear={selection.clear}
         >
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="secondary"
             disabled={selection.selectedCount !== 1 || pending}
             onClick={editSelected}
           >
             ویرایش
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className={selStyles.danger}
+            size="sm"
+            variant="danger"
             disabled={selection.selectedCount === 0 || pending}
             onClick={deleteSelected}
           >
             حذف
-          </button>
+          </Button>
         </SelectionActionBar>
       ) : null}
       {viewMode === "cards" ? (
@@ -204,14 +208,16 @@ export function DailyLedgerGrid({
                   {weekdayFaSatFirst(row.weekday)}
                 </span>
                 {onSelectDay ? (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     className="dlItemBtn"
                     aria-pressed={selectedDate === row.date}
                     onClick={() => onSelectDay(row.date)}
                   >
                     جزئیات
-                  </button>
+                  </Button>
                 ) : null}
               </header>
               <DailyLedgerDepositStrip
@@ -240,8 +246,10 @@ export function DailyLedgerGrid({
                           />
                         ))}
                         {!readOnly ? (
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="sm"
                             className="dlAdd"
                             onClick={() =>
                               onOpenDraft({
@@ -253,7 +261,7 @@ export function DailyLedgerGrid({
                             }
                           >
                             + کالا
-                          </button>
+                          </Button>
                         ) : null}
                       </div>
                     );
@@ -271,23 +279,27 @@ export function DailyLedgerGrid({
                       />
                     ))}
                     {!readOnly ? (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         className="dlAdd"
                         onClick={() => onOpenDraft({ kind: "shared", date: row.date })}
                       >
                         + مشترک
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                   {!readOnly && onOpenDeposit ? (
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       className="dlAdd dlDepositAdd"
                       onClick={() => onOpenDeposit(row.date)}
                     >
                       + واریز به صندوق
-                    </button>
+                    </Button>
                   ) : null}
                   <footer>
                     جمع مصرف: <Amount irrMinor={row.dayTotal.amountMinor} />
@@ -355,13 +367,15 @@ export function DailyLedgerGrid({
                     onOpenDeposit &&
                     !row.isHoliday &&
                     !row.isRangeLocked ? (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         className="dlAdd dlDepositAdd"
                         onClick={() => onOpenDeposit(row.date)}
                       >
                         + واریز
-                      </button>
+                      </Button>
                     ) : null}
                   </td>
                   {ledger.members.map((m) => {
@@ -385,8 +399,10 @@ export function DailyLedgerGrid({
                               />
                             ))}
                             {!readOnly ? (
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="sm"
                                 className="dlAdd"
                                 onClick={() =>
                                   onOpenDraft({
@@ -398,7 +414,7 @@ export function DailyLedgerGrid({
                                 }
                               >
                                 + کالا
-                              </button>
+                              </Button>
                             ) : null}
                           </div>
                         )}
@@ -423,8 +439,10 @@ export function DailyLedgerGrid({
                           />
                         ))}
                         {!readOnly ? (
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="sm"
                             className="dlAdd"
                             onClick={() =>
                               onOpenDraft({
@@ -434,7 +452,7 @@ export function DailyLedgerGrid({
                             }
                           >
                             + مشترک
-                          </button>
+                          </Button>
                         ) : null}
                       </div>
                     )}
@@ -452,13 +470,15 @@ export function DailyLedgerGrid({
                         {row.note?.trim() || (row.isHoliday ? "تعطیل" : "—")}
                       </span>
                     ) : (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         className="dlNoteBtn"
                         onClick={() => onEditNote(row.date, row.note ?? "")}
                       >
                         {row.note?.trim() || (row.isHoliday ? "تعطیل" : "…")}
-                      </button>
+                      </Button>
                     )}
                   </td>
                   <td>
@@ -469,8 +489,10 @@ export function DailyLedgerGrid({
                         <span className="dlStatusNormal">عادی</span>
                       )
                     ) : (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         className="dlHolidayBtn"
                         onClick={() => onToggleHoliday(row.date, row.isHoliday)}
                         disabled={pending}
@@ -480,19 +502,21 @@ export function DailyLedgerGrid({
                         ) : (
                           <span className="dlStatusNormal">عادی — کلیک برای تعطیل</span>
                         )}
-                      </button>
+                      </Button>
                     )}
                   </td>
                   {onSelectDay ? (
                     <td>
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         className="dlItemBtn"
                         aria-pressed={selectedDate === row.date}
                         onClick={() => onSelectDay(row.date)}
                       >
                         جزئیات
-                      </button>
+                      </Button>
                     </td>
                   ) : null}
                 </tr>

@@ -8,7 +8,7 @@ import {
   sumDayFundDeposits,
   weekdayFaSatFirst,
 } from "@dang/contracts";
-import { Amount } from "@dang/ui";
+import { Amount, Button } from "@dang/ui";
 import { EmptyHint, StatusPill } from "@/components/ui-blocks";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import styles from "./daily-ledger-overview-table.module.css";
@@ -248,10 +248,10 @@ export function DailyLedgerOverviewTable({
                   }}
                 >
                   <td>
-                    <button
+                    <Button
                       type="button"
                       className={styles.dayBtn}
-                      onClick={() => onOpenDay(row.date)}
+                      variant="ghost" size="sm" onClick={() => onOpenDay(row.date)}
                       tabIndex={narrow ? -1 : undefined}
                     >
                       <span className={styles.weekday}>
@@ -259,7 +259,7 @@ export function DailyLedgerOverviewTable({
                       </span>
                       <span className={styles.jalali}>{formatJalaliIso(row.date)}</span>
                       {isToday ? <span className={styles.todayMark}>امروز</span> : null}
-                    </button>
+                    </Button>
                     {noteHint ? (
                       <span className={styles.noteHint} title={noteHint}>
                         {noteHint.length > 36 ? `${noteHint.slice(0, 36)}…` : noteHint}
@@ -268,19 +268,19 @@ export function DailyLedgerOverviewTable({
                   </td>
                   <td>
                     {onToggleHoliday && !row.isRangeLocked ? (
-                      <button
+                      <Button
                         type="button"
                         className={styles.statusBtn}
                         disabled={pending}
                         tabIndex={narrow ? -1 : undefined}
-                        onClick={(e) => {
+                        variant="ghost" size="sm" onClick={(e) => {
                           e.stopPropagation();
                           onToggleHoliday(row.date, row.isHoliday);
                         }}
                         title="تغییر تعطیلی"
                       >
                         <StatusPill tone={status.tone}>{status.text}</StatusPill>
-                      </button>
+                      </Button>
                     ) : (
                       <StatusPill tone={status.tone}>{status.text}</StatusPill>
                     )}
@@ -313,17 +313,17 @@ export function DailyLedgerOverviewTable({
                     )}
                   </td>
                   <td className={styles.actions}>
-                    <button
+                    <Button
                       type="button"
                       className={styles.detailBtn}
                       tabIndex={narrow ? -1 : undefined}
-                      onClick={(e) => {
+                      variant="ghost" size="sm" onClick={(e) => {
                         e.stopPropagation();
                         onOpenDay(row.date);
                       }}
                     >
                       جزئیات
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               );
@@ -366,10 +366,10 @@ export function DailyLedgerOverviewTable({
                 .filter(Boolean)
                 .join(" ")}
             >
-              <button
+              <Button
                 type="button"
                 className={styles.dayCardMain}
-                onClick={() => onOpenDay(row.date)}
+                variant="ghost" size="sm" onClick={() => onOpenDay(row.date)}
                 tabIndex={!narrow ? -1 : undefined}
               >
                 <div className={styles.dayCardHead}>
@@ -410,27 +410,27 @@ export function DailyLedgerOverviewTable({
                     </span>
                   ) : null}
                 </div>
-              </button>
+              </Button>
               <div className={styles.dayCardActions}>
                 {onToggleHoliday && !row.isRangeLocked ? (
-                  <button
+                  <Button
                     type="button"
                     className={styles.statusBtn}
                     disabled={pending}
                     tabIndex={!narrow ? -1 : undefined}
-                    onClick={() => onToggleHoliday(row.date, row.isHoliday)}
+                    variant="ghost" size="sm" onClick={() => onToggleHoliday(row.date, row.isHoliday)}
                   >
                     {row.isHoliday ? "عادی" : "تعطیل"}
-                  </button>
+                  </Button>
                 ) : null}
-                <button
+                <Button
                   type="button"
                   className={styles.detailBtn}
                   tabIndex={!narrow ? -1 : undefined}
-                  onClick={() => onOpenDay(row.date)}
+                  variant="ghost" size="sm" onClick={() => onOpenDay(row.date)}
                 >
                   جزئیات
-                </button>
+                </Button>
               </div>
             </li>
           );

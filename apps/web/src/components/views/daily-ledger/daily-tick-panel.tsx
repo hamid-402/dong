@@ -494,9 +494,9 @@ export function DailyTickPanel({
           </StatusLine>
         </div>
         {!readOnly && template ? (
-          <button type="button" className={styles.quietBtn} onClick={reloadSuggestions}>
+          <Button type="button" className={styles.quietBtn} onClick={reloadSuggestions} variant="ghost" size="sm">
             بازنشانی پیشنهادها
-          </button>
+          </Button>
         ) : null}
       </header>
 
@@ -509,14 +509,13 @@ export function DailyTickPanel({
             idleHint="روی ردیف کلیک کنید یا مربع انتخاب کنارش را تیک بزنید (جدا از تیک مصرف)"
             onClear={sharedSelection.clear}
           >
-            <button
+            <Button
               type="button"
-              className={selStyles.danger}
               disabled={sharedSelection.selectedCount === 0 || pending || submitting}
               onClick={removeSharedSelected}
-            >
+             size="sm" variant="danger">
               حذف
-            </button>
+            </Button>
           </SelectionActionBar>
         ) : null}
         <ul className={styles.sharedList}>
@@ -552,12 +551,12 @@ export function DailyTickPanel({
                 <span>{row.itemName}</span>
               </label>
               <div className={styles.qtyGroup}>
-                <button
+                <Button
                   type="button"
                   className={styles.qty}
                   disabled={readOnly || !row.checked || row.quantity <= 1}
                   aria-label={`کم کردن تعداد ${row.itemName}`}
-                  onClick={() => {
+                  variant="ghost" size="sm" onClick={() => {
                     const next = shared.slice();
                     next[index] = {
                       ...row,
@@ -567,37 +566,44 @@ export function DailyTickPanel({
                   }}
                 >
                   −
-                </button>
-                <input
-                  type="number"
-                  className={styles.qtyInput}
-                  min={1}
-                  step="any"
-                  disabled={readOnly || !row.checked}
-                  aria-label={`تعداد ${row.itemName}`}
-                  value={row.quantity}
-                  onChange={(e) => {
-                    const next = shared.slice();
-                    next[index] = {
-                      ...row,
-                      quantity: parsePositiveQuantity(e.target.value, 1),
-                    };
-                    setShared(next);
-                  }}
-                />
-                <button
+                </Button>
+                <div className={styles.qtyField}>
+                  <TextField
+                    label={`تعداد ${row.itemName}`}
+                    type="number"
+                    min={1}
+                    step="any"
+                    disabled={readOnly || !row.checked}
+                    value={String(row.quantity)}
+                    inputMode="decimal"
+                    error={
+                      row.checked && (!Number.isFinite(row.quantity) || row.quantity < 1)
+                        ? "تعداد باید حداقل ۱ باشد"
+                        : undefined
+                    }
+                    onChange={(e) => {
+                      const next = shared.slice();
+                      next[index] = {
+                        ...row,
+                        quantity: parsePositiveQuantity(e.target.value, 1),
+                      };
+                      setShared(next);
+                    }}
+                  />
+                </div>
+                <Button
                   type="button"
                   className={styles.qty}
                   disabled={readOnly || !row.checked}
                   aria-label={`افزایش تعداد ${row.itemName}`}
-                  onClick={() => {
+                  variant="ghost" size="sm" onClick={() => {
                     const next = shared.slice();
                     next[index] = { ...row, quantity: row.quantity + 1 };
                     setShared(next);
                   }}
                 >
                   +
-                </button>
+                </Button>
                 <span className={styles.unitHint}>{row.unitCode}</span>
               </div>
               <Amount
@@ -645,14 +651,13 @@ export function DailyTickPanel({
                 idleHint="روی عنوان ستون کلیک کنید یا مربع کنارش را تیک بزنید"
                 onClear={colSelection.clear}
               >
-                <button
+                <Button
                   type="button"
-                  className={selStyles.danger}
                   disabled={colSelection.selectedCount === 0 || pending || submitting}
                   onClick={removePersonalColsSelected}
-                >
+                 size="sm" variant="danger">
                   حذف ستون
-                </button>
+                </Button>
               </SelectionActionBar>
             ) : null}
             <table className={styles.matrix}>
@@ -693,14 +698,15 @@ export function DailyTickPanel({
                       const qty = ticks[member.userId]?.[col.catalogItemId] ?? 0;
                       return (
                         <td key={col.catalogItemId}>
-                          <input
+                          <div className={styles.qtyField}>
+                          <TextField
+                            label={`${member.displayName} · ${col.itemName} · تعداد`}
                             type="number"
-                            className={styles.qtyInput}
                             min={0}
                             step="any"
-                            aria-label={`${member.displayName} · ${col.itemName} · تعداد`}
-                            value={qty || ""}
+                            value={qty ? String(qty) : ""}
                             placeholder="0"
+                            inputMode="decimal"
                             disabled={readOnly || pending || submitting}
                             onChange={(e) => {
                               const raw = e.target.value.trim();
@@ -721,6 +727,7 @@ export function DailyTickPanel({
                               });
                             }}
                           />
+                          </div>
                         </td>
                       );
                     })}
@@ -759,6 +766,9 @@ export function DailyTickPanel({
               label="نام"
               value={freeName}
               onChange={(e) => setFreeName(e.target.value)}
+              error={
+                freeToman.trim() && !freeName.trim() ? "نام قلم را بنویسید" : undefined
+              }
             />
             <TextField
               label="تعداد"
@@ -766,23 +776,38 @@ export function DailyTickPanel({
               value={freeQuantity}
               onChange={(e) => setFreeQuantity(e.target.value)}
               placeholder="1"
+              error={
+                freeQuantity.trim() &&
+                !(Number(freeQuantity.replaceAll(",", "")) > 0)
+                  ? "تعداد معتبر نیست"
+                  : undefined
+              }
             />
             <TextField
               label={moneyFieldLabel("مبلغ واحد", displayUnit)}
               value={freeToman}
               onChange={(e) => setFreeToman(e.target.value)}
+              inputMode="decimal"
+              error={
+                freeName.trim() && !freeToman.trim()
+                  ? "مبلغ واحد را بنویسید"
+                  : freeToman.trim() && !displayInputToIrrMinor(freeToman, displayUnit)
+                    ? "مبلغ معتبر نیست"
+                    : undefined
+              }
             />
-            <label className={styles.freeMember}>
-              ستون
-              <select value={freeMember} onChange={(e) => setFreeMember(e.target.value)}>
-                <option value="shared">هزینه مشترک</option>
-                {members.map((m) => (
-                  <option key={m.userId} value={m.userId}>
-                    {m.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SelectField
+              label="ستون"
+              value={freeMember}
+              onChange={(e) => setFreeMember(e.target.value)}
+            >
+              <option value="shared">هزینه مشترک</option>
+              {members.map((m) => (
+                <option key={m.userId} value={m.userId}>
+                  {m.displayName}
+                </option>
+              ))}
+            </SelectField>
           </FormStack>
         </details>
       ) : null}

@@ -6,7 +6,7 @@ import type {
   DailyLedgerFundDeposit,
   DailyLedgerMemberColumn,
 } from "@dang/contracts";
-import { Amount } from "@dang/ui";
+import { Amount, Button } from "@dang/ui";
 import {
   memberDayDepositCreditMinor,
   memberDayShareMinor,
@@ -146,14 +146,14 @@ export function DailyLedgerSharePanel({
           const hasDeposit = row.share.depositCredit !== "0";
           return (
             <li key={row.userId} className={styles.listItem}>
-              <button
+              <Button
                 type="button"
                 role="option"
                 aria-selected={selectedRow}
                 className={
                   selectedRow ? `${styles.rowBtn} ${styles.rowBtnSelected}` : styles.rowBtn
                 }
-                onClick={() => setSelectedUserId(row.userId)}
+                variant="ghost" size="sm" onClick={() => setSelectedUserId(row.userId)}
               >
                 <span className={styles.avatar} aria-hidden>
                   {memberInitials(row.displayName)}
@@ -180,7 +180,7 @@ export function DailyLedgerSharePanel({
                     style={{ ["--share-pct" as string]: `${barPct}%` }}
                   />
                 </span>
-              </button>
+              </Button>
             </li>
           );
         })}

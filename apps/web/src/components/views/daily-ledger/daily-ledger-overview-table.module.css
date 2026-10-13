@@ -417,3 +417,67 @@
     width: 100%;
   }
 }
+
+button.dayBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm),
+button.dayCardMain:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 6px 10px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: start;
+}
+
+button.dayCardMain:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  display: grid;
+  gap: 8px;
+}
+
+button.dayBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled),
+button.dayCardMain:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
+  background: none;
+  color: inherit;
+}
+
+button.statusBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm),
+button.detailBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  min-width: 0;
+  min-height: 36px;
+  margin: 0;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  justify-content: flex-start;
+}
+
+button.statusBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+}
+
+button.detailBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+}
+
+button.detailBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--text);
+}

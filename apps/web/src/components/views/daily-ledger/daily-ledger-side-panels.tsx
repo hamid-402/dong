@@ -7,7 +7,18 @@ import type {
   WorkspaceBalancesResponse,
 } from "@dang/contracts";
 import { suggestMinimalSettlements, settlementEdgeLabelFa } from "@dang/contracts";
-import { Amount, Button, displayUnitLabel, formatMoneyFromIrrMinor, useConfirm } from "@dang/ui";
+import {
+  Amount,
+  Button,
+  MoneyInput,
+  SelectField,
+  TextField,
+  displayUnitLabel,
+  formatMoneyFromIrrMinor,
+  useConfirm,
+} from "@dang/ui";
+import "./daily-ledger-buttons.module.css";
+import styles from "./daily-ledger-side-panels.module.css";
 import { EmptyHint, StatusLine } from "@/components/ui-blocks";
 import {
   RowSelectCheckbox,
@@ -142,15 +153,17 @@ export function DailyLedgerSidePanels({
                     </span>
                     <Amount irrMinor={s.amount.amountMinor} />
                     {!readOnly ? (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         className="textButton"
                         onClick={() => {
                           void navigator.clipboard.writeText(shareText);
                         }}
                       >
                         کپی
-                      </button>
+                      </Button>
                     ) : null}
                   </li>
                 );
@@ -182,22 +195,20 @@ export function DailyLedgerSidePanels({
               {NAV_LABELS.dailyEntry} است، نه مسیر سوم.
             </StatusLine>
             {onSheetSourceChange ? (
-              <label style={{ display: "grid", gap: 4, marginBottom: 8 }}>
-                <span>منبع برگه Excel</span>
-                <select
-                  value={sheetSource}
-                  onChange={(e) =>
-                    onSheetSourceChange(
-                      e.target.value as "auto" | "master" | "members",
-                    )
-                  }
-                  disabled={pending}
-                >
-                  <option value="auto">خودکار (جدول عمومی اگر باشد)</option>
-                  <option value="master">فقط جدول عمومی</option>
-                  <option value="members">فقط برگه‌های عضو</option>
-                </select>
-              </label>
+              <SelectField
+                label="منبع برگه Excel"
+                value={sheetSource}
+                onChange={(e) =>
+                  onSheetSourceChange(
+                    e.target.value as "auto" | "master" | "members",
+                  )
+                }
+                disabled={pending}
+              >
+                <option value="auto">خودکار (جدول عمومی اگر باشد)</option>
+                <option value="master">فقط جدول عمومی</option>
+                <option value="members">فقط برگه‌های عضو</option>
+              </SelectField>
             ) : null}
             <textarea
               className="dlImportArea"
@@ -208,7 +219,7 @@ export function DailyLedgerSidePanels({
                 "ردیف\tروز\tتاریخ\tحمید\tقیمت\tشرکت\tقیمت6\tجمع\n1\tپنجشنبه\t1405/06/12\tچای\t5000\tنان\t20000\t25000"
               }
             />
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <div className={styles.importActions}>
               <Button
                 type="button"
                 onClick={onRunImport}
@@ -242,7 +253,7 @@ export function DailyLedgerSidePanels({
             </div>
 
             {importPreview.length > 0 ? (
-              <div style={{ marginTop: 12, overflowX: "auto" }}>
+              <div className={styles.previewWrap}>
                 <StatusLine>
                   پیش‌نمایش قابل ویرایش — سلول‌ها را اصلاح کنید؛ تا تأیید، چیزی ثبت نمی‌شود
                 </StatusLine>
@@ -252,17 +263,18 @@ export function DailyLedgerSidePanels({
                     idleHint="روی ردیف کلیک کنید یا مربع کنارش را تیک بزنید"
                     onClear={previewSelection.clear}
                   >
-                    <button
+                    <Button
                       type="button"
-                      className={selStyles.danger}
+                      size="sm"
+                      variant="danger"
                       disabled={previewSelection.selectedCount === 0 || pending}
                       onClick={deletePreviewSelected}
                     >
                       حذف
-                    </button>
+                    </Button>
                   </SelectionActionBar>
                 ) : null}
-                <table className="dlPreviewTable" style={{ width: "100%", fontSize: "0.875rem" }}>
+                <table className={`dlPreviewTable ${styles.previewTable}`}>
                   <thead>
                     <tr>
                       {onImportPreviewChange ? <th scope="col" /> : null}
@@ -298,63 +310,68 @@ export function DailyLedgerSidePanels({
                             />
                           </td>
                         ) : null}
-                        <td>
-                          <input
+                        <td className={styles.previewCell}>
+                          <TextField
+                            label="تاریخ"
                             value={row.date}
                             disabled={pending || !onImportPreviewChange}
+                            error={!row.date.trim() ? "تاریخ را بنویسید" : undefined}
                             onChange={(e) => {
                               if (!onImportPreviewChange) return;
                               const next = [...importPreview];
                               next[i] = { ...row, date: e.target.value };
                               onImportPreviewChange(next);
                             }}
-                            style={{ width: "7.5rem" }}
                           />
                         </td>
-                        <td>
-                          <input
+                        <td className={styles.previewCell}>
+                          <TextField
+                            label="ستون"
                             value={row.column}
                             disabled={pending || !onImportPreviewChange}
+                            error={!row.column.trim() ? "ستون را بنویسید" : undefined}
                             onChange={(e) => {
                               if (!onImportPreviewChange) return;
                               const next = [...importPreview];
                               next[i] = { ...row, column: e.target.value };
                               onImportPreviewChange(next);
                             }}
-                            style={{ width: "6rem" }}
                           />
                         </td>
-                        <td>
-                          <input
+                        <td className={styles.previewCell}>
+                          <TextField
+                            label="قلم"
                             value={row.itemName}
                             disabled={pending || !onImportPreviewChange}
+                            error={!row.itemName.trim() ? "نام قلم را بنویسید" : undefined}
                             onChange={(e) => {
                               if (!onImportPreviewChange) return;
                               const next = [...importPreview];
                               next[i] = { ...row, itemName: e.target.value };
                               onImportPreviewChange(next);
                             }}
-                            style={{ minWidth: "6rem", width: "100%" }}
                           />
                         </td>
-                        <td>
-                          <input
-                            type="number"
-                            min={1}
-                            value={previewAmountToDisplay(row.amountToman)}
+                        <td className={styles.previewCell}>
+                          <MoneyInput
+                            id={`ledger-preview-amount-${i}`}
+                            label={unitLabel}
+                            value={String(previewAmountToDisplay(row.amountToman) || "")}
                             disabled={pending || !onImportPreviewChange}
-                            onChange={(e) => {
+                            error={
+                              previewAmountToDisplay(row.amountToman) < 1
+                                ? "مبلغ معتبر نیست"
+                                : undefined
+                            }
+                            onValueChange={(next) => {
                               if (!onImportPreviewChange) return;
-                              const next = [...importPreview];
-                              next[i] = {
+                              const updated = [...importPreview];
+                              updated[i] = {
                                 ...row,
-                                amountToman: displayToPreviewAmountToman(
-                                  Number(e.target.value) || 1,
-                                ),
+                                amountToman: displayToPreviewAmountToman(Number(next) || 1),
                               };
-                              onImportPreviewChange(next);
+                              onImportPreviewChange(updated);
                             }}
-                            style={{ width: "5.5rem" }}
                           />
                         </td>
                         <td>{row.resolved}</td>
@@ -366,25 +383,18 @@ export function DailyLedgerSidePanels({
             ) : null}
 
             {unmappedColumns.length > 0 && onColumnMapChange ? (
-              <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+              <div className={styles.mapList}>
                 <StatusLine>
                   این ستون‌ها عضو متناظر ندارند — عضو، «مشترک» یا «رد» را انتخاب کنید.
                 </StatusLine>
                 {unmappedColumns.map((col) => (
-                  <label
-                    key={col}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "minmax(6rem, 1fr) minmax(8rem, 1.4fr)",
-                      gap: 8,
-                      alignItems: "center",
-                    }}
-                  >
-                    <span>{col}</span>
-                    <select
+                  <div key={col} className={styles.mapRow}>
+                    <SelectField
+                      label={col}
                       value={columnMap[col] ?? ""}
                       onChange={(e) => onColumnMapChange(col, e.target.value)}
                       disabled={pending}
+                      error={!columnMap[col]?.trim() ? "عضو، مشترک یا رد را انتخاب کنید" : undefined}
                     >
                       <option value="">— انتخاب —</option>
                       <option value="shared">هزینه مشترک</option>
@@ -394,14 +404,14 @@ export function DailyLedgerSidePanels({
                           {m.displayName}
                         </option>
                       ))}
-                    </select>
-                  </label>
+                    </SelectField>
+                  </div>
                 ))}
               </div>
             ) : null}
 
             {canCommit ? (
-              <div style={{ marginTop: 12 }}>
+              <div className={styles.commit}>
                 <Button
                   type="button"
                   onClick={onConfirmMappedImport}

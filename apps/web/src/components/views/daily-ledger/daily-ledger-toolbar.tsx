@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import type { DailyLedgerRangePreset, WorkspaceSummary } from "@dang/contracts";
-import { Button, SelectField } from "@dang/ui";
+import { Button, SelectField, TextField } from "@dang/ui";
+import "./daily-ledger-buttons.module.css";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import { rangeHeadline } from "@/components/views/daily-ledger/daily-ledger-utils";
 
@@ -79,20 +80,26 @@ export function DailyLedgerToolbar({
       <div className="dlToolbarActions">
         {viewMode != null && onSelectViewMode ? (
           <div className="dlPresets" role="group" aria-label="نمایش">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               className={viewMode === "table" ? "focusChip pfFocusChip isActive" : "focusChip pfFocusChip"}
+              aria-pressed={viewMode === "table"}
               onClick={() => onSelectViewMode("table")}
             >
               جدول
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               className={viewMode === "cards" ? "focusChip pfFocusChip isActive" : "focusChip pfFocusChip"}
+              aria-pressed={viewMode === "cards"}
               onClick={() => onSelectViewMode("cards")}
             >
               کارت
-            </button>
+            </Button>
           </div>
         ) : null}
         <Button type="button" onClick={onExportCsv} disabled={!workspaceId || !hasLedger}>
@@ -104,9 +111,9 @@ export function DailyLedgerToolbar({
       </div>
 
       <div className="dlPeriodNav" role="group" aria-label="جابه‌جایی بازه">
-        <button type="button" className="dlNavBtn" onClick={() => onShiftPeriod(-1)} aria-label="بازه قبل">
+        <Button type="button" variant="ghost" size="sm" className="dlNavBtn" onClick={() => onShiftPeriod(-1)} aria-label="بازه قبل">
           ›
-        </button>
+        </Button>
         <div className="dlPeriodMeta">
           <strong>{rangeHeadline(from, to, preset)}</strong>
           <span>
@@ -119,12 +126,12 @@ export function DailyLedgerToolbar({
                   : `${Math.max(1, Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1)} روز`}
           </span>
         </div>
-        <button type="button" className="dlNavBtn" onClick={() => onShiftPeriod(1)} aria-label="بازه بعد">
+        <Button type="button" variant="ghost" size="sm" className="dlNavBtn" onClick={() => onShiftPeriod(1)} aria-label="بازه بعد">
           ‹
-        </button>
-        <button type="button" className="focusChip pfFocusChip" onClick={onGoToday}>
+        </Button>
+        <Button type="button" variant="ghost" size="sm" className="focusChip pfFocusChip" onClick={onGoToday}>
           برو به امروز
-        </button>
+        </Button>
       </div>
 
       <div className="dlPresets" role="group" aria-label="بازه">
@@ -136,34 +143,45 @@ export function DailyLedgerToolbar({
             ["year", "سال"],
           ] as const
         ).map(([id, label]) => (
-          <button
+          <Button
             key={id}
             type="button"
+            variant="ghost"
+            size="sm"
             className={preset === id ? "focusChip pfFocusChip isActive" : "focusChip pfFocusChip"}
+            aria-pressed={preset === id}
             onClick={() => onApplyPreset(id)}
           >
             {label}
-          </button>
+          </Button>
         ))}
-        <label className={preset === "days" ? "dlDaysChip isActive" : "dlDaysChip"}>
-          <span>آخر</span>
-          <input
-            type="number"
-            min={1}
-            max={93}
-            value={daysCount}
-            onChange={(e) => onApplyDaysCount(Number(e.target.value))}
-            aria-label="تعداد روز"
-          />
-          <span>روز</span>
-        </label>
-        <button
+        <TextField
+          label="تعداد روز"
+          type="number"
+          min={1}
+          max={93}
+          value={String(daysCount)}
+          inputMode="numeric"
+          error={
+            !Number.isFinite(daysCount) || daysCount < 1 || daysCount > 93
+              ? "بین ۱ تا ۹۳ روز"
+              : undefined
+          }
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (Number.isFinite(n)) onApplyDaysCount(n);
+          }}
+        />
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           className={showCustomRange || preset === "custom" ? "focusChip pfFocusChip isActive" : "focusChip pfFocusChip"}
+          aria-pressed={showCustomRange || preset === "custom"}
           onClick={onToggleCustomRange}
         >
           بازه دستی
-        </button>
+        </Button>
       </div>
 
       {showCustomRange || preset === "custom" ? (

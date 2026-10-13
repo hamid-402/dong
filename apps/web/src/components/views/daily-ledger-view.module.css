@@ -58,6 +58,14 @@
   margin: 0;
 }
 
+.trendBar {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dang-primary) 55%, transparent);
+  max-width: 100%;
+  width: var(--trend-pct, 0%);
+}
+
 .masterDetail {
   display: none;
 }

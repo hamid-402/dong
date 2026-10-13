@@ -281,15 +281,15 @@ export function DailyLedgerDayView({
     <div className={styles.root} aria-label={`جزئیات ${formatJalaliIso(day.date)}`}>
       <header className={styles.stickyBar}>
         <nav className={styles.crumb} aria-label="مسیر دفتر">
-          <button type="button" className={styles.crumbLink} onClick={onBack}>
+          <Button type="button" className={styles.crumbLink} onClick={onBack} variant="ghost" size="sm">
             دفتر
-          </button>
+          </Button>
           <span className={styles.crumbSep} aria-hidden>
             ‹
           </span>
-          <button type="button" className={styles.crumbLink} onClick={onBack}>
+          <Button type="button" className={styles.crumbLink} onClick={onBack} variant="ghost" size="sm">
             {rangeLabel?.trim() || "خلاصه بازه"}
-          </button>
+          </Button>
           <span className={styles.crumbSep} aria-hidden>
             ‹
           </span>
@@ -299,14 +299,14 @@ export function DailyLedgerDayView({
         </nav>
 
         <div className={styles.barTop}>
-          <button
+          <Button
             type="button"
             className={styles.back}
             onClick={onBack}
             aria-label="بازگشت به خلاصه بازه"
-          >
+           variant="ghost" size="sm">
             بازگشت به خلاصه بازه
-          </button>
+          </Button>
           <div className={styles.titleBlock}>
             <h2 className={styles.title}>
               {weekdayFaSatFirst(day.weekday)} · {formatJalaliIso(day.date)}
@@ -314,11 +314,11 @@ export function DailyLedgerDayView({
             <StatusPill tone={status.tone}>{status.text}</StatusPill>
           </div>
           <div className={styles.daySwitch} role="group" aria-label="جابه‌جایی روز">
-            <button
+            <Button
               type="button"
               className={styles.navBtn}
               disabled={!resolvedPrev}
-              onClick={() => resolvedPrev && onGoDate?.(resolvedPrev.date)}
+              variant="ghost" size="sm" onClick={() => resolvedPrev && onGoDate?.(resolvedPrev.date)}
               aria-label={
                 resolvedPrev
                   ? `روز قبل: ${neighborLabel(resolvedPrev, "قبل")}`
@@ -326,12 +326,12 @@ export function DailyLedgerDayView({
               }
             >
               {resolvedPrev ? neighborLabel(resolvedPrev, "قبل") : "قبل"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               className={styles.navBtn}
               disabled={!resolvedNext}
-              onClick={() => resolvedNext && onGoDate?.(resolvedNext.date)}
+              variant="ghost" size="sm" onClick={() => resolvedNext && onGoDate?.(resolvedNext.date)}
               aria-label={
                 resolvedNext
                   ? `روز بعد: ${neighborLabel(resolvedNext, "بعد")}`
@@ -339,7 +339,7 @@ export function DailyLedgerDayView({
               }
             >
               {resolvedNext ? neighborLabel(resolvedNext, "بعد") : "بعد"}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -399,11 +399,11 @@ export function DailyLedgerDayView({
                       >
                         {orderedMembers.map((m) => (
                           <li key={m.userId} role="none">
-                            <button
+                            <Button
                               type="button"
                               role="menuitem"
                               className={styles.memberMenuItem}
-                              onClick={() => openIndividualFor(m)}
+                              variant="ghost" size="sm" onClick={() => openIndividualFor(m)}
                             >
                               {m.displayName}
                               {m.userId === preferMemberUserId ? (
@@ -413,7 +413,7 @@ export function DailyLedgerDayView({
                               m.userId !== preferMemberUserId ? (
                                 <span className={styles.memberHint}>آخرین</span>
                               ) : null}
-                            </button>
+                            </Button>
                           </li>
                         ))}
                       </ul>
@@ -432,22 +432,22 @@ export function DailyLedgerDayView({
                 ) : null}
               </>
             ) : null}
-            <button
+            <Button
               type="button"
               className={styles.quietLink}
               onClick={onEditNote}
               disabled={pending}
-            >
+             variant="ghost" size="sm">
               یادداشت
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               className={styles.quietLink}
               onClick={onToggleHoliday}
               disabled={pending || day.isRangeLocked}
-            >
+             variant="ghost" size="sm">
               {day.isHoliday ? "عادی کردن" : "تعطیل"}
-            </button>
+            </Button>
           </div>
         ) : null}
 
@@ -508,21 +508,20 @@ export function DailyLedgerDayView({
                   selectedCount={selection.selectedCount}
                   onClear={selection.clear}
                 >
-                  <button
+                  <Button
                     type="button"
                     disabled={selection.selectedCount !== 1 || pending}
                     onClick={editSelected}
                   >
                     ویرایش
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className={selStyles.danger}
                     disabled={selection.selectedCount === 0 || pending}
                     onClick={deleteSelected}
-                  >
+                   size="sm" variant="danger">
                     حذف
-                  </button>
+                  </Button>
                 </SelectionActionBar>
               ) : null}
               <div
@@ -715,9 +714,9 @@ export function DailyLedgerDayView({
             <div className={styles.panelHead}>
               <h3 className={styles.panelTitle}>واریز صندوق</h3>
               {!readOnly && canDeposit && onOpenDeposit && !closed ? (
-                <button type="button" className={styles.linkBtn} onClick={onOpenDeposit}>
+                <Button type="button" className={styles.linkBtn} onClick={onOpenDeposit} variant="ghost" size="sm">
                   +
-                </button>
+                </Button>
               ) : null}
             </div>
             {(day.fundDeposits ?? []).length ? (
