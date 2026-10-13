@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { CostCenterSummary, ExpensePeriodSummary, MembershipSummary, PettyCashFundSummary, SessionSummary, SpaceKind, SplitMethod } from "@dang/contracts";
 import { pettyCashAllowedForKind, treasuryLabelsForKind } from "@dang/contracts";
-import { Button, SelectField, TextField, useConfirm } from "@dang/ui";
+import { Button, MoneyInput, SelectField, TextField, useConfirm } from "@dang/ui";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import {
   SplitComposer,
@@ -27,7 +27,7 @@ import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { displayInputToIrrMinor, irrMinorToDisplayInput } from "@/lib/irr-money";
 import { BankSmsPaste } from "@/components/bank-sms-paste";
 import { useDisplayUnit } from "@/lib/display-unit";
-import { moneyFieldLabel, moneyUnitSuffix } from "@/lib/money-labels";
+import { moneyUnitSuffix } from "@/lib/money-labels";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import type { OfflineExpenseDraft } from "@/lib/offline-drafts";
 import { formatMoneyFromIrrMinor } from "@dang/ui";
@@ -155,27 +155,13 @@ export function ExpenseFormPanel({
 }: ExpenseFormPanelProps) {
   const confirm = useConfirm();
   const displayUnit = useDisplayUnit();
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [amountError, setAmountError] = useState<string | null>(null);
   const [fromLedger, setFromLedger] = useState(false);
   useEffect(() => {
     setFromLedger(readFromLedgerFromUrl());
   }, []);
   const unitLabel = moneyUnitSuffix(displayUnit);
-  // Expense form progress (dong-50 #17) — derived from real form state, not fake steps.
-  const amountStepDone =
-    split.splitMethod === "itemized"
-      ? Boolean(amountToman)
-      : Boolean(displayInputToIrrMinor(amountToman, displayUnit));
-  const splitStepDone =
-    split.visibility === "private" || split.participantUserIds.length > 0;
-  const titleStepDone = Boolean(title.trim());
-  const confirmStepReady = titleStepDone && amountStepDone && splitStepDone;
-  const expenseStep = !amountStepDone || !titleStepDone ? 1 : !splitStepDone ? 2 : 3;
-  const stepHint =
-    expenseStep === 1
-      ? "گام ۱: عنوان و مبلغ را مشخص کنید"
-      : expenseStep === 2
-        ? "گام ۲: نحوهٔ تقسیم بین اعضا را انتخاب کنید"
-        : "گام ۳: ثبت کنید تا روی مانده اعمال شود";
   const showSharedFunding =
     Boolean(spaceKind == null || pettyCashAllowedForKind(spaceKind)) &&
     (pettyCashFunds.length > 0 || members.length > 0) &&
@@ -192,6 +178,23 @@ export function ExpenseFormPanel({
     draftSelection.selectedCount === 1
       ? (offlineDrafts.find((d) => d.id === draftSelection.selectedIds[0]) ?? null)
       : null;
+
+  function submitExpense() {
+    const missingTitle = !title.trim();
+    const missingAmount =
+      split.splitMethod !== "itemized" && !displayInputToIrrMinor(amountToman, displayUnit);
+    setTitleError(missingTitle ? "شرح را وارد کنید" : null);
+    setAmountError(missingAmount ? `مبلغ معتبر وارد کنید (${unitLabel})` : null);
+    if (missingTitle) {
+      document.getElementById("expense-title")?.focus();
+      return;
+    }
+    if (missingAmount) {
+      document.getElementById("expense-amount")?.focus();
+      return;
+    }
+    onCreateExpense();
+  }
 
   return (
     <SectionCard
@@ -231,46 +234,33 @@ export function ExpenseFormPanel({
           ) : null}
         </StatusLine>
       ) : null}
-      <ol className="stepper expenseStepper" aria-label={`مراحل ${NAV_LABELS.fullExpense}`}>
-        {(
-          [
-            [1, "عنوان و مبلغ", amountStepDone && titleStepDone],
-            [2, "تقسیم سهم", splitStepDone && amountStepDone && titleStepDone],
-            [3, "ثبت نهایی", confirmStepReady],
-          ] as Array<[number, string, boolean]>
-        ).map(([num, label, done], idx) => (
-          <li
-            key={num}
-            className="expenseStepper__item"
-            aria-current={expenseStep === num ? "step" : undefined}
-          >
-            {idx > 0 ? <span aria-hidden /> : null}
-            <span className={done ? "step" : "step off"} aria-hidden>
-              {num}
-            </span>
-            <span className="expenseStepper__label">{label}</span>
-          </li>
-        ))}
-      </ol>
-      <StatusLine>{stepHint}</StatusLine>
       <FormStack className="expenseFormWide">
-        <StatusLine>
-          شما پرداخت می‌کنید؛ اعضا سهم را می‌بینند و بعداً از تسویه تأیید/پرداخت می‌کنند.
-          اصلاح خرج ثبت‌شده از فهرست با «برگشت و اصلاح» است (حذف سخت نیست). شارژ تنخواه از
-          مسیر پرداخت‌هاست، نه این فرم.
-        </StatusLine>
+        <p className="flowSentence">
+          مبلغ، شرح، و کسی که پرداخت کرده. سهم بقیه مساوی است مگر جزئیات را باز کنید.
+        </p>
         <TextField
-          label="عنوان"
+          id="expense-title"
+          label="شرح"
           value={title}
-          onChange={(event) => onTitleChange(event.target.value)}
-          hint="مثلاً خرید هفته یا ناهار تیم"
+          onChange={(event) => {
+            setTitleError(null);
+            onTitleChange(event.target.value);
+          }}
+          hint="مثلاً خرید هفته یا ناهار"
+          error={titleError ?? undefined}
+          required
         />
-        <JalaliDateField label="تاریخ خرج" value={expenseDate} onChange={onExpenseDateChange} />
         {split.splitMethod !== "itemized" ? (
-          <TextField
-            label={moneyFieldLabel("مبلغ", displayUnit)}
+          <MoneyInput
+            id="expense-amount"
+            label="مبلغ"
+            displayUnit={displayUnit}
             value={amountToman}
-            onChange={(event) => onAmountTomanChange(event.target.value)}
+            onValueChange={(next) => {
+              setAmountError(null);
+              onAmountTomanChange(next);
+            }}
+            error={amountError ?? undefined}
           />
         ) : (
           <p className="liveHint">
@@ -278,6 +268,42 @@ export function ExpenseFormPanel({
             {amountToman ? ` · ${amountToman} ${unitLabel}` : ""}
           </p>
         )}
+        {requireCostCenter && costCenters.length > 0 && onCostCenterIdChange ? (
+          <SelectField
+            label="مرکز هزینه (اجباری)"
+            value={costCenterId}
+            onChange={(event) => onCostCenterIdChange(event.target.value)}
+          >
+            <option value="">انتخاب کنید…</option>
+            {costCenters.map((center) => (
+              <option key={center.id} value={center.id}>
+                {center.name}
+                {center.code ? ` · ${center.code}` : ""}
+              </option>
+            ))}
+          </SelectField>
+        ) : null}
+        <SplitComposer
+          members={members}
+          totalToman={amountToman}
+          value={split}
+          onChange={onSplitChange}
+          supportsCompany={supportsCompany}
+          currentUserId={session?.actor?.userId}
+          canAssignPrivateToOthers={canAssignPrivateToOthers}
+          onDerivedTotalToman={onAmountTomanChange}
+          workspaceId={workspaceId}
+          catalogEnabled={catalogEnabled}
+          splitPresets={splitPresets}
+          onSavePreset={onSaveSplitPreset}
+          savePresetPending={savePresetPending}
+          allowFormula={allowFormula}
+          compact={!revisingExpenseId}
+        />
+        <details className="reportDetails" open={revisingExpenseId ? true : undefined}>
+          <summary>جزئیات خرج</summary>
+          <div className="reportDetails__body">
+        <JalaliDateField label="تاریخ خرج" value={expenseDate} onChange={onExpenseDateChange} />
         {split.splitMethod !== "itemized" ? (
           <BankSmsPaste
             onApply={(parsed) => {
@@ -353,13 +379,13 @@ export function ExpenseFormPanel({
             })}
           </SelectField>
         </details>
-        {costCenters.length > 0 && onCostCenterIdChange ? (
+        {costCenters.length > 0 && onCostCenterIdChange && !requireCostCenter ? (
           <SelectField
-            label={requireCostCenter ? "مرکز هزینه (اجباری)" : "مرکز هزینه (اختیاری)"}
+            label="مرکز هزینه (اختیاری)"
             value={costCenterId}
             onChange={(event) => onCostCenterIdChange(event.target.value)}
           >
-            <option value="">{requireCostCenter ? "انتخاب کنید…" : "بدون مرکز هزینه"}</option>
+            <option value="">بدون مرکز هزینه</option>
             {costCenters.map((center) => (
               <option key={center.id} value={center.id}>
                 {center.name}
@@ -459,25 +485,11 @@ export function ExpenseFormPanel({
             ) : null}
           </>
         ) : null}
-        <SplitComposer
-          members={members}
-          totalToman={amountToman}
-          value={split}
-          onChange={onSplitChange}
-          supportsCompany={supportsCompany}
-          currentUserId={session?.actor?.userId}
-          canAssignPrivateToOthers={canAssignPrivateToOthers}
-          onDerivedTotalToman={onAmountTomanChange}
-          workspaceId={workspaceId}
-          catalogEnabled={catalogEnabled}
-          splitPresets={splitPresets}
-          onSavePreset={onSaveSplitPreset}
-          savePresetPending={savePresetPending}
-          allowFormula={allowFormula}
-        />
+          </div>
+        </details>
         <div className="expenseFormActions">
-          <Button type="button" onClick={onCreateExpense} disabled={pending}>
-            {revisingExpenseId ? "ثبت اصلاح روی مانده" : "ثبت و اعمال روی مانده"}
+          <Button type="button" onClick={submitExpense} disabled={pending}>
+            {revisingExpenseId ? "ثبت اصلاح روی مانده" : "ثبت خرج"}
           </Button>
           {!revisingExpenseId ? (
             <Button type="button" variant="secondary" onClick={onSaveOfflineDraft} disabled={pending}>
@@ -490,7 +502,12 @@ export function ExpenseFormPanel({
         ) : null}
       </FormStack>
       {offlineDrafts.length > 0 ? (
-        <>
+        <details className="reportDetails">
+          <summary>
+            پیش‌نویس آفلاین
+            {` · ${offlineDrafts.length.toLocaleString("fa-IR")}`}
+          </summary>
+          <div className="reportDetails__body">
           <SelectionActionBar
             selectedCount={draftSelection.selectedCount}
             idleHint="روی ردیف کلیک کنید یا مربع کنار پیش‌نویس را تیک بزنید"
@@ -554,7 +571,8 @@ export function ExpenseFormPanel({
               </div>
             ))}
           </DataList>
-        </>
+          </div>
+        </details>
       ) : null}
     </SectionCard>
   );

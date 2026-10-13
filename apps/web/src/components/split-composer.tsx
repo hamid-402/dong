@@ -2,7 +2,7 @@
 
 import { newClientId } from "@/lib/id";
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import type {
   ExpenseItemInput,
   ExpenseSplitLine,
@@ -82,6 +82,8 @@ type Props = {
   savePresetPending?: boolean;
   /** Show formula (area/occupancy) — building spaces (G08 #29). */
   allowFormula?: boolean;
+  /** Payer + equal summary stay visible; method, shares, and receipt lines sit in details. */
+  compact?: boolean;
 };
 
 function tomanToMinor(toman: string): string | null {
@@ -217,6 +219,24 @@ function buildItemInputs(value: SplitComposerValue): ExpenseItemInput[] {
     });
 }
 
+function SplitAdvanced({
+  compact,
+  simpleEqual,
+  children,
+}: {
+  compact: boolean;
+  simpleEqual: boolean;
+  children: ReactNode;
+}) {
+  if (!compact) return <>{children}</>;
+  return (
+    <details className="reportDetails" open={simpleEqual ? undefined : true}>
+      <summary>جزئیات تقسیم</summary>
+      <div className="reportDetails__body">{children}</div>
+    </details>
+  );
+}
+
 /** UX split composer: equal / amount / itemized (+ percent/shares). */
 export function SplitComposer({
   members,
@@ -234,6 +254,7 @@ export function SplitComposer({
   onSavePreset,
   savePresetPending = false,
   allowFormula = false,
+  compact = false,
 }: Props) {
   const confirm = useConfirm();
   const itemIds = useMemo(() => value.items.map((item) => item.key), [value.items]);
@@ -377,6 +398,14 @@ export function SplitComposer({
     Number.isFinite(totalTomanNum) &&
     totalTomanNum > 0 &&
     Math.round(multiPayerSumToman) === Math.round(totalTomanNum);
+  const simpleEqual =
+    value.splitMethod === "equal" && value.visibility !== "private" && !value.multiPayer;
+  const equalNames = members
+    .filter((member) => value.participantUserIds.includes(member.userId))
+    .map((member) =>
+      member.userId === currentUserId ? `${member.displayName} (شما)` : member.displayName,
+    )
+    .join("، ");
 
   return (
     <div className="splitComposer">
@@ -488,6 +517,16 @@ export function SplitComposer({
         </div>
       ) : null}
 
+      {compact && simpleEqual ? (
+        <p className="flowSentence">
+          {value.participantUserIds.length > 0
+            ? `تقسیم مساوی بین ${value.participantUserIds.length.toLocaleString("fa-IR")} نفر${
+                equalNames ? ` — ${equalNames}` : ""
+              }.`
+            : "سهم مساوی بین اعضای گروه ثبت می‌شود."}
+        </p>
+      ) : null}
+      <SplitAdvanced compact={compact} simpleEqual={simpleEqual}>
       {!personalOnly ? (
         <SelectField
           label="نوع خرج"
@@ -935,6 +974,7 @@ export function SplitComposer({
       ) : personalOnly ? null : (
         <p className="liveHint">برای پیش‌نمایش، مبلغ و اعضا را کامل کنید.</p>
       )}
+      </SplitAdvanced>
     </div>
   );
 }
