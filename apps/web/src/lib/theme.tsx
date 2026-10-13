@@ -23,8 +23,10 @@ import {
 export type { AppMotion };
 export { APP_MOTIONS, isAppMotion };
 
-/** Product themes. Retired ids (dusk, mist, linear) migrate to light. */
-export type AppTheme = "light" | "dark";
+/** Product themes. light → paper, dark → midnight, anything else legacy → paper. */
+export type AppTheme = "white" | "black" | "paper" | "midnight";
+
+export type AppScheme = "light" | "dark";
 
 /** UI density — compact stays available and must not shrink controls under 44px. */
 export type AppDensity = "comfortable" | "compact";
@@ -40,8 +42,10 @@ export const APP_THEMES: ReadonlyArray<{
   caption: string;
   swatch: string;
 }> = [
-  { id: "light", label: "روشن", caption: "کاغذ گرم", swatch: "#F7F4EE" },
-  { id: "dark", label: "تیره", caption: "شب آرام", swatch: "#121614" },
+  { id: "white", label: "سفید", caption: "زمینهٔ خالص", swatch: "#FFFFFF" },
+  { id: "black", label: "مشکی", caption: "مشکی اولد", swatch: "#000000" },
+  { id: "paper", label: "کاغذی", caption: "کاغذ گرم", swatch: "#F7F4EE" },
+  { id: "midnight", label: "سرمه‌ای", caption: "آبی خاکستری", swatch: "#121826" },
 ];
 
 export const APP_DENSITIES: ReadonlyArray<{
@@ -54,9 +58,19 @@ export const APP_DENSITIES: ReadonlyArray<{
 ];
 
 const THEME_COLORS: Record<AppTheme, string> = {
-  light: "#F7F4EE",
-  dark: "#121614",
+  white: "#FFFFFF",
+  black: "#000000",
+  paper: "#F7F4EE",
+  midnight: "#121826",
 };
+
+const THEME_ORDER: readonly AppTheme[] = ["white", "black", "paper", "midnight"];
+
+export const DEFAULT_THEME: AppTheme = "paper";
+
+export function schemeForTheme(theme: AppTheme): AppScheme {
+  return theme === "black" || theme === "midnight" ? "dark" : "light";
+}
 
 type ThemeContextValue = {
   theme: AppTheme;
@@ -71,23 +85,30 @@ type ThemeContextValue = {
   setTheme: (theme: AppTheme) => void;
   setDensity: (density: AppDensity) => void;
   setMotion: (motion: AppMotion) => void;
-  /** Cycles light ↔ dark. */
+  /** Cycles سفید → مشکی → کاغذی → سرمه‌ای. */
   toggleTheme: () => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function isAppTheme(value: string | null | undefined): value is AppTheme {
-  return value === "dark" || value === "light";
+  return (
+    value === "white" ||
+    value === "black" ||
+    value === "paper" ||
+    value === "midnight"
+  );
 }
 
 /**
- * Keep an explicit dark preference. Every other stored value — including
- * retired dusk, mist, and linear — becomes the light default.
- * Must stay in lockstep with the boot script in `app/layout.tsx`.
+ * light → paper, dark → midnight. Current ids pass through.
+ * Every other stored value — including retired dusk, mist, and linear —
+ * becomes paper. Must stay in lockstep with the boot script in `app/layout.tsx`.
  */
 export function migrateStoredTheme(raw: string | null | undefined): AppTheme {
-  return raw === "dark" ? "dark" : "light";
+  if (raw === "dark") return "midnight";
+  if (isAppTheme(raw)) return raw;
+  return "paper";
 }
 
 export function isAppDensity(
@@ -97,14 +118,14 @@ export function isAppDensity(
 }
 
 function readStoredTheme(): AppTheme {
-  if (typeof window === "undefined") return "light";
+  if (typeof window === "undefined") return DEFAULT_THEME;
   try {
     const raw = localStorage.getItem(THEME_KEY);
     const next = migrateStoredTheme(raw);
     if (raw && raw !== next) localStorage.setItem(THEME_KEY, next);
     return next;
   } catch {
-    return "light";
+    return DEFAULT_THEME;
   }
 }
 
@@ -137,6 +158,7 @@ function applyAppearance(
 ) {
   const root = document.documentElement;
   root.setAttribute("data-theme", theme);
+  root.setAttribute("data-scheme", schemeForTheme(theme));
   root.removeAttribute("data-atmosphere");
   root.setAttribute("data-density", density);
   root.setAttribute("data-motion", motion);
@@ -151,7 +173,7 @@ function applyAppearance(
 
 /** Persists theme + density + motion on <html>. */
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<AppTheme>("light");
+  const [theme, setThemeState] = useState<AppTheme>(DEFAULT_THEME);
   const [density, setDensityState] = useState<AppDensity>("comfortable");
   const [motion, setMotionState] = useState<AppMotion>("full");
   const [osReduced, setOsReduced] = useState(false);
@@ -227,7 +249,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggleTheme = useCallback(() => {
-    const next = themeRef.current === "light" ? "dark" : "light";
+    const index = THEME_ORDER.indexOf(themeRef.current);
+    const next = THEME_ORDER[(index + 1) % THEME_ORDER.length] ?? DEFAULT_THEME;
     setTheme(next);
   }, [setTheme]);
 

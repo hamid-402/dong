@@ -1,12 +1,12 @@
 /**
- * axe critical/serious = 0 on the two product themes.
+ * axe critical/serious = 0 on the four product themes.
  * Themes are applied via data-theme on <html> (tokens.css).
  */
 import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-const THEMES = ["light", "dark"] as const;
+const THEMES = ["white", "black", "paper", "midnight"] as const;
 
 async function expectNoCriticalAxe(page: Page) {
   const results = await new AxeBuilder({ page })
@@ -24,7 +24,9 @@ async function expectNoCriticalAxe(page: Page) {
 
 async function setTheme(page: Page, theme: (typeof THEMES)[number]) {
   await page.evaluate((t) => {
+    const scheme = t === "black" || t === "midnight" ? "dark" : "light";
     document.documentElement.setAttribute("data-theme", t);
+    document.documentElement.setAttribute("data-scheme", scheme);
   }, theme);
   await expect
     .poll(async () =>

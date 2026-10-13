@@ -12,7 +12,7 @@ import { useShellV2Api } from "@/components/shell/shell-v2-context";
 const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
 
-/** Appearance dialog — light or dark, plus motion and density. */
+/** Appearance dialog — four themes, plus motion and density. */
 export function ThemeToggleButton({ className = "" }: { className?: string }) {
   const themeApi = useOptionalTheme();
   const shell = useShellV2Api();
@@ -134,7 +134,7 @@ export function ThemeToggleButton({ className = "" }: { className?: string }) {
 
               <section>
                 <p className="appearance-panel__heading">تم رابط</p>
-                <p className="appearance-panel__sub">روشن یا تیره</p>
+                <p className="appearance-panel__sub">سفید، مشکی، کاغذی یا سرمه‌ای</p>
                 <ul
                   className="appearance-theme-grid appearance-theme-grid--wide"
                   role="list"
@@ -231,9 +231,11 @@ export function ThemeToggleButton({ className = "" }: { className?: string }) {
         aria-haspopup="dialog"
         aria-controls={panelId}
       >
-        <span className="theme-toggle__icon" aria-hidden>
-          {theme === "light" ? "◐" : "◑"}
-        </span>
+        <span
+          className="theme-toggle__icon"
+          style={{ background: activeTheme.swatch }}
+          aria-hidden
+        />
       </button>
       {dialog}
     </div>

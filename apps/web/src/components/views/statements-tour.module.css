@@ -3,12 +3,12 @@
   justify-self: start;
   margin-bottom: var(--dang-space-4, 1rem);
   padding: 0.9rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--dang-primary, #57d7c5) 35%, var(--dang-line, rgba(220, 229, 225, 0.11)));
+  border: 1px solid color-mix(in srgb, var(--dang-primary, #1d4ed8) 35%, var(--dang-line, rgba(220, 229, 225, 0.11)));
   border-radius: var(--dang-radius-md, 12px);
   background:
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--dang-primary, #57d7c5) 10%, transparent),
+      color-mix(in srgb, var(--dang-primary, #1d4ed8) 10%, transparent),
       transparent 60%
     ),
     var(--dang-surface-2, #16211e);

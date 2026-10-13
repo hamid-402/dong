@@ -448,15 +448,15 @@
 }
 
 /* Theme text / chips — surface comes from shared .dang-gem */
-:global(html[data-theme="dark"]) .tile::before,
+:global(html[data-scheme="dark"]) .tile::before,
 :global(html[data-theme="dusk"]) .tile::before,
-:global(html[data-theme="dark"]) .tile::after,
+:global(html[data-scheme="dark"]) .tile::after,
 :global(html[data-theme="dusk"]) .tile::after {
   border-color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 55%, transparent);
   opacity: 0.65;
 }
 
-:global(html[data-theme="dark"]) .body > p,
+:global(html[data-scheme="dark"]) .body > p,
 :global(html[data-theme="dusk"]) .body > p,
 :global(html[data-theme="linear"]) .body > p {
   color: color-mix(in srgb, #f8fafc 82%, transparent);
@@ -466,20 +466,20 @@
   color: color-mix(in srgb, #f4f4f5 80%, transparent);
 }
 
-:global(html[data-theme="dark"]) .tile .fact,
+:global(html[data-scheme="dark"]) .tile .fact,
 :global(html[data-theme="dusk"]) .tile .fact {
   background: color-mix(in srgb, #0f0f12 70%, var(--tile-gem-edge, #000) 12%);
   border: 1px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 35%, transparent);
 }
 
-:global(html[data-theme="dark"]) .tile .fact b,
+:global(html[data-scheme="dark"]) .tile .fact b,
 :global(html[data-theme="dusk"]) .tile .fact b,
-:global(html[data-theme="dark"]) .tile .fact small,
+:global(html[data-scheme="dark"]) .tile .fact small,
 :global(html[data-theme="dusk"]) .tile .fact small {
   color: #f8fafc;
 }
 
-:global(html[data-theme="dark"]) .pin,
+:global(html[data-scheme="dark"]) .pin,
 :global(html[data-theme="dusk"]) .pin {
   background: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 28%, transparent);
   color: #e4e4e7;

@@ -39,8 +39,8 @@
 }
 
 .presetActive {
-  border-color: color-mix(in srgb, var(--dang-primary, #57d7c5) 55%, transparent);
-  background: var(--dang-primary-soft, rgba(87, 215, 197, 0.12));
+  border-color: color-mix(in srgb, var(--dang-primary, #1d4ed8) 55%, transparent);
+  background: var(--dang-primary-soft, rgba(29, 78, 216, 0.12));
   color: var(--dang-text, #f3f1e9);
   font-weight: 650;
 }
@@ -64,7 +64,7 @@
 }
 
 .memberRail:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--dang-primary, #57d7c5) 48%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--dang-primary, #1d4ed8) 48%, transparent);
   outline-offset: 2px;
 }
 
@@ -93,9 +93,9 @@
 }
 
 .memberCardActive {
-  border-color: color-mix(in srgb, var(--dang-primary, #57d7c5) 55%, transparent);
-  background: var(--dang-primary-soft, rgba(87, 215, 197, 0.1));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dang-primary, #57d7c5) 25%, transparent);
+  border-color: color-mix(in srgb, var(--dang-primary, #1d4ed8) 55%, transparent);
+  background: var(--dang-primary-soft, rgba(29, 78, 216, 0.1));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dang-primary, #1d4ed8) 25%, transparent);
 }
 
 .memberCardName {
@@ -364,8 +364,8 @@
 
 .dayBand td {
   padding: 0.55rem 0.75rem;
-  background: color-mix(in srgb, var(--dang-primary, #57d7c5) 8%, var(--dang-surface-2, #16211e));
-  border-bottom-color: color-mix(in srgb, var(--dang-primary, #57d7c5) 22%, transparent);
+  background: color-mix(in srgb, var(--dang-primary, #1d4ed8) 8%, var(--dang-surface-2, #16211e));
+  border-bottom-color: color-mix(in srgb, var(--dang-primary, #1d4ed8) 22%, transparent);
 }
 
 .dayBandLabel {
@@ -431,8 +431,8 @@
 }
 
 .footerBlock[data-emphasis="payout"] {
-  border-color: color-mix(in srgb, var(--dang-primary, #57d7c5) 30%, transparent);
-  background: var(--dang-primary-soft, rgba(87, 215, 197, 0.1));
+  border-color: color-mix(in srgb, var(--dang-primary, #1d4ed8) 30%, transparent);
+  background: var(--dang-primary-soft, rgba(29, 78, 216, 0.1));
 }
 
 .footerRow {
@@ -508,7 +508,7 @@
 }
 
 .settingsLink {
-  color: var(--dang-primary, #57d7c5);
+  color: var(--dang-primary, #1d4ed8);
   font-weight: 600;
   text-decoration: none;
 }
@@ -527,7 +527,7 @@
 
 .primaryPrint,
 .printLink {
-  color: var(--dang-primary, #57d7c5);
+  color: var(--dang-primary, #1d4ed8);
   text-decoration: none;
   font-weight: 600;
 }
@@ -598,9 +598,9 @@
 }
 
 .printRoot .table thead th {
-  background: #0f766e;
+  background: #1d4ed8;
   color: #fff;
-  border-color: #0f766e;
+  border-color: #1d4ed8;
 }
 
 .printRoot .dayBand td {

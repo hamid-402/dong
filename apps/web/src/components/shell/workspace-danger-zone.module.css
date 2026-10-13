@@ -1,7 +1,7 @@
 .zone {
   --dz-danger: #b42318;
   --dz-warn: #b54708;
-  --dz-leave: #0f766e;
+  --dz-leave: #1d4ed8;
   --dz-ok: #166534;
   --dz-line: color-mix(in srgb, var(--line) 88%, transparent);
   margin-top: 10px;

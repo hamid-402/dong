@@ -4,8 +4,16 @@ import Link from "next/link";
 import { useState } from "react";
 import { Amount, Button, SelectField, Surface, TextField, formatToman } from "@dang/ui";
 
+const KIT_THEMES = ["paper", "white", "black", "midnight"] as const;
+const KIT_LABELS = {
+  paper: "کاغذی",
+  white: "سفید",
+  black: "مشکی",
+  midnight: "سرمه‌ای",
+} as const;
+
 export default function UiKitPage() {
-  const [theme, setTheme] = useState<"dark" | "light">("light");
+  const [theme, setTheme] = useState<(typeof KIT_THEMES)[number]>("paper");
 
   return (
     <main
@@ -24,9 +32,14 @@ export default function UiKitPage() {
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+            onClick={() =>
+              setTheme((current) => {
+                const index = KIT_THEMES.indexOf(current);
+                return KIT_THEMES[(index + 1) % KIT_THEMES.length] ?? "paper";
+              })
+            }
           >
-            تم: {theme === "dark" ? "تیره" : "روشن"}
+            تم: {KIT_LABELS[theme]}
           </Button>
           <Link href="/">بازگشت</Link>
         </div>
@@ -37,7 +50,7 @@ export default function UiKitPage() {
           <h1 style={{ marginTop: 0 }}>کامپوننت‌های پایه</h1>
           <p style={{ color: "var(--dang-muted)", maxWidth: "52ch" }}>
             این صفحه جایگزین موقت Storybook است تا قبل از راه‌اندازی کامل آن، RTL و
-            هر دو تم بررسی شوند.
+            هر چهار تم بررسی شوند.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             <Button>اقدام اصلی</Button>

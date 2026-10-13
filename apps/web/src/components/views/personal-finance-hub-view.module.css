@@ -21,7 +21,7 @@
 
 .subnavLink:hover {
   color: var(--text);
-  background: color-mix(in srgb, var(--primary, #0f766e) 12%, transparent);
+  background: color-mix(in srgb, var(--primary, #1d4ed8) 12%, transparent);
 }
 
 .subnavLink:focus-visible {

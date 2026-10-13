@@ -7,7 +7,7 @@
   background:
     linear-gradient(
       152deg,
-      color-mix(in srgb, var(--surface) 92%, var(--primary, #0f766e) 8%) 0%,
+      color-mix(in srgb, var(--surface) 92%, var(--primary, #1d4ed8) 8%) 0%,
       var(--surface) 55%
     ),
     var(--surface);
@@ -25,7 +25,7 @@
   height: 90%;
   background: radial-gradient(
     closest-side,
-    color-mix(in srgb, var(--primary, #0f766e) 22%, transparent),
+    color-mix(in srgb, var(--primary, #1d4ed8) 22%, transparent),
     transparent 72%
   );
   pointer-events: none;
@@ -51,7 +51,7 @@
   margin: 0;
   font-size:0.875rem;
   letter-spacing: 0.06em;
-  color: var(--primary, #0f766e);
+  color: var(--primary, #1d4ed8);
   font-weight: 650;
 }
 
@@ -118,7 +118,7 @@ a.ctaLink:visited {
   min-height: 2.35rem;
   padding: 0 1.05rem;
   border-radius: 0.55rem;
-  background: var(--primary-deep, #115e59);
+  background: var(--primary-deep, #1e3a8a);
   color: #f8fafc;
   text-decoration: none;
   font-size: 0.88rem;
@@ -139,7 +139,7 @@ a.ctaLink:visited {
 
 .quietLink {
   font-size:0.875rem;
-  color: var(--primary, #0f766e);
+  color: var(--primary, #1d4ed8);
   text-decoration: none;
 }
 
