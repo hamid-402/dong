@@ -32,8 +32,8 @@
 }
 
 .app-viewport--statement-print{
-  background: #fff;
-  color: #14201d;
+  background: var(--dang-surface);
+  color: var(--dang-text);
 }
 
 .app-viewport--statement-print .shell-v2__main--print{
@@ -220,7 +220,7 @@
 }
 
 .mosaic-ws-switch__dirStatus.is-warn{
-  color: var(--danger, #b42318);
+  color: var(--danger);
 }
 
 .mosaic-ws-switch__list{
@@ -906,12 +906,12 @@ a.shell-v2__mark:focus-visible{
   position: relative;
   color: inherit;
   text-decoration: none;
-  border: 1px solid color-mix(in srgb, var(--line, #3a3a3a) 80%, transparent);
-  background: color-mix(in srgb, var(--panel, #1c1c1c) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
 }
 
 .shell-v2__approval-badge:hover{
-  border-color: color-mix(in srgb, var(--accent, #e8a317) 55%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .shell-v2__approval-badge-count{
@@ -922,8 +922,8 @@ a.shell-v2__mark:focus-visible{
   height: 1.1rem;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--accent, #e8a317);
-  color: #1a1205;
+  background: var(--accent);
+  color: var(--dang-primary-ink);
   font-size:0.875rem;
   font-weight: 700;
   line-height: 1.1rem;
@@ -1554,18 +1554,18 @@ html[data-scheme="dark"] .shell-v2__crumbSep{
 }
 
 html[data-scheme="dark"] .shell-v2__search--field{
-  border-color: color-mix(in srgb, #fff 10%, transparent);
-  background: color-mix(in srgb, #fff 4%, transparent);
+  border-color: color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 10%, transparent);
+  background: color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 4%, transparent);
 }
 
 html[data-scheme="dark"] .shell-v2__search--field:hover{
-  border-color: color-mix(in srgb, var(--primary) 40%, #3f3f46);
-  background: color-mix(in srgb, #fff 7%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--dang-muted));
+  background: color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 7%, transparent);
 }
 
 html[data-scheme="dark"] .shell-v2__search--field .shell-v2__search-kbd{
-  border-color: color-mix(in srgb, #fff 10%, transparent);
-  background: color-mix(in srgb, #fff 5%, transparent);
+  border-color: color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 10%, transparent);
+  background: color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 5%, transparent);
 }
 
 .shell-v2__feedback{
@@ -1683,7 +1683,7 @@ html[data-scheme="dark"] .shell-v2__search--field .shell-v2__search-kbd{
 a.shell-navMenu__leaveLink,
 a.shell-navMenu__leaveLink:link,
 a.shell-navMenu__leaveLink:visited{
-  color: color-mix(in srgb, var(--danger, #b91c1c) 62%, var(--text));
+  color: color-mix(in srgb, var(--danger) 62%, var(--text));
   font-weight: 750;
 }
 
@@ -1828,11 +1828,11 @@ a.shell-navMenu__leaveLink:hover{
   margin: 0 0 10px;
   padding: 10px 14px;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, #b54708 38%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--dang-warning) 38%, var(--line));
   background:
     linear-gradient(
       100deg,
-      color-mix(in srgb, #b54708 12%, transparent),
+      color-mix(in srgb, var(--dang-warning) 12%, transparent),
       transparent 55%
     ),
     color-mix(in srgb, var(--surface) 92%, transparent);
@@ -2153,7 +2153,7 @@ a.shell-navMenu__leaveLink:hover{
   height: 100px;
   inset-block-start: -62px;
   inset-inline-start: -48px;
-  border: 1px solid color-mix(in srgb, var(--tile-gem-edge, var(--primary)) 48%, #fff);
+  border: 1px solid color-mix(in srgb, var(--tile-gem-edge, var(--primary)) 48%, light-dark(var(--dang-surface), var(--dang-text)));
   border-radius: 50%;
   pointer-events: none;
   opacity: 0.62;
@@ -2161,18 +2161,18 @@ a.shell-navMenu__leaveLink:hover{
 }
 
 html[data-scheme="dark"] .shell-tools__folder-tile::before{
-  border-color: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 40%, #fff);
+  border-color: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 40%, light-dark(var(--dang-surface), var(--dang-text)));
   opacity: 0.35;
 }
 
 html[data-scheme="dark"] .shell-tools__folder-tile small{
-  color: color-mix(in srgb, #f5f7f9 82%, transparent);
+  color: color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 82%, transparent);
 }
 
 html[data-scheme="dark"] .shell-tools__folder-count{
-  background: color-mix(in srgb, #fff 8%, transparent);
-  color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 75%, #fff);
-  border: 1px solid color-mix(in srgb, #fff 12%, transparent);
+  background: color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 8%, transparent);
+  color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 75%, light-dark(var(--dang-surface), var(--dang-text)));
+  border: 1px solid color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 12%, transparent);
 }
 
 .shell-tools__folder-tile[aria-disabled="true"],
@@ -2198,8 +2198,8 @@ html[data-scheme="dark"] .shell-tools__folder-count{
 
 .shell-tools__folder-tile--attention{
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--warning, #c47a1a) 55%, transparent),
-    inset 0 1px 0 color-mix(in srgb, #fff 38%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--warning) 55%, transparent),
+    inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 38%, transparent),
     0 10px 22px color-mix(in srgb, var(--tile-gem-edge, var(--primary)) 22%, transparent);
 }
 
@@ -2215,8 +2215,8 @@ html[data-scheme="dark"] .shell-tools__folder-count{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--warning, #c47a1a) 88%, #111);
-  color: #fff;
+  background: color-mix(in srgb, var(--warning) 88%, var(--dang-text));
+  color: var(--dang-primary-ink);
   font-size:0.875rem;
   font-weight: 800;
   line-height: 1;
@@ -2236,7 +2236,7 @@ html[data-scheme="dark"] .shell-tools__folder-count{
 }
 
 .shell-tools__folder-tile small{
-  color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 88%, transparent);
+  color: color-mix(in srgb, var(--dang-text) 88%, transparent);
   font-size:0.875rem;
   line-height: 1.45;
   position: relative;
@@ -2244,7 +2244,7 @@ html[data-scheme="dark"] .shell-tools__folder-count{
 }
 
 html[data-scheme="dark"] .shell-tools__folder-tile small{
-  color: color-mix(in srgb, #f5f7f9 82%, transparent);
+  color: color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 82%, transparent);
 }
 
 @media (max-width: 720px) {
@@ -2318,14 +2318,14 @@ html[data-scheme="dark"] .shell-tools__folder-tile small{
   height: 36px;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 55%, transparent);
-  background: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 35%, #fff);
+  background: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 35%, light-dark(var(--dang-surface), var(--dang-text)));
   color: inherit;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 40%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 40%, transparent);
 }
 
 html[data-scheme="dark"] .shell-tools__tile-icon{
-  background: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 42%, #1a1a22);
-  border-color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 55%, #3f3f46);
+  background: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 42%, var(--dang-text));
+  border-color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 55%, var(--dang-muted));
 }
 
 .shell-tools__tile-icon svg{
@@ -2793,7 +2793,7 @@ html[data-density="compact"] .shell-page-trail__back{
   padding: 16px 18px;
   border-color: color-mix(in srgb, var(--primary) 30%, var(--line));
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent),
+    inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 10%, transparent),
     0 12px 26px color-mix(in srgb, var(--text) 6%, transparent);
 }
 
@@ -3134,7 +3134,7 @@ html[data-density="compact"] .shell-page-trail__back{
 }
 
 html[data-scheme="dark"] .spaces-mosaic__main small{
-  color: #f8fafc;
+  color: var(--dang-text);
 }
 
 .spaces-mosaic__net{
@@ -3144,11 +3144,11 @@ html[data-scheme="dark"] .spaces-mosaic__main small{
 }
 
 .spaces-mosaic__net.is-credit{
-  color: var(--success, #3d9a6a);
+  color: var(--success);
 }
 
 .spaces-mosaic__net.is-debt{
-  color: var(--danger, #c44b4b);
+  color: var(--danger);
 }
 
 .spaces-mosaic__net.is-settled,
@@ -3175,7 +3175,7 @@ html[data-scheme="dark"] .spaces-mosaic__main small{
   padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 42%, var(--line));
-  background: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 28%, #fff);
+  background: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 28%, light-dark(var(--dang-surface), var(--dang-text)));
   color: var(--tile-gem-ink, var(--text));
   text-decoration: none;
   font-size: 0.9rem;
@@ -3183,9 +3183,9 @@ html[data-scheme="dark"] .spaces-mosaic__main small{
 }
 
 html[data-scheme="dark"] .spaces-mosaic__ops a{
-  background: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 28%, #1a1a22);
-  border-color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 45%, #3f3f46);
-  color: #f8fafc;
+  background: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 28%, var(--dang-text));
+  border-color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 45%, var(--dang-muted));
+  color: var(--dang-text);
 }
 
 .spaces-mosaic__ops a:hover{
@@ -3216,7 +3216,7 @@ html[data-scheme="dark"] .spaces-mosaic__ops a{
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
   background:
-    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--gold, #c9a227) 10%, transparent), transparent 40%),
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--gold) 10%, transparent), transparent 40%),
     var(--surface);
 }
 
@@ -3352,11 +3352,11 @@ html[data-scheme="dark"] .spaces-mosaic__ops a{
 }
 
 .kindReports__kpi .is-credit{
-  color: var(--success, #3d9a6a);
+  color: var(--success);
 }
 
 .kindReports__kpi .is-debt{
-  color: var(--danger, #c44b4b);
+  color: var(--danger);
 }
 
 .kindReports__grid{
@@ -3398,12 +3398,12 @@ html[data-scheme="dark"] .spaces-mosaic__ops a{
 }
 
 .kindReports__table .is-credit{
-  color: var(--success, #3d9a6a);
+  color: var(--success);
   font-weight: 700;
 }
 
 .kindReports__table .is-debt{
-  color: var(--danger, #c44b4b);
+  color: var(--danger);
   font-weight: 700;
 }
 
@@ -3473,8 +3473,8 @@ html[data-scheme="dark"] .spaces-mosaic__ops a{
   border-radius: 999px;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--primary) 75%, #0d3d32),
-    color-mix(in srgb, var(--primary) 40%, #3d9a7a)
+    color-mix(in srgb, var(--primary) 75%, var(--dang-success-line)),
+    color-mix(in srgb, var(--primary) 40%, var(--dang-success))
   );
   max-width: 100%;
 }
@@ -3486,11 +3486,11 @@ html[data-scheme="dark"] .spaces-mosaic__ops a{
 }
 
 .kindReports__mom.is-up{
-  color: color-mix(in srgb, var(--danger, #c44b4b) 88%, var(--text));
+  color: color-mix(in srgb, var(--danger) 88%, var(--text));
 }
 
 .kindReports__mom.is-down{
-  color: color-mix(in srgb, var(--success, #3d9a6a) 88%, var(--text));
+  color: color-mix(in srgb, var(--success) 88%, var(--text));
 }
 
 .kindReports__mom.is-neutral{
@@ -3625,7 +3625,7 @@ html[data-scheme="dark"] .spaces-mosaic__ops a{
       color-mix(in srgb, var(--surface-2) 80%, var(--surface)) 100%
     );
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 40%, transparent),
+    inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 40%, transparent),
     0 8px 22px color-mix(in srgb, var(--primary) 14%, transparent);
   min-width: 0;
   min-height: 0;
@@ -3641,8 +3641,8 @@ html[data-scheme="dark"] .kindAggregate__card{
       var(--panel-bottom, var(--surface)) 100%
     );
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent),
-    0 10px 26px color-mix(in srgb, #000 28%, transparent);
+    inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 6%, transparent),
+    0 10px 26px color-mix(in srgb, light-dark(var(--dang-text), var(--dang-bg)) 28%, transparent);
 }
 
 .kindAggregate__card h3{
@@ -3695,11 +3695,11 @@ html[data-scheme="dark"] .kindAggregate__card{
 }
 
 .kindAggregate__barVal.is-credit{
-  color: var(--success, #3d9a6a);
+  color: var(--success);
 }
 
 .kindAggregate__barVal.is-debt{
-  color: var(--danger, #c44b4b);
+  color: var(--danger);
 }
 
 .kindAggregate__barVal.is-settled,
@@ -3723,11 +3723,11 @@ html[data-scheme="dark"] .kindAggregate__card{
 }
 
 .kindAggregate__barFill.is-credit{
-  background: color-mix(in srgb, var(--success, #3d9a6a) 80%, transparent);
+  background: color-mix(in srgb, var(--success) 80%, transparent);
 }
 
 .kindAggregate__barFill.is-debt{
-  background: color-mix(in srgb, var(--danger, #c44b4b) 80%, transparent);
+  background: color-mix(in srgb, var(--danger) 80%, transparent);
 }
 
 .kindAggregate__links{
@@ -3849,15 +3849,15 @@ html[data-scheme="dark"] .kindAggregate__card{
 }
 
 .appHomeKinds__card.is-group{
-  border-color: color-mix(in srgb, #3d8bfd 22%, var(--line));
+  border-color: color-mix(in srgb, var(--dang-primary) 22%, var(--line));
 }
 
 .appHomeKinds__card.is-building{
-  border-color: color-mix(in srgb, #c9842a 22%, var(--line));
+  border-color: color-mix(in srgb, var(--dang-warning) 22%, var(--line));
 }
 
 .appHomeKinds__card.is-org{
-  border-color: color-mix(in srgb, #5b8a72 22%, var(--line));
+  border-color: color-mix(in srgb, var(--dang-success) 22%, var(--line));
 }
 
 .appHomeKinds__card:focus-visible{
@@ -3931,7 +3931,7 @@ html[data-scheme="dark"] .kindAggregate__card{
   text-decoration: none;
   color: inherit;
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 8%, transparent),
     0 4px 12px color-mix(in srgb, var(--text) 3%, transparent);
   transition:
     border-color 160ms var(--ease),
@@ -4013,8 +4013,8 @@ html[data-scheme="dark"] .kindAggregate__card{
 }
 
 .spaces-list__kind.is-org{
-  border-color: color-mix(in srgb, var(--warning, #c47a1a) 30%, var(--line));
-  color: color-mix(in srgb, var(--warning, #c47a1a) 80%, var(--text));
+  border-color: color-mix(in srgb, var(--warning) 30%, var(--line));
+  color: color-mix(in srgb, var(--warning) 80%, var(--text));
 }
 
 .spaces-list__activePill{
@@ -4067,11 +4067,11 @@ html[data-scheme="dark"] .kindAggregate__card{
 }
 
 .spaces-list__net.is-credit{
-  color: color-mix(in srgb, var(--success, #2f9e6c) 85%, var(--text));
+  color: color-mix(in srgb, var(--success) 85%, var(--text));
 }
 
 .spaces-list__net.is-debt{
-  color: color-mix(in srgb, var(--danger, #c45c4a) 85%, var(--text));
+  color: color-mix(in srgb, var(--danger) 85%, var(--text));
 }
 
 .spaces-list__net.is-settled,
@@ -4120,11 +4120,11 @@ html[data-scheme="dark"] .kindAggregate__card{
 }
 
 .groupBalanceHero__net.is-credit{
-  color: color-mix(in srgb, var(--success, #2f9e6c) 90%, var(--text));
+  color: color-mix(in srgb, var(--success) 90%, var(--text));
 }
 
 .groupBalanceHero__net.is-debt{
-  color: color-mix(in srgb, var(--danger, #c45c4a) 90%, var(--text));
+  color: color-mix(in srgb, var(--danger) 90%, var(--text));
 }
 
 .groupBalanceHero__net.is-settled{
@@ -4186,12 +4186,12 @@ html[data-scheme="dark"] .kindAggregate__card{
 }
 
 .groupBalanceHero__peers .is-credit{
-  color: color-mix(in srgb, var(--success, #2f9e6c) 85%, var(--text));
+  color: color-mix(in srgb, var(--success) 85%, var(--text));
   font-weight: 700;
 }
 
 .groupBalanceHero__peers .is-debt{
-  color: color-mix(in srgb, var(--danger, #c45c4a) 85%, var(--text));
+  color: color-mix(in srgb, var(--danger) 85%, var(--text));
   font-weight: 700;
 }
 
@@ -4281,7 +4281,7 @@ html[data-scheme="dark"] .kindAggregate__card{
     linear-gradient(165deg, var(--surface), color-mix(in srgb, var(--surface-2) 75%, var(--surface)));
   margin-bottom: 4px;
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 8%, transparent),
     0 8px 18px color-mix(in srgb, var(--text) 4%, transparent);
 }
 
@@ -4402,11 +4402,11 @@ html[data-scheme="dark"] .kindAggregate__card{
 }
 
 .spacesBalanceOverview__grid .is-credit dd{
-  color: color-mix(in srgb, var(--success, #2f9e6c) 90%, var(--text));
+  color: color-mix(in srgb, var(--success) 90%, var(--text));
 }
 
 .spacesBalanceOverview__grid .is-debt dd{
-  color: color-mix(in srgb, var(--danger, #c45c4a) 90%, var(--text));
+  color: color-mix(in srgb, var(--danger) 90%, var(--text));
 }
 
 .spacesBalanceOverview__actions{
@@ -4474,7 +4474,7 @@ html[data-scheme="dark"] .kindAggregate__card{
       var(--surface) 58%
     );
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 8%, transparent),
     0 8px 18px color-mix(in srgb, var(--text) 4%, transparent);
 }
 
@@ -4488,7 +4488,7 @@ html[data-scheme="dark"] .kindAggregate__card{
     radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 42%),
     color-mix(in srgb, var(--surface) 94%, transparent);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 40%, transparent),
+    inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 40%, transparent),
     0 8px 22px color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
@@ -4553,7 +4553,7 @@ html[data-scheme="dark"] .kindAggregate__card{
 
 .groupOpsRail__tile--primary{
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 50%, transparent),
+    inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 50%, transparent),
     0 0 0 1px color-mix(in srgb, var(--tile-gem-center, var(--primary)) 36%, transparent),
     0 12px 30px color-mix(in srgb, var(--tile-gem-edge, var(--primary)) 28%, transparent);
 }
@@ -4578,7 +4578,7 @@ html[data-scheme="dark"] .kindAggregate__card{
 }
 
 .groupOpsRail__tile small{
-  color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 88%, transparent);
+  color: color-mix(in srgb, var(--dang-text) 88%, transparent);
   font-size:0.875rem;
   line-height: 1.4;
   min-height: calc(1.4em * 2);
@@ -4589,19 +4589,19 @@ html[data-scheme="dark"] .kindAggregate__card{
 }
 
 html[data-scheme="dark"] .groupOpsRail__tile small{
-  color: color-mix(in srgb, #f8fafc 82%, transparent);
+  color: color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 82%, transparent);
 }
 
 .groupOpsRail__open{
   margin-top: auto;
   padding-top: 8px;
-  color: var(--tile-gem-edge, #0f5c4d);
+  color: var(--dang-success);
   font-size:0.875rem;
   font-weight: 750;
 }
 
 html[data-scheme="dark"] .groupOpsRail__open{
-  color: color-mix(in srgb, var(--tile-gem-center, #7ed4be) 55%, #fff);
+  color: color-mix(in srgb, var(--dang-success) 55%, light-dark(var(--dang-surface), var(--dang-text)));
 }
 
 
@@ -4639,11 +4639,11 @@ html[data-scheme="dark"] .groupOpsRail__open{
   margin: 0 0 14px;
   padding: 14px;
   border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--warn, #c9a227) 28%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--dang-gold) 28%, var(--line));
   background:
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--warn, #c9a227) 8%, transparent),
+      color-mix(in srgb, var(--dang-gold) 8%, transparent),
       transparent 48%
     ),
     color-mix(in srgb, var(--surface) 94%, transparent);
@@ -4699,7 +4699,7 @@ html[data-scheme="dark"] .groupOpsRail__open{
 }
 
 .groupSetupChecklist__item--done .groupSetupChecklist__mark{
-  color: var(--success, #2f9e6c);
+  color: var(--success);
 }
 
 .groupSetupChecklist__body{
@@ -4840,26 +4840,26 @@ html[data-scheme="dark"] .groupOpsRail__open{
 /* Kind families — cool / green / warm / violet. Wash, mid, edge. */
 [data-kind="personal"],
 [data-space-kind="personal"]{
-  --kind-mid: #818cf8;
-  --kind-edge: #4338ca;
+  --kind-mid: var(--dang-info);
+  --kind-edge: var(--dang-info-line);
 }
 
 [data-kind="group"],
 [data-space-kind="group"]{
-  --kind-mid: #2dd4bf;
-  --kind-edge: #0f766e;
+  --kind-mid: var(--dang-success);
+  --kind-edge: var(--dang-success-line);
 }
 
 [data-kind="building"],
 [data-space-kind="building"]{
-  --kind-mid: #fbbf24;
-  --kind-edge: #b45309;
+  --kind-mid: var(--dang-warning);
+  --kind-edge: var(--dang-warning-line);
 }
 
 [data-kind="org"],
 [data-space-kind="org"]{
-  --kind-mid: #c084fc;
-  --kind-edge: #7e22ce;
+  --kind-mid: var(--dang-primary);
+  --kind-edge: var(--dang-primary-deep);
 }
 
 .spaceKindTabs__tab[data-kind]{
@@ -4877,7 +4877,7 @@ html[data-scheme="dark"] .groupOpsRail__open{
 
 .spaceKindTabs__tab[data-kind].is-active,
 .spaceKindTabs__tab[data-kind].is-current-realm{
-  color: color-mix(in srgb, var(--kind-mid) 70%, #fff);
+  color: color-mix(in srgb, var(--kind-mid) 70%, light-dark(var(--dang-surface), var(--dang-text)));
   background: color-mix(in srgb, var(--kind-edge) 42%, var(--surface));
 }
 
@@ -4888,7 +4888,7 @@ html[data-scheme="dark"] .groupOpsRail__open{
 
 html[data-scheme="light"] .spaceKindTabs__tab[data-kind],
 html[data-scheme="light"] .spaces-hub__chip[data-kind]{
-  color: color-mix(in srgb, var(--kind-edge) 78%, #0a1620);
+  color: color-mix(in srgb, var(--kind-edge) 78%, var(--dang-primary-deep));
 }
 
 html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-active,
@@ -4908,7 +4908,7 @@ html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-current-realm{
 }
 
 .spaces-hub__chip[data-kind].is-active{
-  color: color-mix(in srgb, var(--kind-mid) 55%, #fff);
+  color: color-mix(in srgb, var(--kind-mid) 55%, light-dark(var(--dang-surface), var(--dang-text)));
   border-color: color-mix(in srgb, var(--kind-mid) 70%, var(--line));
   background: color-mix(in srgb, var(--kind-edge) 38%, var(--surface));
 }
@@ -4948,7 +4948,7 @@ html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-current-realm{
 .shell-v2[data-kind] .moduleChrome__actions > :first-child,
 .shell-v2[data-kind] .productHeaderActions > :first-child{
   background: var(--kind-edge);
-  color: #f8fafc;
+  color: var(--dang-text);
   border-color: transparent;
 }
 
@@ -5073,11 +5073,11 @@ html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-current-realm{
 }
 
 .homeBalanceCue__amount.is-credit{
-  color: color-mix(in srgb, var(--success, #2f9e6c) 90%, var(--text));
+  color: color-mix(in srgb, var(--success) 90%, var(--text));
 }
 
 .homeBalanceCue__amount.is-debt{
-  color: color-mix(in srgb, var(--danger, #c45c4a) 90%, var(--text));
+  color: color-mix(in srgb, var(--danger) 90%, var(--text));
 }
 
 .homeBalanceCue__amount.is-settled{
@@ -5140,7 +5140,7 @@ html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-current-realm{
 .homeActivity__live{
   font-size:0.875rem;
   font-weight: 650;
-  color: color-mix(in srgb, var(--success, #2f9e6c) 85%, var(--text));
+  color: color-mix(in srgb, var(--success) 85%, var(--text));
 }
 
 .homeActivity__live--off{
@@ -5245,7 +5245,7 @@ html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-current-realm{
 .mfa-qr__img{
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--dang-surface);
   padding: 8px;
 }
 
@@ -5303,7 +5303,7 @@ html[data-scheme="light"] .shell-tabs__tab.is-active{
   display: grid;
   place-items: start center;
   padding: 12vh 16px 16px;
-  background: color-mix(in srgb, #000 45%, transparent);
+  background: color-mix(in srgb, light-dark(var(--dang-text), var(--dang-bg)) 45%, transparent);
 }
 
 .cmd-palette__panel{
@@ -5371,7 +5371,7 @@ html[data-scheme="light"] .shell-tabs__tab.is-active{
   color: inherit;
   padding: 10px 12px;
   font: inherit;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 6%, transparent);
 }
 
 .cmd-palette__input:focus-visible{
@@ -5566,7 +5566,7 @@ html[data-scheme="light"] .shell-tabs--header .shell-tabs__tab.is-active{
       var(--panel-bottom, var(--surface))
     );
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 8%, transparent),
     var(--elev-1);
   transition:
     border-color 180ms var(--m-ease, ease),
@@ -5577,7 +5577,7 @@ html[data-scheme="light"] .shell-tabs--header .shell-tabs__tab.is-active{
 .sectionCard:hover{
   border-color: color-mix(in srgb, var(--primary) 28%, var(--line));
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent),
+    inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 10%, transparent),
     0 12px 28px color-mix(in srgb, var(--primary) 8%, transparent),
     var(--elev-1);
   transform: translateY(-1px);
@@ -5593,8 +5593,8 @@ html[data-scheme="dark"] .sectionCard{
       var(--panel-bottom, var(--surface))
     );
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent),
-    0 12px 28px color-mix(in srgb, #000 28%, transparent);
+    inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 5%, transparent),
+    0 12px 28px color-mix(in srgb, light-dark(var(--dang-text), var(--dang-bg)) 28%, transparent);
 }
 
 html[data-scheme="light"] .sectionCard{
@@ -5626,8 +5626,8 @@ html[data-scheme="dark"] .groupOpsRail{
     ),
     color-mix(in srgb, var(--surface) 92%, transparent);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent),
-    0 8px 22px color-mix(in srgb, #000 28%, transparent);
+    inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 6%, transparent),
+    0 8px 22px color-mix(in srgb, light-dark(var(--dang-text), var(--dang-bg)) 28%, transparent);
 }
 
 
@@ -5730,8 +5730,8 @@ html[data-scheme="dark"] .groupOpsRail{
 
 .shell-fab{
   border: 4px solid color-mix(in srgb, var(--surface) 94%, transparent);
-  background: linear-gradient(145deg, #fff, color-mix(in srgb, var(--primary) 18%, #fff));
-  color: var(--primary-deep, #1e3a8a);
+  background: linear-gradient(145deg, light-dark(var(--dang-surface), var(--dang-text)), color-mix(in srgb, var(--primary) 18%, light-dark(var(--dang-surface), var(--dang-text))));
+  color: var(--primary-deep);
   box-shadow:
     0 10px 28px color-mix(in srgb, var(--primary) 28%, transparent),
     0 0 0 1px color-mix(in srgb, var(--primary) 25%, transparent),
@@ -5766,7 +5766,7 @@ html[data-scheme="dark"] .shell-fab{
   }
 }
 
-/* —— Elevated canvas (theme + atmosphere tokens; no flat white kill-switch) —— */
+/* —— Elevated canvas (theme + atmosphere tokens; no flat var(--dang-surface) kill-switch) —— */
 .app-viewport{
   background:
     radial-gradient(
@@ -5850,7 +5850,7 @@ a.shell-v2__cta:visited,
 
 a.shell-v2__cta:hover,
 .shell-v2__cta:hover{
-  background: color-mix(in srgb, var(--primary) 88%, black);
+  background: var(--dang-primary-deep);
   color: var(--primary-ink);
 }
 
@@ -5868,7 +5868,7 @@ button[style*="dang-primary-deep"]{
       var(--surface-2)
     );
   border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 8%, transparent);
 }
 
 .shell-tabs--header .shell-tabs__tab.is-active,

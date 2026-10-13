@@ -20,14 +20,14 @@ import {
 import styles from "./pro-chart.module.css";
 
 const DONUT_COLORS = [
-  "#2f9f86",
-  "#d99a2e",
-  "#4a8fe0",
-  "#d46a90",
-  "#8b6fd0",
-  "#74b812",
-  "#d9773a",
-  "#718392",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "var(--chart-6)",
+  "var(--chart-7)",
+  "var(--chart-8)",
 ];
 
 export type ProChartVariant =
@@ -295,12 +295,12 @@ function ColumnChart({
     >
       <defs>
         <linearGradient id={`proChartPrimary-${gid}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#3db89a" />
-          <stop offset="100%" stopColor="#1a6b58" />
+          <stop offset="0%" stopColor="var(--chart-primary-0)" />
+          <stop offset="100%" stopColor="var(--chart-primary-1)" />
         </linearGradient>
         <linearGradient id={`proChartSecondary-${gid}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#e0b45a" />
-          <stop offset="100%" stopColor="#9a6f18" />
+          <stop offset="0%" stopColor="var(--chart-secondary-0)" />
+          <stop offset="100%" stopColor="var(--chart-secondary-1)" />
         </linearGradient>
       </defs>
       {[0.25, 0.5, 0.75, 1].map((f) => {
@@ -401,8 +401,8 @@ function LineChart({
     >
       <defs>
         <linearGradient id={`proChartArea-${gid}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#2f9f86" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#2f9f86" stopOpacity="0.02" />
+          <stop offset="0%" stopColor="var(--chart-area)" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="var(--chart-area)" stopOpacity="0.02" />
         </linearGradient>
       </defs>
       {[0.25, 0.5, 0.75, 1].map((f) => {

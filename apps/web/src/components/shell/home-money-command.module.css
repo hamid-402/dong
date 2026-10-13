@@ -5,15 +5,15 @@
   padding: 1.15rem 1.2rem 1.25rem;
   border-radius: 1.15rem;
   background:
-    radial-gradient(90% 70% at 0% 0%, color-mix(in oklab, #2f9f86 22%, transparent), transparent 50%),
-    radial-gradient(80% 60% at 100% 10%, color-mix(in oklab, #d99a2e 14%, transparent), transparent 45%),
+    radial-gradient(90% 70% at 0% 0%, color-mix(in oklab, var(--dang-success) 22%, transparent), transparent 50%),
+    radial-gradient(80% 60% at 100% 10%, color-mix(in oklab, var(--dang-gold) 14%, transparent), transparent 45%),
     linear-gradient(
       160deg,
-      color-mix(in oklab, var(--dang-surface, #141414) 94%, white),
-      color-mix(in oklab, var(--dang-surface, #0e0e0e) 98%, black)
+      color-mix(in oklab, var(--dang-surface) 94%, light-dark(var(--dang-surface), var(--dang-text))),
+      color-mix(in oklab, var(--dang-surface) 98%, light-dark(var(--dang-text), var(--dang-bg)))
     );
-  border: 1px solid color-mix(in oklab, var(--dang-border, #333) 75%, transparent);
-  box-shadow: 0 18px 40px color-mix(in oklab, black 18%, transparent);
+  border: 1px solid color-mix(in oklab, var(--dang-line) 75%, transparent);
+  box-shadow: 0 18px 40px color-mix(in oklab, light-dark(var(--dang-text), var(--dang-bg)) 18%, transparent);
 }
 
 .header {
@@ -55,13 +55,13 @@
   padding: 0.12rem 0.5rem;
   border-radius: 999px;
   font-size:0.875rem;
-  background: color-mix(in oklab, var(--dang-accent, #2f9f86) 18%, transparent);
-  border: 1px solid color-mix(in oklab, var(--dang-accent, #2f9f86) 35%, transparent);
+  background: color-mix(in oklab, var(--dang-success) 18%, transparent);
+  border: 1px solid color-mix(in oklab, var(--dang-success) 35%, transparent);
 }
 
 .rateNeg {
-  background: color-mix(in oklab, #d9773a 18%, transparent);
-  border-color: color-mix(in oklab, #d9773a 40%, transparent);
+  background: color-mix(in oklab, var(--dang-warning) 18%, transparent);
+  border-color: color-mix(in oklab, var(--dang-warning) 40%, transparent);
 }
 
 .headerActions {
@@ -75,8 +75,8 @@
   gap: 0.25rem;
   padding: 0.2rem;
   border-radius: 999px;
-  background: color-mix(in oklab, var(--dang-bg, #000) 45%, transparent);
-  border: 1px solid color-mix(in oklab, var(--dang-border, #444) 70%, transparent);
+  background: color-mix(in oklab, var(--dang-bg) 45%, transparent);
+  border: 1px solid color-mix(in oklab, var(--dang-line) 70%, transparent);
 }
 
 .preset {
@@ -92,7 +92,7 @@
 }
 
 .presetActive {
-  background: color-mix(in oklab, var(--dang-accent, #2f9f86) 28%, transparent);
+  background: color-mix(in oklab, var(--dang-success) 28%, transparent);
   opacity: 1;
   font-weight: 650;
 }
@@ -110,12 +110,12 @@
   font-size:0.875rem;
   padding: 0.4rem 0.75rem;
   border-radius: 0.65rem;
-  border: 1px solid color-mix(in oklab, var(--dang-border, #555) 80%, transparent);
-  background: color-mix(in oklab, var(--dang-bg, #000) 35%, transparent);
+  border: 1px solid color-mix(in oklab, var(--dang-line) 80%, transparent);
+  background: color-mix(in oklab, var(--dang-bg) 35%, transparent);
 }
 
 .quickBtn:hover {
-  border-color: color-mix(in oklab, var(--dang-accent, #2f9f86) 50%, transparent);
+  border-color: color-mix(in oklab, var(--dang-success) 50%, transparent);
 }
 
 .tiles {
@@ -183,7 +183,7 @@
 }
 
 .tileNeg {
-  color: color-mix(in oklab, #d9773a 85%, white);
+  color: color-mix(in oklab, var(--dang-warning) 85%, light-dark(var(--dang-surface), var(--dang-text)));
 }
 
 .tileHint {
@@ -208,16 +208,16 @@
   height: 0.55rem;
   border-radius: 999px;
   overflow: hidden;
-  background: color-mix(in oklab, var(--dang-border, #333) 50%, transparent);
+  background: color-mix(in oklab, var(--dang-line) 50%, transparent);
 }
 
 .flowIn {
-  background: #2f9f86;
+  background: var(--dang-success);
   min-width: 0;
 }
 
 .flowOut {
-  background: #d9773a;
+  background: var(--dang-warning);
   min-width: 0;
 }
 
@@ -232,8 +232,8 @@
   gap: 0.25rem;
   padding: 0.7rem 0.85rem;
   border-radius: 0.75rem;
-  border: 1px solid color-mix(in oklab, var(--dang-border, #444) 65%, transparent);
-  background: color-mix(in oklab, var(--dang-bg, #000) 30%, transparent);
+  border: 1px solid color-mix(in oklab, var(--dang-line) 65%, transparent);
+  background: color-mix(in oklab, var(--dang-bg) 30%, transparent);
   font-size:0.875rem;
 }
 
@@ -247,8 +247,8 @@
   gap: 0.7rem;
   padding: 0.95rem 1rem;
   border-radius: 0.95rem;
-  border: 1px solid color-mix(in oklab, var(--dang-border, #555) 75%, transparent);
-  background: color-mix(in oklab, var(--dang-bg, #000) 42%, transparent);
+  border: 1px solid color-mix(in oklab, var(--dang-line) 75%, transparent);
+  background: color-mix(in oklab, var(--dang-bg) 42%, transparent);
 }
 
 .detailHead {
@@ -263,8 +263,8 @@
   width: min(100%, 16rem);
   max-width: 16rem;
   border-radius: 0.55rem;
-  border: 1px solid color-mix(in oklab, var(--dang-border, #555) 80%, transparent);
-  background: color-mix(in oklab, var(--dang-bg, #000) 55%, transparent);
+  border: 1px solid color-mix(in oklab, var(--dang-line) 80%, transparent);
+  background: color-mix(in oklab, var(--dang-bg) 55%, transparent);
   color: inherit;
   font: inherit;
   font-size:0.875rem;
@@ -292,7 +292,7 @@
   padding: 0.15rem 0.45rem;
   position: sticky;
   top: 0;
-  background: color-mix(in oklab, var(--dang-bg, #000) 72%, transparent);
+  background: color-mix(in oklab, var(--dang-bg) 72%, transparent);
   backdrop-filter: blur(4px);
 }
 
@@ -316,7 +316,7 @@
 }
 
 .row:hover {
-  background: color-mix(in oklab, var(--dang-accent, #2f9f86) 12%, transparent);
+  background: color-mix(in oklab, var(--dang-success) 12%, transparent);
 }
 
 .rowMeta {
@@ -343,13 +343,13 @@
 }
 
 .amountIn {
-  color: color-mix(in oklab, #2f9f86 85%, white);
+  color: color-mix(in oklab, var(--dang-success) 85%, light-dark(var(--dang-surface), var(--dang-text)));
   font-variant-numeric: tabular-nums;
   font-weight: 650;
 }
 
 .amountOut {
-  color: color-mix(in oklab, #d9773a 80%, white);
+  color: color-mix(in oklab, var(--dang-warning) 80%, light-dark(var(--dang-surface), var(--dang-text)));
   font-variant-numeric: tabular-nums;
   font-weight: 650;
 }
@@ -371,8 +371,8 @@
   gap: 0.45rem;
   padding: 0.75rem 0.85rem 0.9rem;
   border-radius: 0.85rem;
-  border: 1px solid color-mix(in oklab, var(--dang-border, #444) 70%, transparent);
-  background: color-mix(in oklab, var(--dang-bg, #000) 28%, transparent);
+  border: 1px solid color-mix(in oklab, var(--dang-line) 70%, transparent);
+  background: color-mix(in oklab, var(--dang-bg) 28%, transparent);
 }
 
 .chartTitle {
@@ -386,16 +386,16 @@
   gap: 0.45rem;
   padding: 0.85rem 1rem;
   border-radius: 0.85rem;
-  border: 1px solid color-mix(in oklab, var(--dang-border, #555) 70%, transparent);
-  background: color-mix(in oklab, var(--dang-bg, #000) 35%, transparent);
+  border: 1px solid color-mix(in oklab, var(--dang-line) 70%, transparent);
+  background: color-mix(in oklab, var(--dang-bg) 35%, transparent);
 }
 
 .goalTargetMet {
-  border-color: color-mix(in oklab, #2f9f86 45%, transparent);
+  border-color: color-mix(in oklab, var(--dang-success) 45%, transparent);
 }
 
 .goalTargetMiss {
-  border-color: color-mix(in oklab, #d9773a 40%, transparent);
+  border-color: color-mix(in oklab, var(--dang-warning) 40%, transparent);
 }
 
 .goalTargetHead {
@@ -416,14 +416,14 @@
   position: relative;
   height: 0.45rem;
   border-radius: 999px;
-  background: color-mix(in oklab, var(--dang-border, #333) 55%, transparent);
+  background: color-mix(in oklab, var(--dang-line) 55%, transparent);
   overflow: hidden;
 }
 
 .goalFill {
   display: block;
   height: 100%;
-  background: #2f9f86;
+  background: var(--dang-success);
   border-radius: 999px;
   min-width: 0;
 }
@@ -433,7 +433,7 @@
   top: -2px;
   bottom: -2px;
   width: 2px;
-  background: #f4f4f5;
+  background: var(--dang-surface);
   opacity: 0.85;
   transform: translateX(-50%);
 }
@@ -443,8 +443,8 @@
   gap: 0.65rem;
   padding: 0.85rem 1rem;
   border-radius: 0.85rem;
-  border: 1px solid color-mix(in oklab, var(--dang-border, #555) 70%, transparent);
-  background: color-mix(in oklab, var(--dang-bg, #000) 28%, transparent);
+  border: 1px solid color-mix(in oklab, var(--dang-line) 70%, transparent);
+  background: color-mix(in oklab, var(--dang-bg) 28%, transparent);
 }
 
 .goalsListHead {
@@ -485,13 +485,13 @@
 }
 
 .intentMet {
-  color: color-mix(in oklab, #3d9a6a 80%, white);
+  color: color-mix(in oklab, var(--dang-success) 80%, light-dark(var(--dang-surface), var(--dang-text)));
   font-weight: 600;
   font-size:0.875rem;
 }
 
 .intentMiss {
-  color: color-mix(in oklab, #c45c4a 85%, white);
+  color: color-mix(in oklab, var(--dang-danger) 85%, light-dark(var(--dang-surface), var(--dang-text)));
   font-weight: 600;
   font-size:0.875rem;
 }
@@ -502,11 +502,11 @@
 }
 
 .intentRowMet {
-  border-inline-start: 3px solid color-mix(in oklab, #3d9a6a 70%, transparent);
+  border-inline-start: 3px solid color-mix(in oklab, var(--dang-success) 70%, transparent);
   padding-inline-start: 0.55rem;
 }
 
 .intentRowMiss {
-  border-inline-start: 3px solid color-mix(in oklab, #c45c4a 70%, transparent);
+  border-inline-start: 3px solid color-mix(in oklab, var(--dang-danger) 70%, transparent);
   padding-inline-start: 0.55rem;
 }

@@ -5,7 +5,7 @@
   padding: var(--dang-space-4, 1rem);
   border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
   border-radius: var(--dang-radius-lg, 16px);
-  background: var(--dang-surface-2, #16211e);
+  background: var(--dang-surface-2);
 }
 
 .presets {
@@ -20,7 +20,7 @@
   border-radius: var(--dang-radius-pill, 999px);
   border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
   background: transparent;
-  color: var(--dang-text, #f3f1e9);
+  color: var(--dang-text);
   font: inherit;
   font-size:0.875rem;
   cursor: pointer;
@@ -39,9 +39,9 @@
 }
 
 .presetActive {
-  border-color: color-mix(in srgb, var(--dang-primary, #1d4ed8) 55%, transparent);
+  border-color: color-mix(in srgb, var(--dang-primary) 55%, transparent);
   background: var(--dang-primary-soft, rgba(29, 78, 216, 0.12));
-  color: var(--dang-text, #f3f1e9);
+  color: var(--dang-text);
   font-weight: 650;
 }
 
@@ -64,7 +64,7 @@
 }
 
 .memberRail:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--dang-primary, #1d4ed8) 48%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--dang-primary) 48%, transparent);
   outline-offset: 2px;
 }
 
@@ -79,7 +79,7 @@
   padding: 0.85rem 1rem;
   border-radius: var(--dang-radius-md, 12px);
   border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
-  background: var(--dang-surface, #101816);
+  background: var(--dang-surface);
   color: inherit;
   text-decoration: none;
   transition: border-color var(--dang-dur, 180ms) var(--dang-ease),
@@ -89,13 +89,13 @@
 
 .memberCard:hover {
   border-color: var(--dang-line-strong, rgba(220, 229, 225, 0.2));
-  background: var(--dang-surface-2, #16211e);
+  background: var(--dang-surface-2);
 }
 
 .memberCardActive {
-  border-color: color-mix(in srgb, var(--dang-primary, #1d4ed8) 55%, transparent);
+  border-color: color-mix(in srgb, var(--dang-primary) 55%, transparent);
   background: var(--dang-primary-soft, rgba(29, 78, 216, 0.1));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dang-primary, #1d4ed8) 25%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dang-primary) 25%, transparent);
 }
 
 .memberCardName {
@@ -106,7 +106,7 @@
 .memberCardMeta,
 .memberCardLabel {
   font-size:0.875rem;
-  color: var(--dang-muted, #9eaaa6);
+  color: var(--dang-muted);
 }
 
 .memberCardAmount {
@@ -117,15 +117,15 @@
 }
 
 .memberCard_payable .memberCardAmount {
-  color: var(--dang-gold, #c9aa70);
+  color: var(--dang-gold);
 }
 
 .memberCard_credit .memberCardAmount {
-  color: var(--dang-success, #55d68b);
+  color: var(--dang-success);
 }
 
 .memberCard_balanced .memberCardAmount {
-  color: var(--dang-muted, #9eaaa6);
+  color: var(--dang-muted);
 }
 
 .dayTicks {
@@ -142,7 +142,7 @@
   justify-content: space-between;
   gap: 0.5rem;
   font-size:0.875rem;
-  color: var(--dang-muted, #9eaaa6);
+  color: var(--dang-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -188,7 +188,7 @@
   font-size:0.875rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--dang-gold, #c9aa70);
+  color: var(--dang-gold);
 }
 
 .billSubject {
@@ -196,7 +196,7 @@
   font-size: 1.5rem;
   font-weight: 700;
   line-height: 1.25;
-  color: var(--dang-text, #f3f1e9);
+  color: var(--dang-text);
 }
 
 .billMeta {
@@ -205,20 +205,20 @@
   align-items: center;
   gap: 0.4rem;
   margin: 0.45rem 0 0;
-  color: var(--dang-muted, #9eaaa6);
+  color: var(--dang-muted);
   font-size: 0.9rem;
 }
 
 .billWorkspace {
   font-weight: 600;
-  color: var(--dang-text, #f3f1e9);
+  color: var(--dang-text);
 }
 
 .billDot {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--dang-muted, #9eaaa6);
+  background: var(--dang-muted);
   opacity: 0.7;
 }
 
@@ -228,7 +228,7 @@
   align-items: flex-end;
   gap: 0.25rem;
   font-size:0.875rem;
-  color: var(--dang-muted, #9eaaa6);
+  color: var(--dang-muted);
   text-align: end;
 }
 
@@ -242,15 +242,15 @@
 }
 
 .sealOk {
-  color: var(--dang-success, #0c6a34);
-  background: var(--dang-success-soft, #d3f0de);
-  border: 1px solid var(--dang-success-line, #1b7440);
+  color: var(--dang-success);
+  background: var(--dang-success-soft);
+  border: 1px solid var(--dang-success-line);
 }
 
 .sealBad {
-  color: var(--dang-danger, #a11612);
-  background: var(--dang-danger-soft, #f8d6d2);
-  border: 1px solid var(--dang-danger-line, #ae3229);
+  color: var(--dang-danger);
+  background: var(--dang-danger-soft);
+  border: 1px solid var(--dang-danger-line);
 }
 
 .summaryStrip {
@@ -261,7 +261,7 @@
   top: 0.5rem;
   z-index: 2;
   padding-block: 0.15rem;
-  background: color-mix(in srgb, var(--dang-surface, #101816) 92%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 92%, transparent);
   backdrop-filter: blur(8px);
 }
 
@@ -277,22 +277,22 @@
   padding: 0.9rem 1rem;
   border-radius: var(--dang-radius-md, 12px);
   border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
-  background: var(--dang-surface-2, #16211e);
+  background: var(--dang-surface-2);
 }
 
 .summaryCell > span:first-child {
   font-size:0.875rem;
-  color: var(--dang-muted, #9eaaa6);
+  color: var(--dang-muted);
 }
 
 .summaryPayable {
-  border-color: var(--dang-gold-line, #915622);
-  background: var(--dang-gold-soft, #f6e2cc);
+  border-color: var(--dang-gold-line);
+  background: var(--dang-gold-soft);
 }
 
 .summaryCredit {
-  border-color: var(--dang-success-line, #1b7440);
-  background: var(--dang-success-soft, #d3f0de);
+  border-color: var(--dang-success-line);
+  background: var(--dang-success-soft);
 }
 
 .summaryBalanced {
@@ -309,15 +309,15 @@
   font-size: 1.45rem;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
-  color: var(--dang-gold, #c9aa70);
+  color: var(--dang-gold);
 }
 
 .summaryCredit .amountHero {
-  color: var(--dang-success, #55d68b);
+  color: var(--dang-success);
 }
 
 .summaryBalanced .amountHero {
-  color: var(--dang-text, #f3f1e9);
+  color: var(--dang-text);
 }
 
 .tableWrap {
@@ -332,7 +332,7 @@
   text-align: start;
   font-size:0.875rem;
   font-weight: 650;
-  color: var(--dang-muted, #9eaaa6);
+  color: var(--dang-muted);
 }
 
 .table {
@@ -355,8 +355,8 @@
   z-index: 1;
   font-weight: 650;
   font-size:0.875rem;
-  color: var(--dang-text, #f3f1e9);
-  background: var(--dang-surface-3, #1b2925);
+  color: var(--dang-text);
+  background: var(--dang-surface-3);
   box-shadow: 0 1px 0 var(--dang-line, rgba(220, 229, 225, 0.18));
 }
 
@@ -366,19 +366,19 @@
 
 .dayBand td {
   padding: 0.55rem 0.75rem;
-  background: color-mix(in srgb, var(--dang-primary, #1d4ed8) 8%, var(--dang-surface-2, #16211e));
-  border-bottom-color: color-mix(in srgb, var(--dang-primary, #1d4ed8) 22%, transparent);
+  background: color-mix(in srgb, var(--dang-primary) 8%, var(--dang-surface-2));
+  border-bottom-color: color-mix(in srgb, var(--dang-primary) 22%, transparent);
 }
 
 .dayBandLabel {
   font-weight: 650;
-  color: var(--dang-text, #f3f1e9);
+  color: var(--dang-text);
 }
 
 .dayBandShare {
   margin-inline-start: 0.85rem;
   font-size:0.875rem;
-  color: var(--dang-muted, #9eaaa6);
+  color: var(--dang-muted);
 }
 
 .num {
@@ -405,12 +405,12 @@
   padding: 0.12rem 0.45rem;
   border-radius: var(--dang-radius-pill, 999px);
   font-size:0.875rem;
-  color: var(--dang-muted, #9eaaa6);
+  color: var(--dang-muted);
   background: var(--dang-fill-soft, rgba(255, 255, 255, 0.045));
 }
 
 .meta {
-  color: var(--dang-muted, #9eaaa6);
+  color: var(--dang-muted);
   font-size:0.875rem;
 }
 
@@ -424,16 +424,16 @@
   padding: 1rem 1.1rem;
   border-radius: var(--dang-radius-md, 12px);
   border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
-  background: var(--dang-surface-2, #16211e);
+  background: var(--dang-surface-2);
 }
 
 .footerBlock[data-emphasis="totals"] {
-  border-color: color-mix(in srgb, var(--dang-gold, #c9aa70) 35%, transparent);
+  border-color: color-mix(in srgb, var(--dang-gold) 35%, transparent);
   background: var(--dang-gold-soft, rgba(201, 170, 112, 0.12));
 }
 
 .footerBlock[data-emphasis="payout"] {
-  border-color: color-mix(in srgb, var(--dang-primary, #1d4ed8) 30%, transparent);
+  border-color: color-mix(in srgb, var(--dang-primary) 30%, transparent);
   background: var(--dang-primary-soft, rgba(29, 78, 216, 0.1));
 }
 
@@ -451,23 +451,23 @@
   padding-top: 0.65rem;
   font-weight: 750;
   font-size: 1.08rem;
-  border-top: 1px dashed color-mix(in srgb, var(--dang-gold, #c9aa70) 50%, transparent);
-  color: var(--dang-gold, #c9aa70);
+  border-top: 1px dashed color-mix(in srgb, var(--dang-gold) 50%, transparent);
+  color: var(--dang-gold);
 }
 
 .footerCredit {
   margin-top: 0.45rem;
   padding-top: 0.65rem;
   font-weight: 700;
-  border-top: 1px dashed color-mix(in srgb, var(--dang-success, #55d68b) 45%, transparent);
-  color: var(--dang-success, #55d68b);
+  border-top: 1px dashed color-mix(in srgb, var(--dang-success) 45%, transparent);
+  color: var(--dang-success);
 }
 
 .balanceHint {
   margin: 0.65rem 0 0;
   font-size:0.875rem;
   line-height: 1.5;
-  color: var(--dang-muted, #9eaaa6);
+  color: var(--dang-muted);
 }
 
 .payoutTitle {
@@ -485,7 +485,7 @@
 .payoutGrid dt {
   margin: 0;
   font-size:0.875rem;
-  color: var(--dang-muted, #9eaaa6);
+  color: var(--dang-muted);
 }
 
 .payoutGrid dd {
@@ -510,7 +510,7 @@
 }
 
 .settingsLink {
-  color: var(--dang-primary, #1d4ed8);
+  color: var(--dang-primary);
   font-weight: 600;
   text-decoration: none;
 }
@@ -529,7 +529,7 @@
 
 .primaryPrint,
 .printLink {
-  color: var(--dang-primary, #1d4ed8);
+  color: var(--dang-primary);
   text-decoration: none;
   font-weight: 600;
 }
@@ -543,8 +543,8 @@
   max-width: 980px;
   margin: 0 auto;
   padding: 1.75rem 1.5rem 2.5rem;
-  background: #fff;
-  color: #14201d;
+  background: var(--dang-surface);
+  color: var(--dang-text);
   min-height: 100vh;
 }
 
@@ -556,14 +556,14 @@
 }
 
 .printRoot .billEyebrow {
-  color: #b45309;
+  color: var(--dang-warning);
 }
 
 .printRoot .billSubject,
 .printRoot .billWorkspace,
 .printRoot .itemName,
 .printRoot .dayBandLabel {
-  color: #14201d;
+  color: var(--dang-text);
 }
 
 .printRoot .billMeta,
@@ -572,57 +572,57 @@
 .printRoot .balanceHint,
 .printRoot .dayBandShare,
 .printRoot .memberCardMeta {
-  color: #53615d;
+  color: var(--dang-text);
 }
 
 .printRoot .summaryCell,
 .printRoot .footerBlock,
 .printRoot .tableWrap {
-  border-color: #d7dfdc;
-  background: #fff;
+  border-color: var(--dang-line);
+  background: var(--dang-surface);
 }
 
 .printRoot .summaryPayable,
 .printRoot .footerBlock[data-emphasis="totals"] {
-  background: #fff8e8;
-  border-color: #e8c98a;
+  background: var(--dang-gold-soft);
+  border-color: var(--dang-gold-line);
 }
 
 .printRoot .summaryCredit,
 .printRoot .footerBlock[data-emphasis="payout"] {
-  background: #f0faf6;
-  border-color: #b7d7c8;
+  background: var(--dang-surface);
+  border-color: var(--dang-success-line);
 }
 
 .printRoot .amountHero,
 .printRoot .footerHighlight {
-  color: #b45309;
+  color: var(--dang-warning);
 }
 
 .printRoot .table thead th {
-  background: #1d4ed8;
-  color: #fff;
-  border-color: #1d4ed8;
+  background: var(--dang-primary);
+  color: var(--dang-primary-ink);
+  border-color: var(--dang-primary-line);
 }
 
 .printRoot .dayBand td {
-  background: #e8f3f1;
-  border-bottom-color: #9ec4bd;
+  background: var(--dang-surface);
+  border-bottom-color: var(--dang-success-line);
 }
 
 .printRoot .table tbody tr:nth-child(even):not(.dayBand) {
-  background: #f7f9f8;
+  background: var(--dang-surface);
 }
 
 .printRoot .methodPill {
-  background: #eef2f0;
-  color: #53615d;
+  background: var(--dang-surface);
+  color: var(--dang-text);
 }
 
 .printHint {
   margin-top: 1.5rem;
   font-size:0.875rem;
-  color: #53615d;
+  color: var(--dang-text);
 }
 
 @media print {
@@ -675,18 +675,18 @@
   .bill {
     border: none;
     box-shadow: none;
-    background: #fff;
-    color: #14201d;
+    background: var(--dang-surface);
+    color: var(--dang-text);
   }
 
   .table thead th {
-    color: #14201d;
-    background: #f3f6f5;
+    color: var(--dang-text);
+    background: var(--dang-surface);
     box-shadow: none;
   }
 
   .tableCaption {
-    color: #14201d;
+    color: var(--dang-text);
     font-size: 11pt;
   }
 

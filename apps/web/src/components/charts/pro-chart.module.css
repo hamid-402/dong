@@ -101,7 +101,7 @@
 
 .linePrimary {
   fill: none;
-  stroke: color-mix(in srgb, var(--primary) 88%, #1a5c4a);
+  stroke: color-mix(in srgb, var(--primary) 88%, var(--dang-success));
   stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -113,13 +113,13 @@
 }
 
 .dot {
-  fill: color-mix(in srgb, var(--primary) 90%, #fff);
+  fill: color-mix(in srgb, var(--primary) 90%, light-dark(var(--dang-surface), var(--dang-text)));
   stroke: var(--surface);
   stroke-width: 1.5;
 }
 
 .dotHot {
-  fill: color-mix(in srgb, var(--gold, #c9a227) 80%, #fff);
+  fill: color-mix(in srgb, var(--gold) 80%, light-dark(var(--dang-surface), var(--dang-text)));
   stroke: var(--surface);
   stroke-width: 1.5;
 }
@@ -196,11 +196,11 @@
 }
 
 .legendPrimary {
-  background: color-mix(in srgb, var(--primary) 80%, #1a5c4a);
+  background: color-mix(in srgb, var(--primary) 80%, var(--dang-success));
 }
 
 .legendSecondary {
-  background: color-mix(in srgb, var(--gold, #c9a227) 75%, #8a6a12);
+  background: color-mix(in srgb, var(--gold) 75%, var(--dang-gold));
 }
 
 .table {
@@ -255,8 +255,8 @@
   border-radius: inherit;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--primary) 70%, #0d3d32),
-    color-mix(in srgb, var(--primary) 45%, #3d9a7a)
+    color-mix(in srgb, var(--primary) 70%, var(--dang-success-line)),
+    color-mix(in srgb, var(--primary) 45%, var(--dang-success))
   );
 }
 
@@ -334,7 +334,7 @@
   border-radius: inherit;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--primary) 85%, #0a3a30),
-    color-mix(in srgb, var(--gold, #c9a227) 55%, var(--primary))
+    color-mix(in srgb, var(--primary) 85%, var(--dang-success-line)),
+    color-mix(in srgb, var(--gold) 55%, var(--primary))
   );
 }
