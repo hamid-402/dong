@@ -16,6 +16,31 @@ describe("kindTabVisualState", () => {
     ).toBe("list-active");
   });
 
+  it("marks a classic space-list alias through the canonical map", () => {
+    expect(
+      kindTabVisualState({
+        tabKey: "group",
+        pathname: "/groups",
+        homeHref: "/home",
+        kindQuery: "group",
+        newKindQuery: null,
+        workspaceKind: null,
+        onWorkspace: false,
+      }),
+    ).toBe("list-active");
+    expect(
+      kindTabVisualState({
+        tabKey: "building",
+        pathname: "/workspaces",
+        homeHref: "/home",
+        kindQuery: "building",
+        newKindQuery: null,
+        workspaceKind: null,
+        onWorkspace: false,
+      }),
+    ).toBe("list-active");
+  });
+
   it("marks kind list-active on /home?kind=", () => {
     expect(
       kindTabVisualState({

@@ -29,11 +29,10 @@ import { friendlyErrorMessage } from "@/lib/api-errors";
 import { authModeLabel, workspaceTemplateLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
-import { hubPathFor } from "@/lib/hub-links";
 import { createWorkspaceWithUniqueSlug } from "@/lib/group-slug";
 import { newClientId } from "@/lib/id";
 import { NAV_LABELS } from "@/lib/nav-labels";
-import { wPath } from "@/lib/workspace-paths";
+import { canonicalHref } from "@/lib/workspace-paths";
 
 const ONBOARDING_STEPS_TAIL = [
   "فضا ساخته می‌شود و خانهٔ آن با کارت‌های مالی، خرید و فضاها باز می‌شود",
@@ -126,19 +125,19 @@ export function OnboardingView() {
   function goToWorkspaceHome(workspace: WorkspaceSummary) {
     chrome.selectWorkspace(workspace.id);
     chrome.refreshChrome();
-    router.push(wPath(workspace.slug, "space"));
+    router.push(canonicalHref("space", workspace.slug));
   }
 
   function goToWorkspaceFinance(workspace: WorkspaceSummary) {
     chrome.selectWorkspace(workspace.id);
     chrome.refreshChrome();
-    router.push(wPath(workspace.slug, "record"));
+    router.push(canonicalHref("record", workspace.slug));
   }
 
   function goToWorkspaceMembers(workspace: WorkspaceSummary) {
     chrome.selectWorkspace(workspace.id);
     chrome.refreshChrome();
-    router.push(wPath(workspace.slug, "members"));
+    router.push(canonicalHref("members", workspace.slug));
   }
 
   function onCreate(event: FormEvent) {
@@ -206,9 +205,7 @@ export function OnboardingView() {
     );
     return matched.length > 0 ? matched : base;
   }, [templates, kindFilter]);
-  const createdFinanceHref = created
-    ? wPath(created.slug, "record")
-    : hubPathFor("/workspaces");
+  const createdFinanceHref = canonicalHref("record", created?.slug);
 
   useEffect(() => {
     if (visibleTemplates.length === 0) return;
@@ -268,11 +265,11 @@ export function OnboardingView() {
         }
         actions={
           <>
-            <Link href="/home">{NAV_LABELS.spacesList}</Link>
+            <Link href={canonicalHref("home")}>{NAV_LABELS.spacesList}</Link>
             {created ? (
               <>
-                <Link href={wPath(created.slug, "space")}>خانهٔ فضا</Link>
-                <Link href={wPath(created.slug, "members")}>اعضا</Link>
+                <Link href={canonicalHref("space", created.slug)}>خانهٔ فضا</Link>
+                <Link href={canonicalHref("members", created.slug)}>اعضا</Link>
                 <Link href={createdFinanceHref}>{NAV_LABELS.addExpense}</Link>
               </>
             ) : null}
@@ -416,7 +413,7 @@ export function OnboardingView() {
                   >
                     ثبت اولین خرج
                   </Button>
-                  <Link href="/home">همه فضاها</Link>
+                  <Link href={canonicalHref("home")}>همه فضاها</Link>
                 </div>
               </div>
               )

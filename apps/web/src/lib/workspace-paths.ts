@@ -189,3 +189,17 @@ export function absoluteForPage(
   if (!slug) return "/home";
   return wPath(slug, page);
 }
+
+/** Product href for a page: `/home`, `/spaces`, `/account`, or `/w/[slug]/…`. */
+export function canonicalHref(
+  page: ClassicCompatTarget,
+  slug?: string | null,
+): string {
+  return absoluteForPage(page, slug ?? null);
+}
+
+/** Space-list href, preserving a kind filter (`/spaces` or `/spaces?kind=`). */
+export function spacesListHref(kind?: string | null): string {
+  if (!kind || !SPACE_KINDS.has(kind)) return "/spaces";
+  return homeListAlias(`kind=${kind}`) ?? "/spaces";
+}

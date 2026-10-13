@@ -33,7 +33,7 @@ import {
   StatusPill,
 } from "@/components/ui-blocks";
 import { JalaliDateField } from "@/components/jalali-date-field";
-import { hubPathFor } from "@/lib/hub-links";
+import { canonicalHref } from "@/lib/workspace-paths";
 import { api } from "@/lib/api";
 import { useDisplayUnit } from "@/lib/display-unit";
 import { displayInputToIrrMinor, irrMinorToDisplayInput } from "@/lib/irr-money";
@@ -603,7 +603,7 @@ export function SettlementPanel({
           ) : (
             <>
               برای تسویه حداقل دو عضو لازم است — از{" "}
-              <Link href={membersHref ?? hubPathFor("/workspaces/invite")}>
+              <Link href={membersHref ?? canonicalHref("members", slug)}>
                 اعضا / دعوت
               </Link>{" "}
               استفاده کنید.

@@ -17,7 +17,7 @@ import {
   spaceNavItemHint,
   type SpaceNavFlags,
 } from "@/lib/navigation-v2";
-import { wPath } from "@/lib/workspace-paths";
+import { classicPathToWorkspacePage, spacesListHref, wPath } from "@/lib/workspace-paths";
 import { t } from "@/lib/i18n";
 
 type KindTab = {
@@ -27,6 +27,21 @@ type KindTab = {
 };
 
 export type KindTabVisualState = "idle" | "list-active" | "current-realm";
+
+function barePath(pathname: string): string {
+  return pathname.replace(/\/+$/, "") || "/";
+}
+
+/** Home, the space list, or a classic alias of those — via the canonical route map. */
+function listSurface(pathname: string): "home" | "spaces" | "spaces-new" | null {
+  const path = barePath(pathname);
+  if (path === "/home") return "home";
+  if (path === "/spaces") return "spaces";
+  if (path === "/spaces/new" || path.startsWith("/spaces/new/")) return "spaces-new";
+  const mapped = classicPathToWorkspacePage(path);
+  if (mapped === "home" || mapped === "spaces" || mapped === "spaces-new") return mapped;
+  return null;
+}
 
 /** Pure helper — exported for unit tests. */
 export function kindTabVisualState(input: {
@@ -40,22 +55,16 @@ export function kindTabVisualState(input: {
 }): KindTabVisualState {
   const { tabKey, pathname, homeHref, kindQuery, newKindQuery, workspaceKind, onWorkspace } =
     input;
+  const surface = listSurface(pathname);
   if (tabKey === "home") {
-    const onHome = pathname === "/home" || pathname === homeHref;
+    const onHome = surface === "home" || barePath(pathname) === barePath(homeHref);
     return onHome && !kindQuery ? "list-active" : "idle";
   }
-  if (
-    pathname === "/home" ||
-    pathname.startsWith("/spaces") ||
-    pathname === "/groups" ||
-    pathname === "/workspaces"
-  ) {
+  if (surface) {
     const onList =
-      (pathname === "/home" && kindQuery === tabKey) ||
-      (pathname === "/spaces" && kindQuery === tabKey) ||
-      (pathname === "/groups" && kindQuery === tabKey) ||
-      (pathname === "/workspaces" && kindQuery === tabKey) ||
-      (pathname.startsWith("/spaces/new") && newKindQuery === tabKey);
+      (surface === "home" && kindQuery === tabKey) ||
+      (surface === "spaces" && kindQuery === tabKey) ||
+      (surface === "spaces-new" && newKindQuery === tabKey);
     return onList ? "list-active" : "idle";
   }
   // Inside a workspace: highlight current realm but do NOT treat as current page
@@ -117,22 +126,22 @@ export function SpaceKindHeaderTabs({
     {
       key: "personal",
       label: NAV_LABELS.spacePersonal,
-      href: "/spaces?kind=personal",
+      href: spacesListHref("personal"),
     },
     {
       key: "group",
       label: NAV_LABELS.spaceGroup,
-      href: "/spaces?kind=group",
+      href: spacesListHref("group"),
     },
     {
       key: "building",
       label: NAV_LABELS.spaceBuilding,
-      href: "/spaces?kind=building",
+      href: spacesListHref("building"),
     },
     {
       key: "org",
       label: NAV_LABELS.spaceOrg,
-      href: "/spaces?kind=org",
+      href: spacesListHref("org"),
     },
   ];
   const tabs = allTabs.filter(

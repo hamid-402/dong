@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { NotificationSummary } from "@dang/contracts";
-import { ShellIconSvg } from "@/components/app-shell";
+import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { EmptyStateBlock } from "@/components/ui-blocks";
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { useShellV2Api } from "@/components/shell/shell-v2-context";

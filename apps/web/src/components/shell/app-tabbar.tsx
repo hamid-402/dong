@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ShellIconSvg } from "@/components/app-shell";
+import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { useShellLocation } from "@/components/shell/shell-v2-context";
 import { isNavHrefActive, type BottomTabV2 } from "@/lib/navigation-v2";
 import { NAV_LABELS } from "@/lib/nav-labels";

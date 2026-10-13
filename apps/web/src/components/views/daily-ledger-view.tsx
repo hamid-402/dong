@@ -33,7 +33,6 @@ import {
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
-import { hubPathFor } from "@/lib/hub-links";
 import { useLiveInvalidation } from "@/lib/live-invalidation";
 import { displayInputToIrrMinor, irrMinorToDisplayInput } from "@/lib/irr-money";
 import { useDisplayUnit } from "@/lib/display-unit";
@@ -61,7 +60,7 @@ import {
   todayIsoLocal,
   type DraftTarget,
 } from "@/components/views/daily-ledger/daily-ledger-utils";
-import { wPath } from "@/lib/workspace-paths";
+import { canonicalHref } from "@/lib/workspace-paths";
 import styles from "./daily-ledger-view.module.css";
 
 /** Professional consumption ledger — range overview ↔ day detail (?date=). */
@@ -800,9 +799,7 @@ export function DailyLedgerView() {
       ? (ledger.days.find((day) => day.date === selectedDate) ?? null)
       : null;
   const selectedWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
-  const settlementsHref = selectedWorkspace
-    ? wPath(selectedWorkspace.slug, "settlements")
-    : `${hubPathFor("/workspaces")}#settlement-panel`;
+  const settlementsHref = canonicalHref("settlements", selectedWorkspace?.slug);
   const fundNameById = Object.fromEntries(pettyFunds.map((f) => [f.id, f.name]));
   const canDeposit = pettyFunds.length > 0;
   const dayNeighbors =
@@ -826,7 +823,7 @@ export function DailyLedgerView() {
     selectedDay && (selectedDay.isHoliday || selectedDay.isRangeLocked),
   );
   const expensesHref = selectedWorkspace
-    ? wPath(selectedWorkspace.slug, "expenses")
+    ? canonicalHref("expenses", selectedWorkspace.slug)
     : null;
   const canAddLedgerItem = Boolean(selectedDay && !readOnly && !dayClosed);
   const primaryAction = (() => {
@@ -933,7 +930,7 @@ export function DailyLedgerView() {
             خلاصهٔ بازه را ببینید؛ برای ثبت و ویرایش روی «جزئیات» همان روز بزنید.
             واریز به صندوق جدا از جمع مصرف است. مدیریت صندوق‌ها در{" "}
             {selectedWorkspace ? (
-              <Link href={wPath(selectedWorkspace.slug, "payments")}>پرداخت‌ها / تنخواه</Link>
+              <Link href={canonicalHref("payments", selectedWorkspace.slug)}>پرداخت‌ها / تنخواه</Link>
             ) : (
               "پرداخت‌ها"
             )}

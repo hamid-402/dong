@@ -19,7 +19,7 @@ import { WorkspaceSwitcher } from "@/components/mosaic/workspace-switcher";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { WorkspaceSectionTabs } from "@/components/shell/space-kind-header-tabs";
 import { bottomTabsV2 } from "@/lib/navigation-v2";
-import { wPath } from "@/lib/workspace-paths";
+import { canonicalHref, spacesListHref, wPath } from "@/lib/workspace-paths";
 import { slugFromPathname } from "@/lib/workspace-storage";
 import { useViewportMode } from "@/lib/use-viewport";
 import { t } from "@/lib/i18n";
@@ -33,13 +33,13 @@ import { spaceNavFlagsFromCapabilities } from "@/lib/workspace-page-access";
 /** Extra destinations that used to live in the header overflow. */
 export function headerToolLinks(slug: string | null): { href: string; label: string }[] {
   return [
-    { href: "/orgs", label: "سازمان‌ها" },
-    { href: "/spaces?kind=building", label: "ساختمان‌ها" },
+    { href: canonicalHref("space", slug), label: "سازمان‌ها" },
+    { href: spacesListHref("building"), label: "ساختمان‌ها" },
     { href: "/spaces/reports?kind=building", label: "گزارش ساختمان" },
-    { href: slug ? wPath(slug, "procurement") : "/workspaces/procurement", label: "تدارکات" },
-    { href: slug ? wPath(slug, "assets") : "/workspaces/assets", label: "تجهیزات" },
-    { href: slug ? wPath(slug, "proposals") : "/proposals", label: "پیشنهادها" },
-    { href: slug ? wPath(slug, "partners") : "/workspaces/partnership", label: "شرکا" },
+    { href: canonicalHref("procurement", slug), label: "تدارکات" },
+    { href: canonicalHref("assets", slug), label: "تجهیزات" },
+    { href: canonicalHref("proposals", slug), label: "پیشنهادها" },
+    { href: canonicalHref("partners", slug), label: "شرکا" },
   ];
 }
 
@@ -70,15 +70,15 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
     template,
   });
   const primary = location.primary;
-  const spacesListHref =
+  const spacesList =
     inWorkspace && template
-      ? `/spaces?kind=${spaceKindForTemplate(template)}`
-      : "/spaces";
+      ? spacesListHref(spaceKindForTemplate(template))
+      : spacesListHref();
   /** Membership leave / archive lives in settings danger zone — not home nav. */
   const leaveMembershipHref =
     inWorkspace && slug && template && template !== "personal"
-      ? `${wPath(slug, "settings")}#danger`
-      : spacesListHref;
+      ? `${canonicalHref("settings", slug)}#danger`
+      : spacesList;
   const archived = Boolean(active?.archivedAt);
   const railFlags = spaceNavFlagsFromCapabilities(chrome.capabilities);
   const tabHrefs = tabs.map((tab) => tab.href).join("|");
@@ -133,7 +133,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
           <div className="shell-v2__bar">
             <div className="shell-v2__zone shell-v2__zone--start">
               <Link
-                href="/home"
+                href={canonicalHref("home")}
                 className="shell-v2__wordmark"
                 aria-label={t("shell.homeMarkAria")}
               >
@@ -170,7 +170,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
                 />
               ) : null}
               {!inWorkspace && primary ? (
-                <Link href="/home" className="shell-v2__mark" aria-label={t("shell.homeMarkAria")}>
+                <Link href={canonicalHref("home")} className="shell-v2__mark" aria-label={t("shell.homeMarkAria")}>
                   <ShellIconSvg name="wallet" />
                 </Link>
               ) : null}
@@ -182,7 +182,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
               {primary && !inWorkspace ? (
                 <div className="shell-v2__header-nav">
                   <Link
-                    href="/spaces"
+                    href={spacesListHref()}
                     className={`shell-v2__spacesTextLink${location.section === "spaces" ? " is-active" : ""}`}
                     aria-current={location.section === "spaces" ? "page" : undefined}
                   >
@@ -210,7 +210,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
           {inWorkspace && archived && slug ? (
             <div className="shell-archived-banner" role="status">
               <span>{t("shell.archivedBanner")}</span>
-              <Link href={`${wPath(slug, "settings")}#danger`}>
+              <Link href={`${canonicalHref("settings", slug)}#danger`}>
                 {t("shell.archivedBannerAction")}
               </Link>
             </div>

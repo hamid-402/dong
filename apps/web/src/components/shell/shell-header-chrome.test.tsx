@@ -22,16 +22,16 @@ const here = dirname(fileURLToPath(import.meta.url));
 describe("header tool links", () => {
   it("keeps every overflow destination, scoped to the open space when one exists", () => {
     expect(headerToolLinks(null).map((item) => [item.label, item.href])).toEqual([
-      ["سازمان‌ها", "/orgs"],
+      ["سازمان‌ها", "/home"],
       ["ساختمان‌ها", "/spaces?kind=building"],
       ["گزارش ساختمان", "/spaces/reports?kind=building"],
-      ["تدارکات", "/workspaces/procurement"],
-      ["تجهیزات", "/workspaces/assets"],
-      ["پیشنهادها", "/proposals"],
-      ["شرکا", "/workspaces/partnership"],
+      ["تدارکات", "/home"],
+      ["تجهیزات", "/home"],
+      ["پیشنهادها", "/home"],
+      ["شرکا", "/home"],
     ]);
     expect(headerToolLinks("acme").map((item) => item.href)).toEqual([
-      "/orgs",
+      "/w/acme/space",
       "/spaces?kind=building",
       "/spaces/reports?kind=building",
       "/w/acme/procurement",
