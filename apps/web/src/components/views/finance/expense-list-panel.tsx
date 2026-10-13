@@ -18,7 +18,6 @@ import {
   rowSelectActivateProps,
 } from "@/components/selection/selection-action-bar";
 import { useRowSelection } from "@/components/selection/use-row-selection";
-import { EmptyStateIllustration } from "@/components/ui/empty-state-illustration";
 import { ExpenseReceiptUpload, type OcrFormHints } from "@/components/expense-receipt-upload";
 import { ExpenseCommentsPanel } from "@/components/expense-comments-panel";
 import { JalaliDateField } from "@/components/jalali-date-field";
@@ -766,7 +765,7 @@ export function ExpenseListPanel({
         <DataList>
           {sourceScopedExpenses.length === 0 ? (
             <EmptyStateBlock
-              illustration={<EmptyStateIllustration variant="no-expense" />}
+              icon="receipt"
               title={
                 expenseFilter === "all" && sourceFilter === "all"
                   ? "هنوز هزینه‌ای ثبت نشده"

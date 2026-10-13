@@ -30,7 +30,6 @@ import {
 } from "@/components/selection/selection-action-bar";
 import { useRowSelection } from "@/components/selection/use-row-selection";
 import selStyles from "@/components/selection/selection-action-bar.module.css";
-import { EmptyStateIllustration } from "@/components/ui/empty-state-illustration";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { api } from "@/lib/api";
 import { authErrorMessage } from "@/lib/api-errors";
@@ -614,7 +613,7 @@ export function FriendsView() {
         <SectionCard title="دوستان من" delayClass="delay3">
           {friends.length === 0 ? (
             <EmptyStateBlock
-              illustration={<EmptyStateIllustration variant="no-group" />}
+              icon="partners"
               title="هنوز دوستی ندارید"
               description="با نام کاربری دقیق فرد را پیدا کنید یا از تطبیق مخاطبین استفاده کنید."
               action={

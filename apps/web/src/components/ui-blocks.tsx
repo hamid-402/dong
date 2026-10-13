@@ -2,9 +2,9 @@
 
 import type { ReactNode } from "react";
 import { Badge, Skeleton, type BadgeProps } from "@dang/ui";
-import { StickerSvg, stickerDefaultMotion, type StickerName } from "@/components/visual/stickers";
+import { ShellIconSvg, type ShellIcon } from "@/components/shell/shell-icons";
+import type { StickerName } from "@/components/visual/stickers";
 import { useHubEmbed } from "@/components/mosaic/hub-embed";
-import { useOptionalTheme } from "@/lib/theme";
 
 export function PageHeader({
   eyebrow,
@@ -150,38 +150,68 @@ export function EmptyHint({
   return <p className="emptyHint">{children}</p>;
 }
 
+const STICKER_SHELL_ICON: Record<StickerName, ShellIcon> = {
+  wallet: "wallet",
+  ring: "partners",
+  tower: "box",
+  mosaic: "menu",
+  chartEmpty: "receipt",
+  coinTilt: "wallet",
+  arrows: "receipt",
+  sparkOk: "receipt",
+  ledger: "receipt",
+  scale: "receipt",
+  lock: "settings",
+  invite: "partners",
+  check: "receipt",
+  bell: "bell",
+  calendar: "receipt",
+  spark: "receipt",
+  folder: "box",
+  handshake: "partners",
+  shield: "settings",
+  compass: "search",
+  home: "home",
+  coins: "wallet",
+  team: "partners",
+  grow: "wallet",
+  celebrate: "receipt",
+  wave: "partners",
+  cart: "cart",
+  plant: "box",
+};
+
+function shellIconForSticker(sticker: StickerName): ShellIcon {
+  return STICKER_SHELL_ICON[sticker];
+}
+
 export function EmptyStateBlock({
   title,
   description,
   action,
-  illustration,
+  icon,
   sticker = "spark",
-  stickerSize = 64,
 }: {
   title: string;
   description?: ReactNode;
   action?: ReactNode;
-  /** Optional visual accent (e.g. EmptyStateIllustration) — never used for loading. */
-  illustration?: ReactNode;
-  /** Built-in SVG sticker when illustration is omitted; null disables. */
+  /** Shell line icon. Null hides the mark. */
+  icon?: ShellIcon | null;
+  /** Legacy sticker name, drawn as a shell line icon. Null hides the mark. */
   sticker?: StickerName | null;
   stickerSize?: number;
 }) {
-  const theme = useOptionalTheme();
-  const animate = theme ? theme.allowsNarrative : true;
-  const art =
-    illustration ??
-    (sticker ? (
-      <StickerSvg
-        name={sticker}
-        animated={animate}
-        size={stickerSize}
-        motionClass={animate ? stickerDefaultMotion(sticker) : undefined}
-      />
-    ) : null);
+  const shellName: ShellIcon | null =
+    icon === null || (icon == null && sticker === null)
+      ? null
+      : (icon ?? shellIconForSticker(sticker ?? "spark"));
   return (
     <div className="emptyStateBlock" role="status">
-      {art ? <div className="emptyStateBlock__art dang-motion-ambient">{art}</div> : null}
+      {shellName ? (
+        <div className="emptyStateBlock__art">
+          <ShellIconSvg name={shellName} size={28} />
+        </div>
+      ) : null}
       <strong>{title}</strong>
       {description ? <p>{description}</p> : null}
       {action ? <div className="emptyStateBlock__action">{action}</div> : null}

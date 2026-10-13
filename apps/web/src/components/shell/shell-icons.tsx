@@ -15,14 +15,16 @@ export type ShellIcon =
 export function ShellIconSvg({
   name,
   dualTone = false,
+  size = 21,
 }: {
   name: ShellIcon;
   /** Primary stroke + gold accent on secondary paths (mosaic featured tiles). */
   dualTone?: boolean;
+  size?: number;
 }) {
   const common = {
-    width: 21,
-    height: 21,
+    width: size,
+    height: size,
     viewBox: "0 0 24 24",
     fill: "none",
     stroke: "currentColor",

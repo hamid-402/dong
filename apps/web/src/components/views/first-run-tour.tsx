@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@dang/ui";
 import styles from "@/components/views/statements-tour.module.css";
-import { StickerSvg, type StickerName } from "@/components/visual/stickers";
+import { ShellIconSvg, type ShellIcon } from "@/components/shell/shell-icons";
 import { useShellV2Api } from "@/components/shell/shell-v2-context";
 import { api } from "@/lib/api";
 import { t } from "@/lib/i18n";
@@ -20,7 +20,7 @@ type Step = {
   hrefLabelKey?: string;
   /** Opens command palette instead of navigating. */
   openSearch?: boolean;
-  sticker: StickerName;
+  icon: ShellIcon;
 };
 
 /**
@@ -41,7 +41,7 @@ export function FirstRunTour({
       id: "home",
       titleKey: "shell.tourHomeTitle",
       bodyKey: "shell.tourHomeBody",
-      sticker: "compass",
+      icon: "home",
     },
     {
       id: "spaces",
@@ -49,7 +49,7 @@ export function FirstRunTour({
       bodyKey: "shell.tourSpacesBody",
       href: "/home",
       hrefLabelKey: "shell.tourSpacesCta",
-      sticker: "invite",
+      icon: "partners",
     },
     {
       id: "invite",
@@ -57,7 +57,7 @@ export function FirstRunTour({
       bodyKey: "shell.tourInviteBody",
       href: workspaceSlug ? wPath(workspaceSlug, "members") : "/onboarding",
       hrefLabelKey: "shell.tourInviteCta",
-      sticker: "invite",
+      icon: "partners",
     },
     {
       id: "expense",
@@ -65,7 +65,7 @@ export function FirstRunTour({
       bodyKey: "shell.tourExpenseBody",
       href: workspaceSlug ? wPath(workspaceSlug, "expenses") : undefined,
       hrefLabelKey: "shell.tourExpenseCta",
-      sticker: "ledger",
+      icon: "receipt",
     },
     {
       id: "search",
@@ -73,7 +73,7 @@ export function FirstRunTour({
       bodyKey: "shell.tourSearchBody",
       hrefLabelKey: "shell.tourSearchCta",
       openSearch: true,
-      sticker: "spark",
+      icon: "search",
     },
   ];
 
@@ -137,7 +137,9 @@ export function FirstRunTour({
       <p className={styles.eyebrow}>
         {t("shell.tourEyebrow")} · {step + 1}/{steps.length}
       </p>
-      <StickerSvg name={current.sticker} className={styles.sticker} />
+      <span className={styles.icon} aria-hidden="true">
+        <ShellIconSvg name={current.icon} size={28} />
+      </span>
       <h3 id="first-run-tour-title">{t(current.titleKey)}</h3>
       <p>{t(current.bodyKey)}</p>
       {current.openSearch && current.hrefLabelKey ? (
