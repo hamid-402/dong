@@ -17,13 +17,13 @@ import { ShellPageTrail } from "@/components/shell/shell-page-trail";
 import { ShellHeaderSearchField } from "@/components/shell/shell-header-search";
 import { WorkspaceSwitcher } from "@/components/mosaic/workspace-switcher";
 import { CommandPalette } from "@/components/shell/command-palette";
-import { WorkspaceSectionTabs } from "@/components/shell/space-kind-header-tabs";
+import { KindHeaderSwitcher, WorkspaceSectionTabs } from "@/components/shell/space-kind-header-tabs";
 import { bottomTabsV2 } from "@/lib/navigation-v2";
 import { canonicalHref, spacesListHref, wPath } from "@/lib/workspace-paths";
 import { slugFromPathname } from "@/lib/workspace-storage";
 import { useViewportMode } from "@/lib/use-viewport";
 import { t } from "@/lib/i18n";
-import { NAV_LABELS, spaceTabLabel } from "@/lib/nav-labels";
+import { NAV_LABELS } from "@/lib/nav-labels";
 import { workspaceDisplayName } from "@/lib/workspace-display-name";
 import { spaceKindForTemplate, type SpaceKind } from "@dang/contracts";
 import { assignKindGems, shellKindStyle } from "@/lib/tile-gem-palettes";
@@ -139,6 +139,10 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
               >
                 دنگ
               </Link>
+              <KindHeaderSwitcher
+                activeKind={location.spaceKind}
+                workspaces={chrome.workspaces}
+              />
               <WorkspaceSwitcher
                 compact={!desktop}
                 leaveHref={inWorkspace ? leaveMembershipHref : null}
@@ -195,9 +199,6 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
                   items={location.trail}
                   fallbackHref={slug ? wPath(slug) : "/home"}
                   dense
-                  omitLabels={[displayWsName, realmKind ? spaceTabLabel(realmKind) : ""].filter(
-                    (label): label is string => Boolean(label),
-                  )}
                 />
               ) : (
                 <ShellTrail />

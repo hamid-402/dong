@@ -722,6 +722,79 @@ a.shell-v2__mark:focus-visible{
   border-radius: 8px;
 }
 
+.kindSwitcher{
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.kindSwitcher__segments{
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+}
+
+.kindSwitcher__seg{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.kindSwitcher__seg + .kindSwitcher__seg{
+  border-inline-start: 1px solid var(--line);
+}
+
+.kindSwitcher__seg:hover{
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.kindSwitcher__seg.is-active{
+  color: var(--text);
+  font-weight: 750;
+  background: color-mix(in srgb, var(--kind-edge, var(--primary)) 22%, var(--surface));
+  box-shadow: inset 0 -2px 0 var(--kind-mid, var(--primary));
+}
+
+.kindSwitcher__seg:focus-visible,
+.kindSwitcher__select:focus-visible{
+  outline: 3px solid var(--dang-focus, var(--primary));
+  outline-offset: 2px;
+  z-index: 1;
+}
+
+.kindSwitcher__dropdown{
+  display: none;
+}
+
+.kindSwitcher__select{
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 9.5rem;
+  padding-inline: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
 .shell-v2__contextLink{
   max-width: 11rem;
   overflow: hidden;
@@ -1417,6 +1490,13 @@ a.shell-v2__crumbSeg--link:hover,
 .shell-v2__crumbSeg--link:hover{
   color: var(--text);
   background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+a.shell-v2__crumbSeg--link.shell-v2__crumbSeg--current,
+a.shell-v2__crumbSeg--link.shell-v2__crumbSeg--current:link,
+a.shell-v2__crumbSeg--link.shell-v2__crumbSeg--current:visited{
+  color: var(--text);
+  font-weight: 750;
 }
 
 .shell-v2__crumbSeg--link:focus-visible{
@@ -3206,6 +3286,61 @@ html[data-scheme="dark"] .spaces-mosaic__ops a{
 .appHomeMosaic__ops{
   display: grid;
   gap: 14px;
+}
+
+/* Kind overview on /spaces?kind= — counts, and group owed/owing from live nets. */
+.kindOverview{
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--kind-edge, var(--line)) 45%, var(--line));
+  background: color-mix(in srgb, var(--kind-edge, var(--surface)) 12%, var(--surface));
+}
+
+.kindOverview__head h2{
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.kindOverview__head p,
+.kindOverview__hint{
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.kindOverview__facts{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin: 0;
+}
+
+.kindOverview__facts div{
+  display: grid;
+  gap: 2px;
+}
+
+.kindOverview__facts dt{
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.kindOverview__facts dd{
+  margin: 0;
+  font-weight: 750;
+}
+
+.kindOverview__actions{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.kindOverview__actions .shell-v2__cta{
+  min-height: 44px;
 }
 
 /* Kind-level aggregate (cross-space reports on /spaces?kind=…) */
@@ -6717,6 +6852,25 @@ summary:focus-visible,
   .shell-v2__zone--start .mosaic-ws-switch__trigger {
     width: 100%;
     max-width: 100%;
+  }
+
+  .kindSwitcher__segments{
+    display: none;
+  }
+
+  .kindSwitcher__dropdown{
+    display: block;
+  }
+
+  .kindSwitcher__select{
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .kindSwitcher__seg:focus-visible,
+  .kindSwitcher__select:focus-visible{
+    outline: 3px solid var(--dang-focus, var(--primary));
+    outline-offset: 2px;
   }
 
   .shell-v2__search--field {

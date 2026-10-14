@@ -44,28 +44,29 @@ describe("workspace section tabs", () => {
       null,
     );
     expect(screen.queryByRole("link", { name: /ترک عضویت/ })).toBeNull();
+    expect(screen.getAllByRole("link")[0]?.textContent).toBe("خلاصه");
+    expect(screen.getAllByRole("link")[0]?.getAttribute("href")).toBe("/w/acme");
   });
 
-  it("omits the space name and kind from the slim trail", () => {
+  it("renders kind, space, and section as links", () => {
     render(
       <ShellPageTrail
         dense
-        omitLabels={["آکمه", "گروه"]}
         items={[
-          { label: "خانه", href: "/home" },
-          { label: "گروه", href: "/spaces?kind=group" },
+          { label: "گروهی", href: "/spaces?kind=group" },
           { label: "آکمه", href: "/w/acme" },
-          { label: "مالی", href: "/w/acme?folder=finance", group: true },
-          { label: "نمودارها" },
+          { label: "مالی", href: "/w/acme?folder=finance" },
         ]}
       />,
     );
 
-    expect(screen.queryByText("آکمه")).toBeNull();
-    expect(screen.queryByText("گروه")).toBeNull();
-    expect(screen.getByText("خانه")).toBeTruthy();
-    expect(screen.getByText("مالی")).toBeTruthy();
-    expect(screen.getByText("نمودارها")).toBeTruthy();
+    const crumbs = Array.from(document.querySelectorAll(".shell-v2__crumb a"));
+    expect(crumbs.map((link) => link.textContent)).toEqual(["گروهی", "آکمه", "مالی"]);
+    expect(crumbs.map((link) => link.getAttribute("href"))).toEqual([
+      "/spaces?kind=group",
+      "/w/acme",
+      "/w/acme?folder=finance",
+    ]);
   });
 });
 

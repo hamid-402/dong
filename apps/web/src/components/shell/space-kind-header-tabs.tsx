@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useId, type KeyboardEvent } from "react";
 import {
   spaceKindForTemplate,
   type MembershipRole,
@@ -9,7 +10,7 @@ import {
   type WorkspaceSummary,
   type WorkspaceTemplate,
 } from "@dang/contracts";
-import { NAV_LABELS } from "@/lib/nav-labels";
+import { NAV_LABELS, spaceTabLabel } from "@/lib/nav-labels";
 import {
   homeDomainHref,
   parseDomainGroup,
@@ -17,6 +18,7 @@ import {
   spaceNavItemHint,
   type SpaceNavFlags,
 } from "@/lib/navigation-v2";
+import { OVERVIEW_SECTION_LABEL } from "@/components/shell/shell-location";
 import { classicPathToWorkspacePage, spacesListHref, wPath } from "@/lib/workspace-paths";
 import { t } from "@/lib/i18n";
 
@@ -196,9 +198,132 @@ export function SpaceKindHeaderTabs({
   );
 }
 
+/** Header order: شخصی، گروهی، سازمان، ساختمان. */
+export const KIND_SWITCH_ORDER = ["personal", "group", "org", "building"] as const;
+
+type KindSwitchWorkspace = {
+  slug: string;
+  template: WorkspaceTemplate;
+};
+
+/** Kind list, or the only personal space when there is exactly one. */
+export function kindSwitcherHref(
+  kind: SpaceKind,
+  workspaces: readonly KindSwitchWorkspace[],
+): string {
+  if (kind === "personal") {
+    const personal = workspaces.filter(
+      (ws) => spaceKindForTemplate(ws.template) === "personal",
+    );
+    if (personal.length === 1 && personal[0]) return wPath(personal[0].slug);
+  }
+  return spacesListHref(kind);
+}
+
+/**
+ * Four-kind switcher beside the wordmark.
+ * Segments on desktop/tablet; a native select from 480px down (shell.css).
+ * The active kind comes from resolveShellLocation.
+ */
+export function KindHeaderSwitcher({
+  activeKind,
+  workspaces,
+}: {
+  activeKind: SpaceKind | null;
+  workspaces: readonly KindSwitchWorkspace[];
+}) {
+  const router = useRouter();
+  const selectId = useId();
+  const options = KIND_SWITCH_ORDER.map((kind) => ({
+    kind,
+    label: spaceTabLabel(kind),
+    href: kindSwitcherHref(kind, workspaces),
+  }));
+
+  function onSegmentsKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const items = Array.from(
+      event.currentTarget.querySelectorAll<HTMLAnchorElement>("[data-kind-option]"),
+    );
+    const current = items.indexOf(document.activeElement as HTMLAnchorElement);
+    if (current < 0 || items.length === 0) return;
+    let next = current;
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      next = (current - 1 + items.length) % items.length;
+    } else if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      next = (current + 1) % items.length;
+    } else if (event.key === "Home") {
+      next = 0;
+    } else if (event.key === "End") {
+      next = items.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    items[next]?.focus();
+  }
+
+  const tabStop =
+    options.find((option) => option.kind === activeKind)?.kind ?? options[0]?.kind;
+
+  return (
+    <nav className="kindSwitcher" aria-label={t("shell.kindTabsAria")}>
+      <div className="kindSwitcher__segments" onKeyDown={onSegmentsKeyDown}>
+        {options.map((option) => {
+          const active = option.kind === activeKind;
+          return (
+            <Link
+              key={option.kind}
+              href={option.href}
+              data-kind={option.kind}
+              data-kind-option=""
+              aria-current={active ? "true" : undefined}
+              tabIndex={option.kind === tabStop ? 0 : -1}
+              className={`kindSwitcher__seg${active ? " is-active" : ""}`}
+            >
+              {option.label}
+            </Link>
+          );
+        })}
+      </div>
+      <div className="kindSwitcher__dropdown">
+        <label className="visually-hidden" htmlFor={selectId}>
+          {t("shell.kindTabsAria")}
+        </label>
+        <select
+          id={selectId}
+          className="kindSwitcher__select"
+          value={activeKind ?? ""}
+          onChange={(event) => {
+            const next = event.target.value;
+            if (
+              next !== "personal" &&
+              next !== "group" &&
+              next !== "org" &&
+              next !== "building"
+            ) {
+              return;
+            }
+            router.push(kindSwitcherHref(next, workspaces));
+          }}
+        >
+          <option value="" disabled>
+            نوع فضا
+          </option>
+          {options.map((option) => (
+            <option key={option.kind} value={option.kind}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </nav>
+  );
+}
+
 /**
  * Inside a space: domain tabs, then that section’s links, on one scrolling line.
  * The catalog shortcut stays beside this row. Leave stays on the space switcher.
+ * The first tab is always the space overview («خلاصه»).
  */
 export function WorkspaceSectionTabs({
   template,
@@ -237,7 +362,7 @@ export function WorkspaceSectionTabs({
         className={`shell-sectionTabs__tab shell-sectionTabs__tab--section${homeActive ? " is-active" : ""}`}
         aria-current={homeActive ? "page" : undefined}
       >
-        {NAV_LABELS.space}
+        {OVERVIEW_SECTION_LABEL}
       </Link>
       {sections.map((section) => {
         const key = parseDomainGroup(section.key);
