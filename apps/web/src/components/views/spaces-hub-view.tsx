@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { WorkspaceSummary } from "@dang/contracts";
-import { spaceKindForTemplate, spaceKindOffered } from "@dang/contracts";
+import { spaceKindForTemplate } from "@dang/contracts";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { workspaceTemplateLabel } from "@/lib/status-labels";
 import { wPath } from "@/lib/workspace-paths";
 import { NAV_LABELS } from "@/lib/nav-labels";
-import { EmptyState, ErrorState, LoadingState } from "@dang/ui";
+import { EmptyState, ErrorState, LoadingState, formatMoneyFromIrrMinor } from "@dang/ui";
 import { CreateGroupForm, GroupCreatedNext } from "@/components/create-group-form";
 import {
   SectionCard,
@@ -34,7 +34,11 @@ import {
 } from "@/lib/workspace-pin-sync";
 import { DIRECTORY_KIND_VISIBLE_CAP } from "@/lib/workspace-directory-model";
 import { fuzzyScore } from "@/lib/fuzzy-score";
-import { netFromIrrMinor, type SpaceNetRow } from "@/lib/space-net-balance";
+import {
+  aggregateSpaceNets,
+  netFromIrrMinor,
+  type SpaceNetRow,
+} from "@/lib/space-net-balance";
 import { useDisplayUnit } from "@/lib/display-unit";
 
 const KIND_ORDER = ["personal", "group", "building", "org"] as const;
@@ -52,6 +56,57 @@ const KIND_HINT = {
   building: "واحدها، شارژ و قبوض مشترک ساختمان",
   org: "تیم، بخش‌ها و شرکت‌های زیرمجموعه",
 } as const;
+
+function KindOverviewSummary({
+  kind,
+  spaceCount,
+  rows,
+  loading,
+}: {
+  kind: (typeof KIND_ORDER)[number];
+  spaceCount: number;
+  rows: readonly SpaceNetRow[];
+  loading: boolean;
+}) {
+  const unit = useDisplayUnit();
+  const label = KIND_LABEL[kind];
+  const agg = aggregateSpaceNets([...rows]);
+  const showMoney = kind === "group" && !loading && rows.length > 0;
+  return (
+    <section className="kindOverview" aria-labelledby="kind-overview-title" data-kind={kind}>
+      <header className="kindOverview__head">
+        <h2 id="kind-overview-title">{label}</h2>
+        <p>
+          {spaceCount.toLocaleString("fa-IR")} فضا
+          {kind === "group" && loading ? " · در حال جمع طلب و بدهی…" : ""}
+        </p>
+      </header>
+      {showMoney ? (
+        <dl className="kindOverview__facts">
+          <div className="is-credit">
+            <dt>طلب دارید</dt>
+            <dd>{formatMoneyFromIrrMinor(agg.youAreOwedToman * 10, unit)}</dd>
+          </div>
+          <div className="is-debt">
+            <dt>بدهکارید</dt>
+            <dd>{formatMoneyFromIrrMinor(agg.youOweToman * 10, unit)}</dd>
+          </div>
+          <div>
+            <dt>تسویه باز</dt>
+            <dd>{agg.openSettlements.toLocaleString("fa-IR")}</dd>
+          </div>
+        </dl>
+      ) : kind === "group" && loading ? null : (
+        <p className="kindOverview__hint">{KIND_HINT[kind]}</p>
+      )}
+      <div className="kindOverview__actions">
+        <Link className="shell-v2__cta" href={`/spaces/new?kind=${kind}`}>
+          ساخت فضای {label}
+        </Link>
+      </div>
+    </section>
+  );
+}
 
 type NetCell =
   | { status: "ready"; row: SpaceNetRow }
@@ -80,20 +135,19 @@ export function SpacesHubView({
     Partial<Record<(typeof KIND_ORDER)[number], boolean>>
   >({});
   const kindFromUrl = searchParams.get("kind");
-  const productFlags = chrome.capabilities?.productFlags;
-  const kindOffered = (kind: (typeof KIND_ORDER)[number]) =>
-    spaceKindOffered(kind, {
-      buildingSpaces: productFlags?.buildingSpaces === true,
-      orgSpaces: productFlags?.orgSpaces === true,
-    });
   const kindFilter: (typeof KIND_ORDER)[number] | "all" =
-    (kindFromUrl === "personal" ||
-      kindFromUrl === "group" ||
-      kindFromUrl === "building" ||
-      kindFromUrl === "org") &&
-    kindOffered(kindFromUrl)
+    kindFromUrl === "personal" ||
+    kindFromUrl === "group" ||
+    kindFromUrl === "building" ||
+    kindFromUrl === "org"
       ? kindFromUrl
       : "all";
+  const personalSpaces = chrome.workspaces.filter(
+    (ws) => spaceKindForTemplate(ws.template) === "personal",
+  );
+  const solePersonal =
+    directoryOnly && kindFilter === "personal" && chrome.ready && personalSpaces.length === 1;
+  const solePersonalSpace = solePersonal ? personalSpaces[0] : undefined;
   const [nets, setNets] = useState<Record<string, NetCell>>({});
   const [netsLoading, setNetsLoading] = useState(false);
   const chartsAvailable =
@@ -293,6 +347,12 @@ export function SpacesHubView({
     document.getElementById("spaces")?.scrollIntoView({ block: "start" });
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!solePersonalSpace) return;
+    chrome.selectWorkspace(solePersonalSpace.id);
+    router.replace(wPath(solePersonalSpace.slug));
+  }, [solePersonalSpace, chrome.selectWorkspace, router]);
+
   return (
     <div className="spaces-hubPage">
       {directoryOnly ? (
@@ -387,7 +447,18 @@ export function SpacesHubView({
         ) : null
       ) : (
         <div className="spaces-hub" id="spaces">
-          {kindFilter === "building" || kindFilter === "org" ? (
+          {solePersonal ? (
+            <p role="status">انتقال به دفتر شخصی…</p>
+          ) : null}
+          {!solePersonal && directoryOnly && kindFilter !== "all" ? (
+            <KindOverviewSummary
+              kind={kindFilter}
+              spaceCount={kindSpaces.length}
+              rows={kindRows}
+              loading={netsLoading}
+            />
+          ) : null}
+          {!solePersonal && (kindFilter === "building" || kindFilter === "org") ? (
             <StatusLine>
               {KIND_LABEL[kindFilter]}
               {" · "}
@@ -396,7 +467,10 @@ export function SpacesHubView({
               </button>
             </StatusLine>
           ) : null}
-          {kindFilter !== "all" && kindFilter !== "building" && kindFilter !== "org" ? (
+          {!solePersonal &&
+          kindFilter !== "all" &&
+          kindFilter !== "building" &&
+          kindFilter !== "org" ? (
             <KindAggregatePanel
               kind={kindFilter}
               spaces={kindSpaces}
@@ -405,6 +479,7 @@ export function SpacesHubView({
             />
           ) : null}
 
+          {!solePersonal ? (
           <div className="spaces-hub__list">
             <div className="spaces-hub__toolbar">
             <label className="spaces-hub__search">
@@ -589,6 +664,9 @@ export function SpacesHubView({
                                 {active ? (
                                   <span className="spaces-list__activePill">فعال</span>
                                 ) : null}
+                                {ws.archivedAt ? (
+                                  <span className="spaces-list__activePill">بایگانی</span>
+                                ) : null}
                               </span>
                               <small>
                                 {workspaceTemplateLabel(ws.template)}
@@ -694,6 +772,7 @@ export function SpacesHubView({
             </StatusLine>
           </div>
           </div>
+          ) : null}
         </div>
       )}
     </div>

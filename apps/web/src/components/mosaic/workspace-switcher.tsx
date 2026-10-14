@@ -16,7 +16,9 @@ import { membershipRoleLabel, workspaceTemplateLabel } from "@/lib/status-labels
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useDisplayUnit } from "@/lib/display-unit";
 import { ShellIconSvg } from "@/components/shell/shell-icons";
-import { wPath } from "@/lib/workspace-paths";
+import { spacesListHref, wPath } from "@/lib/workspace-paths";
+import { slugFromPathname } from "@/lib/workspace-storage";
+import { spaceTabLabel } from "@/lib/nav-labels";
 import {
   buildDirectorySections,
   DIRECTORY_KIND_LABEL,
@@ -82,8 +84,13 @@ export function WorkspaceSwitcher({
   const inWorkspace = /^\/w\//.test(pathname);
 
   const active = workspaces.find((w) => w.id === workspaceId);
-  const kind = spaceKindForTemplate(active?.template);
+  const routeSlug = slugFromPathname(pathname);
+  const routeWorkspace = inWorkspace
+    ? workspaces.find((ws) => ws.slug === routeSlug)
+    : undefined;
+  const kind = spaceKindForTemplate(routeWorkspace?.template ?? active?.template);
   const kindLabel = DIRECTORY_KIND_LABEL[kind];
+  const kindListLabel = spaceTabLabel(kind);
   const liveIds = useMemo(() => workspaces.map((w) => w.id), [workspaces]);
 
   const enrichedWorkspaces = useMemo(() => {
@@ -107,10 +114,17 @@ export function WorkspaceSwitcher({
     return filterLiveRecentWorkspaces(listRecentWorkspaces(), liveIds);
   }, [liveIds, pinTick, open]);
 
+  const listedWorkspaces = useMemo(() => {
+    if (!inWorkspace) return enrichedWorkspaces;
+    return enrichedWorkspaces.filter(
+      (ws) => spaceKindForTemplate(ws.template) === kind,
+    );
+  }, [enrichedWorkspaces, inWorkspace, kind]);
+
   const sections = useMemo(
     () =>
       buildDirectorySections({
-        workspaces: enrichedWorkspaces,
+        workspaces: listedWorkspaces,
         query,
         pins,
         recent,
@@ -119,7 +133,7 @@ export function WorkspaceSwitcher({
         activeKind: inWorkspace ? kind : null,
       }),
     [
-      enrichedWorkspaces,
+      listedWorkspaces,
       query,
       pins,
       recent,
@@ -322,8 +336,9 @@ export function WorkspaceSwitcher({
 
   const currentName = (inWorkspace ? workspaceName : active?.name || workspaceName) || "";
   const triggerTitle = currentName || "فضاها";
+  const listedCount = inWorkspace ? listedWorkspaces.length : workspaces.length;
   const triggerMeta = active
-    ? `${kindLabel}${workspaces.length > 1 ? ` · ${workspaces.length.toLocaleString("fa-IR")} فضا` : ""}`
+    ? `${kindLabel}${listedCount > 1 ? ` · ${listedCount.toLocaleString("fa-IR")} فضا` : ""}`
     : "انتخاب فضا";
   const triggerAria = active
     ? `فضای جاری: ${triggerTitle}، ${kindLabel}`
@@ -545,6 +560,11 @@ export function WorkspaceSwitcher({
               <Link href="/spaces" onClick={() => setOpen(false)}>
                 همه فضاها
               </Link>
+              {inWorkspace ? (
+                <Link href={spacesListHref(kind)} onClick={() => setOpen(false)}>
+                  همهٔ فضاهای {kindListLabel}
+                </Link>
+              ) : null}
               {leaveHref ? (
                 <Link
                   href={leaveHref}

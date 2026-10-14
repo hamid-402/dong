@@ -9,10 +9,11 @@ import { fileURLToPath } from "node:url";
 import { WorkspaceSwitcher } from "@/components/mosaic/workspace-switcher";
 
 const push = vi.fn();
+const nav = vi.hoisted(() => ({ pathname: "/home" }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, prefetch: vi.fn() }),
-  usePathname: () => "/home",
+  usePathname: () => nav.pathname,
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -44,6 +45,7 @@ describe("space switcher", () => {
   afterEach(() => {
     cleanup();
     localStorage.clear();
+    nav.pathname = "/home";
     vi.clearAllMocks();
   });
 
@@ -79,6 +81,18 @@ describe("space switcher", () => {
 
     fireEvent.click(screen.getByRole("option", { name: /شرکت/ }));
     expect(push).toHaveBeenCalledWith("/w/company/space");
+  });
+
+  it("lists only the current kind inside a space, with a link to that kind", () => {
+    nav.pathname = "/w/home";
+    render(<WorkspaceSwitcher />);
+    fireEvent.click(screen.getByRole("button", { name: "فضای جاری: خانه، گروه" }));
+
+    expect(screen.getAllByRole("option", { name: /خانه/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("option", { name: /شرکت/ })).toBeNull();
+    const kindLink = screen.getByRole("link", { name: "همهٔ فضاهای گروهی" });
+    expect(kindLink.getAttribute("href")).toBe("/spaces?kind=group");
+    expect(screen.getByRole("link", { name: "همه فضاها" }).getAttribute("href")).toBe("/spaces");
   });
 
   it("offers leave membership inside the menu and omits it when no target is set", () => {
