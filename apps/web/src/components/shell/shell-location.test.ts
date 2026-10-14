@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NAV_LABELS } from "@/lib/nav-labels";
-import { resolveShellLocation } from "@/components/shell/shell-location";
+import { OVERVIEW_SECTION_LABEL, resolveShellLocation } from "@/components/shell/shell-location";
 
 describe("resolveShellLocation", () => {
   it("treats /home as the home section with no back target", () => {
@@ -45,13 +45,31 @@ describe("resolveShellLocation", () => {
     expect(loc.spaceName).toBe("آکمه");
     expect(loc.spaceKind).toBe("group");
     expect(loc.activeDomain).toBe("finance");
-    expect(loc.trail.some((c) => c.group && c.label === NAV_LABELS.sectionFinance)).toBe(
-      true,
-    );
+    expect(loc.trail).toEqual([
+      { label: NAV_LABELS.spaceGroup, href: "/spaces?kind=group" },
+      { label: "آکمه", href: "/w/acme" },
+      { label: NAV_LABELS.sectionFinance, href: "/w/acme?folder=finance" },
+    ]);
     expect(loc.back).toEqual({ href: "/w/acme", label: "آکمه" });
     expect(loc.isHrefActive("/w/acme/charts")).toBe(true);
     expect(loc.isHrefActive("/home")).toBe(false);
     expect(loc.activeTab).toBeNull();
+  });
+
+  it("uses خلاصه as the section on the space home", () => {
+    const loc = resolveShellLocation({
+      pathname: "/w/acme",
+      workspaceName: "آکمه",
+      template: "friends_family",
+    });
+    expect(loc.trail.map((crumb) => crumb.label)).toEqual([
+      NAV_LABELS.spaceGroup,
+      "آکمه",
+      OVERVIEW_SECTION_LABEL,
+    ]);
+    expect(loc.trail.every((crumb) => Boolean(crumb.href))).toBe(true);
+    expect(loc.trail[2]?.href).toBe("/w/acme");
+    expect(loc.back).toBeNull();
   });
 
   it("marks the expense dock tab on the record and expense pages", () => {

@@ -1,6 +1,11 @@
 import { spaceKindForTemplate, type SpaceKind, type WorkspaceTemplate } from "@dang/contracts";
 import type { BreadcrumbCrumb } from "@/components/shell/app-breadcrumb";
-import { isNavHrefActive } from "@/lib/navigation-v2";
+import {
+  domainGroupLabel,
+  homeDomainHref,
+  isNavHrefActive,
+  parseDomainGroup,
+} from "@/lib/navigation-v2";
 import { NAV_LABELS, spaceTabLabel } from "@/lib/nav-labels";
 import {
   breadcrumbForPathname,
@@ -33,6 +38,53 @@ export type ShellLocation = {
 };
 
 const SPACE_KINDS = new Set<SpaceKind>(["personal", "group", "building", "org"]);
+
+/** First section inside a space — always the overview tab. */
+export const OVERVIEW_SECTION_LABEL = "خلاصه";
+
+/**
+ * In-space path: kind → space → section. Every part has an href for its level.
+ * The section is the active domain tab, or «خلاصه» on the space home.
+ */
+export function workspaceLevelTrail(input: {
+  pathname: string;
+  search: string;
+  slug: string;
+  spaceName: string | null;
+  spaceKind: SpaceKind | null;
+}): BreadcrumbCrumb[] {
+  const kindLabel = input.spaceKind ? spaceTabLabel(input.spaceKind) : NAV_LABELS.spacesList;
+  const kindHref = input.spaceKind ? `/spaces?kind=${input.spaceKind}` : "/spaces";
+  const spaceHref = wPath(input.slug);
+  const spaceLabel = input.spaceName?.trim() || input.slug;
+  const params = new URLSearchParams(input.search);
+  const folder = parseDomainGroup(params.get("folder"));
+  const domain = domainKeyForPathname(input.pathname) ?? folder;
+  let section: BreadcrumbCrumb;
+  if (domain) {
+    section = {
+      label: domainGroupLabel(domain),
+      href: homeDomainHref(input.slug, domain),
+    };
+  } else {
+    const segment = input.pathname.replace(/\/+$/, "").split("/").filter(Boolean)[2];
+    if (!segment || segment === "space") {
+      section = { label: OVERVIEW_SECTION_LABEL, href: spaceHref };
+    } else {
+      const searchWithQ = input.search ? `?${input.search}` : "";
+      const leaf = breadcrumbForPathname(input.pathname, spaceLabel, searchWithQ);
+      const last = leaf[leaf.length - 1];
+      const label =
+        last?.label && last.label !== spaceLabel ? last.label : OVERVIEW_SECTION_LABEL;
+      section = { label, href: last?.href ?? input.pathname };
+    }
+  }
+  return [
+    { label: kindLabel, href: kindHref },
+    { label: spaceLabel, href: spaceHref },
+    section,
+  ];
+}
 
 function asKind(value: string | null): SpaceKind | null {
   if (value && SPACE_KINDS.has(value as SpaceKind)) return value as SpaceKind;
@@ -92,19 +144,16 @@ export function resolveShellLocation(input: {
       : inWorkspace
         ? [{ label: named || slug || t("nav.back") }]
         : [];
-  const withDomain = insertDomainCrumb(base, pathname);
-  let trail = withDomain;
-  if (inWorkspace && slug) {
-    const kindLabel = spaceKind ? spaceTabLabel(spaceKind) : null;
-    const alreadyHome = trail[0]?.href === "/home" || trail[0]?.label === NAV_LABELS.home;
-    const roots: BreadcrumbCrumb[] = [
-      ...(alreadyHome ? [] : [{ label: NAV_LABELS.home, href: "/home" }]),
-      ...(kindLabel && trail[0]?.label !== kindLabel
-        ? [{ label: kindLabel, href: `/spaces?kind=${spaceKind}` }]
-        : []),
-    ];
-    trail = [...roots, ...trail];
-  }
+  const trail =
+    inWorkspace && slug
+      ? workspaceLevelTrail({
+          pathname,
+          search,
+          slug,
+          spaceName,
+          spaceKind,
+        })
+      : insertDomainCrumb(base, pathname);
 
   const primary = isShellPrimaryPath(pathname, searchWithQ);
   const fallback =

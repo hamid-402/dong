@@ -120,17 +120,21 @@ export function ShellHeaderWayfinding({
                 >
                   {item.label}
                 </button>
-              ) : last || !item.href ? (
+              ) : item.href ? (
+                <Link
+                  href={item.href}
+                  className={`shell-v2__crumbSeg shell-v2__crumbSeg--link${last ? " shell-v2__crumbSeg--current" : ""}`}
+                  aria-current={last ? "page" : undefined}
+                >
+                  {item.label}
+                </Link>
+              ) : (
                 <span
                   className={`shell-v2__crumbSeg${last ? " shell-v2__crumbSeg--current" : " shell-v2__crumbSeg--muted"}`}
                   aria-current={last ? "page" : undefined}
                 >
                   {item.label}
                 </span>
-              ) : (
-                <Link href={item.href} className="shell-v2__crumbSeg shell-v2__crumbSeg--link">
-                  {item.label}
-                </Link>
               )}
             </li>
           );
