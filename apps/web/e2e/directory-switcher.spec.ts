@@ -26,9 +26,7 @@ test.describe("directory workspace switcher", () => {
     await page.goto(`/w/${resolved!.slug}/space`);
     await expectShellReady(page);
 
-    const trigger = page.getByRole("button", {
-      name: /فضای کاری فعال|خانه — فهرست فضاها/i,
-    });
+    const trigger = page.locator(".shell-spaceSwitch__trigger");
     await expect(trigger.first()).toBeVisible({ timeout: 20_000 });
     await trigger.first().click();
 
@@ -60,15 +58,10 @@ test.describe("directory workspace switcher", () => {
     await page.goto(`/w/${resolved!.slug}/space`);
     await expectShellReady(page);
 
-    await page
-      .getByRole("button", { name: /فضای کاری فعال|خانه — فهرست فضاها/i })
-      .first()
-      .click();
+    await page.goto("/spaces");
+    await expectShellReady(page);
 
-    const dialog = page.getByRole("dialog", { name: /فهرست فضاهای کاری/i });
-    await expect(dialog).toBeVisible({ timeout: 10_000 });
-
-    const pin = dialog.getByRole("button", { name: /پین کردن|برداشتن پین/i }).first();
+    const pin = page.getByRole("button", { name: /پین کردن|برداشتن پین/i }).first();
     await expect(pin).toBeVisible({ timeout: 10_000 });
     const before = await pin.getAttribute("aria-pressed");
     await pin.click();

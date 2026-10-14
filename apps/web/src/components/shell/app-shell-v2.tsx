@@ -3,7 +3,6 @@
 import { useEffect, Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { NotificationBell } from "@/components/notification-bell";
 import { ApprovalQueueBadge } from "@/components/shell/approval-queue-badge";
 import { HeaderProfileButton } from "@/components/header-profile-button";
@@ -15,9 +14,9 @@ import { AppTabbar } from "@/components/shell/app-tabbar";
 import { ShellTrail } from "@/components/shell/shell-trail";
 import { ShellPageTrail } from "@/components/shell/shell-page-trail";
 import { ShellHeaderSearchField } from "@/components/shell/shell-header-search";
-import { WorkspaceSwitcher } from "@/components/mosaic/workspace-switcher";
+import { ShellSpaceSwitcher } from "@/components/shell/shell-space-switcher";
 import { CommandPalette } from "@/components/shell/command-palette";
-import { KindHeaderSwitcher, WorkspaceSectionTabs } from "@/components/shell/space-kind-header-tabs";
+import { WorkspaceSectionTabs } from "@/components/shell/space-kind-header-tabs";
 import { bottomTabsV2 } from "@/lib/navigation-v2";
 import { canonicalHref, spacesListHref, wPath } from "@/lib/workspace-paths";
 import { slugFromPathname } from "@/lib/workspace-storage";
@@ -69,16 +68,11 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
     workspaceName: displayWsName,
     template,
   });
-  const primary = location.primary;
-  const spacesList =
-    inWorkspace && template
-      ? spacesListHref(spaceKindForTemplate(template))
-      : spacesListHref();
   /** Membership leave / archive lives in settings danger zone — not home nav. */
   const leaveMembershipHref =
     inWorkspace && slug && template && template !== "personal"
       ? `${canonicalHref("settings", slug)}#danger`
-      : spacesList;
+      : null;
   const archived = Boolean(active?.archivedAt);
   const railFlags = spaceNavFlagsFromCapabilities(chrome.capabilities);
   const tabHrefs = tabs.map((tab) => tab.href).join("|");
@@ -123,11 +117,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
       >
         <header
           className={`shell-v2__header${
-            inWorkspace && slug
-              ? " shell-v2__header--workspace"
-              : primary
-                ? " shell-v2__header--spaceFirst"
-                : " shell-v2__header--sub"
+            inWorkspace && slug ? " shell-v2__header--workspace" : ""
           }`}
         >
           <div className="shell-v2__bar">
@@ -139,72 +129,47 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
               >
                 دنگ
               </Link>
-              <KindHeaderSwitcher
-                activeKind={location.spaceKind}
-                workspaces={chrome.workspaces}
-              />
-              <WorkspaceSwitcher
-                compact={!desktop}
-                leaveHref={inWorkspace ? leaveMembershipHref : null}
-              />
-            </div>
-            <div className="shell-v2__zone shell-v2__zone--center">
-              <ShellHeaderSearchField variant="field" />
+              <ShellSpaceSwitcher leaveHref={leaveMembershipHref} />
             </div>
             <div className="shell-v2__zone shell-v2__zone--end shell-v2__user">
-              <ApprovalQueueBadge workspaceId={chrome.workspaceId ?? undefined} />
+              <ShellHeaderSearchField />
               <NotificationBell workspaceId={chrome.workspaceId ?? undefined} />
-              <HeaderProfileButton tools={headerToolLinks(slug)} />
+              <HeaderProfileButton
+                tools={headerToolLinks(slug)}
+                notice={
+                  <ApprovalQueueBadge workspaceId={chrome.workspaceId ?? undefined} />
+                }
+              />
             </div>
           </div>
-          {inWorkspace || primary || location.trail.length > 0 ? (
-            <div
-              className={`shell-v2__place${inWorkspace && slug ? " shell-v2__place--line" : ""}`}
-            >
-              {inWorkspace && slug ? (
-                <WorkspaceSectionTabs
-                  template={template}
-                  slug={slug}
-                  flags={railFlags}
-                  role={membershipRole || null}
-                  pathname={pathname}
-                  folder={searchParams?.get("folder") ?? null}
-                  activeDomain={location.activeDomain}
-                  isHrefActive={location.isHrefActive}
-                />
-              ) : null}
-              {!inWorkspace && primary ? (
-                <Link href={canonicalHref("home")} className="shell-v2__mark" aria-label={t("shell.homeMarkAria")}>
-                  <ShellIconSvg name="wallet" />
-                </Link>
-              ) : null}
-              {showCatalog && slug ? (
+          {inWorkspace && slug ? (
+            <div className="shell-v2__place shell-v2__place--line">
+              <WorkspaceSectionTabs
+                template={template}
+                slug={slug}
+                flags={railFlags}
+                role={membershipRole || null}
+                pathname={pathname}
+                folder={searchParams?.get("folder") ?? null}
+                activeDomain={location.activeDomain}
+                isHrefActive={location.isHrefActive}
+              />
+              {showCatalog ? (
                 <Link href={wPath(slug, "catalog")} className="shell-v2__catalogLink">
                   {NAV_LABELS.catalog}
                 </Link>
               ) : null}
-              {primary && !inWorkspace ? (
-                <div className="shell-v2__header-nav">
-                  <Link
-                    href={spacesListHref()}
-                    className={`shell-v2__spacesTextLink${location.section === "spaces" ? " is-active" : ""}`}
-                    aria-current={location.section === "spaces" ? "page" : undefined}
-                  >
-                    فضاها
-                  </Link>
-                </div>
-              ) : null}
-              {inWorkspace ? (
-                <ShellPageTrail
-                  items={location.trail}
-                  fallbackHref={slug ? wPath(slug) : "/home"}
-                  dense
-                />
-              ) : (
-                <ShellTrail />
-              )}
+              <ShellPageTrail
+                items={location.trail}
+                fallbackHref={wPath(slug)}
+                dense
+              />
             </div>
-          ) : null}
+          ) : (
+            <div className="shell-v2__place">
+              <ShellTrail />
+            </div>
+          )}
         </header>
 
         <div className="shell-v2__body">

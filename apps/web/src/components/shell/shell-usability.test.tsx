@@ -4,7 +4,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { WorkspaceSwitcher } from "@/components/mosaic/workspace-switcher";
+import { ShellSpaceSwitcher } from "@/components/shell/shell-space-switcher";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { ShellV2Provider } from "@/components/shell/shell-v2-context";
 
@@ -62,22 +62,22 @@ describe("shell usability", () => {
   });
 
   it("opens the workspace list with ArrowDown and focuses the selected workspace", async () => {
-    render(<WorkspaceSwitcher />);
-    const trigger = screen.getByRole("button", { name: /فضای جاری: خانه/ });
+    render(<ShellSpaceSwitcher />);
+    const trigger = screen.getByRole("button", { name: /گروهی · خانه/ });
 
     trigger.focus();
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
 
-    const selected = await screen.findByRole("option", {
-      name: /خانه/,
-      selected: true,
-    });
-    await waitFor(() => expect(document.activeElement).toBe(selected));
+    const search = await screen.findByRole("combobox", { name: "جستجوی فضا" });
+    await waitFor(() => expect(document.activeElement).toBe(search));
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    const selected = screen.getByRole("option", { name: "خانه", selected: true });
+    expect(document.activeElement).toBe(selected);
   });
 
   it("closes the workspace list with Escape and restores trigger focus", async () => {
-    render(<WorkspaceSwitcher />);
-    const trigger = screen.getByRole("button", { name: /فضای جاری: خانه/ });
+    render(<ShellSpaceSwitcher />);
+    const trigger = screen.getByRole("button", { name: /گروهی · خانه/ });
     trigger.focus();
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
     await screen.findByRole("listbox", { name: "فضاهای کاری" });

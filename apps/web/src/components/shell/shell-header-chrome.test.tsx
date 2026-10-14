@@ -63,16 +63,17 @@ describe("profile menu", () => {
 describe("narrow header css", () => {
   const css = readFileSync(resolve(here, "../../app/shell.css"), "utf8");
 
-  it("collapses search to a 44px control and keeps the bar on one row", () => {
-    const narrow = css.slice(css.indexOf("@media (max-width: 480px)"));
+  it("keeps a 56px bar, a 44px search icon, and one row on a narrow screen", () => {
+    const narrow = css.slice(css.indexOf(".shell-v2__zone--start .shell-spaceSwitch"));
+    expect(css).toMatch(/\.shell-v2__bar\s*\{[^}]*height:\s*56px/);
+    expect(css).toContain("background: var(--dang-bg)");
+    expect(css).toContain("var(--dang-border, var(--dang-line))");
     expect(narrow).toContain("flex-wrap: nowrap");
-    expect(narrow).toMatch(/\.shell-v2__search--field\s*\{[^}]*width:\s*44px/);
-    expect(narrow).toMatch(/\.shell-v2__search--field\s*\{[^}]*min-height:\s*44px/);
+    expect(narrow).toMatch(/\.shell-v2__search\s*\{[^}]*width:\s*44px/);
+    expect(narrow).toMatch(/\.shell-v2__search\s*\{[^}]*min-height:\s*44px/);
     expect(narrow).toContain("outline: 3px solid var(--dang-focus, var(--primary))");
-    expect(css).toContain("max-width: 420px");
     expect(narrow).toMatch(/\.shell-sectionTabs\s*\{[^}]*overflow-x:\s*auto/);
-    expect(narrow).toMatch(/\.shell-sectionTabs__tab[\s\S]{0,180}min-height:\s*44px/);
+    expect(narrow).toMatch(/\.shell-sectionTabs__tab[\s\S]{0,700}min-height:\s*44px/);
     expect(narrow).toContain(".shell-sectionTabs__tab:focus-visible");
-    expect(narrow).toContain("outline: 3px solid var(--dang-focus, var(--primary))");
   });
 });

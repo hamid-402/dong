@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ThemeToggleButton } from "@/components/theme-toggle";
 import { useAppChrome } from "@/lib/use-app-chrome";
@@ -13,8 +13,11 @@ export type HeaderProfileTool = {
 /** Avatar menu: account, appearance, and the extra tool links. */
 export function HeaderProfileButton({
   tools = [],
+  notice = null,
 }: {
   tools?: readonly HeaderProfileTool[];
+  /** Optional live shortcut (approval queue) kept out of the icon bar. */
+  notice?: ReactNode;
 }) {
   const chrome = useAppChrome();
   const name = chrome.userName?.trim() || "پروفایل";
@@ -61,6 +64,7 @@ export function HeaderProfileButton({
       </button>
       {open ? (
         <div className="header-profileMenu__panel" id={panelId} aria-label={`پروفایل ${name}`}>
+          {notice}
           <Link
             href="/account"
             className="header-profileMenu__item"

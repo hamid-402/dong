@@ -2,19 +2,23 @@
  * @vitest-environment jsdom
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { WorkspaceSwitcher } from "@/components/mosaic/workspace-switcher";
+import { ShellSpaceSwitcher } from "@/components/shell/shell-space-switcher";
 
 const push = vi.fn();
-const nav = vi.hoisted(() => ({ pathname: "/home" }));
+const selectWorkspace = vi.fn();
+const nav = vi.hoisted(() => ({
+  pathname: "/home",
+  search: "",
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, prefetch: vi.fn() }),
   usePathname: () => nav.pathname,
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(nav.search),
 }));
 
 vi.mock("@/lib/use-app-chrome", () => ({
@@ -22,7 +26,7 @@ vi.mock("@/lib/use-app-chrome", () => ({
     ready: true,
     workspaceId: "workspace-1",
     workspaceName: "خانه",
-    selectWorkspace: vi.fn(),
+    selectWorkspace,
     capabilities: { productFlags: {} },
     workspaces: [
       {
@@ -44,92 +48,118 @@ vi.mock("@/lib/use-app-chrome", () => ({
 describe("space switcher", () => {
   afterEach(() => {
     cleanup();
-    localStorage.clear();
     nav.pathname = "/home";
+    nav.search = "";
     vi.clearAllMocks();
   });
 
-  it("shows the current space name and kind, then switches in one click", () => {
-    localStorage.setItem(
-      "dang-recent-workspaces",
-      JSON.stringify([
-        {
-          workspaceId: "workspace-2",
-          visitedAt: "2026-10-13T00:00:00.000Z",
-          visitCount: 2,
-        },
-      ]),
-    );
-    render(<WorkspaceSwitcher />);
-
-    const trigger = screen.getByRole("button", { name: "فضای جاری: خانه، گروه" });
-    expect(trigger.textContent).toContain("خانه");
-    expect(trigger.textContent).toContain("گروه");
-
+  it("labels home as همه فضاها and filters the list by the selected kind", () => {
+    render(<ShellSpaceSwitcher />);
+    const trigger = screen.getByRole("button", { name: "همه فضاها" });
     fireEvent.click(trigger);
-    expect(screen.getByRole("dialog", { name: "فهرست فضاهای کاری" })).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "جستجوی فضا" })).toBeTruthy();
-    expect(screen.getByText("اخیر")).toBeTruthy();
-    expect(screen.getAllByRole("option", { name: /شرکت/ }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("option", { name: /خانه/ }).length).toBeGreaterThan(0);
 
+    expect(screen.getByRole("dialog", { name: "فهرست فضاهای کاری" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "شخصی" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.queryByRole("option", { name: /خانه/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole("tab", { name: "گروهی" }));
+    expect(screen.getByRole("option", { name: "خانه" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: /شرکت/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole("tab", { name: "سازمان" }));
     fireEvent.change(screen.getByRole("combobox", { name: "جستجوی فضا" }), {
       target: { value: "شرکت" },
     });
-    expect(screen.getByRole("option", { name: /شرکت/ })).toBeTruthy();
-    expect(screen.queryByRole("option", { name: /^خانه/ })).toBeNull();
+    expect(screen.getByRole("option", { name: "شرکت" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "خانه" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("option", { name: /شرکت/ }));
+    fireEvent.click(screen.getByRole("option", { name: "شرکت" }));
+    expect(selectWorkspace).toHaveBeenCalledWith("workspace-2");
     expect(push).toHaveBeenCalledWith("/w/company/space");
   });
 
-  it("lists only the current kind inside a space, with a link to that kind", () => {
+  it("shows kind and space name inside a space, with kind list, create, and leave", () => {
     nav.pathname = "/w/home";
-    render(<WorkspaceSwitcher />);
-    fireEvent.click(screen.getByRole("button", { name: "فضای جاری: خانه، گروه" }));
+    render(<ShellSpaceSwitcher leaveHref="/w/home/settings#danger" />);
+    fireEvent.click(screen.getByRole("button", { name: "گروهی · خانه" }));
 
-    expect(screen.getAllByRole("option", { name: /خانه/ }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("tab", { name: "گروهی" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("option", { name: "خانه" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.queryByRole("option", { name: /شرکت/ })).toBeNull();
-    const kindLink = screen.getByRole("link", { name: "همهٔ فضاهای گروهی" });
-    expect(kindLink.getAttribute("href")).toBe("/spaces?kind=group");
-    expect(screen.getByRole("link", { name: "همه فضاها" }).getAttribute("href")).toBe("/spaces");
-  });
-
-  it("offers leave membership inside the menu and omits it when no target is set", () => {
-    const { unmount } = render(
-      <WorkspaceSwitcher leaveHref="/w/home/settings#danger" />,
+    expect(screen.getByRole("link", { name: "همه‌ی فضاهای این نوع" }).getAttribute("href")).toBe(
+      "/spaces?kind=group",
     );
-    fireEvent.click(screen.getByRole("button", { name: "فضای جاری: خانه، گروه" }));
+    expect(screen.getByRole("link", { name: "همه فضاها" }).getAttribute("href")).toBe("/spaces");
+    expect(screen.getByRole("link", { name: "ساخت فضا" }).getAttribute("href")).toBe(
+      "/spaces/new?kind=group",
+    );
     const leave = screen.getByRole("link", {
       name: "رفتن به منطقهٔ خطر تنظیمات برای قطع عضویت یا بایگانی",
     });
     expect(leave.getAttribute("href")).toBe("/w/home/settings#danger");
-    expect(leave.textContent).toContain("ترک عضویت");
-    unmount();
+    expect(leave.textContent).toContain("خروج از فضا");
+  });
 
-    render(<WorkspaceSwitcher />);
-    fireEvent.click(screen.getByRole("button", { name: "فضای جاری: خانه، گروه" }));
+  it("omits leave outside a space and moves through the list with arrows", async () => {
+    nav.pathname = "/w/home";
+    const { unmount } = render(<ShellSpaceSwitcher />);
+    fireEvent.click(screen.getByRole("button", { name: "گروهی · خانه" }));
     expect(
       screen.queryByRole("link", {
         name: "رفتن به منطقهٔ خطر تنظیمات برای قطع عضویت یا بایگانی",
       }),
     ).toBeNull();
+    unmount();
+
+    render(<ShellSpaceSwitcher leaveHref="/w/home/settings#danger" />);
+    const trigger = screen.getByRole("button", { name: "گروهی · خانه" });
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    const search = await screen.findByRole("combobox", { name: "جستجوی فضا" });
+    await waitFor(() => expect(document.activeElement).toBe(search));
+
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    const option = screen.getByRole("option", { name: "خانه" });
+    expect(document.activeElement).toBe(option);
+
+    fireEvent.keyDown(option, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(document.activeElement).toBe(trigger);
+    });
   });
 
-  it("keeps switcher controls at a 44px target", () => {
+  it("traps tab inside the panel and keeps 44px targets", () => {
+    nav.pathname = "/w/home";
+    render(<ShellSpaceSwitcher leaveHref="/w/home/settings#danger" />);
+    fireEvent.click(screen.getByRole("button", { name: "گروهی · خانه" }));
+    const dialog = screen.getByRole("dialog", { name: "فهرست فضاهای کاری" });
+    const first = screen.getByRole("tab", { name: "گروهی" });
+    const last = screen.getByRole("link", {
+      name: "رفتن به منطقهٔ خطر تنظیمات برای قطع عضویت یا بایگانی",
+    });
+    last.focus();
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+
     const css = readFileSync(
       resolve(dirname(fileURLToPath(import.meta.url)), "../../app/shell.css"),
       "utf8",
     );
+    const header = css.slice(css.indexOf("/* Header bar — one 56px row."));
     for (const selector of [
-      ".mosaic-ws-switch__trigger",
-      ".mosaic-ws-switch__option",
-      ".mosaic-ws-switch__pin",
-      ".mosaic-ws-switch__searchInput",
-      ".mosaic-ws-switch__footer a",
+      ".shell-spaceSwitch__trigger {",
+      ".shell-spacePanel__option,",
+      ".shell-spacePanel__search,",
+      ".shell-spacePanel__footer a {",
     ]) {
-      const block = css.slice(css.indexOf(`${selector}{`));
-      expect(block.slice(0, 400)).toMatch(/min-height:\s*44px/);
+      const block = header.slice(header.indexOf(selector));
+      expect(block.slice(0, 420)).toMatch(/min-height:\s*44px/);
     }
+    expect(css).toContain(".shell-spacePanel--sheet");
+    expect(css).toMatch(/\.shell-spacePanel--sheet\s*\{[^}]*bottom:\s*0/);
+    expect(css).toContain("outline: 3px solid var(--dang-focus, var(--primary))");
   });
 });

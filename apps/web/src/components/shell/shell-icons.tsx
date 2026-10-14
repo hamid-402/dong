@@ -16,7 +16,8 @@ export type ShellIcon =
   | "check"
   | "circle"
   | "refresh"
-  | "close";
+  | "close"
+  | "chevron";
 
 export function ShellIconSvg({
   name,
@@ -146,6 +147,12 @@ export function ShellIconSvg({
       return (
         <svg {...common}>
           <path d="M6 6 18 18M18 6 6 18" {...accent} />
+        </svg>
+      );
+    case "chevron":
+      return (
+        <svg {...common}>
+          <path d="m6 9 6 6 6-6" />
         </svg>
       );
     default:
