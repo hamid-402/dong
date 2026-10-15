@@ -8,15 +8,23 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { HeaderProfileButton } from "@/components/header-profile-button";
 import { AppearanceDialog } from "@/components/theme-toggle";
+import { AppShellV2 } from "@/components/shell/app-shell-v2";
 import { ShellV2Provider } from "@/components/shell/shell-v2-context";
 import { ThemeProvider } from "@/lib/theme";
 
 const push = vi.hoisted(() => vi.fn());
 const logout = vi.hoisted(() => vi.fn(async () => ({ ok: true as const })));
 const clearClientSession = vi.hoisted(() => vi.fn());
+const nav = vi.hoisted(() => ({ pathname: "/spaces" }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, prefetch: vi.fn(), replace: vi.fn() }),
+  usePathname: () => nav.pathname,
+  useSearchParams: () => new URLSearchParams(""),
+}));
+
+vi.mock("@/components/session-gate", () => ({
+  SessionGate: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -29,7 +37,21 @@ vi.mock("@/lib/use-app-chrome", () => ({
     ready: true,
     error: null,
     userName: "حمید",
+    workspaces: [],
+    workspaceId: null,
+    capabilities: null,
+    capabilitiesUnavailable: false,
+    notificationsError: null,
+    offlineQueueCount: 0,
+    refreshChrome: () => {},
+    flushOfflineQueue: async () => {},
+    selectWorkspace: () => {},
+    unreadCount: 0,
+    notifications: [],
+    actor: null,
   }),
+  useOptionalAppChrome: () => null,
+  AppChromeProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -113,6 +135,37 @@ describe("profile menu", () => {
         expect(localStorage.getItem("dang-theme")).toBe(theme);
       });
     }
+  });
+});
+
+describe("home header link", () => {
+  afterEach(() => {
+    cleanup();
+    nav.pathname = "/spaces";
+  });
+
+  it("links خانه beside the brand and marks /home as the current page", () => {
+    const { unmount } = render(
+      <AppShellV2>
+        <span>page</span>
+      </AppShellV2>,
+    );
+    const idle = document.querySelector("a.shell-v2__home");
+    expect(idle?.getAttribute("href")).toBe("/home");
+    expect(idle?.getAttribute("aria-label")).toBe("خانه");
+    expect(idle?.textContent).toContain("خانه");
+    expect(idle?.querySelector(".shell-icon")).toBeTruthy();
+    expect(idle?.getAttribute("aria-current")).toBeNull();
+    expect(document.querySelector("a.shell-v2__wordmark")?.nextElementSibling).toBe(idle);
+    unmount();
+
+    nav.pathname = "/home";
+    render(
+      <AppShellV2>
+        <span>page</span>
+      </AppShellV2>,
+    );
+    expect(document.querySelector("a.shell-v2__home")?.getAttribute("aria-current")).toBe("page");
   });
 });
 

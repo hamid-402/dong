@@ -15,6 +15,7 @@ import { AppTabbar } from "@/components/shell/app-tabbar";
 import { ShellTrail } from "@/components/shell/shell-trail";
 import { ShellPageTrail } from "@/components/shell/shell-page-trail";
 import { ShellHeaderSearchField } from "@/components/shell/shell-header-search";
+import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { ShellSpaceSwitcher } from "@/components/shell/shell-space-switcher";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { WorkspaceSectionTabs } from "@/components/shell/space-kind-header-tabs";
@@ -116,6 +117,15 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
                 aria-label={t("shell.homeMarkAria")}
               >
                 دنگ
+              </Link>
+              <Link
+                href={canonicalHref("home")}
+                className="shell-v2__home"
+                aria-label="خانه"
+                aria-current={pathname === "/home" ? "page" : undefined}
+              >
+                <ShellIconSvg name="home" size={20} />
+                <span className="shell-v2__homeLabel">خانه</span>
               </Link>
               <ShellSpaceSwitcher leaveHref={leaveMembershipHref} />
             </div>
