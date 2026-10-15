@@ -207,30 +207,19 @@
   outline-offset: 2px;
 }
 
-.header-profileMenu__theme{
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding-inline: 4px;
-  color: var(--text);
-  font-size: 0.875rem;
-  font-weight: 650;
+button.header-profileMenu__item{
+  width: 100%;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
 }
 
-.header-profileMenu__section{
-  display: flex;
-  flex-direction: column;
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px solid var(--line);
-}
-
-.header-profileMenu__label{
-  margin: 4px 0.75rem 2px;
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 700;
+button.header-profileMenu__item:disabled{
+  cursor: default;
+  opacity: 0.6;
 }
 
 .shell-v2{

@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { NotificationBell } from "@/components/notification-bell";
 import { ApprovalQueueBadge } from "@/components/shell/approval-queue-badge";
 import { HeaderProfileButton } from "@/components/header-profile-button";
+import { AppearanceDialog } from "@/components/theme-toggle";
 import { AppChromeProvider, useAppChrome } from "@/lib/use-app-chrome";
 import { SessionGate } from "@/components/session-gate";
 import { ShellLocationProvider, ShellV2Provider, useShellV2Api } from "@/components/shell/shell-v2-context";
@@ -18,7 +19,7 @@ import { ShellSpaceSwitcher } from "@/components/shell/shell-space-switcher";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { WorkspaceSectionTabs } from "@/components/shell/space-kind-header-tabs";
 import { bottomTabsV2 } from "@/lib/navigation-v2";
-import { canonicalHref, spacesListHref, wPath } from "@/lib/workspace-paths";
+import { canonicalHref, wPath } from "@/lib/workspace-paths";
 import { slugFromPathname } from "@/lib/workspace-storage";
 import { useViewportMode } from "@/lib/use-viewport";
 import { t } from "@/lib/i18n";
@@ -28,19 +29,6 @@ import { spaceKindForTemplate, type SpaceKind } from "@dang/contracts";
 import { assignKindGems, shellKindStyle } from "@/lib/tile-gem-palettes";
 import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
 import { spaceNavFlagsFromCapabilities } from "@/lib/workspace-page-access";
-
-/** Extra destinations that used to live in the header overflow. */
-export function headerToolLinks(slug: string | null): { href: string; label: string }[] {
-  return [
-    { href: canonicalHref("space", slug), label: "سازمان‌ها" },
-    { href: spacesListHref("building"), label: "ساختمان‌ها" },
-    { href: "/spaces/reports?kind=building", label: "گزارش ساختمان" },
-    { href: canonicalHref("procurement", slug), label: "تدارکات" },
-    { href: canonicalHref("assets", slug), label: "تجهیزات" },
-    { href: canonicalHref("proposals", slug), label: "پیشنهادها" },
-    { href: canonicalHref("partners", slug), label: "شرکا" },
-  ];
-}
 
 function AppShellV2Inner({ children }: { children: ReactNode }) {
   const chrome = useAppChrome();
@@ -135,7 +123,6 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
               <ShellHeaderSearchField />
               <NotificationBell workspaceId={chrome.workspaceId ?? undefined} />
               <HeaderProfileButton
-                tools={headerToolLinks(slug)}
                 notice={
                   <ApprovalQueueBadge workspaceId={chrome.workspaceId ?? undefined} />
                 }
@@ -237,6 +224,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
         </div>
       </div>
       <CommandPalette />
+      <AppearanceDialog />
     </div>
     </ShellLocationProvider>
   );

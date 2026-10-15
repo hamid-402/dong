@@ -493,6 +493,19 @@ export function OverviewView() {
           <EmptyHint>فضای کاری را انتخاب کنید یا از فهرست فضاها یکی بسازید.</EmptyHint>
         ) : (
           <>
+            {!homeFolder && (spaceKind === "building" || spaceKind === "org") ? (
+              <nav className="liveHint" aria-label="ابزارهای فضا">
+                <Link href="/spaces/reports?kind=building">گزارش ساختمان</Link>
+                {" · "}
+                <Link href={canonicalHref("procurement", slug)}>تدارکات</Link>
+                {" · "}
+                <Link href={canonicalHref("assets", slug)}>تجهیزات</Link>
+                {" · "}
+                <Link href={canonicalHref("proposals", slug)}>پیشنهادها</Link>
+                {" · "}
+                <Link href={canonicalHref("partners", slug)}>شرکا</Link>
+              </nav>
+            ) : null}
             {data &&
             navUsageTierFromCounts({
               postedExpenseCount: data.postedCount,

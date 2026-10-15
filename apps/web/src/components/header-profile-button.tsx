@@ -1,25 +1,19 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
-import { ThemeToggleButton } from "@/components/theme-toggle";
+import { useRouter } from "next/navigation";
+import { SHELL_APPEARANCE_DIALOG_ID } from "@/components/theme-toggle";
+import { useShellV2Api } from "@/components/shell/shell-v2-context";
+import { api, clearClientSession } from "@/lib/api";
 import { useAppChrome } from "@/lib/use-app-chrome";
 
-export type HeaderProfileTool = {
-  href: string;
-  label: string;
-};
-
-/** Avatar menu: account, appearance, and the extra tool links. */
-export function HeaderProfileButton({
-  tools = [],
-  notice = null,
-}: {
-  tools?: readonly HeaderProfileTool[];
-  /** Optional live shortcut (approval queue) kept out of the icon bar. */
-  notice?: ReactNode;
-}) {
+/** Avatar menu: notice, account, appearance, and logout. */
+export function HeaderProfileButton({ notice = null }: { notice?: ReactNode }) {
   const chrome = useAppChrome();
+  const shell = useShellV2Api();
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
   const name = chrome.userName?.trim() || "پروفایل";
   const initial = name.slice(0, 1) || "ک";
   const online = chrome.ready && !chrome.error;
@@ -46,6 +40,17 @@ export function HeaderProfileButton({
     };
   }, [open]);
 
+  function onLogout() {
+    setOpen(false);
+    startTransition(() => {
+      void (async () => {
+        await api.logout();
+        clearClientSession();
+        router.push("/login");
+      })();
+    });
+  }
+
   return (
     <div className="header-profileMenu" ref={rootRef}>
       <button
@@ -65,32 +70,29 @@ export function HeaderProfileButton({
       {open ? (
         <div className="header-profileMenu__panel" id={panelId} aria-label={`پروفایل ${name}`}>
           {notice}
-          <Link
-            href="/account"
-            className="header-profileMenu__item"
-            onClick={() => setOpen(false)}
-          >
-            پروفایل {name}
+          <Link href="/account" className="header-profileMenu__item" onClick={() => setOpen(false)}>
+            حساب من
           </Link>
-          <div className="header-profileMenu__theme">
-            <ThemeToggleButton />
-            <span>ظاهر</span>
-          </div>
-          {tools.length > 0 ? (
-            <div className="header-profileMenu__section" aria-label="ابزارهای دیگر">
-              <p className="header-profileMenu__label">ابزارهای دیگر</p>
-              {tools.map((tool) => (
-                <Link
-                  key={tool.href}
-                  href={tool.href}
-                  className="header-profileMenu__item"
-                  onClick={() => setOpen(false)}
-                >
-                  {tool.label}
-                </Link>
-              ))}
-            </div>
-          ) : null}
+          <button
+            type="button"
+            className="header-profileMenu__item"
+            aria-haspopup="dialog"
+            aria-controls={SHELL_APPEARANCE_DIALOG_ID}
+            onClick={() => {
+              setOpen(false);
+              shell?.setAppearanceOpen(true);
+            }}
+          >
+            ظاهر
+          </button>
+          <button
+            type="button"
+            className="header-profileMenu__item"
+            onClick={onLogout}
+            disabled={pending}
+          >
+            خروج از حساب
+          </button>
         </div>
       ) : null}
     </div>

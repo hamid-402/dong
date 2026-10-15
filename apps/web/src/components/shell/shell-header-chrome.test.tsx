@@ -1,13 +1,28 @@
 /**
  * @vitest-environment jsdom
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { HeaderProfileButton } from "@/components/header-profile-button";
-import { headerToolLinks } from "@/components/shell/app-shell-v2";
+import { AppearanceDialog } from "@/components/theme-toggle";
+import { ShellV2Provider } from "@/components/shell/shell-v2-context";
+import { ThemeProvider } from "@/lib/theme";
+
+const push = vi.hoisted(() => vi.fn());
+const logout = vi.hoisted(() => vi.fn(async () => ({ ok: true as const })));
+const clearClientSession = vi.hoisted(() => vi.fn());
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push, prefetch: vi.fn(), replace: vi.fn() }),
+}));
+
+vi.mock("@/lib/api", () => ({
+  api: { logout },
+  clearClientSession,
+}));
 
 vi.mock("@/lib/use-app-chrome", () => ({
   useAppChrome: () => ({
@@ -19,43 +34,84 @@ vi.mock("@/lib/use-app-chrome", () => ({
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-describe("header tool links", () => {
-  it("keeps every overflow destination, scoped to the open space when one exists", () => {
-    expect(headerToolLinks(null).map((item) => [item.label, item.href])).toEqual([
-      ["سازمان‌ها", "/home"],
-      ["ساختمان‌ها", "/spaces?kind=building"],
-      ["گزارش ساختمان", "/spaces/reports?kind=building"],
-      ["تدارکات", "/home"],
-      ["تجهیزات", "/home"],
-      ["پیشنهادها", "/home"],
-      ["شرکا", "/home"],
-    ]);
-    expect(headerToolLinks("acme").map((item) => item.href)).toEqual([
-      "/w/acme/space",
-      "/spaces?kind=building",
-      "/spaces/reports?kind=building",
-      "/w/acme/procurement",
-      "/w/acme/assets",
-      "/w/acme/proposals",
-      "/w/acme/partners",
-    ]);
-  });
-});
-
 describe("profile menu", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    logout.mockClear();
+    clearClientSession.mockClear();
+    push.mockClear();
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      configurable: true,
+      value: (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }),
+    });
+  });
+
   afterEach(() => {
     cleanup();
   });
 
-  it("puts the extra tools under a section and keeps the account link", () => {
-    render(<HeaderProfileButton tools={headerToolLinks("acme")} />);
+  it("keeps notice, account, appearance, and logout — and drops the extra tools", () => {
+    render(<HeaderProfileButton notice={<span>صف تأیید</span>} />);
     fireEvent.click(screen.getByRole("button", { name: "پروفایل حمید" }));
-    expect(screen.getByRole("link", { name: "پروفایل حمید" }).getAttribute("href")).toBe(
-      "/account",
+    expect(screen.getByText("صف تأیید")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "حساب من" }).getAttribute("href")).toBe("/account");
+    expect(screen.getByRole("button", { name: "ظاهر" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "خروج از حساب" })).toBeTruthy();
+    expect(screen.queryByText("ابزارهای دیگر")).toBeNull();
+    expect(screen.queryByRole("link", { name: "سازمان‌ها" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "ساختمان‌ها" })).toBeNull();
+  });
+
+  it("logs out with the same account action", async () => {
+    render(<HeaderProfileButton />);
+    fireEvent.click(screen.getByRole("button", { name: "پروفایل حمید" }));
+    fireEvent.click(screen.getByRole("button", { name: "خروج از حساب" }));
+    await waitFor(() => {
+      expect(logout).toHaveBeenCalledOnce();
+      expect(clearClientSession).toHaveBeenCalledOnce();
+      expect(push).toHaveBeenCalledWith("/login");
+    });
+  });
+
+  it("applies and persists every theme from the shell dialog after the menu closes", async () => {
+    render(
+      <ThemeProvider>
+        <ShellV2Provider>
+          <HeaderProfileButton />
+          <AppearanceDialog />
+        </ShellV2Provider>
+      </ThemeProvider>,
     );
-    expect(screen.getByText("ابزارهای دیگر")).toBeTruthy();
-    for (const tool of headerToolLinks("acme")) {
-      expect(screen.getByRole("link", { name: tool.label }).getAttribute("href")).toBe(tool.href);
+    fireEvent.click(screen.getByRole("button", { name: "پروفایل حمید" }));
+    fireEvent.click(screen.getByRole("button", { name: "ظاهر" }));
+    expect(screen.queryByRole("link", { name: "حساب من" })).toBeNull();
+    const dialog = await screen.findByRole("dialog", { name: "تنظیم ظاهر" });
+    await waitFor(() => {
+      expect(dialog.querySelector("button")).toBeTruthy();
+    });
+
+    const themes = [
+      ["سفید", "white", "light"],
+      ["مشکی", "black", "dark"],
+      ["کاغذی", "paper", "light"],
+      ["سرمه‌ای", "midnight", "dark"],
+    ] as const;
+    for (const [label, theme, scheme] of themes) {
+      const option = screen.getByRole("button", { name: new RegExp(label) });
+      fireEvent.mouseDown(option);
+      expect(screen.getByRole("dialog", { name: "تنظیم ظاهر" })).toBeTruthy();
+      fireEvent.click(option);
+      await waitFor(() => {
+        expect(document.documentElement.getAttribute("data-theme")).toBe(theme);
+        expect(document.documentElement.getAttribute("data-scheme")).toBe(scheme);
+        expect(localStorage.getItem("dang-theme")).toBe(theme);
+      });
     }
   });
 });
