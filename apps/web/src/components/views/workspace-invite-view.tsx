@@ -357,7 +357,11 @@ export function WorkspaceInviteView() {
                   {" · "}
                   روی هر ردیف بزنید تا جزئیات و مدیریت نقش باز شود.
                 </p>
-                <ul className={styles.memberList} role="listbox" aria-label="فهرست اعضا">
+                <ul
+                  className={`tableScroll ${styles.memberList}`}
+                  role="listbox"
+                  aria-label="فهرست اعضا"
+                >
                   {members.map((m) => {
                     const online = presenceLive && presenceIds.has(m.userId);
                     const selectedRow =

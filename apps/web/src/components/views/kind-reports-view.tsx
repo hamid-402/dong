@@ -608,7 +608,7 @@ export function KindReportsView({
                 </button>
               ))}
             </div>
-            <div className="kindReports__tableWrap">
+            <div className="tableScroll tableScroll--stickyName kindReports__tableWrap">
               <table className="kindReports__table">
                 <thead>
                   <tr>

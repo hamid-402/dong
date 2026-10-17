@@ -161,7 +161,11 @@ export function DailyLedgerGrid({
   }
 
   return (
-    <div className={viewMode === "cards" ? "dlCards" : "dlScroll"}>
+    <div
+      className={
+        viewMode === "cards" ? "dlCards" : "dlScroll tableScroll tableScroll--stickyName"
+      }
+    >
       {canMutate && locatable.length > 0 ? (
         <SelectionActionBar
           selectedCount={selection.selectedCount}

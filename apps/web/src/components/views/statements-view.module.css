@@ -91,8 +91,8 @@ button.presetActive:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
   margin-bottom: var(--dang-space-5, 1.5rem);
   padding-bottom: 0.35rem;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
-  scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -354,7 +354,6 @@ button.presetActive:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
 }
 
 .tableWrap {
-  overflow-x: auto;
   border-radius: var(--dang-radius-md, 12px);
   border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
 }

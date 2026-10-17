@@ -525,7 +525,7 @@ export function DailyLedgerDayView({
                 </SelectionActionBar>
               ) : null}
               <div
-                className={styles.tableWrap}
+                className={`tableScroll tableScroll--stickyName ${styles.tableWrap}`}
                 aria-hidden={narrow || undefined}
                 inert={narrow ? true : undefined}
               >

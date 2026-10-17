@@ -609,7 +609,7 @@ export function StatementsView({
           </div>
         </div>
 
-        <div className={styles.tableWrap}>
+        <div className={`tableScroll tableScroll--stickyName ${styles.tableWrap}`}>
           <table className={styles.table}>
             <caption className={styles.tableCaption}>
               {t("statements.billTitle")} · {memberName(detail.userId)} · {formatFaDate(from)} — {formatFaDate(to)}

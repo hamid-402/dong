@@ -7,12 +7,10 @@
 }
 
 .scroll {
-  overflow: auto;
+  overflow-y: auto;
   overscroll-behavior: contain;
   scroll-behavior: smooth;
   scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--muted) 50%, transparent) transparent;
   -webkit-overflow-scrolling: touch;
   border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
   border-radius: clamp(10px, 1.5vw, 14px);
@@ -263,8 +261,6 @@
   overscroll-behavior: contain;
   scroll-behavior: smooth;
   scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--muted) 50%, transparent) transparent;
   -webkit-overflow-scrolling: touch;
 }
 

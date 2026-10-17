@@ -678,7 +678,7 @@ export function ExpenseListPanel({
         ) : null}
       </p>
       <div className={styles.masterDetail}>
-        <div className={styles.listColumn}>
+        <div className={`tableScroll ${styles.listColumn}`}>
         {visibleExpenses.length > 0 ? (
           <SelectionActionBar
             selectedCount={selection.selectedCount}

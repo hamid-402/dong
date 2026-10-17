@@ -608,8 +608,6 @@ a.relatedLink:hover {
 }
 
 .tableWrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
   border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
   border-radius: 12px;
   background: var(--surface);

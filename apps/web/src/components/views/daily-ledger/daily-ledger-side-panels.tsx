@@ -253,7 +253,7 @@ export function DailyLedgerSidePanels({
             </div>
 
             {importPreview.length > 0 ? (
-              <div className={styles.previewWrap}>
+              <div className={`tableScroll ${styles.previewWrap}`}>
                 <StatusLine>
                   پیش‌نمایش قابل ویرایش — سلول‌ها را اصلاح کنید؛ تا تأیید، چیزی ثبت نمی‌شود
                 </StatusLine>

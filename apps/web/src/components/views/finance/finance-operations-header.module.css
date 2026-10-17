@@ -63,10 +63,10 @@
   align-items: center;
   gap: 2px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
   border-radius: 11px;
   background: var(--surface-2);
-  scrollbar-width: thin;
 }
 
 .commandRow nav.navRich {

@@ -150,7 +150,7 @@
   gap: 2px;
   max-height: 220px;
   overflow-y: auto;
-  scrollbar-width: thin;
+  overscroll-behavior: contain;
 }
 
 .list a {

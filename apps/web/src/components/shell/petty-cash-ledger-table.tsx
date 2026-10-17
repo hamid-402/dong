@@ -77,7 +77,11 @@ export function PettyCashLedgerTable({
           هنوز واریز یا برداشتی نیست — از فرم بالا شارژ یا برداشت ثبت کنید.
         </EmptyHint>
       ) : (
-        <div className={styles.tableWrap} role="region" aria-label="جدول حرکات تنخواه">
+        <div
+          className={`tableScroll tableScroll--stickyName ${styles.tableWrap}`}
+          role="region"
+          aria-label="جدول حرکات تنخواه"
+        >
           <table className={styles.table}>
             <thead>
               <tr>

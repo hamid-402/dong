@@ -64,7 +64,9 @@
   flex-direction: column;
   gap: 4px;
   max-height: min(58vh, 28rem);
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   background: color-mix(in srgb, var(--surface-2, var(--surface)) 55%, transparent);

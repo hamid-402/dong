@@ -184,6 +184,7 @@ export function DailyLedgerOverviewTable({
       <div
         ref={scrollRef}
         className={[
+          "tableScroll",
           styles.scroll,
           edges.above ? styles.moreAbove : "",
           edges.below ? styles.moreBelow : "",
