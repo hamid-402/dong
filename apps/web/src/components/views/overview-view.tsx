@@ -23,8 +23,6 @@ import {
   LoadingState,
   type DisplayUnit,
 } from "@dang/ui";
-import { useDisplayUnit } from "@/lib/display-unit";
-import { moneyUnitSuffix } from "@/lib/money-labels";
 import { AppShell } from "@/components/app-shell";
 import type { ContextualMosaicFact } from "@/components/shell/contextual-mosaic-hub";
 import { HomeRootLauncher } from "@/components/shell/home-root-launcher";
@@ -82,6 +80,10 @@ import { FlashMessages } from "@/lib/use-flash-message";
 import { FirstRunTour } from "@/components/views/first-run-tour";
 import { DemoConfirmDialog } from "@/components/views/demo-confirm-dialog";
 import { rangeForPreset } from "@/components/shell/home-money-command";
+
+/** Space-home pages always show تومان. */
+const HOME_UNIT: DisplayUnit = "toman";
+const UNIT_LABEL = "تومان";
 
 function useAnimatedBalance(
   targetIrrMinor: number,
@@ -190,8 +192,6 @@ export function OverviewView() {
   const homeFolder = parseDomainGroup(folderQuery);
   const homeGroup = searchParams.get("group");
   const chrome = useAppChrome();
-  const displayUnit = useDisplayUnit();
-  const unitLabel = moneyUnitSuffix(displayUnit);
   const theme = useOptionalTheme();
   const motionEnabled = theme ? theme.allowsAmbient || theme.allowsFeedback : true;
   const [data, setData] = useState<DashboardState | null>(null);
@@ -207,7 +207,7 @@ export function OverviewView() {
     data?.balanceIrrMinor ?? 0,
     motionEnabled,
     Boolean(data),
-    displayUnit,
+    HOME_UNIT,
   );
   const activityLive = chrome.capabilities?.providers?.activityFeed === "activity_v1";
   const chartsLive = chrome.capabilities?.providers?.charts === "charts_v1";
@@ -430,9 +430,9 @@ export function OverviewView() {
       }
     : {};
 
-  const myNet = netFromIrrMinor(data?.balanceIrrMinor ?? 0, displayUnit);
+  const myNet = netFromIrrMinor(data?.balanceIrrMinor ?? 0, HOME_UNIT);
   const pulseNet = data?.moneyPulse
-    ? netFromIrrMinor(data.moneyPulse.net.amountMinor, displayUnit)
+    ? netFromIrrMinor(data.moneyPulse.net.amountMinor, HOME_UNIT)
     : null;
 
   const primaryCta = spaceHomePrimaryCta(spaceKind, {
@@ -452,11 +452,11 @@ export function OverviewView() {
     const items: SpaceHomeActionItem[] = [];
 
     if (spaceKind === "group" || spaceKind === "building") {
-      const peers = sortPeersByAbsNet(data.peerBalances, displayUnit).slice(0, 5);
+      const peers = sortPeersByAbsNet(data.peerBalances, HOME_UNIT).slice(0, 5);
       for (const peer of peers) {
         const settleDisplay = irrMinorToDisplayInteger(
           Math.abs(peer.net.irrMinor),
-          displayUnit,
+          HOME_UNIT,
         ).toString();
         const href = `${settlementsHref}${settlementsHref.includes("?") ? "&" : "?"}settleTo=${encodeURIComponent(peer.userId)}&settleAmount=${settleDisplay}#settlement-panel`;
         items.push({
@@ -464,8 +464,8 @@ export function OverviewView() {
           title: peer.name,
           detail:
             peer.net.tone === "debt"
-              ? `${formatMoneyFromIrrMinor(Math.abs(peer.net.irrMinor), displayUnit)} ${unitLabel} بدهی`
-              : `${formatMoneyFromIrrMinor(peer.net.irrMinor, displayUnit)} ${unitLabel} طلب`,
+              ? `${formatMoneyFromIrrMinor(Math.abs(peer.net.irrMinor), HOME_UNIT)} ${UNIT_LABEL} بدهی`
+              : `${formatMoneyFromIrrMinor(peer.net.irrMinor, HOME_UNIT)} ${UNIT_LABEL} طلب`,
           href,
           actionLabel: "تسویه",
         });
@@ -511,8 +511,8 @@ export function OverviewView() {
     data,
     slug,
     spaceKind,
-    displayUnit,
-    unitLabel,
+    HOME_UNIT,
+    UNIT_LABEL,
     settlementsHref,
     procurementHref,
     expensesHref,
@@ -541,7 +541,7 @@ export function OverviewView() {
         items.push({
           id: `exp-${expense.id}`,
           title: expense.title,
-          detail: `${expense.status} · ${formatMoneyFromIrrMinor(expense.irrMinor, displayUnit)} ${unitLabel}`,
+          detail: `${expense.status} · ${formatMoneyFromIrrMinor(expense.irrMinor, HOME_UNIT)} ${UNIT_LABEL}`,
           href: `${financeHref}?expense=${encodeURIComponent(expense.id)}#expense-inspector`,
         });
       }
@@ -560,8 +560,8 @@ export function OverviewView() {
     activityLive,
     feedItems,
     data,
-    displayUnit,
-    unitLabel,
+    HOME_UNIT,
+    UNIT_LABEL,
     financeHref,
     spaceKind,
     procurementHref,
@@ -594,20 +594,20 @@ export function OverviewView() {
           amount={
             pulseNet.tone === "settled"
               ? "صفر"
-              : `${pulseNet.tone === "credit" ? "+" : "−"}${formatMoneyFromIrrMinor(Math.abs(pulseNet.irrMinor), displayUnit)} ${unitLabel}`
+              : `${pulseNet.tone === "credit" ? "+" : "−"}${formatMoneyFromIrrMinor(Math.abs(pulseNet.irrMinor), HOME_UNIT)} ${UNIT_LABEL}`
           }
           tone={pulseNet.tone}
           meta={
             <>
               <span>
                 درآمد{" "}
-                {formatMoneyFromIrrMinor(data.moneyPulse.income.amountMinor, displayUnit)}{" "}
-                {unitLabel}
+                {formatMoneyFromIrrMinor(data.moneyPulse.income.amountMinor, HOME_UNIT)}{" "}
+                {UNIT_LABEL}
               </span>
               <span>
                 خرج{" "}
-                {formatMoneyFromIrrMinor(data.moneyPulse.expense.amountMinor, displayUnit)}{" "}
-                {unitLabel}
+                {formatMoneyFromIrrMinor(data.moneyPulse.expense.amountMinor, HOME_UNIT)}{" "}
+                {UNIT_LABEL}
               </span>
             </>
           }
@@ -629,7 +629,7 @@ export function OverviewView() {
             pettyTotalMinor != null ? (
               <span>
                 تنخواه{" "}
-                {formatMoneyFromIrrMinor(pettyTotalMinor, displayUnit)} {unitLabel}
+                {formatMoneyFromIrrMinor(pettyTotalMinor, HOME_UNIT)} {UNIT_LABEL}
               </span>
             ) : data.persistence ? (
               <span>{data.persistence}</span>
@@ -657,7 +657,7 @@ export function OverviewView() {
             pettyTotalMinor != null ? (
               <span>
                 صندوق{" "}
-                {formatMoneyFromIrrMinor(pettyTotalMinor, displayUnit)} {unitLabel}
+                {formatMoneyFromIrrMinor(pettyTotalMinor, HOME_UNIT)} {UNIT_LABEL}
               </span>
             ) : null
           }
@@ -676,7 +676,7 @@ export function OverviewView() {
               ? data.openSettlementCount > 0
                 ? `${data.openSettlementCount.toLocaleString("fa-IR")} تسویه در جریان`
                 : "تسویه"
-              : `${myNet.tone === "credit" ? "+" : "−"}${balance} ${unitLabel}`
+              : `${myNet.tone === "credit" ? "+" : "−"}${balance} ${UNIT_LABEL}`
         }
         tone={myNet.tone}
         meta={

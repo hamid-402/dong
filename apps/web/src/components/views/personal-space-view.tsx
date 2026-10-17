@@ -3,15 +3,22 @@
 import Link from "next/link";
 import { newClientId } from "@/lib/id";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type {
   ExpenseSummary,
   MembershipSummary,
   PersonalSavingsFundSummary,
+  WorkspaceMoneyPulse,
   WorkspaceSummary,
 } from "@dang/contracts";
-import { spaceKindForTemplate } from "@dang/contracts";
-import { Amount, Button, TextField, usePrompt } from "@dang/ui";
+import { resolveDailyLedgerRange, spaceKindForTemplate } from "@dang/contracts";
+import {
+  Amount,
+  Button,
+  TextField,
+  formatMoneyFromIrrMinor,
+  usePrompt,
+} from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { TreasuryBalanceCard } from "@/components/shell/treasury-balance-card";
 import { AppShell } from "@/components/app-shell";
@@ -25,34 +32,41 @@ import {
   DataRow,
   EmptyHint,
   FormStack,
-  ProductGrid,
-  SectionCard,
-  StatusLine,
   StatusPill,
 } from "@/components/ui-blocks";
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
-import { PersonalFinanceOverviewPanel } from "@/components/personal-finance-overview-panel";
-import { PersonalDepthPanel } from "@/components/personal-depth-panel";
-import { PersonalChartsPanel } from "@/components/charts/personal-charts-panel";
-import { PersonalResourcesPanel } from "@/components/personal-resources/personal-resources-panel";
 import { PersonalSpacesAccordion } from "@/components/shell/personal-spaces-accordion";
-import { WorkspaceReportsPanel } from "@/components/workspace-reports-panel";
+import {
+  SpaceHomeActivity,
+  SpaceHomeActions,
+  SpaceHomeKeyNumber,
+  SpaceHomeLayout,
+  SpaceHomeMiniChart,
+  spaceHomeKeyLabel,
+  type SpaceHomeActionItem,
+  type SpaceHomeActivityItem,
+} from "@/components/views/space-home";
+import { moneyPulseFlowSeries } from "@dang/contracts";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { todayIsoLocal } from "@/lib/fa-datetime";
 import { tomanInputToIrrMinor } from "@/lib/irr-money";
 import { createWorkspaceWithUniqueSlug } from "@/lib/group-slug";
 import { NAV_LABELS } from "@/lib/nav-labels";
-import { expenseStatusLabel, spaceKindForTemplateLabel } from "@/lib/status-labels";
+import { expenseStatusLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { usePersonalFinanceHashScroll } from "@/lib/use-personal-finance-hash-scroll";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import { wPath } from "@/lib/workspace-paths";
+import { netFromIrrMinor } from "@/lib/space-net-balance";
 
 const initialSplit: SplitComposerValue = emptySplitComposer("private");
+/** Space-home pages always show تومان. */
+const HOME_UNIT = "toman" as const;
+const UNIT_LABEL = "تومان";
 
-/** Personal space home — additive; does not remove group/org flows. */
+/** Personal space home — SpaceHomeLayout + quick expense + savings. */
 export function PersonalSpaceView() {
   const chrome = useAppChrome();
   const promptText = usePrompt();
@@ -73,7 +87,9 @@ export function PersonalSpaceView() {
   const [savingsFund, setSavingsFund] = useState<PersonalSavingsFundSummary | null>(
     null,
   );
+  const [moneyPulse, setMoneyPulse] = useState<WorkspaceMoneyPulse | null>(null);
   const goalsLive = chrome.capabilities?.providers?.savingsGoals === "goals_v1";
+  const chartsLive = chrome.capabilities?.providers?.charts === "charts_v1";
 
   async function refreshSavings() {
     if (!goalsLive) {
@@ -86,17 +102,20 @@ export function PersonalSpaceView() {
 
   async function refresh(workspaceId: string) {
     const actorId = chrome.actor?.userId;
-    const [memberList, expenseList, cats, me] = await Promise.all([
+    const month = resolveDailyLedgerRange("month");
+    const [memberList, expenseList, cats, me, dashboard] = await Promise.all([
       api.listMembers(workspaceId),
       api.listExpenses(workspaceId),
       api.listCategories(workspaceId).catch(() => []),
       actorId ? Promise.resolve(null) : api.me(),
+      api.workspaceDashboard(workspaceId, month.from, month.to).catch(() => null),
     ]);
     const userId = actorId ?? me!.actor.userId;
     setMembers(memberList);
     setExpenses(expenseList.filter((e) => e.visibility === "private" || e.visibility === "shared"));
     setCategories(cats);
     setCurrentUserId(userId);
+    setMoneyPulse(dashboard?.moneyPulse ?? null);
     setSplit((prev) => ({
       ...prev,
       visibility: "private",
@@ -108,7 +127,6 @@ export function PersonalSpaceView() {
 
   useEffect(() => {
     if (!chrome.ready) return;
-    // Honor URL slug from WorkspaceScope — do not snap chrome to another personal space.
     const scoped = scope?.workspaceId
       ? chrome.workspaces.find((w) => w.id === scope.workspaceId) ?? null
       : chrome.workspaces.find((w) => w.id === chrome.workspaceId) ?? null;
@@ -117,6 +135,7 @@ export function PersonalSpaceView() {
       setWorkspace(null);
       setMembers([]);
       setExpenses([]);
+      setMoneyPulse(null);
       setLoading(false);
       return;
     }
@@ -155,7 +174,7 @@ export function PersonalSpaceView() {
       return;
     }
     if (!total) {
-      setError("مبلغ نامعتبر است (فقط تومان / IRR)");
+      setError("مبلغ نامعتبر است (فقط تومان)");
       return;
     }
     startTransition(() => {
@@ -190,7 +209,43 @@ export function PersonalSpaceView() {
 
   const pageError = error ?? chrome.error;
   const slug = workspace?.slug ?? scope?.slug ?? null;
-  const intentsLive = chrome.capabilities?.providers?.moneyIntents === "intents_v1";
+  const pulseNet = moneyPulse
+    ? netFromIrrMinor(moneyPulse.net.amountMinor, HOME_UNIT)
+    : null;
+
+  const actionItems = useMemo((): SpaceHomeActionItem[] => {
+    const items: SpaceHomeActionItem[] = [];
+    const drafts = expenses.filter((e) => e.status === "draft" || e.status === "submitted");
+    for (const expense of drafts.slice(0, 5)) {
+      items.push({
+        id: expense.id,
+        title: expense.title,
+        detail: `${expenseStatusLabel(expense.status)} · ${formatMoneyFromIrrMinor(expense.total.amountMinor, HOME_UNIT)} ${UNIT_LABEL}`,
+        href: slug
+          ? `${wPath(slug, "expenses")}?expense=${encodeURIComponent(expense.id)}#expense-inspector`
+          : "/me/finance",
+        actionLabel: "ادامه",
+      });
+    }
+    return items;
+  }, [expenses, slug]);
+
+  const activityItems = useMemo((): SpaceHomeActivityItem[] => {
+    return expenses.slice(0, 5).map((expense) => ({
+      id: expense.id,
+      title: expense.title,
+      detail: `${expenseStatusLabel(expense.status)} · ${formatMoneyFromIrrMinor(expense.total.amountMinor, HOME_UNIT)} ${UNIT_LABEL}`,
+      href: slug
+        ? `${wPath(slug, "expenses")}?expense=${encodeURIComponent(expense.id)}#expense-inspector`
+        : undefined,
+    }));
+  }, [expenses, slug]);
+
+  const chartSeries = useMemo(() => {
+    if (!chartsLive || !moneyPulse) return null;
+    const series = moneyPulseFlowSeries(moneyPulse.movements);
+    return series.points.length > 0 ? series : null;
+  }, [chartsLive, moneyPulse]);
 
   return (
     <AppShell
@@ -199,229 +254,222 @@ export function PersonalSpaceView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <WorkspacePageFrame
-      title={"دفتر من"}
-      description={"مالی شخصی و خرج خصوصی از دادهٔ واقعی."}
-      primaryAction={slug ? <Link href={wPath(slug, "record")}>{NAV_LABELS.addExpense}</Link> : <Link href="/home">{NAV_LABELS.spacesList}</Link>}
-      secondaryActions={
-        <>
-          <Link href="/me/finance#lifestyle">{NAV_LABELS.personalFinance}</Link>
-          <Link href="/me/finance#lifestyle">تراز زندگی</Link>
-          <Link href="#spaces">گروه‌ها</Link>
-          <Link href="#goals">اهداف</Link>
-          {intentsLive ? <Link href="#intents">قواعد</Link> : null}
-          <Link href="#resources">حساب‌ها</Link>
-          <Link href="#charts">نمودار</Link>
-        </>
-      }
-      state="ready"
-    >
-      {pageError ? <p className="liveError">{pageError}</p> : null}
-      {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
+      <WorkspacePageFrame title="" state="ready">
+        {pageError ? <p className="liveError">{pageError}</p> : null}
+        {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
 
-      <div style={{ marginBottom: "1rem" }}>
-        <TreasuryBalanceCard
-          spaceKind="personal"
-          funds={[]}
-          paymentsHref="/me/finance#goals"
-          savingsHref="/me/finance#goals"
-          canManage={goalsLive}
-          pending={pending}
-          savingsBalanceMinor={
-            goalsLive ? (savingsFund?.balanceMinor ?? "0") : null
-          }
-          savingsGoalCount={savingsFund?.goalCount ?? 0}
-          onEnsureSavings={
-            goalsLive
-              ? () => {
-                  startTransition(() => {
-                    void (async () => {
-                      try {
-                        const result = await api.ensureDefaultSavingsFund({
-                          idempotencyKey: crypto.randomUUID(),
-                        });
-                        setSavingsFund(result.fund);
-                        flashSuccess(
-                          result.created
-                            ? "صندوق پس‌انداز ایجاد شد"
-                            : "صندوق پس‌انداز از قبل وجود داشت",
-                        );
-                      } catch (err) {
-                        setError(
-                          friendlyErrorMessage(err, "ایجاد صندوق پس‌انداز ناموفق"),
-                        );
-                      }
-                    })();
-                  });
+        {loading ? (
+          <ContentSkeleton rows={4} label="در حال بارگذاری دفتر شخصی…" />
+        ) : !workspace ? (
+          <FormStack>
+            <EmptyHint>هنوز فضای شخصی ندارید.</EmptyHint>
+            <Button type="button" onClick={onEnsurePersonal} disabled={pending}>
+              ساخت دفتر من
+            </Button>
+          </FormStack>
+        ) : (
+          <SpaceHomeLayout
+            title={workspace.name || "دفتر من"}
+            roleBadge="شخصی"
+            primaryAction={
+              slug ? (
+                <Link
+                  href={wPath(slug, "record")}
+                  className="dang-btn dang-btn--md dang-btn--primary"
+                >
+                  ثبت خرج
+                </Link>
+              ) : (
+                <Link href="/home">{NAV_LABELS.spacesList}</Link>
+              )
+            }
+            secondaryAction={
+              <Link href="/me/finance#goals" className="dang-btn dang-btn--md dang-btn--ghost">
+                پس‌انداز
+              </Link>
+            }
+            keyNumber={
+              <SpaceHomeKeyNumber
+                label={spaceHomeKeyLabel("personal", pulseNet?.tone ?? "settled")}
+                amount={
+                  !pulseNet
+                    ? "—"
+                    : pulseNet.tone === "settled"
+                      ? "صفر"
+                      : `${pulseNet.tone === "credit" ? "+" : "−"}${formatMoneyFromIrrMinor(Math.abs(pulseNet.irrMinor), HOME_UNIT)} ${UNIT_LABEL}`
                 }
-              : undefined
-          }
-          onDepositSavings={
-            goalsLive
-              ? () => {
-                  void promptText({
-                    title: "واریز ماهانه",
-                    label: "مبلغ (تومان)",
-                    confirmLabel: "ثبت واریز",
-                    tone: "default",
-                  }).then((raw) => {
-                    if (raw == null) return;
-                    const money = tomanInputToIrrMinor(raw);
-                    if (!money) {
-                      setError("مبلغ معتبر نیست");
-                      return;
-                    }
-                    startTransition(() => {
-                    void (async () => {
-                      try {
-                        const result = await api.depositSavingsFund({
-                          amountMinor: money.amountMinor,
-                          note: "واریز ماهانه",
-                          idempotencyKey: crypto.randomUUID(),
-                        });
-                        setSavingsFund(result.fund);
-                        flashSuccess("واریز در صندوق پس‌انداز ثبت شد");
-                      } catch (err) {
-                        setError(
-                          friendlyErrorMessage(err, "واریز پس‌انداز ناموفق"),
-                        );
-                      }
-                    })();
-                    });
-                  });
+                tone={pulseNet?.tone ?? "settled"}
+                meta={
+                  moneyPulse ? (
+                    <>
+                      <span>
+                        درآمد{" "}
+                        {formatMoneyFromIrrMinor(moneyPulse.income.amountMinor, HOME_UNIT)}{" "}
+                        {UNIT_LABEL}
+                      </span>
+                      <span>
+                        خرج{" "}
+                        {formatMoneyFromIrrMinor(moneyPulse.expense.amountMinor, HOME_UNIT)}{" "}
+                        {UNIT_LABEL}
+                      </span>
+                    </>
+                  ) : null
                 }
-              : undefined
-          }
-        />
-      </div>
+              />
+            }
+            actions={<SpaceHomeActions items={actionItems} />}
+            activity={<SpaceHomeActivity items={activityItems} />}
+            chart={
+              chartSeries && slug ? (
+                <SpaceHomeMiniChart slug={slug} series={chartSeries} />
+              ) : null
+            }
+            extras={
+              <>
+                <section id="personal-expense" aria-labelledby="personal-quick-expense">
+                  <h2 id="personal-quick-expense" style={{ fontSize: "0.95rem", margin: "0 0 0.5rem" }}>
+                    ثبت سریع خرج
+                  </h2>
+                  <FormStack>
+                    <TextField
+                      label="عنوان"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                    />
+                    <TextField
+                      label={`مبلغ (${UNIT_LABEL})`}
+                      value={toman}
+                      onChange={(e) => setToman(e.target.value)}
+                    />
+                    {categories.length > 0 ? (
+                      <label className="field">
+                        <span>دسته</span>
+                        <select
+                          value={categoryId}
+                          onChange={(e) => setCategoryId(e.target.value)}
+                        >
+                          <option value="">بدون دسته</option>
+                          {categories.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+                    <SplitComposer
+                      members={members}
+                      totalToman={toman}
+                      value={split}
+                      onChange={setSplit}
+                      personalOnly
+                      currentUserId={currentUserId}
+                    />
+                    <Button type="button" onClick={onCreateExpense} disabled={pending}>
+                      ثبت خرج خصوصی
+                    </Button>
+                  </FormStack>
+                </section>
 
-      <div id="spaces" style={{ marginBottom: "1.15rem" }}>
-        <PersonalSpacesAccordion focus="share" hidePersonal />
-      </div>
-
-      {loading ? (
-        <ContentSkeleton rows={4} label="در حال بارگذاری دفتر شخصی…" />
-      ) : (
-        <ProductGrid>
-          <SectionCard title="فضای من" delayClass="delay1">
-            {workspace ? (
-              <StatusLine>
-                فعال: <b>{workspace.name}</b> · {spaceKindForTemplateLabel("personal")}
-              </StatusLine>
-            ) : (
-              <FormStack>
-                <EmptyHint>هنوز فضای شخصی ندارید.</EmptyHint>
-                <Button type="button" onClick={onEnsurePersonal} disabled={pending}>
-                  ساخت دفتر من
-                </Button>
-              </FormStack>
-            )}
-          </SectionCard>
-
-          <SectionCard
-            title="ثبت سریع خرج شخصی"
-            delayClass="delay1"
-            className="uxPrimaryPanel"
-          >
-            <div id="personal-expense">
-            {!workspace ? (
-              <EmptyHint>اول دفتر شخصی را بسازید.</EmptyHint>
-            ) : (
-              <FormStack>
-                <TextField label="عنوان" value={title} onChange={(e) => setTitle(e.target.value)} />
-                <TextField
-                  label="مبلغ (تومان)"
-                  value={toman}
-                  onChange={(e) => setToman(e.target.value)}
+                <TreasuryBalanceCard
+                  spaceKind="personal"
+                  funds={[]}
+                  paymentsHref="/me/finance#goals"
+                  savingsHref="/me/finance#goals"
+                  canManage={goalsLive}
+                  pending={pending}
+                  savingsBalanceMinor={
+                    goalsLive ? (savingsFund?.balanceMinor ?? "0") : null
+                  }
+                  savingsGoalCount={savingsFund?.goalCount ?? 0}
+                  onEnsureSavings={
+                    goalsLive
+                      ? () => {
+                          startTransition(() => {
+                            void (async () => {
+                              try {
+                                const result = await api.ensureDefaultSavingsFund({
+                                  idempotencyKey: crypto.randomUUID(),
+                                });
+                                setSavingsFund(result.fund);
+                                flashSuccess(
+                                  result.created
+                                    ? "صندوق پس‌انداز ایجاد شد"
+                                    : "صندوق پس‌انداز از قبل وجود داشت",
+                                );
+                              } catch (err) {
+                                setError(
+                                  friendlyErrorMessage(err, "ایجاد صندوق پس‌انداز ناموفق"),
+                                );
+                              }
+                            })();
+                          });
+                        }
+                      : undefined
+                  }
+                  onDepositSavings={
+                    goalsLive
+                      ? () => {
+                          void promptText({
+                            title: "واریز ماهانه",
+                            label: `مبلغ (${UNIT_LABEL})`,
+                            confirmLabel: "ثبت واریز",
+                            tone: "default",
+                          }).then((raw) => {
+                            if (raw == null) return;
+                            const money = tomanInputToIrrMinor(raw);
+                            if (!money) {
+                              setError("مبلغ معتبر نیست");
+                              return;
+                            }
+                            startTransition(() => {
+                              void (async () => {
+                                try {
+                                  const result = await api.depositSavingsFund({
+                                    amountMinor: money.amountMinor,
+                                    note: "واریز ماهانه",
+                                    idempotencyKey: crypto.randomUUID(),
+                                  });
+                                  setSavingsFund(result.fund);
+                                  flashSuccess("واریز در صندوق پس‌انداز ثبت شد");
+                                } catch (err) {
+                                  setError(
+                                    friendlyErrorMessage(err, "واریز پس‌انداز ناموفق"),
+                                  );
+                                }
+                              })();
+                            });
+                          });
+                        }
+                      : undefined
+                  }
                 />
-                {categories.length > 0 ? (
-                  <label className="field">
-                    <span>دسته</span>
-                    <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                      <option value="">بدون دسته</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+
+                <div id="spaces">
+                  <PersonalSpacesAccordion focus="share" hidePersonal />
+                </div>
+
+                {expenses.length > 0 ? (
+                  <DataList>
+                    {expenses.slice(0, 8).map((expense) => (
+                      <DataRow
+                        key={expense.id}
+                        title={expense.title}
+                        meta={
+                          <StatusPill tone={expense.status === "posted" ? "ok" : "warn"}>
+                            {expenseStatusLabel(expense.status)}
+                          </StatusPill>
+                        }
+                        trailing={<Amount irrMinor={expense.total.amountMinor} />}
+                      />
+                    ))}
+                  </DataList>
                 ) : null}
-                <SplitComposer
-                  members={members}
-                  totalToman={toman}
-                  value={split}
-                  onChange={setSplit}
-                  personalOnly
-                  currentUserId={currentUserId}
-                />
-                <Button type="button" onClick={onCreateExpense} disabled={pending}>
-                  ثبت خرج خصوصی
-                </Button>
-              </FormStack>
-            )}
-            </div>
-          </SectionCard>
-
-          <div id="overview">
-            <PersonalFinanceOverviewPanel />
-          </div>
-
-          <div id="goals">
-            <PersonalDepthPanel goalsLive={goalsLive} />
-          </div>
-
-          <div id="charts">
-            <PersonalChartsPanel />
-          </div>
-
-          <details className="reportDetails" id="resources">
-            <summary>
-              <span>منابع و بودجه شخصی</span>
-            </summary>
-            <div className="reportDetails__body">
-              <PersonalResourcesPanel />
-            </div>
-          </details>
-
-          <SectionCard title="خرج‌های من" badge={expenses.length} delayClass="delay2">
-            {expenses.length === 0 ? (
-              <EmptyHint>هنوز خرجی نیست.</EmptyHint>
-            ) : (
-              <DataList>
-                {expenses.slice(0, 20).map((expense) => (
-                  <DataRow
-                    key={expense.id}
-                    title={expense.title}
-                    meta={
-                      <StatusPill tone={expense.status === "posted" ? "ok" : "warn"}>
-                        {expenseStatusLabel(expense.status)}
-                      </StatusPill>
-                    }
-                    trailing={<Amount irrMinor={expense.total.amountMinor} />}
-                  />
-                ))}
-              </DataList>
-            )}
-          </SectionCard>
-
-          {workspace ? (
-            <details className="reportDetails">
-              <summary>
-                <span>گزارش و خرج تکراری</span>
-              </summary>
-              <div className="reportDetails__body">
-                <WorkspaceReportsPanel
-                  workspaceId={workspace.id}
-                  defaultVisibility="private"
-                  onChanged={() => void refresh(workspace.id)}
-                />
-              </div>
-            </details>
-          ) : null}
-        </ProductGrid>
-      )}
-    
-      </WorkspacePageFrame></AppShell>
+              </>
+            }
+          />
+        )}
+      </WorkspacePageFrame>
+    </AppShell>
   );
 }
