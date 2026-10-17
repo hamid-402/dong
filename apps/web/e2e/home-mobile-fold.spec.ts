@@ -30,10 +30,10 @@ test.describe("home mobile first fold (R4)", () => {
     expect(viewport, "mobile viewport required").toBeTruthy();
     const vh = viewport!.height;
 
-    // Prefer briefing action links; fall back to first mosaic / shell CTA in #main.
+    // Prefer primary home CTA; fall back to activity/expense links in #main.
     const cta = page
       .locator(
-        "#home-briefing a[href], .mosaicWorkspace a[href*='/expenses'], #main a[href*='/expenses']",
+        "#main a.dang-btn--primary[href], #home-briefing a[href], #main a[href*='/record'], #main a[href*='/expenses']",
       )
       .first();
     await expect(cta).toBeVisible({ timeout: 20_000 });

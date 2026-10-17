@@ -17,7 +17,12 @@ import {
   personaHomeSpec,
   spaceKindForTemplate,
 } from "@dang/contracts";
-import { Amount, Button, TextField } from "@dang/ui";
+import {
+  Amount,
+  Button,
+  TextField,
+  formatMoneyFromIrrMinor,
+} from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
   DataList,
@@ -25,41 +30,42 @@ import {
   EmptyHint,
   EmptyStateBlock,
   FormStack,
-  ProductGrid,
   SectionCard,
-  StatusLine,
-  StatusPill,
 } from "@/components/ui-blocks";
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
-import { GroupOpsRail } from "@/components/shell/group-ops-rail";
 import { GroupPublicIdCard } from "@/components/shell/group-public-id";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
 import {
-  buildPersonaHomeHrefs,
-  PersonaHomeFrameActions,
-  PersonaHomeRelatedLinks,
-} from "@/components/shell/persona-home-actions";
-import { SpaceFrequentActions } from "@/components/shell/space-frequent-actions";
+  SpaceHomeActivity,
+  SpaceHomeActions,
+  SpaceHomeKeyNumber,
+  SpaceHomeLayout,
+  spaceHomeKeyLabel,
+  spaceHomePrimaryCta,
+  type SpaceHomeActionItem,
+  type SpaceHomeActivityItem,
+} from "@/components/views/space-home";
+import { spaceHomeStyles } from "@/components/views/space-home/space-home-layout";
 import { modulesForTemplate } from "@/lib/workspace-modules";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { expenseHrefForUnit } from "@/lib/expense-unit-href";
 import { hubPathFor } from "@/lib/hub-links";
 import { newClientId } from "@/lib/id";
-import { NAV_LABELS } from "@/lib/nav-labels";
 import {
   expenseStatusLabel,
   membershipRoleLabel,
-  workspaceTemplateLabel,
 } from "@/lib/status-labels";
 import { FlashMessages, useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { wPath } from "@/lib/workspace-paths";
 
+const HOME_UNIT = "toman" as const;
+const UNIT_LABEL = "تومان";
+
 /**
- * Home for building-kind spaces (residential_building / construction).
- * Not friends-group: units/phases first, then charges & settlement.
+ * Building-kind space home — SpaceHomeLayout; deep tools on section menu.
  */
 export function BuildingSpaceView() {
   const chrome = useAppChrome();
@@ -146,45 +152,17 @@ export function BuildingSpaceView() {
     procurement: modules.has("procurement") || isConstruction,
     partners: modules.has("partnerships") || isConstruction,
   });
-  const pageTitle = homeSpec?.titleFa ?? (isConstruction ? "خانه پروژه ساختمانی" : "خانه ساختمان");
-  const pageDesc =
-    homeSpec?.blurbFa ??
-    (isConstruction
-      ? "مصالح، پیمان، تحویل و سهم شرکا — با ساختار بخش/فاز و مسیرهای واقعی runtime."
-      : "واحدها، ساکنان، شارژ و قبوض مشترک — نه گروه دوستانه.");
 
   const slug = workspace?.slug ?? scope?.slug ?? null;
-  const hrefs = slug ? buildPersonaHomeHrefs(slug) : null;
-  const frameActions =
-    homeSpec && hrefs
-      ? PersonaHomeFrameActions({
-          spec: homeSpec,
-          hrefs,
-          spaceKind: "building",
-        })
-      : null;
   const unitsHref = slug ? wPath(slug, "subunits") : "/home?kind=building";
-  const membersHref = slug ? wPath(slug, "members") : hubPathFor("/workspaces/invite");
   const expensesHref = slug ? wPath(slug, "expenses") : hubPathFor("/workspaces");
   const settlementsHref = slug
     ? wPath(slug, "settlements")
     : `${hubPathFor("/workspaces")}#settlement-panel`;
   const invoicesHref = slug ? wPath(slug, "invoices") : hubPathFor("/workspaces");
-  const procurementHref = slug
-    ? wPath(slug, "procurement")
-    : hubPathFor("/workspaces/procurement");
-  const partnersHref = slug ? wPath(slug, "partners") : hubPathFor("/workspaces");
 
-  const posted = expenses.filter((e) => e.status === "posted");
-  const financeManagers = members.filter((m) => isFinanceManagerRole(m.role));
-
-  const assignedResidentCount = useMemo(() => {
-    const ids = new Set<string>();
-    for (const u of units) {
-      for (const id of u.memberUserIds) ids.add(id);
-    }
-    return ids.size;
-  }, [units]);
+  const buildingChargesLive =
+    chrome.capabilities?.providers?.buildingCharges === "building_charges_v1";
 
   const arrears = useMemo(() => {
     if (!balances) return [];
@@ -198,9 +176,6 @@ export function BuildingSpaceView() {
 
   const memberName = (userId: string) =>
     members.find((m) => m.userId === userId)?.displayName ?? userId.slice(0, 8);
-
-  const buildingChargesLive =
-    chrome.capabilities?.providers?.buildingCharges === "building_charges_v1";
 
   function onGenerateCharges() {
     if (!workspaceId) return;
@@ -241,63 +216,54 @@ export function BuildingSpaceView() {
     });
   }
 
-  const setupSteps = useMemo(() => {
-    const steps = [
-      {
-        key: "units",
-        label: `تعریف ${unitNounPlural}`,
-        done: units.length > 0,
-        href: unitsHref,
-        hint:
-          units.length > 0
-            ? `${units.length.toLocaleString("fa-IR")} مورد`
-            : `حداقل یک ${unitNoun} بسازید`,
-      },
-      {
-        key: "residents",
-        label: isConstruction ? "افراد پروژه" : "ساکنان روی واحدها",
-        done: assignedResidentCount > 0 || (isConstruction && members.length >= 2),
-        href: unitsHref,
-        hint:
-          assignedResidentCount > 0
-            ? `${assignedResidentCount.toLocaleString("fa-IR")} نفر روی ${unitNounPlural}`
-            : `اعضا را از صفحهٔ ${unitNounPlural} به هر مورد وصل کنید`,
-      },
-      {
-        key: "finance",
-        label: "مادرخرج / مدیر مالی",
-        done: financeManagers.length >= 1,
-        href: `${membersHref}#member-add-panel`,
-        hint:
-          financeManagers.length >= 1
-            ? `${financeManagers.length.toLocaleString("fa-IR")} مدیر`
-            : "برای افزودن عضو عادی حداقل یک مالک/ادمین/مادرخرج لازم است",
-      },
-      {
-        key: "charge",
-        label: isConstruction ? "اولین ثبت هزینه" : "اولین شارژ / قبض",
-        done: posted.length > 0,
-        href: `${expensesHref}#expense-panel`,
-        hint:
-          posted.length > 0
-            ? `${posted.length.toLocaleString("fa-IR")} ثبت‌شده`
-            : "از هزینهٔ فضا یک مورد ثبت کنید",
-      },
-    ];
-    return steps.filter((s) => !s.done);
-  }, [
-    units.length,
-    unitNoun,
-    unitNounPlural,
-    unitsHref,
-    assignedResidentCount,
-    isConstruction,
-    members.length,
-    financeManagers.length,
-    membersHref,
-    posted.length,
-    expensesHref,
-  ]);
+  const primary = spaceHomePrimaryCta("building", {
+    buildingChargesLive: buildingChargesLive && !isConstruction,
+  });
+  const primaryHref =
+    primary.prefer === "invoices"
+      ? invoicesHref
+      : slug
+        ? wPath(slug, "record")
+        : "/home";
+
+  const actionItems = useMemo((): SpaceHomeActionItem[] => {
+    const items: SpaceHomeActionItem[] = [];
+    for (const row of arrears.slice(0, 5)) {
+      items.push({
+        id: row.userId,
+        title: memberName(row.userId),
+        detail: `${formatMoneyFromIrrMinor(row.net.amountMinor, HOME_UNIT)} ${UNIT_LABEL}`,
+        href: settlementsHref,
+        actionLabel: "تسویه",
+      });
+    }
+    if (items.length === 0 && openSettlements > 0) {
+      items.push({
+        id: "settlements",
+        title: "تسویه باز",
+        detail: `${openSettlements.toLocaleString("fa-IR")} مورد`,
+        href: settlementsHref,
+        actionLabel: "تسویه",
+      });
+    }
+    return items.slice(0, 5);
+  }, [arrears, openSettlements, settlementsHref, members]);
+
+  const activityItems = useMemo((): SpaceHomeActivityItem[] => {
+    return expenses.slice(0, 5).map((expense) => ({
+      id: expense.id,
+      title: expense.title,
+      detail: `${expenseStatusLabel(expense.status)} · ${formatMoneyFromIrrMinor(expense.total.amountMinor, HOME_UNIT)} ${UNIT_LABEL}`,
+      href: `${expensesHref}?expense=${encodeURIComponent(expense.id)}#expense-inspector`,
+    }));
+  }, [expenses, expensesHref]);
+
+  const unpaidLabel =
+    arrears.length > 0
+      ? `${arrears.length.toLocaleString("fa-IR")} واحد/نفر بدهکار`
+      : openSettlements > 0
+        ? `${openSettlements.toLocaleString("fa-IR")} تسویه باز`
+        : "بدهی بازی نیست";
 
   const pageError = error ?? chrome.error;
 
@@ -309,393 +275,180 @@ export function BuildingSpaceView() {
       persistenceLabel={chrome.persistenceLabel}
     >
       <WorkspacePageFrame
-        title={pageTitle}
-        description={pageDesc}
-        primaryAction={
-          frameActions?.primaryAction ??
-          (slug ? (
-            <Link href={unitsHref}>{unitNounPlural}</Link>
-          ) : (
-            <Link href="/spaces/new?kind=building">{NAV_LABELS.createSpace}</Link>
-          ))
-        }
-        secondaryActions={frameActions?.secondaryActions}
+        title=""
         state={!chrome.ready || loading ? "loading" : "ready"}
         loadingLabel="در حال بارگذاری خانه ساختمان…"
       >
         <FlashMessages error={pageError} successMessage={successMessage} />
 
-        {workspace && slug && homeSpec?.panels.opsRail !== false ? (
-          <GroupOpsRail
-            slug={slug}
-            spaceKind="building"
-            memberCount={members.length}
-            openSettlements={openSettlements}
-            canManageMembers={canManageMembers}
-            showSubunits={homeSpec?.panels.subunits !== false}
-            subunitsHint={unitNounPlural}
-          />
-        ) : null}
-
-        {workspace && slug && homeSpec?.panels.frequentActions !== false ? (
-          <SpaceFrequentActions
-            slug={slug}
-            openSettlements={openSettlements}
-            memberCount={members.length}
-            canAddExpense={homeSpec ? homeSpec.canAddExpense : !readOnly}
-            inviteHref={`${membersHref}#invite-create-panel`}
-            addMemberHref={`${membersHref}#member-add-panel`}
-            showInvite={homeSpec?.showInviteLink ?? canManageMembers}
-            showAddMember={homeSpec?.showAddMember ?? false}
-            showApprovals={Boolean(
-              homeSpec?.panels.approvalsCard &&
-                chrome.capabilities?.productFlags?.approvalQueue,
-            )}
-            approvalsHref={hrefs?.approvals}
-          />
-        ) : null}
-
         {loading ? (
           <ContentSkeleton rows={4} label="در حال بارگذاری…" />
         ) : !workspace ? (
-          <ProductGrid>
-            <SectionCard title="ساختمانی ندارید" delayClass="delay1">
-              <EmptyStateBlock
-                title="هنوز فضای ساختمان نساخته‌اید"
-                description="قالب «ساختمان مسکونی» برای واحد و شارژ؛ «ساختمان و پیمانکاری» برای پروژه."
-                action={
-                  <Link href="/spaces/new?kind=building">
-                    <Button type="button">ساخت فضای ساختمان</Button>
-                  </Link>
+          <SectionCard title="ساختمانی ندارید" delayClass="delay1">
+            <EmptyStateBlock
+              title="هنوز فضای ساختمان نساخته‌اید"
+              description="قالب «ساختمان مسکونی» برای واحد و شارژ؛ «ساختمان و پیمانکاری» برای پروژه."
+              action={
+                <Link href="/spaces/new?kind=building">
+                  <Button type="button">ساخت فضای ساختمان</Button>
+                </Link>
+              }
+            />
+          </SectionCard>
+        ) : (
+          <SpaceHomeLayout
+            title={workspace.name}
+            roleBadge={myRole ? membershipRoleLabel(myRole) : null}
+            primaryAction={
+              !readOnly && slug ? (
+                <Link href={primaryHref} className="dang-btn dang-btn--md dang-btn--primary">
+                  {primary.label}
+                </Link>
+              ) : undefined
+            }
+            secondaryAction={
+              openSettlements > 0 || arrears.length > 0 ? (
+                <Link
+                  href={settlementsHref}
+                  className="dang-btn dang-btn--md dang-btn--ghost"
+                >
+                  تسویه
+                </Link>
+              ) : null
+            }
+            keyNumber={
+              <SpaceHomeKeyNumber
+                label={spaceHomeKeyLabel("building", "settled")}
+                amount={unpaidLabel}
+                tone={
+                  arrears.length > 0 || openSettlements > 0 ? "debt" : "settled"
+                }
+                meta={
+                  <span>
+                    {units.length.toLocaleString("fa-IR")} {unitNoun}
+                    {" · "}
+                    {members.length.toLocaleString("fa-IR")} عضو
+                  </span>
                 }
               />
-            </SectionCard>
-          </ProductGrid>
-        ) : (
-          <ProductGrid>
-            <SectionCard title="فضای فعال" delayClass="delay1">
-              <StatusLine>
-                <b>{workspace.name}</b> · {workspaceTemplateLabel(workspace.template)} ·
-                نقش شما: {membershipRoleLabel(myRole)}
-                {readOnly ? " · فقط مشاهده" : null}
-              </StatusLine>
-              <StatusLine>
-                <StatusPill tone="ok">
-                  {units.length.toLocaleString("fa-IR")} {unitNoun}
-                </StatusPill>{" "}
-                <StatusPill tone={members.length > 0 ? "ok" : "warn"}>
-                  {members.length.toLocaleString("fa-IR")} عضو
-                </StatusPill>{" "}
-                <StatusPill tone={openSettlements > 0 ? "warn" : "ok"}>
-                  {openSettlements.toLocaleString("fa-IR")} تسویه باز
-                </StatusPill>
-              </StatusLine>
-              {balances ? (
-                <StatusLine>
-                  ماندهٔ شما:{" "}
-                  <Amount
-                    irrMinor={
-                      balances.lines.find(
-                        (b) => b.userId === chrome.actor?.userId,
-                      )?.net.amountMinor ?? "0"
-                    }
-                  />
-                </StatusLine>
-              ) : null}
-              <div className="dataRowActions">
+            }
+            actions={<SpaceHomeActions items={actionItems} />}
+            activity={<SpaceHomeActivity items={activityItems} />}
+            extras={
+              <>
                 {homeSpec?.panels.subunits !== false ? (
-                  <Link href={unitsHref}>
-                    <Button type="button">{unitNounPlural}</Button>
-                  </Link>
-                ) : null}
-                <Link href={expensesHref}>
-                  <Button type="button" variant="ghost">
-                    {isConstruction ? NAV_LABELS.expenses : "شارژ و قبوض"}
-                  </Button>
-                </Link>
-                <Link href={settlementsHref}>
-                  <Button type="button" variant="ghost">
-                    {NAV_LABELS.settlements}
-                  </Button>
-                </Link>
-                {(!homeSpec || homeSpec.relatedLinkKinds.includes("invoices")) && (
-                  <Link href={invoicesHref}>
-                    <Button type="button" variant="ghost">
-                      {NAV_LABELS.invoices}
-                    </Button>
-                  </Link>
-                )}
-                {isConstruction &&
-                (!homeSpec || homeSpec.relatedLinkKinds.includes("procurement")) ? (
-                  <>
-                    <Link href={procurementHref}>
-                      <Button type="button" variant="ghost">
-                        {NAV_LABELS.procurement}
-                      </Button>
-                    </Link>
-                    {(!homeSpec ||
-                      homeSpec.relatedLinkKinds.includes("partners")) && (
-                      <Link href={partnersHref}>
-                        <Button type="button" variant="ghost">
-                          {NAV_LABELS.partners}
-                        </Button>
-                      </Link>
-                    )}
-                  </>
-                ) : null}
-                <Link href={membersHref}>
-                  <Button type="button" variant="ghost">
-                    {NAV_LABELS.members}
-                  </Button>
-                </Link>
-              </div>
-              {homeSpec && hrefs ? (
-                <PersonaHomeRelatedLinks
-                  spec={homeSpec}
-                  hrefs={hrefs}
-                  spaceKind="building"
-                />
-              ) : null}
-            </SectionCard>
-
-            {slug ? (
-              <GroupPublicIdCard slug={slug} name={workspace.name} />
-            ) : null}
-
-            {!isConstruction && arrears.length > 0 ? (
-              <SectionCard
-                title="تابلوی معوقات"
-                badge={arrears.length}
-                delayClass="delay1"
-              >
-                <EmptyHint>
-                  از ماندهٔ واقعی دفترکل — بدهکاران با |net| منفی، بدون badge جعلی.
-                </EmptyHint>
-                <DataList>
-                  {arrears.map((row) => {
-                    const unitLabels = row.subunitIds
-                      .map((id) => unitById.get(id)?.code)
-                      .filter(Boolean)
-                      .join("، ");
-                    return (
-                      <DataRow
-                        key={row.userId}
-                        title={memberName(row.userId)}
-                        meta={unitLabels || "بدون واحد متصل"}
-                        trailing={<Amount irrMinor={row.net.amountMinor} />}
-                        actions={
-                          <Link href={settlementsHref}>
-                            <Button type="button" variant="ghost">
-                              تسویه
-                            </Button>
-                          </Link>
-                        }
-                      />
-                    );
-                  })}
-                </DataList>
-              </SectionCard>
-            ) : !isConstruction && balances ? (
-              <SectionCard title="تابلوی معوقات" delayClass="delay1">
-                <EmptyHint>بدهکار بازی از balances نیست — همه تسویه یا صفرند.</EmptyHint>
-              </SectionCard>
-            ) : null}
-
-            {!isConstruction && buildingChargesLive && canManage ? (
-              <SectionCard title="صدور شارژ ماهانه واحدها" delayClass="delay2">
-                <FormStack>
-                  <TextField
-                    label="ماه (YYYY-MM)"
-                    value={chargeYearMonth}
-                    onChange={(e) => setChargeYearMonth(e.target.value)}
-                    dir="ltr"
-                  />
-                  <TextField
-                    label="مبلغ هر واحد (تومان)"
-                    value={chargeToman}
-                    onChange={(e) => setChargeToman(e.target.value)}
-                    dir="ltr"
-                  />
-                  <label className="liveHint" style={{ display: "flex", gap: 8 }}>
-                    <input
-                      type="checkbox"
-                      checked={chargeAutoPost}
-                      onChange={(e) => setChargeAutoPost(e.target.checked)}
-                    />
-                    <span>ثبت مستقیم در دفترکل (submit+post)</span>
-                  </label>
-                  <Button
-                    type="button"
-                    disabled={pending}
-                    onClick={onGenerateCharges}
+                  <SectionCard
+                    title={unitNounPlural}
+                    badge={units.length}
+                    delayClass="delay1"
                   >
-                    صدور شارژ برای همهٔ واحدهای دارای ساکن
-                  </Button>
-                </FormStack>
-                <p className="liveHint">
-                  هر واحد یک خرج جدا با کلید یکتای ماه می‌گیرد — اجرای دوباره همان ماه تکراری
-                  نمی‌سازد.
-                </p>
-              </SectionCard>
-            ) : null}
-
-            {setupSteps.length > 0 &&
-            homeSpec?.panels.setupChecklist !== false ? (
-              <SectionCard title="راه‌اندازی ساختمان" delayClass="delay1">
-                <EmptyHint>
-                  {setupSteps.length.toLocaleString("fa-IR")} مرحله مانده — از لینک‌های واقعی زیر.
-                </EmptyHint>
-                <DataList>
-                  {setupSteps.map((step) => {
-                    const mutateStep =
-                      step.key === "finance" || step.key === "residents"
-                        ? canManageMembers
-                        : step.key === "charge"
-                          ? Boolean(homeSpec?.canAddExpense ?? canManage)
-                          : canManage;
-                    const href =
-                      step.key === "finance" && !canManageMembers
-                        ? membersHref
-                        : step.key === "charge" &&
-                            !(homeSpec?.canAddExpense ?? canManage)
-                          ? expensesHref
-                          : step.href;
-                    return (
-                      <DataRow
-                        key={step.key}
-                        title={step.label}
-                        meta={
-                          mutateStep
-                            ? step.hint
-                            : step.key === "charge"
-                              ? "وقتی شارژ ثبت شود اینجا تکمیل می‌شود"
-                              : "منتظر اقدام مدیر فضا"
-                        }
-                        actions={
-                          <Link href={href}>
-                            <Button type="button" variant="ghost">
-                              {mutateStep ? "انجام ←" : "مشاهده"}
-                            </Button>
-                          </Link>
-                        }
-                      />
-                    );
-                  })}
-                </DataList>
-              </SectionCard>
-            ) : null}
-
-            <SectionCard
-              title={unitNounPlural}
-              badge={units.length}
-              delayClass="delay2"
-            >
-              {units.length === 0 ? (
-                <EmptyStateBlock
-                  title={`هنوز ${unitNoun}ی نیست`}
-                  description={
-                    canManage
-                      ? `از صفحهٔ ${unitNounPlural} کد و نام بسازید و ساکنان را وصل کنید.`
-                      : "منتظر تعریف ساختار از مدیر فضا باشید."
-                  }
-                  action={
-                    canManage ? (
-                      <Link href={unitsHref}>
-                        <Button type="button">رفتن به {unitNounPlural}</Button>
-                      </Link>
-                    ) : undefined
-                  }
-                />
-              ) : (
-                <>
-                  <DataList>
-                    {units.slice(0, 12).map((u) => (
-                      <DataRow
-                        key={u.id}
-                        title={`${u.code} · ${u.name}`}
-                        meta={
-                          <>
-                            {u.memberUserIds.length.toLocaleString("fa-IR")} نفر
-                            {u.note ? ` · ${u.note}` : null}
-                          </>
-                        }
-                        actions={
-                          <Link href={expenseHrefForUnit(expensesHref, u.code, u.name)}>
-                            <Button type="button" variant="ghost">
-                              ثبت شارژ
-                            </Button>
-                          </Link>
-                        }
-                      />
-                    ))}
-                  </DataList>
-                  {units.length > 12 ? (
-                    <StatusLine>
-                      و {(units.length - 12).toLocaleString("fa-IR")} مورد دیگر…
-                    </StatusLine>
-                  ) : null}
-                  <FormStack>
-                    <Link href={unitsHref}>
-                      <Button type="button" variant="ghost">
-                        مدیریت کامل {unitNounPlural}
-                      </Button>
+                    {units.length === 0 ? (
+                      <EmptyHint>
+                        {canManageMembers
+                          ? `هنوز ${unitNoun}ای نیست — از مسیر ${unitNounPlural} بسازید.`
+                          : `هنوز ${unitNoun}ای تعریف نشده.`}
+                      </EmptyHint>
+                    ) : (
+                      <DataList>
+                        {units.slice(0, 8).map((u) => (
+                          <DataRow
+                            key={u.id}
+                            title={`${u.code} · ${u.name}`}
+                            meta={`${u.memberUserIds.length.toLocaleString("fa-IR")} نفر`}
+                            actions={
+                              homeSpec?.canAddExpense !== false ? (
+                                <Link
+                                  href={expenseHrefForUnit(expensesHref, u.code, u.name)}
+                                >
+                                  <Button type="button" variant="ghost">
+                                    ثبت خرج
+                                  </Button>
+                                </Link>
+                              ) : null
+                            }
+                          />
+                        ))}
+                      </DataList>
+                    )}
+                    <Link href={unitsHref} className="textButton">
+                      {canManageMembers
+                        ? `مدیریت ${unitNounPlural}`
+                        : `مشاهدهٔ ${unitNounPlural}`}
                     </Link>
-                  </FormStack>
-                </>
-              )}
-            </SectionCard>
+                  </SectionCard>
+                ) : null}
 
-            <SectionCard
-              title={isConstruction ? "پیش‌نمایش خرج‌ها" : "پیش‌نمایش شارژ و قبوض"}
-              badge={posted.length}
-              description={`فقط چند مورد اخیر — مدیریت کامل در «${NAV_LABELS.expenses}».`}
-              delayClass="delay2"
-            >
-              {posted.length === 0 ? (
-                <EmptyHint>
-                  هنوز موردی از API ثبت نشده — از «{NAV_LABELS.expenses}» شروع کنید.
-                </EmptyHint>
-              ) : (
-                <DataList>
-                  {posted.slice(0, 8).map((e) => (
-                    <DataRow
-                      key={e.id}
-                      title={e.title}
-                      meta={
-                        <StatusPill tone="ok">
-                          {expenseStatusLabel(e.status)}
-                        </StatusPill>
-                      }
-                      trailing={<Amount irrMinor={e.total.amountMinor} />}
-                      actions={
-                        <Link href={`${expensesHref}?expense=${e.id}`}>جزئیات</Link>
-                      }
-                    />
-                  ))}
-                </DataList>
-              )}
-              <Link href={expensesHref}>
-                مدیریت همه در {NAV_LABELS.expenses}
-              </Link>
-            </SectionCard>
+                {!isConstruction && arrears.length > 0 ? (
+                  <SectionCard title="معوقات" badge={arrears.length} delayClass="delay1">
+                    <DataList>
+                      {arrears.slice(0, 8).map((row) => {
+                        const unitLabels = row.subunitIds
+                          .map((id) => unitById.get(id)?.code)
+                          .filter(Boolean)
+                          .join("، ");
+                        return (
+                          <DataRow
+                            key={row.userId}
+                            title={memberName(row.userId)}
+                            meta={unitLabels || "بدون واحد متصل"}
+                            trailing={<Amount irrMinor={row.net.amountMinor} />}
+                            actions={
+                              <Link href={settlementsHref}>
+                                <Button type="button" variant="ghost">
+                                  تسویه
+                                </Button>
+                              </Link>
+                            }
+                          />
+                        );
+                      })}
+                    </DataList>
+                  </SectionCard>
+                ) : null}
 
-            <SectionCard title="اعضای فضا" badge={members.length} delayClass="delay3">
-              {members.length === 0 ? (
-                <EmptyHint>عضوی نیست.</EmptyHint>
-              ) : (
-                <DataList>
-                  {members.slice(0, 10).map((m) => (
-                    <DataRow
-                      key={m.userId}
-                      title={m.displayName}
-                      meta={membershipRoleLabel(m.role)}
-                    />
-                  ))}
-                </DataList>
-              )}
-              <Link href={membersHref}>{NAV_LABELS.members}</Link>
-            </SectionCard>
-          </ProductGrid>
+                {!isConstruction && buildingChargesLive && canManage ? (
+                  <SectionCard title="صدور شارژ ماهانه" delayClass="delay2">
+                    <FormStack>
+                      <TextField
+                        label="ماه (YYYY-MM)"
+                        value={chargeYearMonth}
+                        onChange={(e) => setChargeYearMonth(e.target.value)}
+                        dir="ltr"
+                      />
+                      <TextField
+                        label={`مبلغ هر واحد (${UNIT_LABEL})`}
+                        value={chargeToman}
+                        onChange={(e) => setChargeToman(e.target.value)}
+                        dir="ltr"
+                      />
+                      <label className="liveHint" style={{ display: "flex", gap: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={chargeAutoPost}
+                          onChange={(e) => setChargeAutoPost(e.target.checked)}
+                        />
+                        <span>ثبت مستقیم در دفترکل</span>
+                      </label>
+                      <Button
+                        type="button"
+                        disabled={pending}
+                        onClick={onGenerateCharges}
+                      >
+                        صدور شارژ
+                      </Button>
+                    </FormStack>
+                  </SectionCard>
+                ) : null}
+
+                {slug ? (
+                  <details className={spaceHomeStyles.collapsedExtra}>
+                    <summary>شناسهٔ عمومی فضا</summary>
+                    <GroupPublicIdCard slug={slug} name={workspace.name} />
+                  </details>
+                ) : null}
+              </>
+            }
+          />
         )}
       </WorkspacePageFrame>
     </AppShell>
