@@ -17,6 +17,7 @@ import { ShellPageTrail } from "@/components/shell/shell-page-trail";
 import { ShellHeaderSearchField } from "@/components/shell/shell-header-search";
 import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { ShellSpaceSwitcher } from "@/components/shell/shell-space-switcher";
+import { ShellKindHeaderSwitcher } from "@/components/shell/shell-kind-header-switcher";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { WorkspaceSectionTabs } from "@/components/shell/space-kind-header-tabs";
 import { bottomTabsV2 } from "@/lib/navigation-v2";
@@ -49,6 +50,8 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
   const fabHref = null;
   const desktop = viewport === "desktop";
   const tablet = viewport === "tablet";
+  /** Kind buttons in the header from tablet up (≥768); phone keeps the single switcher. */
+  const kindHeader = viewport !== "mobile";
   const search = searchParams?.toString() ?? "";
   const displayWsName = workspaceDisplayName(active?.name, template);
   const location = resolveShellLocation({
@@ -127,7 +130,11 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
                 <ShellIconSvg name="home" size={20} />
                 <span className="shell-v2__homeLabel">خانه</span>
               </Link>
-              <ShellSpaceSwitcher leaveHref={leaveMembershipHref} />
+              {kindHeader ? (
+                <ShellKindHeaderSwitcher />
+              ) : (
+                <ShellSpaceSwitcher leaveHref={leaveMembershipHref} />
+              )}
             </div>
             <div className="shell-v2__zone shell-v2__zone--end shell-v2__user">
               <ShellHeaderSearchField />

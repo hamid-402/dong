@@ -6308,6 +6308,7 @@ summary:focus-visible,
   .shell-v2__header button,
   .shell-v2__header .shell-v2__wordmark,
   .shell-v2__header .shell-spaceSwitch__trigger,
+  .shell-v2__header .shell-kindSwitch__trigger,
   .shell-v2__header .shell-v2__search,
   .shell-v2__header .notifBell__trigger,
   .shell-v2__header .header-profile {
@@ -6322,8 +6323,10 @@ summary:focus-visible,
   .shell-v2__header .header-profile:focus-visible,
   .shell-v2__header .notifBell__trigger:focus-visible,
   .shell-v2__header .shell-spaceSwitch__trigger:focus-visible,
+  .shell-v2__header .shell-kindSwitch__trigger:focus-visible,
   .shell-spacePanel__tab:focus-visible,
   .shell-spacePanel__option:focus-visible,
+  .shell-kindSwitch__option:focus-visible,
   .shell-sectionTabs__tab:focus-visible {
     outline: 3px solid var(--dang-focus, var(--primary));
     outline-offset: 2px;
@@ -6507,6 +6510,203 @@ html[data-density="compact"] .shell-v2__header {
   }
 
   .shell-v2__homeLabel {
+    display: none;
+  }
+}
+
+.shell-kindSwitch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.shell-kindSwitch__item {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.shell-kindSwitch__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: auto;
+  max-width: 100%;
+  min-width: 44px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.2;
+  cursor: pointer;
+  text-align: start;
+}
+
+.shell-kindSwitch__trigger:hover,
+.shell-kindSwitch__trigger[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+}
+
+.shell-kindSwitch__trigger.is-active {
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+
+.shell-kindSwitch__trigger:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.shell-kindSwitch__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-kindSwitch__trigger .shell-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
+.shell-kindSwitch__panel {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 8px);
+  inset-inline-start: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(20rem, calc(100vw - 16px));
+  max-height: min(70vh, 32rem);
+  overflow: hidden;
+  padding: 8px;
+  border: 1px solid var(--dang-border, var(--dang-line));
+  border-radius: 12px;
+  background: var(--dang-surface, var(--surface));
+  box-shadow: var(--m-elev-2, var(--elev-1));
+}
+
+.shell-kindSwitch__search,
+.shell-kindSwitch__option,
+.shell-kindSwitch__footer a {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.shell-kindSwitch__search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+  padding: 0 8px;
+  border: 1px solid var(--dang-border, var(--dang-line));
+  border-radius: 8px;
+  background: var(--dang-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.shell-kindSwitch__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 16rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.shell-kindSwitch__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+  text-align: start;
+  cursor: pointer;
+}
+
+.shell-kindSwitch__optionMain {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shell-kindSwitch__option small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.shell-kindSwitch__option:hover,
+.shell-kindSwitch__option.is-active,
+.shell-kindSwitch__option:focus-visible {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.shell-kindSwitch__empty {
+  padding: 8px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.shell-kindSwitch__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--dang-border, var(--dang-line));
+}
+
+.shell-kindSwitch__footer a {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.shell-kindSwitch__footer a:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.shell-kindSwitch__trigger:focus-visible,
+.shell-kindSwitch__option:focus-visible,
+.shell-kindSwitch__search:focus-visible,
+.shell-kindSwitch__footer a:focus-visible {
+  outline: 3px solid var(--dang-focus, var(--primary));
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .shell-kindSwitch {
     display: none;
   }
 }
