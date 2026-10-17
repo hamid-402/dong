@@ -11,3 +11,9 @@ export {
 } from "./space-home-activity";
 export { SpaceHomeMiniChart } from "./space-home-mini-chart";
 export { spaceHomePrimaryCta, spaceHomeKeyLabel } from "./space-home-helpers";
+export {
+  SpaceHomeFolderDrill,
+  type SpaceHomeFolderDestination,
+  type SpaceHomeFolderGroup,
+} from "./space-home-folder-drill";
+export { SpaceHomeOutingCard } from "./space-home-outing-card";

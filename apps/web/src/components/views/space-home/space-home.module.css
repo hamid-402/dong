@@ -215,3 +215,63 @@
   border-bottom: 1px solid var(--line);
   margin-bottom: 0.65rem;
 }
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: var(--primary);
+  text-decoration: none;
+  width: fit-content;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.folderGroups {
+  display: grid;
+  gap: 1rem;
+}
+
+.destLink {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.destLink:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.outingBody {
+  display: grid;
+  gap: 0.65rem;
+  padding-bottom: 0.75rem;
+}
+
+.outingList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.outingList a {
+  color: var(--primary);
+  font-weight: 650;
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.outingList a:hover {
+  text-decoration: underline;
+}
+
+.outingMeta {
+  margin: 0;
+  font-size: 0.8125rem;
+}

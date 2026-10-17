@@ -810,39 +810,35 @@ export function OverviewView() {
         ) : !slug ? (
           <EmptyHint>فضای کاری را انتخاب کنید یا از فهرست فضاها یکی بسازید.</EmptyHint>
         ) : homeFolder ? (
-          <div className="mosaicWorkspace">
-            <div className="mosaicWorkspace__drill">
-              <HomeRootLauncher
-                slug={slug}
-                template={activeWs?.template}
-                workspaceCount={chrome.workspaces.length}
-                sections={domainSections}
-                folderParam={homeFolder}
-                groupParam={homeGroup}
-                facts={missionFacts}
-                reduceMotion={
-                  !motionEnabled || Boolean(theme && !theme.allowsFeedback)
-                }
-                pinnedHrefs={pinnedHrefSet}
-                urgency={
-                  data
-                    ? {
-                        pendingApprovals: data.pendingApprovalCount,
-                        openSettlements: data.openSettlementCount,
-                        openNeeds: data.needCount,
-                      }
-                    : undefined
-                }
-                onTogglePin={(item) => {
-                  togglePinnedDestination(item);
-                  const hrefs = new Set(
-                    domainSections.flatMap((s) => s.items.map((i) => i.href)),
-                  );
-                  setPins(filterLivePinned(listPinnedDestinations(), hrefs));
-                }}
-              />
-            </div>
-          </div>
+          <HomeRootLauncher
+            slug={slug}
+            template={activeWs?.template}
+            workspaceCount={chrome.workspaces.length}
+            sections={domainSections}
+            folderParam={homeFolder}
+            groupParam={homeGroup}
+            facts={missionFacts}
+            reduceMotion={
+              !motionEnabled || Boolean(theme && !theme.allowsFeedback)
+            }
+            pinnedHrefs={pinnedHrefSet}
+            urgency={
+              data
+                ? {
+                    pendingApprovals: data.pendingApprovalCount,
+                    openSettlements: data.openSettlementCount,
+                    openNeeds: data.needCount,
+                  }
+                : undefined
+            }
+            onTogglePin={(item) => {
+              togglePinnedDestination(item);
+              const hrefs = new Set(
+                domainSections.flatMap((s) => s.items.map((i) => i.href)),
+              );
+              setPins(filterLivePinned(listPinnedDestinations(), hrefs));
+            }}
+          />
         ) : (
           <SpaceHomeLayout
             title={data?.workspaceName || NAV_LABELS.home}

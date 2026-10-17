@@ -9,8 +9,11 @@ import {
   type ContextualMosaicFact,
 } from "@/components/shell/contextual-mosaic-hub";
 import { FrequentDestinationsRail } from "@/components/shell/frequent-destinations-rail";
-import { MosaicBackBar } from "@/components/shell/mosaic-back-bar";
 import { EmptyHint } from "@/components/ui-blocks";
+import {
+  SpaceHomeFolderDrill,
+  type SpaceHomeFolderGroup,
+} from "@/components/views/space-home";
 import {
   DOMAIN_GROUP_GEM,
   DOMAIN_GROUP_ORDER,
@@ -39,9 +42,33 @@ const DOMAIN_ICON: Record<DomainGroupKey, ShellIcon> = {
   settings: "settings",
 };
 
+function folderGroupsFromSections(
+  slug: string,
+  folderParam: DomainGroupKey,
+  activeSection: ContextualMosaicSection,
+  groupParam: string | null | undefined,
+): SpaceHomeFolderGroup[] {
+  const sections = domainDrillMosaicSections(folderParam, activeSection, {
+    slug,
+    folderBase: "home",
+    group: groupParam,
+  });
+  return sections.map((section) => ({
+    key: section.key,
+    label: section.label,
+    hint: section.description,
+    items: section.items.map((item) => ({
+      key: item.key,
+      label: item.label,
+      hint: item.summary,
+      href: item.href,
+    })),
+  }));
+}
+
 /**
- * Mosaic workspace home: every gated leaf is its own tile (finance, ledger, …),
- * per space kind. Desktop ≥1200px uses Operations Room split (domains + content).
+ * Workspace home launcher. Folder drill (?folder=) uses calm SpaceHomeFolderDrill;
+ * root / ops-room paths keep the prior mosaic for any remaining call sites.
  */
 export function HomeRootLauncher({
   slug,
@@ -75,7 +102,6 @@ export function HomeRootLauncher({
   const router = useRouter();
   const mosaicMode = useAdaptiveMosaicMode();
   const opsRoom = mosaicMode === "operations-room";
-  const hybrid = mosaicMode === "hybrid";
   const kind = spaceKindForTemplate(template);
   const inFolder = Boolean(folderParam);
   const activeGroup =
@@ -119,7 +145,7 @@ export function HomeRootLauncher({
   const buyAttention = urgency.openNeeds ?? 0;
 
   useEffect(() => {
-    if (!inFolder || !slug || opsRoom) return;
+    if (!inFolder || !slug) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (event.defaultPrevented) return;
@@ -132,7 +158,7 @@ export function HomeRootLauncher({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [inFolder, slug, router, activeGroup, folderParam, opsRoom]);
+  }, [inFolder, slug, router, activeGroup, folderParam]);
 
   const wrappedTogglePin = onTogglePin
     ? (item: { key: string; label: string; href: string }) => {
@@ -143,6 +169,35 @@ export function HomeRootLauncher({
 
   if (!slug) {
     return <EmptyHint>فضای کاری را انتخاب کنید.</EmptyHint>;
+  }
+
+  if (inFolder && folderParam) {
+    const title = activeGroup
+      ? domainSubGroupLabel(folderParam, activeGroup)
+      : domainGroupLabel(folderParam);
+    const empty = (
+      <EmptyHint>
+        {t("shell.toolsFolderEmpty")}{" "}
+        <Link href={homeDomainHref(slug)}>{t("shell.toolsBackToFolders")}</Link>
+      </EmptyHint>
+    );
+    if (!activeSection || activeSection.items.length === 0) {
+      return empty;
+    }
+    return (
+      <SpaceHomeFolderDrill
+        title={title}
+        backHref={homeDomainHref(slug)}
+        backLabel="بازگشت به خانهٔ فضا"
+        groups={folderGroupsFromSections(
+          slug,
+          folderParam,
+          activeSection,
+          groupParam,
+        )}
+        emptyHint={empty}
+      />
+    );
   }
 
   const domainNav = (
@@ -185,81 +240,6 @@ export function HomeRootLauncher({
       </ul>
     </nav>
   );
-
-  const folderContent =
-    inFolder && folderParam && activeSection && activeSection.items.length > 0 ? (
-      <ContextualMosaicHub
-        sections={domainDrillMosaicSections(folderParam, activeSection, {
-          slug,
-          folderBase: "home",
-          group: groupParam,
-        })}
-        title={
-          activeGroup
-            ? domainSubGroupLabel(folderParam, activeGroup)
-            : domainGroupLabel(folderParam)
-        }
-        description={domainGroupHint(folderParam)}
-        facts={facts}
-        compact
-        headingId="home-domains-folder-title"
-        reduceMotion={reduceMotion}
-        pinnedHrefs={pinnedHrefs}
-        onTogglePin={wrappedTogglePin}
-        onDestinationRemembered={() => setFreqRefresh((n) => n + 1)}
-      />
-    ) : inFolder && folderParam ? (
-      <EmptyHint>
-        {t("shell.toolsFolderEmpty")}{" "}
-        <Link href={homeDomainHref(slug)}>{t("shell.toolsBackToFolders")}</Link>
-      </EmptyHint>
-    ) : null;
-
-  // Mobile/tablet launcher: full drill-down (existing behavior).
-  if (!opsRoom && inFolder && folderParam) {
-    if (!activeSection || activeSection.items.length === 0) {
-      return (
-        <EmptyHint>
-          {t("shell.toolsFolderEmpty")}{" "}
-          <Link href={homeDomainHref(slug)}>{t("shell.toolsBackToFolders")}</Link>
-        </EmptyHint>
-      );
-    }
-    const crumbs = activeGroup
-      ? [
-          { label: t("shell.toolsBackFolders"), href: homeDomainHref(slug) },
-          {
-            label: domainGroupLabel(folderParam),
-            href: homeDomainHref(slug, folderParam),
-          },
-          { label: domainSubGroupLabel(folderParam, activeGroup) },
-        ]
-      : [
-          { label: t("shell.toolsBackFolders"), href: homeDomainHref(slug) },
-          { label: domainGroupLabel(folderParam) },
-        ];
-    return (
-      <div
-        className={`mosaicLauncher mosaicLauncher--drill${hybrid ? " mosaicLauncher--hybrid" : ""}`}
-        key={`${folderParam}-${groupParam ?? ""}`}
-      >
-        <MosaicBackBar
-          backHref={
-            activeGroup
-              ? homeDomainHref(slug, folderParam)
-              : homeDomainHref(slug)
-          }
-          crumbs={crumbs}
-        />
-        <FrequentDestinationsRail
-          liveHrefs={liveHrefs}
-          reduceMotion={reduceMotion}
-          refreshKey={freqRefresh}
-        />
-        {folderContent}
-      </div>
-    );
-  }
 
   const quickItems: ContextualMosaicItem[] = [
     {
@@ -377,12 +357,8 @@ export function HomeRootLauncher({
         <div className="mosaicOps">
           {domainNav}
           <div className="mosaicOps__main">
-            {folderContent ?? (
-              <>
-                {rootHub}
-                <p className="mosaicOps__pickHint">{t("shell.opsRoomPickDomain")}</p>
-              </>
-            )}
+            {rootHub}
+            <p className="mosaicOps__pickHint">{t("shell.opsRoomPickDomain")}</p>
           </div>
         </div>
       </section>

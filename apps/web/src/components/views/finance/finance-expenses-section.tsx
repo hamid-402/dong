@@ -5,6 +5,7 @@ import type {
   ExpensePeriodSummary,
   ExpenseSummary,
   MembershipSummary,
+  OutingSummary,
   PettyCashFundSummary,
   SessionSummary,
   SpaceKind,
@@ -12,6 +13,7 @@ import type {
 } from "@dang/contracts";
 import { formatMoneyFromIrrMinor } from "@dang/ui";
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import type { SplitComposerValue } from "@/components/split-composer";
 import {
   HeroBalance,
@@ -27,6 +29,8 @@ import { ExpenseListPanel } from "@/components/views/finance/expense-list-panel"
 import { FinanceSummaryCard } from "@/components/views/finance/finance-summary-card";
 import type { SplitPresetListItem } from "@/components/views/finance/finance-split-preset";
 import type { ExpenseFilter } from "@/components/views/finance/expense-list-query";
+import { SpaceHomeOutingCard } from "@/components/views/space-home";
+import { api } from "@/lib/api";
 import { useDisplayUnit } from "@/lib/display-unit";
 import { moneyUnitSuffix } from "@/lib/money-labels";
 import { NAV_LABELS } from "@/lib/nav-labels";
@@ -136,9 +140,44 @@ export function FinanceExpensesSection(props: FinanceExpensesSectionProps) {
   const net = Number(props.myNetMinor);
   const friendLike =
     props.spaceKind === "group" || props.spaceKind === "personal";
+  const outingSpace =
+    props.spaceKind === "group" ||
+    props.spaceKind === "building" ||
+    props.spaceKind === "org";
+  const [outings, setOutings] = useState<OutingSummary[]>([]);
+
+  useEffect(() => {
+    if (!outingSpace || !props.selectedId) {
+      setOutings([]);
+      return;
+    }
+    let cancelled = false;
+    void api
+      .listOutings(props.selectedId)
+      .then((rows) => {
+        if (!cancelled) setOutings(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setOutings([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [outingSpace, props.selectedId]);
+
+  const expensesHref = props.slug ? wPath(props.slug, "expenses") : "";
+  const spaceHref = props.slug ? wPath(props.slug, "space") : null;
 
   return (
     <div className="financeExpensesLayers">
+      {outingSpace && outings.length > 0 && expensesHref ? (
+        <SpaceHomeOutingCard
+          outings={outings}
+          expensesHref={expensesHref}
+          spaceHref={spaceHref}
+        />
+      ) : null}
+
       {/* Layer 1 — primary work: register then list */}
       {props.readOnlyFinance ? (
         <SectionCard title={NAV_LABELS.addExpense} tone="quiet">
