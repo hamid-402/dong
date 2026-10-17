@@ -572,7 +572,7 @@ export function OverviewView() {
     if (!chartsLive || !data?.moneyPulse) return null;
     const series = moneyPulseFlowSeries(data.moneyPulse.movements);
     return series.points.length > 0 ? series : null;
-  }, [chartsLive, data?.moneyPulse]);
+  }, [chartsLive, data]);
 
   const pettyTotalMinor = data?.pettyCashFunds?.length
     ? data.pettyCashFunds
