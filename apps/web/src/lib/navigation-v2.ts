@@ -1,6 +1,8 @@
 import type { ProductFeatureFlags, WorkspaceTemplate } from "@dang/contracts";
 import {
+  canViewProductMetrics as canViewProductMetricsStrict,
   isExpenseApproverRole,
+  isWorkspaceAdminRole,
   roleAllowsNavKey,
   spaceKindForTemplate,
 } from "@dang/contracts";
@@ -8,10 +10,32 @@ import { hubPathFor } from "@/lib/hub-links";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { t } from "@/lib/i18n";
 import { modulesForTemplate } from "@/lib/workspace-modules";
-import { canViewJobsDlq, canViewProductMetrics } from "@/lib/workspace-page-access";
+import { canViewJobsDlqStrict } from "@/lib/workspace-page-access";
 import { wPath, type WorkspacePage } from "@/lib/workspace-paths";
 import { ROUTE_GEM } from "@/lib/tile-gem-palettes";
 import type { ShellIcon } from "@/components/app-shell";
+
+/** Personal template: hide group/org-only destinations from space nav (routes stay reachable by URL). */
+const PERSONAL_HIDDEN_NAV_KEYS = new Set([
+  "members",
+  "permissions",
+  "settlements",
+  "approvals",
+  "payments",
+  "ledger",
+  "subunits",
+  "partners",
+]);
+
+/** Preferred primary tab keys for the compact in-space header (max 3). */
+const ORG_BUILDING_PRIMARY_FALLBACKS = [
+  "procurement",
+  "catalog",
+  "settlements",
+  "proposals",
+  "assets",
+  "recurring",
+] as const;
 
 export type NavItemV2 = {
   key: string;
@@ -610,15 +634,20 @@ export function spaceNav(
     ] satisfies Array<NavItemV2 & { module?: string }>
   ).filter((item) => !item.module || has(item.module));
 
+  const isSpaceAdmin = isWorkspaceAdminRole(role);
   const oversightItems: NavItemV2[] = (
     [
-      {
-        key: "audit",
-        label: NAV_LABELS.audit,
-        href: scoped(slug, "audit", "/home"),
-        icon: "receipt" as const,
-      },
-      ...(flags?.securityOpsV1
+      ...(isSpaceAdmin
+        ? [
+            {
+              key: "audit",
+              label: NAV_LABELS.audit,
+              href: scoped(slug, "audit", "/home"),
+              icon: "receipt" as const,
+            },
+          ]
+        : []),
+      ...(isSpaceAdmin && flags?.securityOpsV1
         ? [
             {
               key: "security-ops",
@@ -628,7 +657,8 @@ export function spaceNav(
             },
           ]
         : []),
-      ...(canViewProductMetrics(role)
+      // Strict: never advertise metrics/jobs to normal members or while role is unknown.
+      ...(canViewProductMetricsStrict(role)
         ? [
             {
               key: "metrics",
@@ -638,7 +668,7 @@ export function spaceNav(
             },
           ]
         : []),
-      ...((flags?.jobsAvailable || flags?.jobsRedisQueue) && canViewJobsDlq(role)
+      ...((flags?.jobsAvailable || flags?.jobsRedisQueue) && canViewJobsDlqStrict(role)
         ? [
             {
               key: "jobs",
@@ -687,7 +717,82 @@ export function spaceNav(
   return sections
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => roleAllowsNavKey(role, item.key)),
+      items: section.items.filter((item) => {
+        if (kind === "personal" && PERSONAL_HIDDEN_NAV_KEYS.has(item.key)) {
+          return false;
+        }
+        return roleAllowsNavKey(role, item.key);
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
+}
+
+/**
+ * Preferred primary leaf keys for the compact workspace section row (≤3).
+ * Org/building third slot prefers تدارکات, then the closest available buy/finance leaf.
+ */
+export function primarySpaceNavKeys(
+  template: WorkspaceTemplate | undefined,
+): string[] {
+  const kind = spaceKindForTemplate(template);
+  if (kind === "personal") {
+    return ["expenses", "personal-finance", "recurring"];
+  }
+  if (kind === "group") {
+    return ["expenses", "settlements", "members"];
+  }
+  return ["expenses", "members", "procurement"];
+}
+
+/** Pick up to 3 primary leaf items that exist in the allowed spaceNav tree. */
+export function pickPrimarySpaceNavItems(
+  sections: NavSectionV2[],
+  template: WorkspaceTemplate | undefined,
+): NavItemV2[] {
+  const kind = spaceKindForTemplate(template);
+  const byKey = new Map<string, NavItemV2>();
+  for (const section of sections) {
+    for (const item of section.items) {
+      if (!byKey.has(item.key)) byKey.set(item.key, item);
+    }
+  }
+  const preferred = primarySpaceNavKeys(template);
+  const picked: NavItemV2[] = [];
+  for (const key of preferred) {
+    const hit = byKey.get(key);
+    if (hit) {
+      picked.push(hit);
+      continue;
+    }
+    if ((kind === "org" || kind === "building") && key === "procurement") {
+      for (const fallback of ORG_BUILDING_PRIMARY_FALLBACKS) {
+        if (fallback === "procurement") continue;
+        const alt = byKey.get(fallback);
+        if (alt && !picked.some((p) => p.key === alt.key)) {
+          picked.push(alt);
+          break;
+        }
+      }
+    }
+  }
+  return picked.slice(0, 3);
+}
+
+/**
+ * Remaining spaceNav leaves for «بیشتر» / mobile sheet, grouped by domain label.
+ * Excludes primary keys and optional insight keys (charts/statements under گزارش و نمودار).
+ */
+export function moreSpaceNavSections(
+  sections: NavSectionV2[],
+  primaryKeys: ReadonlySet<string>,
+  excludeKeys: ReadonlySet<string> = new Set(),
+): NavSectionV2[] {
+  return sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => !primaryKeys.has(item.key) && !excludeKeys.has(item.key),
+      ),
     }))
     .filter((section) => section.items.length > 0);
 }

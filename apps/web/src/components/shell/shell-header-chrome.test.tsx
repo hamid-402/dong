@@ -181,7 +181,8 @@ describe("narrow header css", () => {
     expect(narrow).toMatch(/\.shell-v2__search\s*\{[^}]*width:\s*44px/);
     expect(narrow).toMatch(/\.shell-v2__search\s*\{[^}]*min-height:\s*44px/);
     expect(narrow).toContain("outline: 3px solid var(--dang-focus, var(--primary))");
-    expect(narrow).toMatch(/\.shell-sectionTabs\s*\{[^}]*overflow-x:\s*auto/);
+    expect(narrow).toMatch(/\.shell-sectionTabs\s*\{[^}]*overflow:\s*visible/);
+    expect(narrow).not.toMatch(/\.shell-sectionTabs\s*\{[^}]*overflow-x:\s*auto/);
     expect(narrow).toMatch(/\.shell-sectionTabs__tab[\s\S]{0,700}min-height:\s*44px/);
     expect(narrow).toContain(".shell-sectionTabs__tab:focus-visible");
   });

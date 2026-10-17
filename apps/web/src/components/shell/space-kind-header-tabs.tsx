@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   type MembershipRole,
@@ -7,15 +8,18 @@ import {
   type WorkspaceTemplate,
 } from "@dang/contracts";
 import {
-  homeDomainHref,
   isFinanceInsightsNavKey,
-  parseDomainGroup,
+  moreSpaceNavSections,
+  pickPrimarySpaceNavItems,
   spaceNav,
   spaceNavItemHint,
+  type NavItemV2,
   type SpaceNavFlags,
 } from "@/lib/navigation-v2";
 import { OVERVIEW_SECTION_LABEL } from "@/components/shell/shell-location";
+import { SpaceSectionMoreMenu } from "@/components/shell/space-section-more-menu";
 import { classicPathToWorkspacePage, wPath } from "@/lib/workspace-paths";
+import { useViewportMode } from "@/lib/use-viewport";
 import { t } from "@/lib/i18n";
 
 type KindTab = {
@@ -28,6 +32,8 @@ export type KindTabVisualState = "idle" | "list-active" | "current-realm";
 
 /** Top-level in-space tab for charts + statements (insights pack). */
 export const REPORTS_CHARTS_SECTION_LABEL = "گزارش و نمودار";
+
+const MORE_DEFAULT_LABEL = "بیشتر";
 
 function barePath(pathname: string): string {
   return pathname.replace(/\/+$/, "") || "/";
@@ -110,10 +116,29 @@ export function reportsChartsTabActive(input: {
   );
 }
 
+/** Label shown in the mobile «بخش: …» trigger — pure helper for tests. */
+export function sectionTabsCurrentLabel(input: {
+  homeActive: boolean;
+  reportsActive: boolean;
+  showReportsCharts: boolean;
+  primaryItems: NavItemV2[];
+  moreActiveItem: NavItemV2 | null;
+  isHrefActive?: (href: string) => boolean;
+}): string {
+  if (input.homeActive) return OVERVIEW_SECTION_LABEL;
+  if (input.showReportsCharts && input.reportsActive) {
+    return REPORTS_CHARTS_SECTION_LABEL;
+  }
+  for (const item of input.primaryItems) {
+    if (input.isHrefActive?.(item.href)) return item.label;
+  }
+  if (input.moreActiveItem) return input.moreActiveItem.label;
+  return OVERVIEW_SECTION_LABEL;
+}
+
 /**
- * Inside a space: domain tabs, then that section’s links, on one scrolling line.
- * The catalog shortcut stays beside this row. Leave stays on the space switcher.
- * The first tab is always the space overview («خلاصه»), then optional «گزارش و نمودار».
+ * Compact in-space section row: خلاصه · گزارش و نمودار · ≤3 primary · بیشتر.
+ * Mobile (<768): single «بخش: …» button + bottom sheet of all destinations.
  */
 export function WorkspaceSectionTabs({
   template,
@@ -134,8 +159,38 @@ export function WorkspaceSectionTabs({
   activeDomain?: string | null;
   isHrefActive?: (href: string) => boolean;
 }) {
-  const sections = spaceNav(template, slug, flags, role);
-  const catalogHref = wPath(slug, "catalog");
+  const viewport = useViewportMode();
+  const isMobile = viewport === "mobile";
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const sections = useMemo(
+    () => spaceNav(template, slug, flags, role),
+    [template, slug, flags, role],
+  );
+  const showReportsCharts = Boolean(flags?.chartsV1 || flags?.statementsV1);
+  const insightExclude = useMemo(() => {
+    if (!showReportsCharts) return new Set<string>();
+    return new Set(
+      sections
+        .flatMap((s) => s.items)
+        .filter((item) => isFinanceInsightsNavKey(item.key))
+        .map((item) => item.key),
+    );
+  }, [sections, showReportsCharts]);
+
+  const primaryItems = useMemo(
+    () => pickPrimarySpaceNavItems(sections, template),
+    [sections, template],
+  );
+  const primaryKeys = useMemo(
+    () => new Set(primaryItems.map((item) => item.key)),
+    [primaryItems],
+  );
+  const moreSections = useMemo(
+    () => moreSpaceNavSections(sections, primaryKeys, insightExclude),
+    [sections, primaryKeys, insightExclude],
+  );
+
   const domain = activeDomain ?? null;
   const folderKey = folder ?? null;
   const homeActive = spaceHomeTabActive({
@@ -144,16 +199,80 @@ export function WorkspaceSectionTabs({
     activeDomain: domain,
     folder: folderKey,
   });
-  const showReportsCharts = Boolean(flags?.chartsV1 || flags?.statementsV1);
   const reportsActive = reportsChartsTabActive({ pathname, slug });
-  const financeItems =
-    sections.find((section) => section.key === "finance")?.items ?? [];
-  const insightsItems = showReportsCharts
-    ? financeItems.filter((item) => isFinanceInsightsNavKey(item.key))
-    : [];
+
+  const moreActiveItem = useMemo(() => {
+    for (const section of moreSections) {
+      for (const item of section.items) {
+        if (isHrefActive?.(item.href)) return item;
+      }
+    }
+    return null;
+  }, [moreSections, isHrefActive]);
+
+  const moreActive = Boolean(moreActiveItem);
+  const currentLabel = sectionTabsCurrentLabel({
+    homeActive,
+    reportsActive,
+    showReportsCharts,
+    primaryItems,
+    moreActiveItem,
+    isHrefActive,
+  });
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
+
+  const moreTriggerLabel = moreActiveItem
+    ? moreActiveItem.label
+    : MORE_DEFAULT_LABEL;
+
+  if (isMobile) {
+    const sheetSections = [
+      {
+        key: "_pinned",
+        label: "اصلی",
+        items: [
+          {
+            key: "home",
+            label: OVERVIEW_SECTION_LABEL,
+            href: wPath(slug),
+            icon: "home" as const,
+          },
+          ...(showReportsCharts
+            ? [
+                {
+                  key: "reports-charts",
+                  label: REPORTS_CHARTS_SECTION_LABEL,
+                  href: wPath(slug, "charts"),
+                  icon: "receipt" as const,
+                },
+              ]
+            : []),
+          ...primaryItems,
+        ],
+      },
+      ...moreSections,
+    ];
+    return (
+      <nav className="shell-sectionTabs shell-sectionTabs--compact" aria-label={t("shell.opsRoomDomains")}>
+        <SpaceSectionMoreMenu
+          open={moreOpen}
+          onOpenChange={setMoreOpen}
+          sections={sheetSections}
+          triggerLabel={`بخش: ${currentLabel}`}
+          triggerHighlighted={!homeActive}
+          presentation="sheet"
+          isHrefActive={isHrefActive}
+          ariaLabel={`بخش: ${currentLabel}`}
+        />
+      </nav>
+    );
+  }
 
   return (
-    <nav className="shell-sectionTabs" aria-label={t("shell.opsRoomDomains")}>
+    <nav className="shell-sectionTabs shell-sectionTabs--compact" aria-label={t("shell.opsRoomDomains")}>
       <Link
         href={wPath(slug)}
         className={`shell-sectionTabs__tab shell-sectionTabs__tab--section${homeActive ? " is-active" : ""}`}
@@ -162,83 +281,40 @@ export function WorkspaceSectionTabs({
         {OVERVIEW_SECTION_LABEL}
       </Link>
       {showReportsCharts ? (
-        <div
-          className={`shell-sectionTabs__group${reportsActive ? " is-current" : ""}`}
-          role="group"
-          aria-label={REPORTS_CHARTS_SECTION_LABEL}
+        <Link
+          href={wPath(slug, "charts")}
+          className={`shell-sectionTabs__tab shell-sectionTabs__tab--section${reportsActive ? " is-active" : ""}`}
+          aria-current={reportsActive ? "page" : undefined}
+          data-section="reports-charts"
         >
-          <Link
-            href={wPath(slug, "charts")}
-            className={`shell-sectionTabs__tab shell-sectionTabs__tab--section${reportsActive ? " is-active" : ""}`}
-            aria-current={reportsActive ? "page" : undefined}
-            data-section="reports-charts"
-          >
-            {REPORTS_CHARTS_SECTION_LABEL}
-          </Link>
-          {insightsItems.map((item) => {
-            const itemActive = isHrefActive?.(item.href) ?? false;
-            const hint = spaceNavItemHint(item.key);
-            return (
-              <Link
-                key={item.key}
-                href={item.href}
-                className={`shell-sectionTabs__tab shell-sectionTabs__tab--item${itemActive ? " is-active" : ""}`}
-                aria-current={itemActive ? "page" : undefined}
-                title={hint && hint !== item.label ? hint : undefined}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
+          {REPORTS_CHARTS_SECTION_LABEL}
+        </Link>
       ) : null}
-      {sections.map((section) => {
-        const key = parseDomainGroup(section.key);
-        if (!key) return null;
-        const active =
-          sectionTabActive({
-            sectionKey: key,
-            activeDomain: domain,
-            folder: folderKey,
-          }) && !(showReportsCharts && reportsActive && key === "finance");
-        const items = section.items.filter((item) => {
-          if (item.href === catalogHref) return false;
-          if (showReportsCharts && isFinanceInsightsNavKey(item.key)) return false;
-          return true;
-        });
+      {primaryItems.map((item) => {
+        const itemActive = isHrefActive?.(item.href) ?? false;
+        const hint = spaceNavItemHint(item.key);
         return (
-          <div
-            key={key}
-            className={`shell-sectionTabs__group${active ? " is-current" : ""}`}
-            role="group"
-            aria-label={section.label}
+          <Link
+            key={item.key}
+            href={item.href}
+            className={`shell-sectionTabs__tab shell-sectionTabs__tab--item${itemActive ? " is-active" : ""}`}
+            aria-current={itemActive ? "page" : undefined}
+            title={hint && hint !== item.label ? hint : undefined}
           >
-            <Link
-              href={homeDomainHref(slug, key)}
-              className={`shell-sectionTabs__tab shell-sectionTabs__tab--section${active ? " is-active" : ""}`}
-              aria-current={active ? "true" : undefined}
-              data-section={key}
-            >
-              {section.label}
-            </Link>
-            {items.map((item) => {
-              const itemActive = isHrefActive?.(item.href) ?? false;
-              const hint = spaceNavItemHint(item.key);
-              return (
-                <Link
-                  key={item.key}
-                  href={item.href}
-                  className={`shell-sectionTabs__tab shell-sectionTabs__tab--item${itemActive ? " is-active" : ""}`}
-                  aria-current={itemActive ? "page" : undefined}
-                  title={hint && hint !== item.label ? hint : undefined}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
+            {item.label}
+          </Link>
         );
       })}
+      <SpaceSectionMoreMenu
+        open={moreOpen}
+        onOpenChange={setMoreOpen}
+        sections={moreSections}
+        triggerLabel={moreTriggerLabel}
+        triggerHighlighted={moreActive}
+        presentation="dropdown"
+        isHrefActive={isHrefActive}
+        ariaLabel={moreActiveItem ? `بیشتر: ${moreActiveItem.label}` : "بیشتر"}
+      />
     </nav>
   );
 }

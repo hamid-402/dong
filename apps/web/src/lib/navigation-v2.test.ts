@@ -11,7 +11,10 @@ import {
   isNavHrefActive,
   moreDomainHref,
   moreIntentHref,
+  moreSpaceNavSections,
   parseDomainGroup,
+  pickPrimarySpaceNavItems,
+  primarySpaceNavKeys,
   spaceNav,
 } from "@/lib/navigation-v2";
 import { NAV_LABELS } from "@/lib/nav-labels";
@@ -48,6 +51,43 @@ describe("navigation-v2", () => {
     const sections = spaceNav("personal", "p1");
     expect(sections.some((s) => s.key === "buy")).toBe(false);
     expect(sections.some((s) => s.key === "finance")).toBe(true);
+  });
+
+  it("hides group-only leaves from personal space nav", () => {
+    const keys = spaceNav("personal", "p1", undefined, "owner").flatMap((s) =>
+      s.items.map((i) => i.key),
+    );
+    for (const key of [
+      "members",
+      "permissions",
+      "settlements",
+      "approvals",
+      "payments",
+      "ledger",
+      "subunits",
+      "partners",
+    ]) {
+      expect(keys).not.toContain(key);
+    }
+    expect(keys).toEqual(expect.arrayContaining(["expenses", "personal-finance", "recurring"]));
+  });
+
+  it("keeps audit/security-ops for owner/admin only; metrics/jobs use strict gates", () => {
+    const member = spaceNav("friends_family", "g1", { securityOpsV1: true }, "member");
+    expect(member.flatMap((s) => s.items.map((i) => i.key))).not.toContain("audit");
+    expect(member.flatMap((s) => s.items.map((i) => i.key))).not.toContain("security-ops");
+
+    const owner = spaceNav(
+      "friends_family",
+      "g1",
+      { securityOpsV1: true, jobsAvailable: true },
+      "owner",
+    );
+    const oversight = owner.find((s) => s.key === "oversight")?.items.map((i) => i.key) ?? [];
+    expect(oversight).toEqual(expect.arrayContaining(["audit", "security-ops", "metrics", "jobs"]));
+
+    const unknown = spaceNav("friends_family", "g1", { jobsAvailable: true }, null);
+    expect(unknown.some((s) => s.key === "oversight")).toBe(false);
   });
 
   it("includes catalog under buy when catalog_v1 capability is on", () => {
@@ -205,6 +245,58 @@ describe("navigation-v2", () => {
   it("omits daily ledger from personal template finance nav", () => {
     const finance = spaceNav("personal", "p1").find((s) => s.key === "finance");
     expect(finance?.items.some((i) => i.key === "ledger")).toBe(false);
+  });
+
+  it("picks primary section keys per space kind", () => {
+    expect(primarySpaceNavKeys("personal")).toEqual([
+      "expenses",
+      "personal-finance",
+      "recurring",
+    ]);
+    expect(primarySpaceNavKeys("friends_family")).toEqual([
+      "expenses",
+      "settlements",
+      "members",
+    ]);
+    expect(primarySpaceNavKeys("household")).toEqual([
+      "expenses",
+      "settlements",
+      "members",
+    ]);
+    expect(primarySpaceNavKeys("small_team")).toEqual([
+      "expenses",
+      "members",
+      "procurement",
+    ]);
+    expect(primarySpaceNavKeys("residential_building")).toEqual([
+      "expenses",
+      "members",
+      "procurement",
+    ]);
+  });
+
+  it("falls back from procurement for building templates without it", () => {
+    const sections = spaceNav("residential_building", "b1", { catalogV1: true }, "owner");
+    const primary = pickPrimarySpaceNavItems(sections, "residential_building");
+    expect(primary.map((i) => i.key)).toEqual(["expenses", "members", "catalog"]);
+  });
+
+  it("puts friends_family ledger/invoices/addons only in بیشتر partition", () => {
+    const sections = spaceNav(
+      "friends_family",
+      "g1",
+      { addonAck: true },
+      "owner",
+    );
+    const primary = pickPrimarySpaceNavItems(sections, "friends_family");
+    const primaryKeys = new Set(primary.map((i) => i.key));
+    const more = moreSpaceNavSections(sections, primaryKeys);
+    const moreKeys = more.flatMap((s) => s.items.map((i) => i.key));
+    expect(primary.map((i) => i.key)).toEqual(["expenses", "settlements", "members"]);
+    expect(moreKeys).toEqual(expect.arrayContaining(["ledger", "invoices", "addons"]));
+    expect(primaryKeys.has("ledger")).toBe(false);
+    expect(primaryKeys.has("invoices")).toBe(false);
+    expect(primaryKeys.has("addons")).toBe(false);
   });
 
   it("lists account destinations without duplicating the account/spaces tabs", () => {
@@ -440,6 +532,7 @@ describe("navigation-v2", () => {
       "org",
       { approvalQueue: true, costCenter: true },
       "all",
+      "owner",
     );
     expect(sections.map((s) => s.key)).toEqual([
       "finance",

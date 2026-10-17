@@ -707,43 +707,38 @@ a.shell-v2__cta:visited,
 .shell-sectionTabs{
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 2px;
   flex: 1 1 auto;
   min-width: 0;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: thin;
+  overflow: visible;
 }
 
-.shell-sectionTabs__group{
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: 2px;
-}
-
-.shell-sectionTabs__group + .shell-sectionTabs__group{
-  margin-inline-start: 0.35rem;
-  padding-inline-start: 0.35rem;
-  border-inline-start: 1px solid var(--line);
+.shell-sectionTabs--compact{
+  max-width: 100%;
 }
 
 a.shell-sectionTabs__tab,
 a.shell-sectionTabs__tab:link,
-a.shell-sectionTabs__tab:visited{
+a.shell-sectionTabs__tab:visited,
+button.shell-sectionTabs__tab{
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
   min-height: 32px;
   padding: 0 0.7rem;
+  border: none;
   border-radius: 8px;
+  background: transparent;
   color: var(--muted);
+  font: inherit;
   font-size: 0.875rem;
   font-weight: 650;
   line-height: 1.2;
   text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 a.shell-sectionTabs__tab--section,
@@ -758,23 +753,120 @@ a.shell-sectionTabs__tab--item:link{
   font-weight: 600;
 }
 
-a.shell-sectionTabs__tab:hover{
+a.shell-sectionTabs__tab:hover,
+button.shell-sectionTabs__tab:hover{
   color: var(--text);
   background: color-mix(in srgb, var(--text) 6%, transparent);
 }
 
 a.shell-sectionTabs__tab.is-active,
 a.shell-sectionTabs__tab.is-active:link,
-a.shell-sectionTabs__tab.is-active:visited{
+a.shell-sectionTabs__tab.is-active:visited,
+button.shell-sectionTabs__tab.is-active,
+button.shell-sectionTabs__tab.is-open{
   color: var(--text);
   font-weight: 800;
   background: color-mix(in srgb, var(--kind-edge, var(--primary)) 16%, var(--surface));
   box-shadow: inset 0 -2px 0 var(--kind-edge, var(--primary));
 }
 
-a.shell-sectionTabs__tab:focus-visible{
+a.shell-sectionTabs__tab:focus-visible,
+button.shell-sectionTabs__tab:focus-visible{
   outline: 3px solid var(--dang-focus, var(--primary));
   outline-offset: 2px;
+}
+
+.shell-sectionMore{
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.shell-sectionMore__caret{
+  margin-inline-start: 0.25rem;
+  font-size: 0.75em;
+  opacity: 0.85;
+}
+
+.shell-sectionMore__backdrop{
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  border: none;
+  background: color-mix(in srgb, var(--text) 28%, transparent);
+  cursor: pointer;
+}
+
+.shell-sectionMore__panel{
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc(100% + 4px);
+  z-index: 75;
+  min-width: min(18rem, 86vw);
+  max-width: min(22rem, 92vw);
+  max-height: min(70vh, 28rem);
+  overflow: auto;
+  padding: 0.4rem 0;
+  border: 1px solid var(--dang-border, var(--line));
+  border-radius: 12px;
+  background: var(--surface, var(--dang-bg));
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--text) 14%, transparent);
+}
+
+.shell-sectionMore__panel--sheet{
+  position: fixed;
+  inset-inline: 0;
+  top: auto;
+  bottom: 0;
+  z-index: 80;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  max-height: min(78vh, 36rem);
+  border-radius: 16px 16px 0 0;
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+}
+
+.shell-sectionMore__group{
+  padding: 0.2rem 0 0.35rem;
+}
+
+.shell-sectionMore__group + .shell-sectionMore__group{
+  border-top: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+}
+
+.shell-sectionMore__groupLabel{
+  margin: 0;
+  padding: 0.35rem 0.85rem 0.2rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+a.shell-sectionMore__item,
+a.shell-sectionMore__item:link,
+a.shell-sectionMore__item:visited{
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0.35rem 0.85rem;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+a.shell-sectionMore__item:hover{
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+a.shell-sectionMore__item.is-active{
+  background: color-mix(in srgb, var(--kind-edge, var(--primary)) 14%, var(--surface));
+  font-weight: 800;
+}
+
+a.shell-sectionMore__item:focus-visible{
+  outline: 3px solid var(--dang-focus, var(--primary));
+  outline-offset: -2px;
 }
 
 .shell-v2__place--line .shell-page-trail,
@@ -6327,7 +6419,8 @@ summary:focus-visible,
   .shell-spacePanel__tab:focus-visible,
   .shell-spacePanel__option:focus-visible,
   .shell-kindSwitch__option:focus-visible,
-  .shell-sectionTabs__tab:focus-visible {
+  .shell-sectionTabs__tab:focus-visible,
+  button.shell-sectionTabs__tab:focus-visible {
     outline: 3px solid var(--dang-focus, var(--primary));
     outline-offset: 2px;
   }
@@ -6340,13 +6433,14 @@ summary:focus-visible,
   .shell-sectionTabs {
     flex: 1 1 auto;
     min-width: 0;
-    overflow-x: auto;
+    overflow: visible;
     flex-wrap: nowrap;
   }
 
   .shell-sectionTabs__tab,
   a.shell-sectionTabs__tab,
-  a.shell-sectionTabs__tab:link {
+  a.shell-sectionTabs__tab:link,
+  button.shell-sectionTabs__tab {
     min-width: 44px;
     min-height: 44px;
     flex: 0 0 auto;

@@ -171,7 +171,8 @@ describe("S10-18 page access matrix", () => {
         role,
       ).flatMap((s) => s.items);
       const hasJobs = items.some((i) => i.key === "jobs");
-      const expectJobs = role === "" || role === "owner" || role === "admin";
+      // Strict nav: unknown/empty role must not advertise jobs to normal users.
+      const expectJobs = role === "owner" || role === "admin";
       expect(hasJobs).toBe(expectJobs);
     }
   });
