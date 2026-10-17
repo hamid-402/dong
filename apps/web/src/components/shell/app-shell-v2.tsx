@@ -74,6 +74,13 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
     if (slug) router.prefetch(wPath(slug, "more"));
   }, [tabHrefs, fabHref, slug, router]);
 
+  /* Window is the page scroller — keep browser back/forward restoration. */
+  useEffect(() => {
+    if (typeof history !== "undefined" && "scrollRestoration" in history) {
+      history.scrollRestoration = "auto";
+    }
+  }, []);
+
   const realmKind: SpaceKind | null = location.spaceKind;
   const realmStyle = (() => {
     if (!inWorkspace || !active || !realmKind) return undefined;

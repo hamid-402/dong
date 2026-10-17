@@ -179,6 +179,9 @@
   flex-direction: column;
   min-width: 14rem;
   max-width: min(18rem, calc(100vw - 16px));
+  max-height: min(70vh, 24rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -804,7 +807,8 @@ button.shell-sectionTabs__tab:focus-visible{
   min-width: min(18rem, 86vw);
   max-width: min(22rem, 92vw);
   max-height: min(70vh, 28rem);
-  overflow: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0.4rem 0;
   border: 1px solid var(--dang-border, var(--line));
   border-radius: 12px;
@@ -1248,8 +1252,9 @@ html[data-scheme="dark"] .shell-v2__crumbSep{
 
 .shell-v2__body{
   display: flex;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
 }
 
 .shell-v2__rail{
@@ -1440,7 +1445,7 @@ a.shell-navMenu__leaveLink:hover{
 .shell-v2__main{
   flex: 1;
   min-width: 0;
-  overflow: auto;
+  overflow: visible;
   padding: 10px 12px calc(72px + env(safe-area-inset-bottom, 0px));
 }
 
@@ -1516,9 +1521,11 @@ a.shell-navMenu__leaveLink:hover{
 }
 
 .shell-v2__dock{
-  position: sticky;
+  position: fixed;
+  inset-inline: 0;
   bottom: 0;
   z-index: 30;
+  width: 100%;
   padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   border-top: 1px solid var(--line);
@@ -1741,7 +1748,6 @@ a.shell-navMenu__leaveLink:hover{
   max-height: min(28vh, 200px);
   overflow: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
 }
 
 .shell-tools__recent-chip{
@@ -2316,7 +2322,7 @@ html[data-density="compact"] .shell-page-trail__back{
   }
 
   .shell-v2__main{
-    padding: 18px 28px 36px;
+    padding: 18px 28px calc(88px + env(safe-area-inset-bottom, 0px));
     max-width: none;
     width: 100%;
     margin-inline: 0;
@@ -2340,7 +2346,7 @@ html[data-density="compact"] .shell-page-trail__back{
   }
 
   .shell-v2--desktop .shell-v2__main{
-    padding: 18px 28px 36px;
+    padding: 18px 28px calc(88px + env(safe-area-inset-bottom, 0px));
     max-width: none;
     width: 100%;
     margin-inline: 0;
@@ -3092,7 +3098,9 @@ html[data-scheme="dark"] .spaces-mosaic__ops a{
 }
 
 .kindReports__tableWrap{
-  overflow: auto;
+  /* Prefer .tableScroll on the wrapper in TSX; keep a safe fallback. */
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
 .kindReports__table{
@@ -4509,8 +4517,16 @@ html[data-scheme="dark"] .groupOpsRail__open{
 .shell-v2__header-nav--mobileKinds{
   display: block;
   flex: 1 1 auto;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  min-width: 0;
+  overflow: hidden;
+}
+.shell-v2__header-nav--mobileKinds .spaceKindTabs,
+.shell-v2__header-nav--mobileKinds .spaceKindTabs__tab,
+.shell-v2__header-nav--mobileKinds .spaceKindTabs__label{
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shell-v2__header--spaceFirst:has(> .shell-v2__header-nav--mobileKinds){
@@ -5096,7 +5112,8 @@ html[data-scheme="light"] .shell-tabs__tab.is-active{
   margin: 10px 0 0;
   padding: 0;
   max-height: 50vh;
-  overflow: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .cmd-palette__item{
@@ -5196,8 +5213,6 @@ html[data-scheme="light"] .shell-tabs__tab.is-active{
 
 .shell-v2__main{
   background: transparent;
-  scrollbar-color: var(--line-strong) transparent;
-  scrollbar-width: thin;
 }
 
 html[data-scheme="light"] .shell-v2__header{
@@ -5649,7 +5664,8 @@ html[data-scheme="light"] .shell-tabs--dock .shell-tabs__tab.is-active{
     border: none;
     border-inline: 0;
     box-shadow: none;
-    height: 100dvh;
+    height: auto;
+    min-height: 100dvh;
     max-width: none;
     width: 100%;
     background: var(--bg);
@@ -5660,14 +5676,15 @@ html[data-scheme="light"] .shell-tabs--dock .shell-tabs__tab.is-active{
     border-radius: 0;
     border: none;
     box-shadow: none;
-    height: 100dvh;
+    height: auto;
+    min-height: 100dvh;
     max-width: none;
     width: 100%;
   }
 
   .shell-v2__main,
 .shell-v2--desktop .shell-v2__main{
-    padding: 18px 28px 36px;
+    padding: 18px 28px calc(88px + env(safe-area-inset-bottom, 0px));
     max-width: none;
     margin-inline: 0;
     width: 100%;
@@ -6537,6 +6554,11 @@ html[data-density="compact"] .shell-v2__header {
   min-height: 56px;
   max-height: 56px;
   min-width: 0;
+  overflow: hidden;
+}
+.shell-v2__bar > *,
+.shell-v2__zone--start > *{
+  min-width: 0;
 }
 
 .shell-v2__zone {
@@ -6720,6 +6742,7 @@ html[data-density="compact"] .shell-v2__header {
   margin: 0;
   padding: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   list-style: none;
 }
 
@@ -6958,6 +6981,7 @@ html[data-density="compact"] .shell-v2__header {
   margin: 0;
   padding: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   list-style: none;
 }
 

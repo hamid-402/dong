@@ -92,7 +92,114 @@ html{
   background-image: var(--dang-page-background, none);
   background-attachment: fixed;
   background-size: cover;
+  /* Sticky header clearance for hash targets (#invite-create-panel, #danger, …). */
+  --shell-header-offset: 56px;
+  --shell-section-row: 0px;
+  --shell-scroll-padding: calc(var(--shell-header-offset) + var(--shell-section-row));
+  scroll-padding-top: var(--shell-scroll-padding);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
+html:has(.shell-v2__place--line){
+  --shell-section-row: 2.75rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html{
+    scroll-behavior: smooth;
+  }
+}
+html.is-scroll-locked{
+  overflow: hidden;
+}
+html::-webkit-scrollbar{
+  width: 8px;
+  height: 8px;
+}
+html::-webkit-scrollbar-thumb{
+  background: var(--line-strong);
+  border-radius: 999px;
+}
+html::-webkit-scrollbar-track{
+  background: transparent;
+}
+/* Shared thin scrollbar for nested scrollers (menus, panels, tableScroll). */
+.scrollMenu,
+.scrollDisclosure__body,
+.tableScroll,
+.notifPanel__list,
+.cmd-palette__list,
+.shell-kindSwitch__list,
+.shell-spacePanel__list,
+.shell-sectionMore__panel,
+.appearance-panel--dialog{
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.scrollMenu::-webkit-scrollbar,
+.scrollDisclosure__body::-webkit-scrollbar,
+.tableScroll::-webkit-scrollbar,
+.notifPanel__list::-webkit-scrollbar,
+.cmd-palette__list::-webkit-scrollbar,
+.shell-kindSwitch__list::-webkit-scrollbar,
+.shell-spacePanel__list::-webkit-scrollbar,
+.shell-sectionMore__panel::-webkit-scrollbar,
+.appearance-panel--dialog::-webkit-scrollbar{
+  width: 8px;
+  height: 8px;
+}
+.scrollMenu::-webkit-scrollbar-thumb,
+.scrollDisclosure__body::-webkit-scrollbar-thumb,
+.tableScroll::-webkit-scrollbar-thumb,
+.notifPanel__list::-webkit-scrollbar-thumb,
+.cmd-palette__list::-webkit-scrollbar-thumb,
+.shell-kindSwitch__list::-webkit-scrollbar-thumb,
+.shell-spacePanel__list::-webkit-scrollbar-thumb,
+.shell-sectionMore__panel::-webkit-scrollbar-thumb,
+.appearance-panel--dialog::-webkit-scrollbar-thumb{
+  background: var(--line-strong);
+  border-radius: 999px;
+}
+.scrollMenu::-webkit-scrollbar-track,
+.scrollDisclosure__body::-webkit-scrollbar-track,
+.tableScroll::-webkit-scrollbar-track,
+.notifPanel__list::-webkit-scrollbar-track,
+.cmd-palette__list::-webkit-scrollbar-track,
+.shell-kindSwitch__list::-webkit-scrollbar-track,
+.shell-spacePanel__list::-webkit-scrollbar-track,
+.shell-sectionMore__panel::-webkit-scrollbar-track,
+.appearance-panel--dialog::-webkit-scrollbar-track{
+  background: transparent;
+}
+
+/* Wide tables on narrow viewports — horizontal scroll + edge hint. */
+.tableScroll{
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  background:
+    linear-gradient(to left, var(--surface) 40%, transparent) 0 0 / 28px 100% local,
+    linear-gradient(to right, var(--surface) 40%, transparent) 100% 0 / 28px 100% local,
+    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--text) 14%, transparent), transparent) 0 0 / 12px 100% scroll,
+    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--text) 14%, transparent), transparent) 100% 0 / 12px 100% scroll;
+  background-repeat: no-repeat;
+}
+.tableScroll > table{
+  width: 100%;
+  border-collapse: collapse;
+}
+.tableScroll--stickyName > table th:first-child,
+.tableScroll--stickyName > table td:first-child,
+.tableScroll--stickyName > table th[scope="row"],
+.tableScroll--stickyName > table td[scope="row"]{
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background: var(--surface);
+  box-shadow: 1px 0 0 color-mix(in srgb, var(--line) 70%, transparent);
+}
+
 body{
   margin: 0;
   min-height: 100vh;
@@ -424,7 +531,11 @@ html[data-scheme="dark"] .ambient{
   list-style: none;
   margin: 0;
   padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(50vh, 360px);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .notifPanel__empty,
 .notifPanel__error{
@@ -949,7 +1060,6 @@ html[dir="ltr"] .actionCard:hover i{
   overflow: auto;
   overscroll-behavior: contain;
   padding-inline-end: 2px;
-  scrollbar-width: thin;
 }
 .overviewDock__row{
   display: grid;
@@ -2163,8 +2273,6 @@ html[data-scheme="light"] .sectionCard:hover{
   max-height: min(50vh, 360px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
 }
 
 .scrollDisclosure{
@@ -2209,7 +2317,6 @@ html[data-scheme="light"] .sectionCard:hover{
   overscroll-behavior: contain;
   margin-top: 10px;
   padding-inline-end: 2px;
-  scrollbar-width: thin;
 }
 
 .financeExpensesLayers{
@@ -2311,7 +2418,6 @@ html[data-scheme="light"] .sectionCard:hover{
   max-height: min(36vh, 320px);
   overflow: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
   padding-inline-end: 2px;
 }
 .dataRow{
@@ -4838,10 +4944,12 @@ a.authLayout__devLink:hover{
 }
 
 .dlScroll{
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-x: contain;
   border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
   border-radius: 12px;
-  max-height: min(70vh, 720px);
+  max-width: 100%;
 }
 
 .dlTable{
@@ -5538,7 +5646,8 @@ a.authLayout__devLink:hover{
   z-index: 1;
   width: min(720px, calc(100vw - 24px));
   max-height: min(780px, 100dvh - 32px);
-  overflow: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 22px;
   border-radius: 20px;
   transform: translate(50%, -50%);
