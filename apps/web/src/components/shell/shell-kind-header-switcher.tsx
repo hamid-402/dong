@@ -333,6 +333,12 @@ export function ShellKindHeaderSwitcher() {
           <Link href={spacesListHref(openKind)} onClick={() => close(false)}>
             همه‌ی فضاها
           </Link>
+          <Link
+            href={`/spaces/reports?kind=${openKind}&months=6`}
+            onClick={() => close(false)}
+          >
+            {`داشبورد همه‌ی ${spaceTabLabel(openKind)}`}
+          </Link>
           {!SIMPLE_KINDS.has(openKind) ? (
             <Link
               href={`/spaces/new?kind=${openKind}`}

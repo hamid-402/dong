@@ -111,6 +111,9 @@ describe("kind header switcher", () => {
     expect(screen.getByRole("link", { name: "همه‌ی فضاها" }).getAttribute("href")).toBe(
       "/spaces?kind=group",
     );
+    expect(
+      screen.getByRole("link", { name: "داشبورد همه‌ی گروهی" }).getAttribute("href"),
+    ).toBe("/spaces/reports?kind=group&months=6");
     expect(screen.getByRole("link", { name: "ساخت فضای جدید" }).getAttribute("href")).toBe(
       "/spaces/new?kind=group",
     );
@@ -121,6 +124,9 @@ describe("kind header switcher", () => {
     expect(screen.getByRole("link", { name: "همه‌ی فضاها" }).getAttribute("href")).toBe(
       "/spaces?kind=org",
     );
+    expect(
+      screen.getByRole("link", { name: "داشبورد همه‌ی سازمان" }).getAttribute("href"),
+    ).toBe("/spaces/reports?kind=org&months=6");
     expect(screen.queryByRole("link", { name: "ساخت فضای جدید" })).toBeNull();
   });
 

@@ -6,7 +6,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { ShellWorkspaceNavMenu } from "@/components/shell/shell-secondary-rail";
 import { ShellPageTrail } from "@/components/shell/shell-page-trail";
-import { WorkspaceSectionTabs } from "@/components/shell/space-kind-header-tabs";
+import {
+  REPORTS_CHARTS_SECTION_LABEL,
+  WorkspaceSectionTabs,
+} from "@/components/shell/space-kind-header-tabs";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/w/acme/charts",
@@ -24,7 +27,7 @@ describe("workspace section tabs", () => {
       <WorkspaceSectionTabs
         template="friends_family"
         slug="acme"
-        pathname="/w/acme/charts"
+        pathname="/w/acme/expenses"
         folder={null}
         activeDomain="finance"
         isHrefActive={(href) => href === "/w/acme/expenses"}
@@ -46,6 +49,38 @@ describe("workspace section tabs", () => {
     expect(screen.queryByRole("link", { name: /ترک عضویت/ })).toBeNull();
     expect(screen.getAllByRole("link")[0]?.textContent).toBe("خلاصه");
     expect(screen.getAllByRole("link")[0]?.getAttribute("href")).toBe("/w/acme");
+    expect(screen.queryByRole("link", { name: REPORTS_CHARTS_SECTION_LABEL })).toBeNull();
+  });
+
+  it("places گزارش و نمودار after خلاصه and groups charts/statements under it", () => {
+    render(
+      <WorkspaceSectionTabs
+        template="friends_family"
+        slug="acme"
+        flags={{ chartsV1: true, statementsV1: true }}
+        pathname="/w/acme/charts"
+        folder={null}
+        activeDomain="finance"
+        isHrefActive={(href) => href === "/w/acme/charts"}
+      />,
+    );
+
+    const links = screen.getAllByRole("link");
+    expect(links[0]?.textContent).toBe("خلاصه");
+    expect(links[1]?.textContent).toBe(REPORTS_CHARTS_SECTION_LABEL);
+    expect(links[1]?.getAttribute("href")).toBe("/w/acme/charts");
+    expect(links[1]?.getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: NAV_LABELS.charts }).getAttribute("href")).toBe(
+      "/w/acme/charts",
+    );
+    expect(screen.getByRole("link", { name: NAV_LABELS.statements }).getAttribute("href")).toBe(
+      "/w/acme/statements",
+    );
+    // insights leaves are not duplicated under finance
+    expect(screen.getAllByRole("link", { name: NAV_LABELS.charts })).toHaveLength(1);
+    expect(
+      screen.getByRole("link", { name: NAV_LABELS.sectionFinance }).getAttribute("aria-current"),
+    ).toBe(null);
   });
 
   it("renders kind, space, and section as links", () => {

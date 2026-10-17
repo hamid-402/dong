@@ -76,6 +76,41 @@ describe("filterMosaicByUsageTier", () => {
     ]);
   });
 
+  it("keeps charts and statements discoverable on starter", () => {
+    const withInsights: ContextualMosaicSection[] = [
+      {
+        key: "finance",
+        label: "مالی",
+        items: [
+          ...sample[0]!.items,
+          {
+            key: "charts",
+            label: "نمودارها",
+            href: "/w/x/charts",
+            summary: "s",
+            intent: "monitor",
+            icon: "receipt",
+          },
+          {
+            key: "statements",
+            label: "ریز حساب",
+            href: "/w/x/statements",
+            summary: "s",
+            intent: "monitor",
+            icon: "receipt",
+          },
+        ],
+      },
+    ];
+    const filtered = filterMosaicByUsageTier(withInsights, "starter");
+    expect(filtered[0]?.items.map((i) => i.key).sort()).toEqual([
+      "charts",
+      "expenses",
+      "settlements",
+      "statements",
+    ]);
+  });
+
   it("keeps finance advanced on growing but still hides oversight", () => {
     const filtered = filterMosaicByUsageTier(sample, "growing");
     expect(filtered.map((s) => s.key)).toEqual(["finance"]);

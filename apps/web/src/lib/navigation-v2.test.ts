@@ -355,6 +355,22 @@ describe("navigation-v2", () => {
     ).toBe(true);
   });
 
+  it("groups statements with charts under finance insights", () => {
+    const finance = domainGroupedNav("friends_family", "g1", {
+      chartsV1: true,
+      statementsV1: true,
+    }).find((s) => s.key === "finance");
+    const insights = financeSubgroupSections(finance!.items).find(
+      (s) => s.key === "finance-insights",
+    );
+    expect(insights?.items.map((i) => i.key).sort()).toEqual(["charts", "statements"]);
+    expect(
+      financeSubgroupSections(finance!.items)
+        .find((s) => s.key === "finance-records")
+        ?.items.some((i) => i.key === "statements"),
+    ).toBe(false);
+  });
+
   it("surfaces finance leaf tiles when no group is selected", () => {
     const finance = domainGroupedNav("friends_family", "g1", {
       chartsV1: true,

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { kindTabVisualState, sectionTabActive, spaceHomeTabActive } from "./space-kind-header-tabs";
+import {
+  kindTabVisualState,
+  reportsChartsTabActive,
+  sectionTabActive,
+  spaceHomeTabActive,
+} from "./space-kind-header-tabs";
 
 describe("kindTabVisualState", () => {
   it("marks home list-active on /home", () => {
@@ -119,6 +124,24 @@ describe("kindTabVisualState", () => {
         activeDomain: null,
         folder: "finance",
       }),
+    ).toBe(false);
+  });
+
+  it("marks گزارش و نمودار on charts and statements pages", () => {
+    expect(reportsChartsTabActive({ pathname: "/w/acme/charts", slug: "acme" })).toBe(
+      true,
+    );
+    expect(
+      reportsChartsTabActive({ pathname: "/w/acme/statements", slug: "acme" }),
+    ).toBe(true);
+    expect(
+      reportsChartsTabActive({
+        pathname: "/w/acme/statements/user-1",
+        slug: "acme",
+      }),
+    ).toBe(true);
+    expect(
+      reportsChartsTabActive({ pathname: "/w/acme/expenses", slug: "acme" }),
     ).toBe(false);
   });
 

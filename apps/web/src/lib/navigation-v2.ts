@@ -829,6 +829,13 @@ type SubgroupPack = {
   items: ContextualMosaicItem[];
 };
 
+/** Leaf keys under the finance «insights» pack (گزارش و نمودار). */
+export const FINANCE_INSIGHTS_NAV_KEYS = ["charts", "statements"] as const;
+
+export function isFinanceInsightsNavKey(key: string): boolean {
+  return (FINANCE_INSIGHTS_NAV_KEYS as readonly string[]).includes(key);
+}
+
 const FINANCE_SUBGROUP: Record<string, FinanceSubGroup> = {
   expenses: "everyday",
   settlements: "everyday",
@@ -836,9 +843,10 @@ const FINANCE_SUBGROUP: Record<string, FinanceSubGroup> = {
   approvals: "everyday",
   recurring: "schedule",
   invoices: "records",
-  statements: "records",
   payments: "records",
   ledger: "records",
+  // statements + charts share the insights pack (top-level «گزارش و نمودار» tab)
+  statements: "insights",
   charts: "insights",
   "org-finance": "organizational",
 };

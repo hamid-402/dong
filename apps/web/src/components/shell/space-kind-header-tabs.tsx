@@ -8,6 +8,7 @@ import {
 } from "@dang/contracts";
 import {
   homeDomainHref,
+  isFinanceInsightsNavKey,
   parseDomainGroup,
   spaceNav,
   spaceNavItemHint,
@@ -24,6 +25,9 @@ type KindTab = {
 };
 
 export type KindTabVisualState = "idle" | "list-active" | "current-realm";
+
+/** Top-level in-space tab for charts + statements (insights pack). */
+export const REPORTS_CHARTS_SECTION_LABEL = "گزارش و نمودار";
 
 function barePath(pathname: string): string {
   return pathname.replace(/\/+$/, "") || "/";
@@ -91,10 +95,25 @@ export function spaceHomeTabActive(input: {
   return path === `/w/${input.slug}`;
 }
 
+/** «گزارش و نمودار» — charts and statements/reports surfaces inside the space. */
+export function reportsChartsTabActive(input: {
+  pathname: string;
+  slug: string;
+}): boolean {
+  const path = barePath(input.pathname);
+  const base = `/w/${input.slug}`;
+  return (
+    path === `${base}/charts` ||
+    path.startsWith(`${base}/charts/`) ||
+    path === `${base}/statements` ||
+    path.startsWith(`${base}/statements/`)
+  );
+}
+
 /**
  * Inside a space: domain tabs, then that section’s links, on one scrolling line.
  * The catalog shortcut stays beside this row. Leave stays on the space switcher.
- * The first tab is always the space overview («خلاصه»).
+ * The first tab is always the space overview («خلاصه»), then optional «گزارش و نمودار».
  */
 export function WorkspaceSectionTabs({
   template,
@@ -125,6 +144,13 @@ export function WorkspaceSectionTabs({
     activeDomain: domain,
     folder: folderKey,
   });
+  const showReportsCharts = Boolean(flags?.chartsV1 || flags?.statementsV1);
+  const reportsActive = reportsChartsTabActive({ pathname, slug });
+  const financeItems =
+    sections.find((section) => section.key === "finance")?.items ?? [];
+  const insightsItems = showReportsCharts
+    ? financeItems.filter((item) => isFinanceInsightsNavKey(item.key))
+    : [];
 
   return (
     <nav className="shell-sectionTabs" aria-label={t("shell.opsRoomDomains")}>
@@ -135,15 +161,51 @@ export function WorkspaceSectionTabs({
       >
         {OVERVIEW_SECTION_LABEL}
       </Link>
+      {showReportsCharts ? (
+        <div
+          className={`shell-sectionTabs__group${reportsActive ? " is-current" : ""}`}
+          role="group"
+          aria-label={REPORTS_CHARTS_SECTION_LABEL}
+        >
+          <Link
+            href={wPath(slug, "charts")}
+            className={`shell-sectionTabs__tab shell-sectionTabs__tab--section${reportsActive ? " is-active" : ""}`}
+            aria-current={reportsActive ? "page" : undefined}
+            data-section="reports-charts"
+          >
+            {REPORTS_CHARTS_SECTION_LABEL}
+          </Link>
+          {insightsItems.map((item) => {
+            const itemActive = isHrefActive?.(item.href) ?? false;
+            const hint = spaceNavItemHint(item.key);
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                className={`shell-sectionTabs__tab shell-sectionTabs__tab--item${itemActive ? " is-active" : ""}`}
+                aria-current={itemActive ? "page" : undefined}
+                title={hint && hint !== item.label ? hint : undefined}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
       {sections.map((section) => {
         const key = parseDomainGroup(section.key);
         if (!key) return null;
-        const active = sectionTabActive({
-          sectionKey: key,
-          activeDomain: domain,
-          folder: folderKey,
+        const active =
+          sectionTabActive({
+            sectionKey: key,
+            activeDomain: domain,
+            folder: folderKey,
+          }) && !(showReportsCharts && reportsActive && key === "finance");
+        const items = section.items.filter((item) => {
+          if (item.href === catalogHref) return false;
+          if (showReportsCharts && isFinanceInsightsNavKey(item.key)) return false;
+          return true;
         });
-        const items = section.items.filter((item) => item.href !== catalogHref);
         return (
           <div
             key={key}

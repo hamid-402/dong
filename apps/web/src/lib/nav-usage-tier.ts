@@ -16,12 +16,14 @@ export function navUsageTierFromCounts(input: {
   return "starter";
 }
 
-/** Advanced finance leaf keys deferred until growing/full. */
+/**
+ * Advanced finance leaf keys deferred until growing/full.
+ * charts / statements stay discoverable on starter (گزارش و نمودار).
+ */
 const STARTER_DEFER_FINANCE_KEYS = new Set([
   "recurring",
   "ledger",
   "invoices",
-  "reports",
   "addons",
   "allowances",
   "org-finance",
