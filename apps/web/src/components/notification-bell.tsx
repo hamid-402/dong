@@ -16,6 +16,7 @@ import { useOptionalAppChrome } from "@/lib/use-app-chrome";
 import { readOfflineMutations } from "@/lib/offline-mutation-queue";
 import { formatFaDateTime } from "@/lib/fa-datetime";
 import { t } from "@/lib/i18n";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import type { MembershipSummary } from "@dang/contracts";
 
 const FOCUSABLE =
@@ -72,6 +73,7 @@ export function NotificationBell({ workspaceId, initialUnreadCount = 0 }: Notifi
 
   const open = shell ? shell.notificationsOpen : localOpen;
   const setOpen = shell ? shell.setNotificationsOpen : setLocalOpen;
+  useBodyScrollLock(open);
 
   const unreadCount = chrome
     ? chrome.unreadCount

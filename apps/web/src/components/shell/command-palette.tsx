@@ -25,6 +25,7 @@ import {
 } from "@/lib/statement-links";
 import { useShellV2Api } from "@/components/shell/shell-v2-context";
 import { t } from "@/lib/i18n";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { fuzzyScore } from "@/lib/fuzzy-score";
 import { parseDirectoryQuery } from "@/lib/directory-query";
 import { DIRECTORY_KIND_LABEL } from "@/lib/workspace-directory-model";
@@ -62,6 +63,7 @@ export function CommandPalette() {
   const shell = useShellV2Api();
   const open = shell?.commandPaletteOpen ?? false;
   const setOpen = shell?.setCommandPaletteOpen ?? (() => undefined);
+  useBodyScrollLock(open);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [subunits, setSubunits] = useState<WorkspaceSubunitSummary[]>([]);

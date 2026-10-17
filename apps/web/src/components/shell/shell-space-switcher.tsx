@@ -20,6 +20,7 @@ import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { NAV_LABELS, spaceTabLabel } from "@/lib/nav-labels";
 import { t } from "@/lib/i18n";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { workspaceDisplayName } from "@/lib/workspace-display-name";
 import { spacesListHref, wPath } from "@/lib/workspace-paths";
 import { slugFromPathname } from "@/lib/workspace-storage";
@@ -94,6 +95,7 @@ export function ShellSpaceSwitcher({
   const router = useRouter();
   const sheet = useBottomSheet();
   const [open, setOpen] = useState(false);
+  useBodyScrollLock(open && sheet);
   const [query, setQuery] = useState("");
   const [panelKind, setPanelKind] = useState<SpaceKind>("personal");
   const rootRef = useRef<HTMLDivElement>(null);

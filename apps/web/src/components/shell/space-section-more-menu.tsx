@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import type { NavItemV2, NavSectionV2 } from "@/lib/navigation-v2";
 import { spaceNavItemHint } from "@/lib/navigation-v2";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 
 const FOCUSABLE_ITEM = "[data-section-more-item]";
 
@@ -44,6 +45,7 @@ export function SpaceSectionMoreMenu({
   const panelRef = useRef<HTMLDivElement>(null);
 
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
+  useBodyScrollLock(open && presentation === "sheet");
 
   useEffect(() => {
     if (!open) return;

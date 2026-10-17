@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { APP_THEMES, useOptionalTheme } from "@/lib/theme";
 import { AppearanceFields } from "@/components/appearance-fields";
 import { useShellV2Api } from "@/components/shell/shell-v2-context";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 
 const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
@@ -32,6 +33,7 @@ export function AppearanceDialogSurface({
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const [mounted, setMounted] = useState(false);
+  useBodyScrollLock(open);
 
   useEffect(() => {
     setMounted(true);
@@ -75,14 +77,11 @@ export function AppearanceDialogSurface({
       window.addEventListener("mousedown", onPointer);
     }, 0);
     window.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       window.clearTimeout(focusFirst);
       window.clearTimeout(timer);
       window.removeEventListener("mousedown", onPointer);
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
       (previouslyFocused.current ?? returnFocusRef?.current)?.focus?.();
     };
   }, [open, onClose, returnFocusRef]);
