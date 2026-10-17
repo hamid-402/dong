@@ -3,7 +3,7 @@
 import { newClientId } from "@/lib/id";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type {
   ExpenseSummary,
   MembershipSummary,
@@ -16,17 +16,18 @@ import {
   isReadOnlyRole,
   personaHomeSpec,
 } from "@dang/contracts";
-import { Button, ErrorState, LoadingState, TextField } from "@dang/ui";
+import {
+  Button,
+  ErrorState,
+  formatMoneyFromIrrMinor,
+  irrMinorToDisplayInteger,
+  LoadingState,
+  TextField,
+} from "@dang/ui";
 import { CreateGroupForm } from "@/components/create-group-form";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
-import {
-  EmptyHint,
-  FormStack,
-  ProductGrid,
-  SectionCard,
-  StatusLine,
-} from "@/components/ui-blocks";
+import { EmptyHint, FormStack, SectionCard } from "@/components/ui-blocks";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { todayIsoLocal } from "@/lib/fa-datetime";
@@ -36,21 +37,31 @@ import { NAV_LABELS } from "@/lib/nav-labels";
 import { membershipRoleLabel, workspaceTemplateLabel } from "@/lib/status-labels";
 import { FlashMessages, useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
-import { GroupBalanceHero } from "@/components/shell/group-balance-hero";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { moneyUnitSuffix } from "@/lib/money-labels";
 import { GroupPublicIdCard } from "@/components/shell/group-public-id";
 import { GroupSetupChecklist } from "@/components/shell/group-setup-checklist";
-import { SpaceFrequentActions } from "@/components/shell/space-frequent-actions";
 import {
-  buildPersonaHomeHrefs,
-  PersonaHomeRelatedLinks,
-} from "@/components/shell/persona-home-actions";
+  SpaceHomeActivity,
+  SpaceHomeActions,
+  SpaceHomeKeyNumber,
+  SpaceHomeLayout,
+  spaceHomeKeyLabel,
+  type SpaceHomeActionItem,
+  type SpaceHomeActivityItem,
+} from "@/components/views/space-home";
+import { spaceHomeStyles } from "@/components/views/space-home/space-home-layout";
+import { netFromIrrMinor, sortPeersByAbsNet } from "@/lib/space-net-balance";
+import { expenseStatusLabel } from "@/lib/status-labels";
 
 /**
  * Kind space home for friends/household groups (`/w/…/space`).
- * Summary + frequent actions — full modules live on sidebar routes.
+ * Shares SpaceHomeLayout with /w/<slug>; full modules live on section menu routes.
  */
 export function FriendsGroupView() {
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
+  const unitLabel = moneyUnitSuffix(displayUnit);
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
   const [loading, setLoading] = useState(true);
   const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
@@ -81,16 +92,14 @@ export function FriendsGroupView() {
   const settlementsHref = canonicalHref("settlements", slug);
   const statementsLive =
     chrome.capabilities?.providers?.statements === "csv_json_print_v1";
-  const membersHref = canonicalHref("members", slug);
   const myRole = members.find((m) => m.userId === actorUserId)?.role;
   const readOnlySpace = isReadOnlyRole(myRole);
   const homeSpec = personaHomeSpec(myRole, "group", {
     approvalQueue: Boolean(chrome.capabilities?.productFlags?.approvalQueue),
     statementsLive,
   });
-  const hrefs = slug ? buildPersonaHomeHrefs(slug) : null;
-  const addonsLive = Boolean(chrome.capabilities?.productFlags?.addonAck);
-  const allowanceLive = Boolean(chrome.capabilities?.productFlags?.allowance);
+  const canAdd = homeSpec ? homeSpec.canAddExpense : !readOnlySpace;
+
   async function refresh(workspaceId: string) {
     const [memberList, expenseList, balanceData, outingList, settlementList] =
       await Promise.all([
@@ -205,7 +214,52 @@ export function FriendsGroupView() {
     financeManagerCount >= 1 &&
     members.length >= 2 &&
     postedCount > 0;
-  const canAdd = homeSpec ? homeSpec.canAddExpense : !readOnlySpace;
+
+  const myNetMinor =
+    balances && actorUserId
+      ? (balances.lines.find((l) => l.userId === actorUserId)?.net.amountMinor ?? "0")
+      : "0";
+  const myNet = netFromIrrMinor(myNetMinor, displayUnit);
+
+  const actionItems = useMemo((): SpaceHomeActionItem[] => {
+    if (!balances || !actorUserId || !slug) return [];
+    const peers = sortPeersByAbsNet(
+      balances.lines
+        .filter((l) => l.userId !== actorUserId)
+        .map((l) => ({
+          userId: l.userId,
+          name: memberLabel(l.userId),
+          amountMinor: l.net.amountMinor,
+        })),
+      displayUnit,
+    ).slice(0, 5);
+    return peers.map((peer) => {
+      const settleDisplay = irrMinorToDisplayInteger(
+        Math.abs(peer.net.irrMinor),
+        displayUnit,
+      ).toString();
+      const href = `${settlementsHref}${settlementsHref.includes("?") ? "&" : "?"}settleTo=${encodeURIComponent(peer.userId)}&settleAmount=${settleDisplay}#settlement-panel`;
+      return {
+        id: peer.userId,
+        title: peer.name,
+        detail:
+          peer.net.tone === "debt"
+            ? `${formatMoneyFromIrrMinor(Math.abs(peer.net.irrMinor), displayUnit)} ${unitLabel} بدهی`
+            : `${formatMoneyFromIrrMinor(peer.net.irrMinor, displayUnit)} ${unitLabel} طلب`,
+        href,
+        actionLabel: "تسویه",
+      };
+    });
+  }, [balances, actorUserId, slug, displayUnit, unitLabel, settlementsHref, members]);
+
+  const activityItems = useMemo((): SpaceHomeActivityItem[] => {
+    return expenses.slice(0, 5).map((e) => ({
+      id: e.id,
+      title: e.title,
+      detail: `${expenseStatusLabel(e.status)} · ${formatMoneyFromIrrMinor(e.total.amountMinor, displayUnit)} ${unitLabel}`,
+      href: `${expensesHref}?expense=${encodeURIComponent(e.id)}#expense-inspector`,
+    }));
+  }, [expenses, expensesHref, displayUnit, unitLabel]);
 
   return (
     <AppShell
@@ -214,197 +268,143 @@ export function FriendsGroupView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <WorkspacePageFrame
-        title={homeSpec?.titleFa ?? "خلاصهٔ گروه"}
-        kicker={
-          workspace
-            ? `${workspaceTemplateLabel(workspace.template)} · ${members.length.toLocaleString("fa-IR")} عضو${
-                myRole ? ` · ${membershipRoleLabel(myRole)}` : ""
-              }`
-            : undefined
-        }
-        description={
-          homeSpec?.blurbFa ??
-          "وضعیت پول و اقدام‌های پرتکرار این گروه — ماژول‌های کامل از نوار کناری یا مرکز فضای کاری."
-        }
-        primaryAction={
-          setupComplete && slug && canAdd ? (
-            <Link className="dang-btn dang-btn--primary dang-btn--md" href={canonicalHref("record", slug)}>
-              خرج
-            </Link>
-          ) : !slug ? (
-            <Link href={canonicalHref("home")}>{NAV_LABELS.home}</Link>
-          ) : undefined
-        }
-        state="ready"
-      >
+      <WorkspacePageFrame title="" state="ready">
         <FlashMessages error={pageError} successMessage={successMessage} />
 
         {loading ? (
           <LoadingState label="در حال بارگذاری خلاصهٔ گروه…" rows={4} />
         ) : pageError && !workspace ? (
           <ErrorState title={pageError} />
+        ) : !workspace ? (
+          <SectionCard title="ساخت گروه" delayClass="delay1">
+            <CreateGroupForm onCreated={onGroupCreated} />
+            <EmptyHint>هنوز گروهی فعال نیست — یکی بسازید یا از خانه فضای دیگری باز کنید.</EmptyHint>
+          </SectionCard>
         ) : (
-          <ProductGrid>
-            {slug && homeSpec?.panels.setupChecklist !== false ? (
-              <GroupSetupChecklist
-                slug={slug}
-                memberCount={members.length}
-                financeManagerCount={financeManagerCount}
-                postedCount={postedCount}
-                canManageMembers={isMembershipManagerRole(myRole) && !readOnlySpace}
-                canAddExpense={canAdd}
-              />
-            ) : null}
-
-            {homeSpec?.panels.balanceHero !== false &&
-            workspace &&
-            balances &&
-            actorUserId ? (
-              <GroupBalanceHero
-                workspaceName={workspace.name}
-                myNetMinor={
-                  balances.lines.find((l) => l.userId === actorUserId)?.net.amountMinor ??
-                  "0"
+          <SpaceHomeLayout
+            title={workspace.name}
+            roleBadge={myRole ? membershipRoleLabel(myRole) : null}
+            primaryAction={
+              setupComplete && slug && canAdd ? (
+                <Link
+                  className="dang-btn dang-btn--primary dang-btn--md"
+                  href={canonicalHref("record", slug)}
+                >
+                  ثبت خرج
+                </Link>
+              ) : !slug ? (
+                <Link href={canonicalHref("home")}>{NAV_LABELS.home}</Link>
+              ) : undefined
+            }
+            secondaryAction={
+              myNet.tone !== "settled" || openSettlementCount > 0 ? (
+                <Link
+                  href={settlementsHref}
+                  className="dang-btn dang-btn--md dang-btn--ghost"
+                >
+                  تسویه
+                </Link>
+              ) : null
+            }
+            keyNumber={
+              <SpaceHomeKeyNumber
+                label={spaceHomeKeyLabel("group", myNet.tone)}
+                amount={
+                  myNet.tone === "settled"
+                    ? openSettlementCount > 0
+                      ? `${openSettlementCount.toLocaleString("fa-IR")} تسویه در جریان`
+                      : "تسویه"
+                    : `${myNet.tone === "credit" ? "+" : "−"}${formatMoneyFromIrrMinor(Math.abs(myNet.irrMinor), displayUnit)} ${unitLabel}`
                 }
-                peers={balances.lines
-                  .filter((l) => l.userId !== actorUserId)
-                  .map((l) => ({
-                    userId: l.userId,
-                    name: memberLabel(l.userId),
-                    amountMinor: l.net.amountMinor,
-                  }))}
-                settleHref={settlementsHref}
-                expenseHref={expensesHref}
-                recordHref={slug ? canonicalHref("record", slug) : undefined}
-                simplifyHref={settlementsHref}
-                simplifyAvailable={Boolean(
-                  chrome.capabilities?.productFlags?.debtSimplifyApi,
-                )}
-                openSettlements={openSettlementCount}
-                recentExpenses={expenses.slice(0, 5).map((e) => ({
-                  id: e.id,
-                  title: e.title,
-                  toman: Math.round(Number(e.total.amountMinor) / 10),
-                  status: e.status,
-                }))}
-                canMutate={homeSpec ? homeSpec.canAddExpense : !readOnlySpace}
+                tone={myNet.tone}
+                meta={
+                  <>
+                    <span>{workspaceTemplateLabel(workspace.template)}</span>
+                    <span>{members.length.toLocaleString("fa-IR")} عضو</span>
+                  </>
+                }
               />
-            ) : null}
-
-            {slug ? (
-              <details className="reportDetails">
-                <summary>ابزارها</summary>
-                <div className="groupTools">
-                <GroupPublicIdCard slug={slug} name={workspace?.name} />
-                {homeSpec?.panels.frequentActions !== false ? (
-                  <SpaceFrequentActions
+            }
+            actions={<SpaceHomeActions items={actionItems} />}
+            activity={<SpaceHomeActivity items={activityItems} />}
+            extras={
+              <>
+                {slug && homeSpec?.panels.setupChecklist !== false ? (
+                  <GroupSetupChecklist
                     slug={slug}
-                    openSettlements={openSettlementCount}
                     memberCount={members.length}
+                    financeManagerCount={financeManagerCount}
+                    postedCount={postedCount}
+                    canManageMembers={
+                      isMembershipManagerRole(myRole) && !readOnlySpace
+                    }
                     canAddExpense={canAdd}
-                    includeDailyLedger={false}
-                    inviteHref={`${membersHref}#invite-create-panel`}
-                    addMemberHref={`${membersHref}#member-add-panel`}
-                    showInvite={homeSpec ? homeSpec.showInviteLink : true}
-                    showAddMember={homeSpec?.showAddMember ?? false}
-                    showApprovals={Boolean(
-                      homeSpec?.panels.approvalsCard &&
-                        chrome.capabilities?.productFlags?.approvalQueue,
-                    )}
-                    approvalsHref={hrefs?.approvals}
                   />
                 ) : null}
-                <Link href={canonicalHref("ledger", slug)}>{NAV_LABELS.dailyEntry}</Link>
-                {homeSpec && hrefs && homeSpec.panels.relatedLinks ? (
-                  <SectionCard title="مسیرهای مرتبط" tone="quiet">
-                    <PersonaHomeRelatedLinks
-                      spec={homeSpec}
-                      hrefs={hrefs}
-                      spaceKind="group"
-                    />
-                    {addonsLive || allowanceLive ? (
-                      <StatusLine>
-                        {addonsLive ? (
-                          <Link href={canonicalHref("addons", slug)}>{NAV_LABELS.addons}</Link>
-                        ) : null}
-                        {addonsLive && allowanceLive ? " · " : null}
-                        {allowanceLive ? (
-                          <Link href={`${membersHref}#member-allowances`}>سقف هزینه</Link>
-                        ) : null}
-                      </StatusLine>
-                    ) : null}
-                  </SectionCard>
+                {slug ? (
+                  <details className={spaceHomeStyles.collapsedExtra}>
+                    <summary>شناسهٔ عمومی فضا</summary>
+                    <GroupPublicIdCard slug={slug} name={workspace.name} />
+                  </details>
                 ) : null}
-                </div>
-              </details>
-            ) : null}
-
-            {slug && workspace && members.length < 2 ? (
-              <GroupPublicIdCard slug={slug} name={workspace?.name} />
-            ) : null}
-
-            {!workspace ? (
-              <SectionCard title="ساخت گروه" delayClass="delay1">
-                <CreateGroupForm onCreated={onGroupCreated} />
-                <EmptyHint>هنوز گروهی فعال نیست — یکی بسازید یا از خانه فضای دیگری باز کنید.</EmptyHint>
-              </SectionCard>
-            ) : null}
-
-            {slug &&
-            chrome.workspaceId &&
-            homeSpec?.panels.outingComposer !== false ? (
-              <details className="reportDetails">
-                <summary>
-                  <span>گردش چندخرجی (اختیاری)</span>
-                  <span>{outings.length}</span>
-                </summary>
-                <div className="reportDetails__body">
-                  {readOnlySpace || homeSpec?.canAddExpense === false ? (
-                    <EmptyHint>
-                      نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ساخت گردش فعال نیست.
-                    </EmptyHint>
-                  ) : (
-                    <FormStack density="compact">
-                      <TextField
-                        label="عنوان گردش"
-                        value={outingTitle}
-                        onChange={(e) => setOutingTitle(e.target.value)}
-                        hint="مثلاً بیرون‌رفتن جمعه = بستنی + ناهار"
-                      />
-                      <TextField
-                        label="سقف بودجه (تومان، اختیاری)"
-                        value={outingBudgetToman}
-                        onChange={(e) => setOutingBudgetToman(e.target.value)}
-                      />
-                      <TextField
-                        label="پایان بازه (YYYY-MM-DD، اختیاری)"
-                        value={outingEndsOn}
-                        onChange={(e) => setOutingEndsOn(e.target.value)}
-                      />
-                      <Button type="button" onClick={onCreateOuting} disabled={pending}>
-                        ساخت گردش
-                      </Button>
-                      {outings.length > 0 ? (
-                        <StatusLine>
-                          {outings.map((row, i) => (
-                            <span key={row.id}>
-                              {i > 0 ? " · " : null}
-                              <Link
-                                href={`${expensesHref}?outing=${encodeURIComponent(row.id)}#quick-expense`}
-                              >
-                                {row.title} ({row.expenseIds.length})
-                              </Link>
-                            </span>
-                          ))}
-                        </StatusLine>
-                      ) : null}
-                    </FormStack>
-                  )}
-                </div>
-              </details>
-            ) : null}
-          </ProductGrid>
+                {slug &&
+                chrome.workspaceId &&
+                homeSpec?.panels.outingComposer !== false ? (
+                  <details className={spaceHomeStyles.collapsedExtra}>
+                    <summary>
+                      گردش چندخرجی
+                      {outings.length > 0
+                        ? ` (${outings.length.toLocaleString("fa-IR")})`
+                        : ""}
+                    </summary>
+                    <div>
+                      {readOnlySpace || homeSpec?.canAddExpense === false ? (
+                        <EmptyHint>
+                          نقش {membershipRoleLabel(myRole)} فقط مشاهده دارد — ساخت گردش فعال
+                          نیست.
+                        </EmptyHint>
+                      ) : (
+                        <FormStack density="compact">
+                          <TextField
+                            label="عنوان گردش"
+                            value={outingTitle}
+                            onChange={(e) => setOutingTitle(e.target.value)}
+                            hint="مثلاً بیرون‌رفتن جمعه = بستنی + ناهار"
+                          />
+                          <TextField
+                            label="سقف بودجه (تومان، اختیاری)"
+                            value={outingBudgetToman}
+                            onChange={(e) => setOutingBudgetToman(e.target.value)}
+                          />
+                          <TextField
+                            label="پایان بازه (YYYY-MM-DD، اختیاری)"
+                            value={outingEndsOn}
+                            onChange={(e) => setOutingEndsOn(e.target.value)}
+                          />
+                          <Button type="button" onClick={onCreateOuting} disabled={pending}>
+                            ساخت گردش
+                          </Button>
+                          {outings.length > 0 ? (
+                            <ul>
+                              {outings.map((row) => (
+                                <li key={row.id}>
+                                  <Link
+                                    href={`${expensesHref}?outing=${encodeURIComponent(row.id)}#quick-expense`}
+                                  >
+                                    {row.title} ({row.expenseIds.length})
+                                  </Link>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </FormStack>
+                      )}
+                    </div>
+                  </details>
+                ) : null}
+              </>
+            }
+          />
         )}
       </WorkspacePageFrame>
     </AppShell>

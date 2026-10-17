@@ -1,0 +1,217 @@
+/* Calm blue space home — no gradients, no green accent chrome. */
+
+.layout {
+  display: grid;
+  gap: 1rem;
+  max-width: 42rem;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.headerLead {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.25rem, 2.4vw, 1.55rem);
+  font-weight: 750;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.roleBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--line));
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.keyCard {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--line));
+  background: var(--surface);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.keyLabel {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.keyAmount {
+  margin: 0;
+  font-size: clamp(1.45rem, 3vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.15;
+}
+
+.keyAmount[data-tone="credit"] {
+  color: var(--primary);
+}
+
+.keyAmount[data-tone="debt"] {
+  color: var(--danger);
+}
+
+.keyAmount[data-tone="settled"] {
+  color: var(--text);
+}
+
+.keyMeta {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+}
+
+.section {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.calmEmpty {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.listItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.listCopy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.listCopy strong {
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.listCopy small {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.listAction {
+  flex: 0 0 auto;
+}
+
+.chartCard {
+  margin: 0;
+  padding: 0.85rem 1rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.chartLink {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.chartLink:hover {
+  text-decoration: underline;
+}
+
+.extras {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.collapsedExtra {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 0 0.75rem;
+}
+
+.collapsedExtra > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.7rem 0;
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.collapsedExtra > summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsedExtra[open] > summary {
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 0.65rem;
+}
