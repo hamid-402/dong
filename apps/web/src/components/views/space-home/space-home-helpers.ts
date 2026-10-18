@@ -20,9 +20,9 @@ export function spaceHomePrimaryCta(
 
 export function spaceHomeKeyLabel(spaceKind: SpaceKind, tone: "credit" | "debt" | "settled"): string {
   if (spaceKind === "personal") return "خالص این ماه";
-  if (spaceKind === "building") return "بدهی واحدها / صندوق";
-  if (spaceKind === "org") return "تأیید و تنخواه";
-  if (tone === "credit") return "مانده شما · طلبکار";
-  if (tone === "debt") return "مانده شما · بدهکار";
+  if (spaceKind === "building") return "شارژ و تسویه‌ی باز";
+  if (spaceKind === "org") return "صف تأیید";
+  if (tone === "credit") return "طلب شما";
+  if (tone === "debt") return "بدهی شما";
   return "مانده شما";
 }

@@ -27,12 +27,11 @@ import { AppShell } from "@/components/app-shell";
 import type { ContextualMosaicFact } from "@/components/shell/contextual-mosaic-hub";
 import { HomeRootLauncher } from "@/components/shell/home-root-launcher";
 import { TreasuryBalanceCard } from "@/components/shell/treasury-balance-card";
-import { MoneyEntryChooser } from "@/components/shell/money-entry-chooser";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { StructuralSubunitsRail } from "@/components/shell/structural-subunits-rail";
 import { GroupPublicIdCard } from "@/components/shell/group-public-id";
 import { GroupSetupChecklist } from "@/components/shell/group-setup-checklist";
-import { EmptyHint, StatusLine } from "@/components/ui-blocks";
+import { EmptyHint } from "@/components/ui-blocks";
 import { ProviderStubBadges } from "@/components/shell/provider-stub-badges";
 import {
   SpaceHomeActivity,
@@ -170,6 +169,8 @@ type DashboardState = {
   recentExpenses: Array<{ id: string; title: string; toman: number; status: string; irrMinor: string }>;
   recentNeeds: Array<{ id: string; title: string; status: string }>;
   memberNames: string[];
+  /** userId → displayName for treasury custodian labels. */
+  memberNamesById: Record<string, string>;
   myRole: MembershipRole | null;
   financeManagerCount: number;
   rangeLabel: string;
@@ -207,7 +208,6 @@ export function OverviewView() {
   const [feedItems, setFeedItems] = useState<ActivityItem[]>([]);
   const loadRequestRef = useRef(0);
   const workspaceIdRef = useRef(chrome.workspaceId);
-  workspaceIdRef.current = chrome.workspaceId;
   const activityLive = chrome.capabilities?.providers?.activityFeed === "activity_v1";
   const chartsLive = chrome.capabilities?.providers?.charts === "charts_v1";
   const activeWs = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
@@ -352,6 +352,9 @@ export function OverviewView() {
               status: needStatusLabel(n.status),
             })),
             memberNames: members.map((m) => m.displayName).filter(Boolean),
+            memberNamesById: Object.fromEntries(
+              members.map((m) => [m.userId, m.displayName || m.userId.slice(0, 8)]),
+            ),
             myRole: membershipRoleOrNull(
               members.find((m) => m.userId === chrome.actor?.userId)?.role,
             ),
@@ -388,6 +391,10 @@ export function OverviewView() {
       })();
     });
   }
+
+  useEffect(() => {
+    workspaceIdRef.current = chrome.workspaceId;
+  }, [chrome.workspaceId]);
 
   useEffect(() => {
     if (!chrome.ready || !chrome.workspaceId) return;
@@ -527,7 +534,11 @@ export function OverviewView() {
       });
     }
 
-    if (data.openSettlementCount > 0 && spaceKind !== "group") {
+    if (
+      data.openSettlementCount > 0 &&
+      spaceKind !== "group" &&
+      spaceKind !== "building"
+    ) {
       items.push({
         id: "settlements",
         title: "تسویه باز",
@@ -540,7 +551,7 @@ export function OverviewView() {
     if (data.needCount > 0) {
       items.push({
         id: "needs",
-        title: "نیاز باز",
+        title: "نیاز خرید باز",
         detail: `${data.needCount.toLocaleString("fa-IR")} مورد`,
         href: spaceKind === "org" ? procurementHref : expensesHref,
         actionLabel: "مشاهده",
@@ -563,14 +574,11 @@ export function OverviewView() {
     const items: SpaceHomeActivityItem[] = [];
     if (activityLive) {
       for (const item of feedItems.slice(0, 5)) {
+        if (item.kind === "audit") continue;
         items.push({
           id: item.id,
           title: item.title,
-          detail: [
-            item.kind === "notification" ? "اعلان" : "ممیزی",
-            item.body?.trim() || null,
-            formatFaDate(item.createdAt),
-          ]
+          detail: [item.body?.trim() || null, formatFaDate(item.createdAt)]
             .filter(Boolean)
             .join(" · "),
         });
@@ -614,12 +622,6 @@ export function OverviewView() {
     const series = moneyPulseFlowSeries(data.moneyPulse.movements);
     return series.points.length > 0 ? series : null;
   }, [chartsLive, data]);
-
-  const pettyTotalMinor = data?.pettyCashFunds?.length
-    ? data.pettyCashFunds
-        .reduce((acc, f) => acc + BigInt(f.balanceMinor || "0"), 0n)
-        .toString()
-    : null;
 
   const keyNumberNode = (() => {
     if (!data) {
@@ -666,16 +668,6 @@ export function OverviewView() {
               : "صف تأیید خالی"
           }
           tone={data.pendingApprovalCount > 0 ? "debt" : "settled"}
-          meta={
-            pettyTotalMinor != null ? (
-              <span>
-                تنخواه{" "}
-                {formatMoneyFromIrrMinor(pettyTotalMinor, HOME_UNIT)} {UNIT_LABEL}
-              </span>
-            ) : data.persistence ? (
-              <span>{data.persistence}</span>
-            ) : null
-          }
         />
       );
     }
@@ -693,14 +685,6 @@ export function OverviewView() {
           amount={unpaidHint}
           tone={
             data.openSettlementCount > 0 || data.needCount > 0 ? "debt" : "settled"
-          }
-          meta={
-            pettyTotalMinor != null ? (
-              <span>
-                صندوق{" "}
-                {formatMoneyFromIrrMinor(pettyTotalMinor, HOME_UNIT)} {UNIT_LABEL}
-              </span>
-            ) : null
           }
         />
       );
@@ -750,10 +734,6 @@ export function OverviewView() {
       >
         صف تأیید
       </Link>
-    ) : spaceKind === "personal" && slug ? (
-      <Link href="/me/finance#goals" className="dang-btn dang-btn--md dang-btn--ghost">
-        پس‌انداز
-      </Link>
     ) : null;
 
   return (
@@ -766,7 +746,10 @@ export function OverviewView() {
       notificationUnreadCount={data?.notificationCount ?? 0}
     >
       <FlashMessages error={error} />
-      <ProviderStubBadges capabilities={chrome.capabilities} />
+      {chrome.platformRole === "platform_owner" ||
+      chrome.platformRole === "platform_support" ? (
+        <ProviderStubBadges capabilities={chrome.capabilities} />
+      ) : null}
       <FirstRunTour workspaceSlug={slug} />
       {demoConfirm ? (
         <DemoConfirmDialog
@@ -909,6 +892,13 @@ export function OverviewView() {
                 canManage={isFinanceManagerRole(data?.myRole)}
                 pending={pending}
                 density="compact"
+                displayUnit={HOME_UNIT}
+                memberLabel={
+                  data
+                    ? (userId) =>
+                        data.memberNamesById[userId] ?? userId.slice(0, 8)
+                    : undefined
+                }
                 savingsBalanceMinor={
                   spaceKind === "personal" ? data?.savingsBalanceMinor : null
                 }
@@ -975,9 +965,6 @@ export function OverviewView() {
                     onError={setError}
                   />
                 ) : null}
-                {spaceKind === "personal" && !isReadOnlyRole(data?.myRole) ? (
-                  <MoneyEntryChooser slug={slug} />
-                ) : null}
                 {spaceKind === "group" && data?.workspaceId && slug ? (
                   <GroupOutingHomePanel
                     workspaceId={data.workspaceId}
@@ -1002,11 +989,15 @@ export function OverviewView() {
                   spaceKind === "org") ? (
                   <details className={spaceHomeStyles.collapsedExtra}>
                     <summary>شناسهٔ عمومی فضا</summary>
-                    <GroupPublicIdCard slug={slug} name={data?.workspaceName} />
+                    <GroupPublicIdCard
+                      slug={slug}
+                      name={data?.workspaceName}
+                      spaceKind={spaceKind}
+                    />
                   </details>
                 ) : null}
                 {slug &&
-                (spaceKind === "group" || spaceKind === "building") &&
+                spaceKind === "group" &&
                 data &&
                 data.memberNames.length < 2 ? (
                   <GroupSetupChecklist
@@ -1022,16 +1013,9 @@ export function OverviewView() {
                     canAddExpense={!isReadOnlyRole(data.myRole)}
                   />
                 ) : null}
-                {data &&
-                navUsageTierFromCounts({
-                  postedExpenseCount: data.postedCount,
-                  memberCount: data.memberNames.length,
-                }) === "starter" ? (
-                  <StatusLine>
-                    نمای ساده برای فضای تازه‌کار — مسیرهای پیشرفته از منوی بخش‌ها در دسترس‌اند.
-                  </StatusLine>
-                ) : null}
-                {allowDemoSeed ? (
+                {allowDemoSeed &&
+                (chrome.platformRole === "platform_owner" ||
+                  chrome.platformRole === "platform_support") ? (
                   <details className={spaceHomeStyles.collapsedExtra}>
                     <summary>ابزار توسعه (دمو)</summary>
                     <p className="overviewTools__row">

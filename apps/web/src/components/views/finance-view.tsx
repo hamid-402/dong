@@ -732,7 +732,10 @@ export function FinanceView({
         }
       >
       <FlashMessages error={error} successMessage={successMessage} />
-      <ProviderStubBadges capabilities={capabilities} />
+      {chrome.platformRole === "platform_owner" ||
+      chrome.platformRole === "platform_support" ? (
+        <ProviderStubBadges capabilities={capabilities} />
+      ) : null}
       <MotionSceneStrip
         kind="finance"
         prominence={section === "expenses" ? "compact" : "banner"}

@@ -6,7 +6,6 @@ import type { OutingSummary } from "@dang/contracts";
 import { isReadOnlyRole, type MembershipRole } from "@dang/contracts";
 import { Button, TextField } from "@dang/ui";
 import { EmptyHint, FormStack } from "@/components/ui-blocks";
-import { SpaceHomeOutingCard } from "@/components/views/space-home/space-home-outing-card";
 import { spaceHomeStyles } from "@/components/views/space-home/space-home-layout";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
@@ -92,7 +91,6 @@ export function GroupOutingHomePanel({
 
   return (
     <>
-      <SpaceHomeOutingCard outings={outings} expensesHref={expensesHref} />
       <details className={spaceHomeStyles.collapsedExtra} id="outing-composer">
         <summary>
           گردش چندخرجی

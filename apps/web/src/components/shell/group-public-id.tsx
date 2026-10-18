@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import type { SpaceKind } from "@dang/contracts";
 import { Button } from "@dang/ui";
 
 /**
@@ -12,10 +13,13 @@ export function GroupPublicIdCard({
   slug,
   name,
   compact = false,
+  spaceKind,
 }: {
   slug: string;
   name?: string;
   compact?: boolean;
+  /** Group (or omitted) keeps friend/group wording; other kinds use neutral «فضا». */
+  spaceKind?: SpaceKind;
 }) {
   const [hint, setHint] = useState<string | null>(null);
   const joinPath = `/join/${encodeURIComponent(slug)}`;
@@ -23,6 +27,13 @@ export function GroupPublicIdCard({
     typeof window !== "undefined"
       ? `${window.location.origin}${joinPath}`
       : joinPath;
+  const useGroupWording = spaceKind === undefined || spaceKind === "group";
+  const title = useGroupWording ? "شناسه گروه" : "شناسهٔ فضا";
+  const aria = useGroupWording ? "شناسه عمومی گروه" : "شناسه عمومی فضا";
+  const compactLabel = useGroupWording ? "شناسه گروه" : "شناسه فضا";
+  const lead = useGroupWording
+    ? "این شناسه را به دوستان بدهید تا با صفحهٔ پیوستن درخواست عضویت بفرستند — لازم نیست دعوت بسازید."
+    : "این شناسه را به اعضا بدهید تا با صفحهٔ پیوستن درخواست عضویت بفرستند — لازم نیست دعوت بسازید.";
 
   async function copy(text: string, okMessage: string) {
     try {
@@ -37,7 +48,7 @@ export function GroupPublicIdCard({
   if (compact) {
     return (
       <div className="groupPublicId groupPublicId--compact">
-        <span className="groupPublicId__label">شناسه گروه</span>
+        <span className="groupPublicId__label">{compactLabel}</span>
         <code className="groupPublicId__code" dir="ltr" title={slug}>
           {slug}
         </code>
@@ -57,17 +68,16 @@ export function GroupPublicIdCard({
   }
 
   return (
-    <section className="groupPublicId" aria-label="شناسه عمومی گروه">
+    <section className="groupPublicId" aria-label={aria}>
       <header className="groupPublicId__head">
-        <h2 className="groupPublicId__title">شناسه گروه</h2>
+        <h2 className="groupPublicId__title">{title}</h2>
         <p className="groupPublicId__lead">
           {name ? (
             <>
               «<bdi>{name}</bdi>» ·{" "}
             </>
           ) : null}
-          این شناسه را به دوستان بدهید تا با صفحهٔ پیوستن درخواست عضویت بفرستند — لازم نیست
-          دعوت بسازید.
+          {lead}
         </p>
       </header>
       <div className="groupPublicId__row">

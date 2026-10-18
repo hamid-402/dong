@@ -6,7 +6,7 @@ import {
   pettyCashAllowedForKind,
   treasuryLabelsForKind,
 } from "@dang/contracts";
-import { Amount, Button, displayUnitLabel } from "@dang/ui";
+import { Amount, Button, displayUnitLabel, type DisplayUnit } from "@dang/ui";
 import { useDisplayUnit } from "@/lib/display-unit";
 import styles from "./treasury-balance-card.module.css";
 
@@ -28,6 +28,7 @@ export function TreasuryBalanceCard({
   savingsGoalCount,
   onEnsureSavings,
   onDepositSavings,
+  displayUnit: displayUnitProp,
 }: {
   spaceKind: SpaceKind;
   funds: PettyCashFundSummary[];
@@ -45,8 +46,11 @@ export function TreasuryBalanceCard({
   savingsGoalCount?: number;
   onEnsureSavings?: () => void;
   onDepositSavings?: () => void;
+  /** When set, overrides workspace/user display-unit preference (e.g. home page تومان). */
+  displayUnit?: DisplayUnit;
 }) {
-  const unit = useDisplayUnit();
+  const preferredUnit = useDisplayUnit();
+  const unit = displayUnitProp ?? preferredUnit;
   const unitLabel = displayUnitLabel(unit);
   const labels = treasuryLabelsForKind(spaceKind);
 
@@ -64,7 +68,7 @@ export function TreasuryBalanceCard({
           <p className={styles.lede}>
             {hasBalance && (savingsGoalCount ?? 0) > 0
               ? `${(savingsGoalCount ?? 0).toLocaleString("fa-IR")} هدف فعال · واریز ماهانه تا رسیدن به هدف`
-              : "تنخواه مشترک نیست — ماهانه مبلغی را در صندوق ثبت کنید تا به هدف برسید."}
+              : "ماهانه مبلغی در صندوق پس‌انداز بگذارید تا به هدف برسید."}
           </p>
         </div>
         <div className={styles.balanceBlock}>
@@ -72,13 +76,14 @@ export function TreasuryBalanceCard({
             <>
               <Amount
                 irrMinor={savingsBalanceMinor}
+                displayUnit={unit}
                 showUnit={false}
                 className={styles.amount}
               />
               <span className={styles.unit}>{unitLabel}</span>
             </>
           ) : (
-            <span className={styles.emptyAmount}>—</span>
+            <span className={styles.emptyAmount}>هنوز صندوق پس‌انداز ندارید</span>
           )}
         </div>
         <div className={styles.actions}>
@@ -154,13 +159,14 @@ export function TreasuryBalanceCard({
           <>
             <Amount
               irrMinor={totalMinor}
+              displayUnit={unit}
               showUnit={false}
               className={styles.amount}
             />
             <span className={styles.unit}>{unitLabel}</span>
           </>
         ) : (
-          <span className={styles.emptyAmount}>—</span>
+          <span className={styles.emptyAmount}>هنوز ساخته نشده</span>
         )}
       </div>
 
