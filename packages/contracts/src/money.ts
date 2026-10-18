@@ -7,7 +7,7 @@ export type Money = {
 export type DisplayUnit = "rial" | "toman";
 
 /**
- * Resolve effective display unit: user preference → workspace → rial default (S11-05).
+ * Resolve effective display unit: user preference → workspace → toman default.
  */
 export function resolveDisplayUnit(
   userPreference?: DisplayUnit | null,
@@ -15,7 +15,7 @@ export function resolveDisplayUnit(
 ): DisplayUnit {
   if (userPreference === "rial" || userPreference === "toman") return userPreference;
   if (workspaceUnit === "rial" || workspaceUnit === "toman") return workspaceUnit;
-  return "rial";
+  return "toman";
 }
 
 export function displayUnitLabel(unit: DisplayUnit): string {

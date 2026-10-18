@@ -10,6 +10,7 @@ const TABS = [
   { href: "/account/security", label: "امنیت", match: "prefix" as const },
   { href: "/account/appearance", label: "ظاهر", match: "prefix" as const },
   { href: "/account/friends", label: "دوستان", match: "prefix" as const },
+  { href: "/account/privacy", label: "حریم خصوصی", match: "prefix" as const },
   { href: "/me/finance", label: NAV_LABELS.personalFinance, match: "prefix" as const },
   { href: "/whats-new", label: NAV_LABELS.whatsNew, match: "prefix" as const },
 ];
@@ -55,9 +56,6 @@ export function AccountSectionNav() {
           </Link>
         ) : null}
       </div>
-      <Link className="accountNav__privacy" href="/account/privacy">
-        حریم خصوصی
-      </Link>
     </div>
   );
 }

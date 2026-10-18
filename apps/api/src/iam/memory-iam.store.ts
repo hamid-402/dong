@@ -256,7 +256,7 @@ export class MemoryIamStore implements IamStore {
       slug: normalizedSlug,
       template: input.template,
       timezone: "Asia/Tehran",
-      displayUnit: "rial",
+      displayUnit: "toman",
       createdBy: input.actorUserId,
       createdAt,
     };

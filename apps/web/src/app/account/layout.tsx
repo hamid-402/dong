@@ -5,8 +5,10 @@ import { AccountSectionNav } from "@/components/shell/account-section-nav";
 export default function AccountLayout({ children }: { children: ReactNode }) {
   return (
     <AccountAppFrame>
-      <AccountSectionNav />
-      {children}
+      <div className="accountFrame">
+        <AccountSectionNav />
+        {children}
+      </div>
     </AccountAppFrame>
   );
 }

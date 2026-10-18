@@ -10,7 +10,6 @@ import { AppShell } from "@/components/app-shell";
 import {
   EmptyHint,
   FormStack,
-  PageHeader,
   ProductGrid,
   SectionCard,
   StatusLine,
@@ -21,7 +20,7 @@ import { api, ApiError, clearClientSession, getDevIdentity, setDevIdentity } fro
 import { formatFaDateTime } from "@/lib/fa-datetime";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { FlashMessages } from "@/lib/use-flash-message";
-import { MotionSceneStrip } from "@/components/visual/motion-scene";
+import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { MfaSettingsPanel } from "@/components/shell/mfa-settings-panel";
 import { NotificationPrefsPanel } from "@/components/notification-prefs-panel";
 import { t } from "@/lib/i18n";
@@ -223,20 +222,26 @@ export function ProfileView() {
       persistenceLabel={chrome.persistenceLabel}
     >
       <FlashMessages error={error} successMessage={info} />
-      <PageHeader
-        eyebrow="حساب"
-        title="حساب من"
-        description="هویت، امنیت و ترجیح‌های شخصی — جدا از خانهٔ فضای کاری."
-        actions={<Link href="/spaces">{NAV_LABELS.spacesList}</Link>}
-      />
-      <MotionSceneStrip kind="security" prominence="banner" />
+      <div className="profilePage">
+      <header className="profilePage__head">
+        <div className="profilePage__titleRow">
+          <h1 className="profilePage__title">حساب من</h1>
+          <Link href="/spaces" className="dang-btn dang-btn--sm dang-btn--ghost profilePage__spacesLink">
+            {NAV_LABELS.spacesList}
+          </Link>
+        </div>
+        <p className="profilePage__desc">
+          هویت، امنیت و ترجیح‌های شخصی — جدا از خانهٔ فضای کاری.
+        </p>
+      </header>
       {debugVerifyUrl ? (
         <AuthAlert tone="info">
           <a href={debugVerifyUrl}>تأیید ایمیل</a>
         </AuthAlert>
       ) : null}
 
-      <ProductGrid>
+      <div className="profileLayout">
+        <aside className="profileLayout__side">
         <SectionCard title="آتلیه هویت" delayClass="delay1">
           <div className="profileAtelier">
             <div
@@ -290,14 +295,21 @@ export function ProfileView() {
           </div>
 
           {!profile?.emailVerified && profile?.email ? (
-            <Button type="button" variant="ghost" size="sm" onClick={onResendVerification} disabled={pending}>
-              ارسال مجدد لینک تأیید ایمیل
-            </Button>
+            <div className="profileVerifyNotice" role="status">
+              <span>ایمیل شما هنوز تأیید نشده</span>
+              <Button type="button" variant="ghost" size="sm" onClick={onResendVerification} disabled={pending}>
+                ارسال مجدد لینک
+              </Button>
+            </div>
           ) : null}
+        </SectionCard>
+        </aside>
 
-          <div className="profileFormBlock">
-            <p className="profileFormBlock__label">ویرایش مشخصات</p>
+        <div className="profileLayout__main">
+        <SectionCard title="ویرایش مشخصات" delayClass="delay1">
+          <div className="profileFormBlock profileFormBlock--first">
             <FormStack>
+              <div className="profileFieldGrid">
               <TextField
                 id="profile-display-name"
                 label="نام نمایشی"
@@ -330,7 +342,7 @@ export function ProfileView() {
                 value={displayUnit}
                 onChange={(e) => setDisplayUnit(e.target.value as "rial" | "toman" | "")}
               >
-                <option value="">پیروی از فضای کاری (پیش‌فرض ریال)</option>
+                <option value="">پیروی از فضای کاری (پیش‌فرض تومان)</option>
                 <option value="rial">ریال</option>
                 <option value="toman">تومان</option>
               </SelectField>
@@ -362,6 +374,7 @@ export function ProfileView() {
                 <option value="Europe/London">لندن</option>
                 <option value="Europe/Berlin">برلین</option>
               </SelectField>
+              </div>
               <div className="profileFormBlock__actions">
                 <Button type="button" onClick={onSaveProfile} disabled={pending || !profile}>
                   {pending ? "در حال ذخیره…" : "ذخیره تغییرات"}
@@ -374,6 +387,7 @@ export function ProfileView() {
             <div className="profileFormBlock">
               <p className="profileFormBlock__label">تغییر ایمیل</p>
               <FormStack>
+                <div className="profileFieldGrid">
                 <TextField
                   id="profile-new-email"
                   label="ایمیل جدید"
@@ -390,6 +404,7 @@ export function ProfileView() {
                   value={emailPassword}
                   onChange={(e) => setEmailPassword(e.target.value)}
                 />
+                </div>
                 <div className="profileFormBlock__actions">
                   <Button type="button" variant="ghost" onClick={onChangeEmail} disabled={pending}>
                     تغییر ایمیل
@@ -399,7 +414,10 @@ export function ProfileView() {
             </div>
           ) : null}
         </SectionCard>
+        </div>
+      </div>
 
+      <ProductGrid>
         <SectionCard title="صندوق امنیت" tone="quiet" delayClass="delay2">
           {profile?.hasPassword ? (
             <details className="reportDetails" open>
@@ -581,6 +599,17 @@ export function ProfileView() {
           onError={(message) => setError(message)}
         />
       </ProductGrid>
+
+      <section className="profileAccessNote" aria-label="سازمان و دسترسی">
+        <span className="profileAccessNote__icon" aria-hidden>
+          <ShellIconSvg name="partners" size={22} />
+        </span>
+        <div className="profileAccessNote__copy">
+          <strong>سازمان و دسترسی</strong>
+          <span>تیم، نقش و رخدادهای واقعی</span>
+        </div>
+      </section>
+      </div>
     </AppShell>
   );
 }

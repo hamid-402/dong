@@ -7,8 +7,8 @@ import {
   resolveDisplayUnit,
 } from "../src/money.js";
 
-test("resolveDisplayUnit prefers user then workspace then rial", () => {
-  assert.equal(resolveDisplayUnit(undefined, undefined), "rial");
+test("resolveDisplayUnit prefers user then workspace then toman", () => {
+  assert.equal(resolveDisplayUnit(undefined, undefined), "toman");
   assert.equal(resolveDisplayUnit(null, "toman"), "toman");
   assert.equal(resolveDisplayUnit("rial", "toman"), "rial");
   assert.equal(resolveDisplayUnit("toman", "rial"), "toman");

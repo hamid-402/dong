@@ -44,7 +44,7 @@ export default function WorkspaceSettingsPage() {
   const [name, setName] = useState(chromeWorkspace?.name ?? "");
   const [timezone, setTimezone] = useState(chromeWorkspace?.timezone ?? "Asia/Tehran");
   const [displayUnit, setDisplayUnit] = useState<"toman" | "rial">(
-    chromeWorkspace?.displayUnit ?? "rial",
+    chromeWorkspace?.displayUnit ?? "toman",
   );
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

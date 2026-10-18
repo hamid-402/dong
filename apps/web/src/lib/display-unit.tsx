@@ -21,7 +21,7 @@ type DisplayUnitContextValue = {
 };
 
 const DisplayUnitContext = createContext<DisplayUnitContextValue>({
-  unit: "rial",
+  unit: "toman",
   userPreference: null,
   workspaceUnit: null,
 });
