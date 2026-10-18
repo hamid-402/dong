@@ -4,38 +4,38 @@ import { NAV_LABELS } from "@/lib/nav-labels";
 
 /**
  * Shipped items sourced from docs/STATUS.md only — no invented calendar dates.
- * Keep in sync when STATUS DONE bullets change.
+ * Keep in sync when STATUS DONE bullets change. Copy is plain Persian for end users.
  */
 const SHIPPED = [
   {
-    title: "W6 عملیات: outbox redrive و jobs enqueue",
-    when: "اخیراً در مسیر ops",
+    title: "عملیات پس‌زمینه و ارسال مجدد رویدادها",
+    when: "به‌تازگی اضافه شده",
     detail:
-      "ردرایو outbox با مهاجرت 0065، enqueue کارهای ledger/recurrence/analytics از UI فقط برای owner/admin وقتی صف Redis فعال است، و عمق canary/security-ops — docs/STATUS.md و docs/ops/CANARY-DEPLOY.md.",
+      "مدیر سامانه می‌تواند رویدادهای ارسال‌نشده را دوباره بفرستد. مالک و مدیر فضا هم، وقتی پردازش پس‌زمینه فعال باشد، می‌توانند کارهای دفتر، تکرارشونده و تحلیل را از خود برنامه در صف بگذارند. صفحهٔ امنیت هم کامل‌تر شده است.",
   },
   {
-    title: "W5 UX/IA و chrome یکپارچه",
-    when: "پس از عمق مالی W4",
+    title: "ناوبری یکپارچه و صورتحساب کامل‌تر",
+    when: "پس از بخش‌های مالی قبلی",
     detail:
-      "ShellPageTrail روی همهٔ صفحات Shell، strip عملیات فقط خانوادهٔ هم‌سطح، capability-صادق در More/پالت، عمق صورتحساب (چاپ/صادرات/فیلتر کاتالوگ) — docs/STATUS.md و docs/IA.md.",
+      "مسیر صفحه در بالای همهٔ صفحات نمایش داده می‌شود، منوها فقط گزینه‌های هم‌سطح را نشان می‌دهند، و فقط قابلیت‌های فعال در منوی بیشتر و جستجو می‌آیند. صورتحساب هم چاپ، خروجی و فیلتر کاتالوگ دارد.",
   },
   {
-    title: "Social / دوستان و دایرکتوری",
-    when: "مرحله ۱۱ + ترمیم 0066",
+    title: "دوستان و فهرست مخاطبان",
+    when: "مرحلهٔ ۱۱ با اصلاح‌های بعدی",
     detail:
-      "دوستان، بلاک، یافتن دقیق، تطبیق مخاطبین هش‌شده و تنظیمات حریم خصوصی — persistence.social از capabilities واقعی؛ جداول social با مهاجرت 0066.",
+      "دوستان، مسدودسازی، یافتن دقیق افراد، تطبیق امن مخاطبان و تنظیمات حریم خصوصی.",
   },
   {
-    title: "متریک محصول از audit واقعی",
+    title: "شاخص‌های محصول از رویدادهای واقعی",
     when: "در مسیر مشتری",
     detail:
-      "صفحهٔ `/w/[slug]/metrics` شمارش قیف (ساخت فضا، ساخت دعوت، پذیرش، خرج، تسویه) را فقط از رویدادهای audit می‌خواند — docs/PRODUCT-METRICS.md.",
+      "صفحهٔ شاخص‌ها، شمارش مراحل استفاده (ساخت فضا، ساخت دعوت، پذیرش، خرج، تسویه) را فقط از رویدادهای ثبت‌شدهٔ واقعی می‌خواند.",
   },
   {
-    title: "احراز هویت چندعاملی (MFA/TOTP)",
+    title: "ورود دومرحله‌ای",
     when: "تکمیل‌شده در فاز ۵",
     detail:
-      "چالش ورود با کد TOTP و کدهای بازیابی برای نقش‌های حساس — docs/SECURITY.md.",
+      "ورود با کد یک‌بارمصرف برنامهٔ احراز هویت و کدهای بازیابی برای نقش‌های حساس.",
   },
 ] as const;
 
@@ -45,12 +45,9 @@ export default function WhatsNewPage() {
       <PageHeader
         eyebrow="حساب"
         title={NAV_LABELS.whatsNew}
-        description="مواردی که واقعاً در محصول پیاده شده‌اند — بدون تاریخ ساختگی. منبع حقیقت: docs/STATUS.md."
+        description="مواردی که واقعاً در محصول اضافه شده‌اند — بدون تاریخ ساختگی."
         actions={<Link href="/account">{NAV_LABELS.account}</Link>}
       />
-      <p className="liveHint">
-        جزئیات وضعیت اجرا در مخزن: <code>docs/STATUS.md</code>
-      </p>
       <ProductGrid>
         {SHIPPED.map((item) => (
           <SectionCard key={item.title} title={item.title}>

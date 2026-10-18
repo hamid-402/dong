@@ -284,7 +284,7 @@ export function PersonalSpacesAccordion({
                     {bucket.workspaces.length > 0 ? (
                       <Amount irrMinor={lead.toString()} />
                     ) : (
-                      "—"
+                      "ثبت نشده"
                     )}
                   </span>
                 </summary>

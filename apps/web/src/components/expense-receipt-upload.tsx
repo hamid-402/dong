@@ -208,7 +208,7 @@ export function ExpenseReceiptUpload({
         {pending ? "در حال آپلود…" : "پیوست رسید"}
       </label>
       {ocrMode === "stub" ? (
-        <p className="emptyHint">OCR در این محیط stub است — پیشنهاد خودکار اعمال نمی‌شود.</p>
+        <p className="emptyHint">خواندن خودکار رسید در این محیط آزمایشی است — پیشنهاد خودکار اعمال نمی‌شود.</p>
       ) : null}
       {loadingList ? <p className="emptyHint">در حال بارگذاری پیوست‌ها…</p> : null}
       {listError ? (

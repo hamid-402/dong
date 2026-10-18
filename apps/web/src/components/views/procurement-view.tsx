@@ -15,7 +15,7 @@ import type {
   VendorSummary,
 } from "@dang/contracts";
 import { isReadOnlyRole } from "@dang/contracts";
-import { Amount, Button, TextField } from "@dang/ui";
+import { Amount, Button, MoneyInput, TextField } from "@dang/ui";
 import { AppShell, ShellIconSvg } from "@/components/app-shell";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
@@ -35,7 +35,8 @@ import {
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
-import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import { displayInputToIrrMinor, irrMinorToDisplayInput } from "@/lib/irr-money";
+import { useDisplayUnit } from "@/lib/display-unit";
 import {
   assetStatusLabel,
   deliveryStatusLabel,
@@ -63,6 +64,7 @@ function statusTone(status: string): "neutral" | "ok" | "warn" | "danger" | "gol
 export function ProcurementView() {
   const router = useRouter();
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
   const [workspaceId, setWorkspaceId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -75,9 +77,9 @@ export function ProcurementView() {
   const [assets, setAssets] = useState<AssetSummary[]>([]);
   const [needTitle, setNeedTitle] = useState("خرید لپ‌تاپ");
   const [prTitle, setPrTitle] = useState("درخواست خرید لپ‌تاپ");
-  const [prToman, setPrToman] = useState("45000000");
+  const [prAmount, setPrAmount] = useState(() => irrMinorToDisplayInput("450000000", displayUnit));
   const [budgetName, setBudgetName] = useState("بودجه تیم");
-  const [budgetToman, setBudgetToman] = useState("500000000");
+  const [budgetAmount, setBudgetAmount] = useState(() => irrMinorToDisplayInput("5000000000", displayUnit));
   const [vendorName, setVendorName] = useState("فروشگاه دیجی");
   const [readOnly, setReadOnly] = useState(false);
   const [myRole, setMyRole] = useState("");
@@ -283,15 +285,15 @@ export function ProcurementView() {
             <div id="pr-panel" />
             <GuardedForm>
               <TextField label="عنوان" value={prTitle} onChange={(e) => setPrTitle(e.target.value)} />
-              <TextField label="مبلغ (تومان)" value={prToman} onChange={(e) => setPrToman(e.target.value)} />
+              <MoneyInput label="مبلغ" value={prAmount} onValueChange={setPrAmount} />
               <Button
                 type="button"
                 onClick={() => {
                   void (async () => {
                     try {
-                      const amount = tomanInputToIrrMinor(prToman);
+                      const amount = displayInputToIrrMinor(prAmount, displayUnit);
                       if (!amount) {
-                        setError("مبلغ نامعتبر است (فقط تومان / IRR)");
+                        setError("مبلغ نامعتبر است؛ فقط عدد مثبت وارد کنید");
                         return;
                       }
                       await api.createPurchaseRequest(workspaceId, {
@@ -556,15 +558,15 @@ export function ProcurementView() {
           <SectionCard title={t("procurement.sectionBudget")} badge={budgets.length} delayClass="delay3">
             <GuardedForm>
               <TextField label="نام" value={budgetName} onChange={(e) => setBudgetName(e.target.value)} />
-              <TextField label="سقف (تومان)" value={budgetToman} onChange={(e) => setBudgetToman(e.target.value)} />
+              <MoneyInput label="سقف" value={budgetAmount} onValueChange={setBudgetAmount} />
               <Button
                 type="button"
                 onClick={() => {
                   void (async () => {
                     try {
-                      const ceiling = tomanInputToIrrMinor(budgetToman);
+                      const ceiling = displayInputToIrrMinor(budgetAmount, displayUnit);
                       if (!ceiling) {
-                        setError("سقف بودجه نامعتبر است (فقط تومان / IRR)");
+                        setError("سقف بودجه نامعتبر است؛ فقط عدد مثبت وارد کنید");
                         return;
                       }
                       const today = new Date().toISOString().slice(0, 10);

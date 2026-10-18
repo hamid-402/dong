@@ -78,9 +78,9 @@ export function GuestPlaceholdersPanel({
                 : created.claimPath;
             try {
               await navigator.clipboard?.writeText(absolute);
-              onSuccess("مهمان ثبت شد — لینک claim در کلیپبورد کپی شد");
+              onSuccess("عضو بدون حساب ثبت شد — لینک پیوستن در کلیپ‌بورد کپی شد");
             } catch {
-              onSuccess(`مهمان ثبت شد — لینک: ${created.claimPath}`);
+              onSuccess(`عضو بدون حساب ثبت شد — لینک پیوستن: ${created.claimPath}`);
             }
           } else {
             onSuccess("مهمان ثبت شد");
@@ -94,14 +94,14 @@ export function GuestPlaceholdersPanel({
   }
 
   return (
-    <SectionCard title="مهمان‌های بدون حساب" badge={rows.length} delayClass="delay2">
+    <SectionCard title="اعضای بدون حساب" badge={rows.length} delayClass="delay2">
       <StatusLine>
-        برای کسی که هنوز حساب ندارد جایگاه بسازید؛ با لینک claim، خرج‌ها و دفتر به حساب واقعی منتقل می‌شود.
+        برای کسی که هنوز حساب ندارد «عضو بدون حساب» بسازید؛ با لینک پیوستن، خرج‌ها و دفتر او به حساب واقعی‌اش منتقل می‌شود.
       </StatusLine>
       {!readOnly ? (
         <FormStack>
           <TextField
-            label="نام نمایشی مهمان"
+            label="نام عضو بدون حساب"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -111,22 +111,22 @@ export function GuestPlaceholdersPanel({
             onChange={(e) => setPhone(e.target.value)}
           />
           <Button type="button" disabled={pending || !name.trim()} onClick={onCreate}>
-            ساخت جایگاه مهمان
+            افزودن عضو بدون حساب
           </Button>
         </FormStack>
       ) : null}
       {lastClaimPath ? (
         <FormStack density="compact">
           <p className="liveHint">
-            آخرین لینک claim:{" "}
+            آخرین لینک پیوستن:{" "}
             <a href={lastClaimPath} target="_blank" rel="noreferrer">
               {lastClaimPath}
             </a>
           </p>
           {lastClaimAbsolute ? (
             <>
-              <StatusLine>QR claim مهمان — با دوربین گوشی اسکن کنید</StatusLine>
-              <LinkQrCode value={lastClaimAbsolute} alt="QR claim مهمان" size={160} />
+              <StatusLine>کد QR لینک پیوستن — با دوربین گوشی اسکن کنید</StatusLine>
+              <LinkQrCode value={lastClaimAbsolute} alt="کد QR لینک پیوستن" size={160} />
             </>
           ) : null}
         </FormStack>
@@ -142,7 +142,7 @@ export function GuestPlaceholdersPanel({
               meta={
                 <>
                   <StatusPill tone={g.claimedUserId ? "ok" : "gold"}>
-                    {g.claimedUserId ? "تصاحب‌شده" : "در انتظار claim"}
+                    {g.claimedUserId ? "به حساب پیوست" : "در انتظار پیوستن"}
                   </StatusPill>
                   {g.phoneE164 ? ` · ${g.phoneE164}` : null}
                 </>

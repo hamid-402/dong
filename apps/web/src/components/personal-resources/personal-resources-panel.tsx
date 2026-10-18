@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Amount, Button, SelectField, TextField, useConfirm, usePrompt } from "@dang/ui";
+import { Amount, Button, MoneyInput, SelectField, TextField, useConfirm, usePrompt } from "@dang/ui";
 import {
   DataList,
   DataRow,
@@ -22,6 +22,7 @@ import { JalaliDateField } from "@/components/jalali-date-field";
 import { api } from "@/lib/api";
 import { formatFaDate } from "@/lib/fa-datetime";
 import { useDisplayUnit } from "@/lib/display-unit";
+import { normalizeYearMonthInput } from "@/lib/fa-datetime";
 import { FlashMessages } from "@/lib/use-flash-message";
 import { personalExportStatusLabel } from "@/lib/status-labels";
 import { PersonalResourcesAccountList } from "./personal-resources-account-list";
@@ -192,14 +193,15 @@ export function PersonalResourcesPanel() {
         <h3 className="pfSubhead">بودجه ماهانه شخصی</h3>
         <div className="pfRangeRow">
           <TextField
-            label="ماه (YYYY-MM)"
+            label="ماه شمسی"
             value={d.budgetMonth}
-            onChange={(e) => d.setBudgetMonth(e.target.value)}
+            onChange={(e) => d.setBudgetMonth(normalizeYearMonthInput(e.target.value))}
+            hint="مثلاً ۱۴۰۵/۰۸"
           />
-          <TextField
-            label="سقف (تومان)"
+          <MoneyInput
+            label="سقف"
             value={d.budgetToman}
-            onChange={(e) => d.setBudgetToman(e.target.value)}
+            onValueChange={d.setBudgetToman}
           />
           <TextField
             label="آستانه هشدار %"

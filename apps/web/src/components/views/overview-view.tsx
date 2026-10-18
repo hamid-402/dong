@@ -800,9 +800,9 @@ export function OverviewView() {
                     err instanceof Error
                       ? err.message
                       : action === "seed"
-                        ? "خطای seed"
+                        ? "ساخت داده‌های دمو ناموفق بود"
                         : action === "colleagues"
-                          ? "خطای seed همکاران (دمو)"
+                          ? "ساخت همکاران دمو ناموفق بود"
                           : "خطای پاک‌سازی دمو",
                   );
                 }

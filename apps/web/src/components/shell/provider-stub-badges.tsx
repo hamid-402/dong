@@ -53,7 +53,7 @@ export function providerStubBadgesFromCapabilities(
         providers?.jobs === "inline_stub"
           ? "صف پس‌زمینه: آزمایشی"
           : providers?.jobs === "redis_queue_degraded"
-            ? "صف کار: Redis بدون کارگر"
+            ? "صف کار: بدون کارگر"
             : "کارگر پس‌زمینه: قطع",
       kind: "stub",
     });

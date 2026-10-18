@@ -7,7 +7,7 @@ import type {
   ReimbursementSummary,
   WorkspaceExpensePolicySummary,
 } from "@dang/contracts";
-import { Button, SelectField, TextField } from "@dang/ui";
+import { Amount, Button, MoneyInput, SelectField, TextField } from "@dang/ui";
 import {
   DataList,
   DataRow,
@@ -26,18 +26,23 @@ import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { newClientId } from "@/lib/id";
-import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import type { DisplayUnit } from "@dang/contracts";
+import { displayUnitLabel } from "@dang/contracts";
+import { displayInputToIrrMinor, irrMinorToDisplayInput } from "@/lib/irr-money";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { normalizeYearMonthInput } from "@/lib/fa-datetime";
 
-function tomanToMinorString(toman: string): string | null {
-  const money = tomanInputToIrrMinor(toman);
+function amountToMinorString(raw: string, unit: DisplayUnit): string | null {
+  const money = displayInputToIrrMinor(raw, unit);
   return money?.amountMinor ?? null;
 }
 
-function minorToTomanField(minor: string | null | undefined): string {
+function minorToAmountField(
+  minor: string | null | undefined,
+  unit: DisplayUnit,
+): string {
   if (minor == null || minor === "") return "";
-  const n = Number(minor);
-  if (!Number.isFinite(n)) return "";
-  return String(Math.round(n / 10));
+  return irrMinorToDisplayInput(minor, unit);
 }
 
 export function WaveFFinancePanel({
@@ -54,6 +59,8 @@ export function WaveFFinancePanel({
   onError: (message: string | null) => void;
   onChanged: () => void;
 }) {
+  const unit = useDisplayUnit();
+  const unitLabel = displayUnitLabel(unit);
   const [claims, setClaims] = useState<ReimbursementSummary[]>([]);
   const [budgets, setBudgets] = useState<CategoryBudgetUsage[]>([]);
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>(
@@ -62,17 +69,17 @@ export function WaveFFinancePanel({
   const [policy, setPolicy] = useState<WorkspaceExpensePolicySummary | null>(null);
   const [csv, setCsv] = useState("");
   const [claimTitle, setClaimTitle] = useState("");
-  const [claimToman, setClaimToman] = useState("");
+  const [claimAmount, setClaimAmount] = useState("");
   const [budgetCategoryId, setBudgetCategoryId] = useState("");
   const [budgetMonth, setBudgetMonth] = useState(
     () => new Date().toISOString().slice(0, 7),
   );
-  const [budgetToman, setBudgetToman] = useState("");
-  const [approvalToman, setApprovalToman] = useState("");
-  const [receiptToman, setReceiptToman] = useState("");
+  const [budgetAmount, setBudgetAmount] = useState("");
+  const [approvalAmount, setApprovalAmount] = useState("");
+  const [receiptAmount, setReceiptAmount] = useState("");
   const [receiptCategoryIds, setReceiptCategoryIds] = useState<string[]>([]);
   const [requireCostCenter, setRequireCostCenter] = useState(false);
-  const [perDiemToman, setPerDiemToman] = useState("");
+  const [perDiemAmount, setPerDiemAmount] = useState("");
   const [tiersJson, setTiersJson] = useState("");
   const [pending, startTransition] = useTransition();
   const claimIds = useMemo(() => claims.map((c) => c.id), [claims]);
@@ -103,11 +110,11 @@ export function WaveFFinancePanel({
       if (cats[0] && !budgetCategoryId) setBudgetCategoryId(cats[0].id);
       setPolicy(pol);
       if (pol) {
-        setApprovalToman(minorToTomanField(pol.approvalThresholdMinor));
-        setReceiptToman(minorToTomanField(pol.requireReceiptAboveMinor));
+        setApprovalAmount(minorToAmountField(pol.approvalThresholdMinor, unit));
+        setReceiptAmount(minorToAmountField(pol.requireReceiptAboveMinor, unit));
         setReceiptCategoryIds(pol.requireReceiptCategoryIds ?? []);
         setRequireCostCenter(Boolean(pol.requireCostCenter));
-        setPerDiemToman(minorToTomanField(pol.perDiemDailyMinor ?? null));
+        setPerDiemAmount(minorToAmountField(pol.perDiemDailyMinor ?? null, unit));
         setTiersJson(
           pol.approvalTiers && pol.approvalTiers.length > 0
             ? JSON.stringify(pol.approvalTiers, null, 2)
@@ -121,7 +128,7 @@ export function WaveFFinancePanel({
     void reload().catch((e: unknown) =>
       onError(friendlyErrorMessage(e, "بارگذاری مالی Wave F ناموفق")),
     );
-  }, [workspaceId, flags.reimbursement, flags.categoryBudget, flags.expensePolicy]);
+  }, [workspaceId, unit, flags.reimbursement, flags.categoryBudget, flags.expensePolicy]);
 
   function run(action: () => Promise<unknown>, ok?: string) {
     startTransition(() => {
@@ -136,9 +143,9 @@ export function WaveFFinancePanel({
   }
 
   function createClaim() {
-    const amountMinor = tomanToMinorString(claimToman);
+    const amountMinor = amountToMinorString(claimAmount, unit);
     if (!claimTitle.trim() || !amountMinor) {
-      onError("عنوان و مبلغ تومان درخواست را کامل کنید");
+      onError("عنوان و مبلغ درخواست را کامل کنید");
       return;
     }
     run(async () => {
@@ -148,14 +155,14 @@ export function WaveFFinancePanel({
         idempotencyKey: newClientId(),
       });
       setClaimTitle("");
-      setClaimToman("");
+      setClaimAmount("");
     });
   }
 
   function createBudget() {
-    const limitMinor = tomanToMinorString(budgetToman);
+    const limitMinor = amountToMinorString(budgetAmount, unit);
     if (!budgetCategoryId || !/^\d{4}-\d{2}$/.test(budgetMonth) || !limitMinor) {
-      onError("دسته، ماه YYYY-MM و سقف تومان را کامل کنید");
+      onError("دسته، ماه بودجه (مثلاً ۲۰۲۶/۱۰) و سقف را کامل کنید");
       return;
     }
     run(async () => {
@@ -166,26 +173,26 @@ export function WaveFFinancePanel({
         alertPct: 80,
         idempotencyKey: newClientId(),
       });
-      setBudgetToman("");
+      setBudgetAmount("");
     });
   }
 
   function savePolicy() {
     const approval =
-      approvalToman.trim() === "" ? null : tomanToMinorString(approvalToman);
+      approvalAmount.trim() === "" ? null : amountToMinorString(approvalAmount, unit);
     const receipt =
-      receiptToman.trim() === "" ? null : tomanToMinorString(receiptToman);
+      receiptAmount.trim() === "" ? null : amountToMinorString(receiptAmount, unit);
     const perDiem =
-      perDiemToman.trim() === "" ? null : tomanToMinorString(perDiemToman);
-    if (approvalToman.trim() && !approval) {
+      perDiemAmount.trim() === "" ? null : amountToMinorString(perDiemAmount, unit);
+    if (approvalAmount.trim() && !approval) {
       onError("آستانه تأیید نامعتبر است");
       return;
     }
-    if (receiptToman.trim() && !receipt) {
+    if (receiptAmount.trim() && !receipt) {
       onError("آستانه رسید نامعتبر است");
       return;
     }
-    if (perDiemToman.trim() && !perDiem) {
+    if (perDiemAmount.trim() && !perDiem) {
       onError("سقف روزانه مأموریت نامعتبر است");
       return;
     }
@@ -194,14 +201,14 @@ export function WaveFFinancePanel({
       try {
         const parsed = JSON.parse(tiersJson) as unknown;
         if (!Array.isArray(parsed)) {
-          onError("پله‌های تأیید باید آرایه JSON باشد");
+          onError("قالب پله‌های تأیید باید فهرست باشد");
           return;
         }
         approvalTiers = parsed as NonNullable<
           WorkspaceExpensePolicySummary["approvalTiers"]
         >;
       } catch {
-        onError("JSON پله‌های تأیید نامعتبر است");
+        onError("قالب پله‌های تأیید نامعتبر است");
         return;
       }
     }
@@ -250,10 +257,11 @@ export function WaveFFinancePanel({
                 value={claimTitle}
                 onChange={(e) => setClaimTitle(e.target.value)}
               />
-              <TextField
-                label="مبلغ (تومان)"
-                value={claimToman}
-                onChange={(e) => setClaimToman(e.target.value)}
+              <MoneyInput
+                id="wave-f-claim-amount"
+                label="مبلغ"
+                value={claimAmount}
+                onValueChange={setClaimAmount}
               />
               <Button type="button" disabled={pending} onClick={createClaim}>
                 ثبت پیش‌نویس
@@ -363,7 +371,7 @@ export function WaveFFinancePanel({
                         </span>
                       }
                       meta={statusFa[c.status]}
-                      trailing={c.amount.amountMinor}
+                      trailing={<Amount irrMinor={c.amount.amountMinor} />}
                     />
                   </div>
                 ))}
@@ -391,14 +399,16 @@ export function WaveFFinancePanel({
                 ))}
               </SelectField>
               <TextField
-                label="ماه (YYYY-MM)"
+                label="ماه بودجه"
                 value={budgetMonth}
-                onChange={(e) => setBudgetMonth(e.target.value)}
+                onChange={(e) => setBudgetMonth(normalizeYearMonthInput(e.target.value))}
+                hint="مثلاً ۲۰۲۶/۱۰ (سال و ماه میلادی)"
               />
-              <TextField
-                label="سقف (تومان)"
-                value={budgetToman}
-                onChange={(e) => setBudgetToman(e.target.value)}
+              <MoneyInput
+                id="wave-f-budget-limit"
+                label="سقف"
+                value={budgetAmount}
+                onValueChange={setBudgetAmount}
               />
               <Button
                 type="button"
@@ -415,7 +425,7 @@ export function WaveFFinancePanel({
                 <DataRow
                   key={b.id}
                   title={`${b.yearMonth} · ${b.categoryId.slice(0, 8)}`}
-                  meta={`${b.spent.amountMinor} / ${b.limit.amountMinor}`}
+                  meta={<><Amount irrMinor={b.spent.amountMinor} /> از <Amount irrMinor={b.limit.amountMinor} /></>}
                   trailing={b.alertReached ? "هشدار" : ""}
                 />
               ))}
@@ -429,34 +439,38 @@ export function WaveFFinancePanel({
       {flags.expensePolicy ? (
         <SectionCard title="سیاست خرج سازمانی">
           <StatusLine>
-            آستانه‌ها به ریال جزئی ذخیره می‌شوند؛ خالی = بدون اجبار.
+            مبلغ آستانه‌ها به {unitLabel} وارد می‌شود؛ خالی = بدون اجبار.
           </StatusLine>
           {readOnly ? (
             <StatusLine>
-              آستانه تأیید: {approvalToman || "—"} تومان · رسید اجباری بالای:{" "}
-              {receiptToman || "—"} تومان
+              آستانه تأیید: {approvalAmount ? `${approvalAmount} ${unitLabel}` : "تعیین نشده"} ·
+              رسید اجباری بالای:{" "}
+              {receiptAmount ? `${receiptAmount} ${unitLabel}` : "تعیین نشده"}
               {requireCostCenter ? " · مرکز هزینه اجباری" : ""}
-              {perDiemToman ? ` · سقف روزانه ${perDiemToman} تومان` : ""}
+              {perDiemAmount ? ` · سقف روزانه ${perDiemAmount} ${unitLabel}` : ""}
               {receiptCategoryIds.length
                 ? ` · ${receiptCategoryIds.length} دسته با رسید اجباری`
                 : ""}
             </StatusLine>
           ) : (
             <FormStack>
-              <TextField
-                label="آستانه تأیید (تومان)"
-                value={approvalToman}
-                onChange={(e) => setApprovalToman(e.target.value)}
+              <MoneyInput
+                id="wave-f-approval-threshold"
+                label="آستانه تأیید"
+                value={approvalAmount}
+                onValueChange={setApprovalAmount}
               />
-              <TextField
-                label="رسید اجباری بالای (تومان)"
-                value={receiptToman}
-                onChange={(e) => setReceiptToman(e.target.value)}
+              <MoneyInput
+                id="wave-f-receipt-threshold"
+                label="رسید اجباری بالای"
+                value={receiptAmount}
+                onValueChange={setReceiptAmount}
               />
-              <TextField
-                label="سقف روزانه مأموریت / per-diem (تومان)"
-                value={perDiemToman}
-                onChange={(e) => setPerDiemToman(e.target.value)}
+              <MoneyInput
+                id="wave-f-per-diem"
+                label="سقف روزانه مأموریت"
+                value={perDiemAmount}
+                onValueChange={setPerDiemAmount}
                 hint="خالی = بدون سقف روزانه؛ تجاوز → صف تأیید"
               />
               <label className="field">
@@ -469,7 +483,7 @@ export function WaveFFinancePanel({
                 مرکز هزینه اجباری روی ثبت خرج
               </label>
               <label>
-                پله‌های تأیید (JSON اختیاری — خالی = پیش‌فرض سامانه)
+                پله‌های تأیید (متن ساختاریافتهٔ اختیاری — خالی = پیش‌فرض سامانه)
                 <textarea
                   value={tiersJson}
                   onChange={(e) => setTiersJson(e.target.value)}

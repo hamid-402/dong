@@ -28,6 +28,7 @@ import {
 } from "@/components/ui-blocks";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import { api } from "@/lib/api";
+import { normalizeYearMonthInput } from "@/lib/fa-datetime";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { formatFaDateTime } from "@/lib/fa-datetime";
 import { useAppChrome } from "@/lib/use-app-chrome";
@@ -606,9 +607,10 @@ export function PersonalDepthPanel({
       {tab === "month" ? (
         <FormStack>
           <TextField
-            label="ماه (YYYY-MM)"
+            label="ماه شمسی"
             value={yearMonth}
-            onChange={(e) => setYearMonth(e.target.value)}
+            onChange={(e) => setYearMonth(normalizeYearMonthInput(e.target.value))}
+            hint="مثلاً ۱۴۰۵/۰۸"
           />
           <Button type="button" onClick={onRecompute} disabled={pending}>
             بازسازی از دادهٔ خام

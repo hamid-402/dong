@@ -13,6 +13,7 @@ import { useAppChrome } from "@/lib/use-app-chrome";
 import { FlashMessages } from "@/lib/use-flash-message";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { t } from "@/lib/i18n";
+import { auditIntegrityLabel } from "@/lib/status-labels";
 import { formatFaDateTime } from "@/lib/fa-datetime";
 import styles from "./audit.module.css";
 
@@ -130,7 +131,7 @@ export default function WorkspaceAuditPage() {
       {chrome.capabilities ? (
         <StatusLine>
           {t("audit.integrityHint", {
-            mode: chrome.capabilities.providers?.auditIntegrity ?? "—",
+            mode: auditIntegrityLabel(chrome.capabilities.providers?.auditIntegrity),
           })}
         </StatusLine>
       ) : null}

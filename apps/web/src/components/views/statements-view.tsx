@@ -1092,7 +1092,6 @@ export function StatementsView({
         <section
           className={styles.memberRail}
           aria-label={t("statements.membersSummary")}
-          tabIndex={0}
         >
           {summaries.map((s) => {
             const active = detail?.userId === s.userId;

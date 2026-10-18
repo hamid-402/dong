@@ -5,7 +5,7 @@ import type {
   PersonalMoneyAccountKind,
   PersonalMoneyAccountSummary,
 } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
+import { Amount, Button, MoneyInput, SelectField, TextField, useConfirm } from "@dang/ui";
 import { DataList, DataRow, EmptyHint } from "@/components/ui-blocks";
 import {
   RowSelectCheckbox,
@@ -214,10 +214,10 @@ export function PersonalResourcesAccountList({
           <option value="investment">سرمایه‌گذاری</option>
             <option value="other">سایر</option>
         </SelectField>
-        <TextField
-          label="موجودی اولیه (تومان)"
+        <MoneyInput
+          label="موجودی اولیه"
           value={openingToman}
-          onChange={(e) => onOpeningTomanChange(e.target.value)}
+          onValueChange={onOpeningTomanChange}
         />
         <Button type="button" onClick={onCreateAccount} disabled={pending}>
           افزودن حساب

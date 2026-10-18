@@ -110,7 +110,7 @@ export function AssetsView() {
     >
       <WorkspacePageFrame
         title={NAV_LABELS.assets}
-        description="دارایی‌های ثبت‌شده از تحویل خرید — فقط دادهٔ API همین فضا."
+        description="دارایی‌های ثبت‌شده از تحویل خرید — فقط داده‌های همین فضا."
         primaryAction={
           workspaceId ? (
             <a href="#asset-create-panel">ثبت دارایی</a>
@@ -370,7 +370,7 @@ export function AssetsView() {
                 </Button>
               </FormStack>
               {depRows == null ? (
-                <EmptyHint>برای دیدن ارزش دفتری، گزارش را از API بارگذاری کنید.</EmptyHint>
+                <EmptyHint>برای دیدن ارزش دفتری، گزارش را بارگذاری کنید.</EmptyHint>
               ) : depRows.length === 0 ? (
                 <EmptyHint>دارایی قابل استهلاک ثبت نشده.</EmptyHint>
               ) : (

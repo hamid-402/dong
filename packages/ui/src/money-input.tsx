@@ -44,7 +44,6 @@ export function MoneyInput({
       {label ? (
         <label className="dang-label" htmlFor={fieldId}>
           {label}
-          <span> ({displayUnitLabel(displayUnit)})</span>
         </label>
       ) : null}
       <span className="dang-password">

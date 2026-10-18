@@ -88,7 +88,7 @@ export function buildFinanceSectionChrome(input: {
   if (section === "recurring") {
     return {
       title: NAV_LABELS.recurring,
-      description: "گزارش‌های دوره‌ای، دسته‌ها و قواعد تکرارشونده از API.",
+      description: "گزارش‌های دوره‌ای، دسته‌ها و قواعد تکرارشونده.",
       primary: <a href="#reports-panel">محاسبه گزارش</a>,
       secondary: slug ? (
         <>

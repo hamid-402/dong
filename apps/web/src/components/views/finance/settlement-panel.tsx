@@ -269,7 +269,7 @@ export function SettlementPanel({
           if (!cancelled) {
             setApiPreview(null);
             setSettlePlan(null);
-            setPreviewError("پیش‌نمایش از API ناموفق بود");
+            setPreviewError("دریافت پیش‌نمایش ناموفق بود");
           }
         }
       })();
@@ -547,8 +547,8 @@ export function SettlementPanel({
           ) : null}
           {messaging && messaging !== "none" && !messagingLive ? (
             <StatusLine>
-              کانال پیام‌رسان در حالت stub است — یادآوری فقط درون‌برنامه می‌رود تا توکن
-              Telegram/Bale تنظیم شود.
+              کانال پیام‌رسان هنوز متصل نیست — یادآوری فقط درون برنامه می‌رود تا اتصال
+              تلگرام یا بله تنظیم شود.
             </StatusLine>
           ) : null}
           {remindHint ? <StatusLine>{remindHint}</StatusLine> : null}

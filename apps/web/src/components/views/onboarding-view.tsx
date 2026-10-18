@@ -394,7 +394,7 @@ export function OnboardingView() {
               ) : (
               <div className={`liveSuccess ${styles.created}`}>
                 <p className={styles.createdLead}>
-                  ساخته شد: {created.name} ({created.slug})
+                  ساخته شد: {created.name}
                 </p>
                 <div className={styles.createdActions}>
                   <Button type="button" onClick={() => goToWorkspaceHome(created)}>
@@ -430,7 +430,6 @@ export function OnboardingView() {
                   <DataRow
                     key={workspace.id}
                     title={workspace.name}
-                    meta={workspace.slug}
                     trailing={
                       <StatusPill tone="neutral">
                         {workspaceTemplateLabel(workspace.template)}

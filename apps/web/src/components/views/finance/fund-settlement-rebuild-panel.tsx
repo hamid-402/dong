@@ -72,8 +72,8 @@ export function FundSettlementRebuildPanel({
       </p>
       <ul className="fundRebuildPanel__bullets liveHint">
         <li>ژورنال قدیمی با پسوند legacy برگردانده و نگه داشته می‌شود (حذف سخت نیست).</li>
-        <li>فقط مدیر مالی؛ نیازمند فلگ فعال در capabilities.</li>
-        <li>مانده‌ها و پیشنهاد تسویه پس از بازسازی از API تازه می‌شوند.</li>
+        <li>فقط مدیر مالی؛ نیازمند روشن‌بودن این قابلیت در محیط.</li>
+        <li>مانده‌ها و پیشنهاد تسویه پس از بازسازی تازه می‌شوند.</li>
       </ul>
       {lastResult ? (
         <p className="fundRebuildPanel__result" role="status">

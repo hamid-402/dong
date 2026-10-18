@@ -13,7 +13,7 @@ import type {
   PettyCashLedgerResponse,
 } from "@dang/contracts";
 import { isFinanceManagerRole, isReadOnlyRole, spaceKindForTemplate, treasuryLabelsForKind } from "@dang/contracts";
-import { Amount, Button, ErrorState, LoadingState, SelectField, TextField, usePrompt } from "@dang/ui";
+import { Amount, Button, ErrorState, LoadingState, MoneyInput, SelectField, TextField, usePrompt } from "@dang/ui";
 import { membershipRoleLabel } from "@/lib/status-labels";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { TreasuryBalanceCard } from "@/components/shell/treasury-balance-card";
@@ -316,8 +316,8 @@ export function PaymentsView() {
         {chrome.capabilities?.providers?.payment === "zarinpal"
           ? "فعال (زرین‌پال)"
           : gatewayLive
-            ? "فعال (LocalPSP — تست محلی)"
-            : "stub — لینک آنلاین پنهان"}{" "}
+            ? "فعال (درگاه آزمایشی)"
+            : "درگاه آنلاین متصل نیست"}{" "}
         ·
         {treasuryLabels.pettyCash}: {pettyLive ? "فعال" : "غیرفعال"} ·{" "}
         {t("payments.onBehalf.statusLabel")}:{" "}
@@ -340,11 +340,10 @@ export function PaymentsView() {
             <option value="cash">نقد</option>
             <option value="bank_transfer">حواله</option>
           </SelectField>
-          <TextField
+          <MoneyInput
             label={moneyFieldLabel("مبلغ", displayUnit)}
             value={amountMinor}
-            onChange={(e) => setAmountMinor(e.target.value)}
-            inputMode="numeric"
+            onValueChange={setAmountMinor}
             error={invalidMoneyMessage(amountMinor, displayUnit, "مبلغ معتبر نیست")}
             required
           />
@@ -676,11 +675,10 @@ export function PaymentsView() {
                 <option value="card_to_card">کارت‌به‌کارت</option>
                 <option value="cash">نقد</option>
               </SelectField>
-              <TextField
+              <MoneyInput
                 label={moneyFieldLabel(t("payments.onBehalf.amount"), displayUnit)}
                 value={obAmount}
-                onChange={(e) => setObAmount(e.target.value)}
-                inputMode="numeric"
+                onValueChange={setObAmount}
                 error={invalidMoneyMessage(obAmount, displayUnit, "مبلغ معتبر نیست")}
                 required
               />
@@ -844,11 +842,10 @@ export function PaymentsView() {
                 value={fundName}
                 onChange={(e) => setFundName(e.target.value)}
               />
-              <TextField
+              <MoneyInput
                 label={moneyFieldLabel("مانده اولیه", displayUnit)}
                 value={openingBalance}
-                onChange={(e) => setOpeningBalance(e.target.value)}
-                inputMode="numeric"
+                onValueChange={setOpeningBalance}
                 error={
                   openingBalance.trim() === "" || openingBalance.trim() === "0"
                     ? undefined
@@ -903,11 +900,10 @@ export function PaymentsView() {
                       </option>
                     ))}
                   </SelectField>
-                  <TextField
+                  <MoneyInput
                     label={moneyFieldLabel("مبلغ برداشت", displayUnit)}
                     value={spendAmount}
-                    onChange={(e) => setSpendAmount(e.target.value)}
-                    inputMode="numeric"
+                    onValueChange={setSpendAmount}
                     error={invalidMoneyMessage(
                       spendAmount,
                       displayUnit,
@@ -964,14 +960,13 @@ export function PaymentsView() {
                       </option>
                     ))}
                   </SelectField>
-                  <TextField
+                  <MoneyInput
                     label={moneyFieldLabel("مبلغ شارژ", displayUnit)}
                     value={topupToman}
-                    onChange={(e) => {
-                      setTopupToman(e.target.value);
+                    onValueChange={(next) => {
+                      setTopupToman(next);
                       setTopupPreview(null);
                     }}
-                    inputMode="numeric"
                     error={invalidMoneyMessage(topupToman, displayUnit, "مبلغ شارژ معتبر نیست")}
                     required
                   />
@@ -1162,11 +1157,10 @@ export function PaymentsView() {
               }
               required
             />
-            <TextField
+            <MoneyInput
               label={moneyFieldLabel("مبلغ", displayUnit)}
               value={creditAmount}
-              onChange={(e) => setCreditAmount(e.target.value)}
-              inputMode="numeric"
+              onValueChange={setCreditAmount}
               error={invalidMoneyMessage(creditAmount, displayUnit, "مبلغ معتبر نیست")}
               required
             />

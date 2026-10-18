@@ -194,6 +194,26 @@ describe("workspace section tabs", () => {
       "/w/acme?folder=finance",
     ]);
   });
+
+  it("marks the space crumb for last-truncation and exposes full text in title", () => {
+    render(
+      <ShellPageTrail
+        dense
+        items={[
+          { label: "گروهی", href: "/spaces?kind=group" },
+          { label: "آکمه", href: "/w/acme" },
+          { label: "مالی", href: "/w/acme?folder=finance" },
+        ]}
+      />,
+    );
+
+    const items = Array.from(document.querySelectorAll(".shell-v2__crumbItem"));
+    const spaceItems = items.filter((item) => item.classList.contains("shell-v2__crumbItem--space"));
+    expect(spaceItems).toHaveLength(1);
+    expect(spaceItems[0]?.textContent).toContain("آکمه");
+    const segs = Array.from(document.querySelectorAll(".shell-v2__crumbSeg"));
+    expect(segs.map((seg) => seg.getAttribute("title"))).toEqual(["گروهی", "آکمه", "مالی"]);
+  });
 });
 
 describe("domain menu", () => {

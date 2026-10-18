@@ -244,7 +244,7 @@ export function PersonalFinanceOverviewPanel() {
 
         {trends ? (
           <div className="pfTrends">
-            <StatusLine>سری زمانی (فقط داده واقعی API)</StatusLine>
+            <StatusLine>روند زمانی (فقط داده‌های واقعی)</StatusLine>
             <div className="pfFocusRow" role="tablist" aria-label="گروه‌بندی زمان">
               {(
                 [

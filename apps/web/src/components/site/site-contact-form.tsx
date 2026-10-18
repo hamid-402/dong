@@ -61,12 +61,12 @@ export function SiteContactForm() {
     if (offline) {
       if (supportInbox) {
         setHint(
-          "API در دسترس نیست — برنامهٔ ایمیل شما برای ارسال مستقیم باز می‌شود.",
+          "سرویس در دسترس نیست — برنامهٔ ایمیل شما برای ارسال مستقیم باز می‌شود.",
         );
         window.location.href = buildMailto(supportInbox, payload);
       } else {
         setHint(
-          "API در دسترس نیست و صندوق پشتیبانی پیکربندی نشده — بعداً دوباره تلاش کنید.",
+          "سرویس در دسترس نیست و ایمیل پشتیبانی تنظیم نشده — بعداً دوباره تلاش کنید.",
         );
       }
       return;
@@ -171,12 +171,12 @@ export function SiteContactForm() {
             <a href={`mailto:${supportInbox}`}>{supportInbox}</a>.{" "}
           </>
         ) : (
-          <>صندوق پشتیبانی در این محیط پیکربندی نشده (CONTACT_INBOX). </>
+          <>نشانی ایمیل پشتیبانی در این محیط تنظیم نشده است. </>
         )}
         {emailLive
           ? "تحویل ایمیل محصول برای جریان‌های داخلی فعال است."
-          : "تحویل ایمیل محصول در capabilities به‌صورت stub/غیرزنده گزارش شده است."}{" "}
-        وضعیت API: <strong>{offline ? "قطع" : statusLabel}</strong>
+          : "ارسال ایمیل از سامانه در این محیط فعال نیست."}{" "}
+        وضعیت سرویس: <strong>{offline ? "قطع" : statusLabel}</strong>
       </p>
       {hint ? <p className="siteContactForm__hint" role="status">{hint}</p> : null}
       <button

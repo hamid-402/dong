@@ -164,7 +164,7 @@ export function workspacePageAccess(input: {
       if (!flags?.catalogV1) {
         return {
           allowed: false,
-          reason: "کاتالوگ در capabilities فعال نیست.",
+          reason: "کاتالوگ در این محیط فعال نیست.",
         };
       }
       if (!has("expenses")) {
@@ -177,7 +177,7 @@ export function workspacePageAccess(input: {
         return {
           allowed: false,
           reason:
-            "صورتحساب اعضا وقتی providers.statements برابر csv_json_print_v1 باشد در دسترس است.",
+            "صورتحساب اعضا فقط وقتی قابلیت صورتحساب در این محیط روشن باشد در دسترس است.",
         };
       }
       if (!has("expenses")) {
@@ -190,7 +190,7 @@ export function workspacePageAccess(input: {
         return {
           allowed: false,
           reason:
-            "پرداخت‌ها وقتی providers.paymentReceipts برابر manual_review_v1 باشد در دسترس است.",
+            "پرداخت‌ها فقط وقتی قابلیت ثبت فیش در این محیط روشن باشد در دسترس است.",
         };
       }
       if (!has("settlements") && !has("expenses")) {
@@ -202,7 +202,7 @@ export function workspacePageAccess(input: {
       if (!flags?.chartsV1) {
         return {
           allowed: false,
-          reason: "نمودارها وقتی providers.charts برابر charts_v1 باشد در دسترس است.",
+          reason: "نمودارها فقط وقتی قابلیت نمودار در این محیط روشن باشد در دسترس است.",
         };
       }
       return { allowed: true, reason: "" };
@@ -211,7 +211,7 @@ export function workspacePageAccess(input: {
       if (flags?.accessPolicyGrants !== true) {
         return {
           allowed: false,
-          reason: "دسترسی قابل‌ویرایش در capabilities فعال نیست.",
+          reason: "دسترسی قابل‌ویرایش در این محیط فعال نیست.",
         };
       }
       return { allowed: true, reason: "" };
@@ -236,7 +236,7 @@ export function workspacePageAccess(input: {
         return {
           allowed: false,
           reason:
-            "هیچ پرچم محصول مالی سازمانی در capabilities روشن نیست — دکمهٔ جعلی نشان داده نمی‌شود.",
+            "هیچ قابلیت مالی سازمانی در این محیط روشن نیست.",
         };
       }
       return { allowed: true, reason: "" };
@@ -276,7 +276,7 @@ export function workspacePageAccess(input: {
         return {
           allowed: false,
           reason:
-            "صفحهٔ امنیت وقتی antifraud=heuristics_v1 یا makerChecker روشن باشد در دسترس است.",
+            "صفحهٔ امنیت فقط وقتی ضدتقلب یا تأیید دو نفره روشن باشد در دسترس است.",
         };
       }
       if (
@@ -321,7 +321,7 @@ export function workspacePageAccess(input: {
         return {
           allowed: false,
           reason:
-            "متریک محصول فقط برای نقش platform سامانه (platform_owner / platform_support) قابل مشاهده است.",
+            "شاخص‌های محصول فقط برای مدیر سامانه قابل مشاهده است.",
         };
       }
       return { allowed: true, reason: "" };
@@ -331,14 +331,14 @@ export function workspacePageAccess(input: {
         return {
           allowed: false,
           reason:
-            "صف کارها وقتی providers.jobs برابر inline_stub یا redis_queue باشد در دسترس است (از capabilities).",
+            "صف کارها فقط وقتی پردازش پس‌زمینه در این محیط روشن باشد در دسترس است.",
         };
       }
       if (!flags?.platformConsole) {
         return {
           allowed: false,
           reason:
-            "صف کارها فقط برای نقش platform سامانه (platform_owner / platform_support) قابل مشاهده است.",
+            "صف کارها فقط برای مدیر سامانه قابل مشاهده است.",
         };
       }
       return { allowed: true, reason: "" };

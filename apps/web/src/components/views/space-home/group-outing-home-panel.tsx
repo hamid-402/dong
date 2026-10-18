@@ -8,6 +8,7 @@ import { Button, TextField } from "@dang/ui";
 import { EmptyHint, FormStack } from "@/components/ui-blocks";
 import { spaceHomeStyles } from "@/components/views/space-home/space-home-layout";
 import { api } from "@/lib/api";
+import { JalaliDateField } from "@/components/jalali-date-field";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { todayIsoLocal } from "@/lib/fa-datetime";
 import { newClientId } from "@/lib/id";
@@ -116,10 +117,10 @@ export function GroupOutingHomePanel({
                 value={outingBudgetToman}
                 onChange={(e) => setOutingBudgetToman(e.target.value)}
               />
-              <TextField
-                label="پایان بازه (YYYY-MM-DD، اختیاری)"
+              <JalaliDateField
+                label="پایان بازه (اختیاری)"
                 value={outingEndsOn}
-                onChange={(e) => setOutingEndsOn(e.target.value)}
+                onChange={setOutingEndsOn}
               />
               <Button type="button" onClick={onCreateOuting} disabled={pending}>
                 ساخت گردش

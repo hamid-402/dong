@@ -43,6 +43,11 @@ export function headerCrumbs(
   return [first, { label: "…" }, parent, current];
 }
 
+/** Workspace home link (`/w/{slug}`) — the space name, which must truncate last. */
+export function isSpaceCrumb(crumb: BreadcrumbCrumb): boolean {
+  return Boolean(crumb.href && /^\/w\/[^/?#]+\/?$/.test(crumb.href));
+}
+
 /** Drop identity crumbs the space switcher already shows (name and kind). */
 export function compactTrailCrumbs(
   crumbs: BreadcrumbCrumb[],
@@ -99,7 +104,7 @@ export function ShellHeaderWayfinding({
           return (
             <li
               key={`${item.label}-${index}`}
-              className={`shell-v2__crumbItem${last ? " is-current" : ""}${isEllipsis ? " is-ellipsis" : ""}`}
+              className={`shell-v2__crumbItem${last ? " is-current" : ""}${isEllipsis ? " is-ellipsis" : ""}${isSpaceCrumb(item) ? " shell-v2__crumbItem--space" : ""}`}
             >
               {index > 0 ? (
                 <span className="shell-v2__crumbSep" aria-hidden>
@@ -115,6 +120,7 @@ export function ShellHeaderWayfinding({
                   type="button"
                   className="shell-v2__crumbSeg shell-v2__crumbSeg--current shell-v2__crumbSeg--toggle"
                   aria-expanded={expanded}
+                  title={item.label}
                   aria-current="page"
                   onClick={() => setExpanded((open) => !open)}
                 >
@@ -125,6 +131,7 @@ export function ShellHeaderWayfinding({
                   href={item.href}
                   className={`shell-v2__crumbSeg shell-v2__crumbSeg--link${last ? " shell-v2__crumbSeg--current" : ""}`}
                   aria-current={last ? "page" : undefined}
+                  title={item.label}
                 >
                   {item.label}
                 </Link>
@@ -132,6 +139,7 @@ export function ShellHeaderWayfinding({
                 <span
                   className={`shell-v2__crumbSeg${last ? " shell-v2__crumbSeg--current" : " shell-v2__crumbSeg--muted"}`}
                   aria-current={last ? "page" : undefined}
+                  title={item.label}
                 >
                   {item.label}
                 </span>

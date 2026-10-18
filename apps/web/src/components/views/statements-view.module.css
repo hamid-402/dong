@@ -85,15 +85,12 @@ button.presetActive:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
   align-items: end;
 }
 
+/* Wrapping grid: cards never clip behind a horizontal scroller. */
 .memberRail {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
   gap: 0.75rem;
   margin-bottom: var(--dang-space-5, 1.5rem);
-  padding-bottom: 0.35rem;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
 }
 
 .memberRail:focus-visible {
@@ -102,8 +99,7 @@ button.presetActive:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
 }
 
 .memberRail .memberCard {
-  flex: 0 0 min(14rem, 78vw);
-  scroll-snap-align: start;
+  min-width: 0;
 }
 
 .memberCard {

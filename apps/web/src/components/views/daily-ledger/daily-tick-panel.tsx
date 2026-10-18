@@ -8,7 +8,7 @@ import type {
   LedgerDayLineInput,
   PettyCashFundSummary,
 } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
+import { Amount, Button, MoneyInput, SelectField, TextField, useConfirm } from "@dang/ui";
 import { CatalogPicker } from "@/components/catalog-picker";
 import { EmptyHint, FormStack, StatusLine } from "@/components/ui-blocks";
 import {
@@ -783,11 +783,10 @@ export function DailyTickPanel({
                   : undefined
               }
             />
-            <TextField
+            <MoneyInput
               label={moneyFieldLabel("مبلغ واحد", displayUnit)}
               value={freeToman}
-              onChange={(e) => setFreeToman(e.target.value)}
-              inputMode="decimal"
+              onValueChange={setFreeToman}
               error={
                 freeName.trim() && !freeToman.trim()
                   ? "مبلغ واحد را بنویسید"

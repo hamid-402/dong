@@ -15,11 +15,12 @@ import type {
   SettlementSummary,
   WorkspaceSummary,
 } from "@dang/contracts";
-import { spaceKindForTemplate, currentJalaliYearMonth } from "@dang/contracts";
+import { spaceKindForTemplate, currentJalaliYearMonth, type DisplayUnit } from "@dang/contracts";
 import { latinDigits, formatMoneyWithUnit } from "@dang/ui";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { useAppChrome } from "@/lib/use-app-chrome";
+import { useDisplayUnit } from "@/lib/display-unit";
 
 export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -34,10 +35,10 @@ export function monthStart(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
-export function tomanToMinor(toman: string): string {
-  const n = Number(latinDigits(toman).replace(/[٬،,\s]/g, ""));
+export function tomanToMinor(raw: string, unit: DisplayUnit = "toman"): string {
+  const n = Number(latinDigits(raw).replace(/[٬،,\s]/g, ""));
   if (!Number.isFinite(n) || n < 0) return "";
-  return String(Math.round(n) * 10);
+  return String(Math.round(n) * (unit === "toman" ? 10 : 1));
 }
 
 export function accountKindLabel(kind: PersonalMoneyAccountKind): string {
@@ -72,6 +73,7 @@ export function budgetAlertText(budget: PersonalBudgetSummary): string | null {
 /** State + API actions for personal wallets / budgets. */
 export function usePersonalResourcesData() {
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
   const [summary, setSummary] = useState<PersonalResourcesSummary | null>(null);
   const [accounts, setAccounts] = useState<PersonalMoneyAccountSummary[]>([]);
   const [txns, setTxns] = useState<PersonalMoneyTxnSummary[]>([]);
@@ -207,7 +209,7 @@ export function usePersonalResourcesData() {
   }
 
   function onCreateAccount() {
-    const openingMinor = tomanToMinor(openingToman || "0");
+    const openingMinor = tomanToMinor(openingToman || "0", displayUnit);
     if (!accountName.trim()) {
       setError("نام حساب لازم است");
       return;
@@ -247,7 +249,7 @@ export function usePersonalResourcesData() {
   }
 
   function onCreateTxn() {
-    const minor = tomanToMinor(txnToman);
+    const minor = tomanToMinor(txnToman, displayUnit);
     if (!txnAccountId) {
       setError("حساب را انتخاب کنید");
       return;
@@ -256,7 +258,7 @@ export function usePersonalResourcesData() {
       setError("مبلغ نامعتبر است");
       return;
     }
-    const amountLabel = formatMoneyWithUnit(minor, "toman");
+    const amountLabel = formatMoneyWithUnit(minor, displayUnit);
     run(`تراکنش ${amountLabel} ثبت شد`, async () => {
       await api.createPersonalTransaction({
         accountId: txnAccountId,
@@ -278,7 +280,7 @@ export function usePersonalResourcesData() {
   }
 
   function onTransfer() {
-    const minor = tomanToMinor(transferToman);
+    const minor = tomanToMinor(transferToman, displayUnit);
     if (!fromAccountId || !toAccountId) {
       setError("حساب مبدأ و مقصد لازم است");
       return;
@@ -300,9 +302,9 @@ export function usePersonalResourcesData() {
   }
 
   function onUpsertBudget() {
-    const minor = tomanToMinor(budgetToman);
+    const minor = tomanToMinor(budgetToman, displayUnit);
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(budgetMonth)) {
-      setError("ماه نامعتبر است (YYYY-MM)");
+      setError("ماه نامعتبر است؛ مثلاً ۱۴۰۵/۰۸");
       return;
     }
     if (!minor || minor === "0") {

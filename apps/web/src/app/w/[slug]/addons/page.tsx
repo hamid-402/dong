@@ -99,8 +99,7 @@ function WorkspaceAddonsPageInner() {
       empty={
         !enabled ? (
           <EmptyHint>
-            این قابلیت پشت پرچم محصول خاموش است. برای فعال‌سازی runtime، ENABLE_ADDON_ACK=1 و
-            capabilities باید addonAck را تأیید کند — دکمهٔ جعلی نشان داده نمی‌شود.
+            این قابلیت در این محیط روشن نیست؛ تا فعال‌شدن آن، گزینه‌ای برای تأیید افزونه نمایش داده نمی‌شود.
           </EmptyHint>
         ) : (
           <EmptyHint>فضای کاری را انتخاب کنید.</EmptyHint>

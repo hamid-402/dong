@@ -36,6 +36,7 @@ import { friendlyErrorMessage } from "@/lib/api-errors";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useFlashMessage, FlashMessages } from "@/lib/use-flash-message";
 import { formatFaDate } from "@/lib/fa-datetime";
+import { catalogSlugLabel } from "@/lib/status-labels";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import styles from "./catalog-view.module.css";
 
@@ -375,7 +376,7 @@ export function CatalogView() {
         persistenceLabel={chrome.persistenceLabel}
       >
         <EmptyHint>
-          کاتالوگ وقتی در capabilities با providers.catalog برابر catalog_v1 باشد در دسترس است.
+          کاتالوگ فقط وقتی قابلیت آن در این محیط روشن باشد در دسترس است.
         </EmptyHint>
       </AppShell>
     );
@@ -475,7 +476,7 @@ export function CatalogView() {
               ))}
             </SelectField>
             <TextField
-              label="قیمت مرجع (ریال)"
+              label="قیمت مرجع"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               inputMode="numeric"
@@ -490,7 +491,7 @@ export function CatalogView() {
                 <option value="">بدون دسته</option>
                 {flatCats.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {"—".repeat(c.depth)} {c.name}
+                    {"—".repeat(c.depth)} {catalogSlugLabel(c.slug, c.name)}
                   </option>
                 ))}
               </SelectField>
@@ -618,7 +619,7 @@ export function CatalogView() {
                         ))}
                       </SelectField>
                       <TextField
-                        label="قیمت مرجع (ریال)"
+                        label="قیمت مرجع"
                         value={editPrice}
                         onChange={(e) => setEditPrice(e.target.value)}
                         inputMode="numeric"
@@ -701,8 +702,8 @@ export function CatalogView() {
             {flatCats.map((c) => (
               <DataRow
                 key={c.id}
-                title={`${"　".repeat(c.depth)}${c.name}`}
-                meta={c.active ? c.slug : `${c.slug} · غیرفعال`}
+                title={`${"　".repeat(c.depth)}${catalogSlugLabel(c.slug, c.name)}`}
+                meta={c.active ? undefined : "غیرفعال"}
               />
             ))}
           </DataList>

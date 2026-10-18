@@ -1124,21 +1124,30 @@ a.shell-v2__catalogLink:hover{
   overflow: hidden;
 }
 
+/* Truncation order (RTL order is untouched): section/current first, space name next (>= 9ch), ellipsis never. */
 .shell-v2__crumbItem{
   display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
+  flex: 0 4 auto;
   width: max-content;
+  min-width: calc(4ch + 1.2rem);
   max-width: min(16rem, 36vw);
 }
 
 .shell-v2__crumbItem.is-current{
   max-width: min(18rem, 40vw);
-  flex-shrink: 0;
+  flex-shrink: 6;
+  min-width: calc(6ch + 1.2rem);
+}
+
+.shell-v2__crumbItem--space{
+  flex-shrink: 1;
+  min-width: calc(9ch + 1.2rem);
 }
 
 .shell-v2__crumbItem.is-ellipsis{
   max-width: none;
+  min-width: 0;
   flex-shrink: 0;
 }
 
@@ -3153,6 +3162,23 @@ html[data-scheme="dark"] .spaces-mosaic__ops a{
   overscroll-behavior-x: contain;
 }
 
+.kindReports__scrollHint{
+  display: none;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  .kindReports__scrollHint{
+    display: block;
+  }
+
+  .kindReports__tableWrap > .kindReports__table{
+    min-width: 36rem;
+  }
+}
+
 .kindReports__table{
   width: 100%;
   border-collapse: collapse;
@@ -3243,8 +3269,8 @@ html[data-scheme="dark"] .spaces-mosaic__ops a{
   border-radius: 999px;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--primary) 75%, var(--dang-success-line)),
-    color-mix(in srgb, var(--primary) 40%, var(--dang-success))
+    color-mix(in srgb, var(--primary) 80%, var(--dang-primary-deep)),
+    color-mix(in srgb, var(--primary) 45%, var(--dang-info))
   );
   max-width: 100%;
 }
@@ -4365,13 +4391,13 @@ html[data-scheme="dark"] .groupOpsRail__tile small{
 .groupOpsRail__open{
   margin-top: auto;
   padding-top: 8px;
-  color: var(--dang-success);
+  color: var(--dang-primary);
   font-size:0.875rem;
   font-weight: 750;
 }
 
 html[data-scheme="dark"] .groupOpsRail__open{
-  color: color-mix(in srgb, var(--dang-success) 55%, light-dark(var(--dang-surface), var(--dang-text)));
+  color: color-mix(in srgb, var(--dang-primary) 55%, light-dark(var(--dang-surface), var(--dang-text)));
 }
 
 
@@ -4616,7 +4642,8 @@ html[data-scheme="dark"] .groupOpsRail__open{
   }
 }
 
-/* Kind families — cool / green / warm / violet. Wash, mid, edge. */
+/* Kind families — violet (personal) / calm indigo-blue (group) / warm (building) / primary blue (org).
+   Group never uses success green: it is a primary↔info blend, distinct from org's pure primary. */
 [data-kind="personal"],
 [data-space-kind="personal"]{
   --kind-mid: var(--dang-info);
@@ -4625,8 +4652,8 @@ html[data-scheme="dark"] .groupOpsRail__open{
 
 [data-kind="group"],
 [data-space-kind="group"]{
-  --kind-mid: var(--dang-success);
-  --kind-edge: var(--dang-success-line);
+  --kind-mid: color-mix(in srgb, var(--dang-primary) 58%, var(--dang-info));
+  --kind-edge: color-mix(in srgb, var(--dang-primary-line) 58%, var(--dang-info-line));
 }
 
 [data-kind="building"],
@@ -4731,18 +4758,25 @@ html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-current-realm{
   border-color: transparent;
 }
 
+/* Group realm: hero CTAs stay on the blue accent (never success green). */
+.shell-v2[data-kind="group"] a.shell-v2__cta,
+.shell-v2[data-kind="group"] a.shell-v2__cta:link,
+.shell-v2[data-kind="group"] a.shell-v2__cta:visited,
+.shell-v2[data-kind="group"] a.shell-v2__cta:hover,
+.shell-v2[data-kind="group"] .moduleChrome__actions > :first-child,
+.shell-v2[data-kind="group"] .productHeaderActions > :first-child{
+  background: var(--dang-primary);
+  color: var(--dang-primary-ink);
+}
+
 .shell-v2[data-kind] .sectionCardHead::before{
   background: linear-gradient(90deg, var(--kind-mid), var(--kind-edge));
 }
 
 .shell-v2[data-kind] .workspacePageFrame > .moduleChrome{
   border-color: color-mix(in srgb, var(--kind-edge) 48%, var(--line));
-  background:
-    linear-gradient(
-      165deg,
-      color-mix(in srgb, var(--surface) 78%, var(--kind-edge)),
-      var(--surface)
-    );
+  /* Solid wash — no gradients on page heroes. */
+  background: color-mix(in srgb, var(--surface) 88%, var(--kind-edge));
 }
 
 .shell-v2[data-kind] .moduleChrome__kicker{

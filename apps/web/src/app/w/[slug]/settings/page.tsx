@@ -295,7 +295,7 @@ export default function WorkspaceSettingsPage() {
             <h2 className={styles.lifecycleTitle}>{workspace.name}</h2>
             <p className={styles.lifecycleLead}>
               {settingsSpec?.leadFa ??
-                "مشخصات، قوانین، اعضا و چرخهٔ عمر — دسترسی‌ها بر اساس نقش واقعی شما از API."}
+                "مشخصات، قوانین، اعضا و چرخهٔ عمر — دسترسی‌ها بر اساس نقش واقعی شما."}
             </p>
           </div>
           <dl className={styles.lifecycleStats}>
@@ -377,7 +377,7 @@ export default function WorkspaceSettingsPage() {
                     {workspace.archivedAt
                       ? "برای تغییر نام یا واحد نمایش، اول از منطقهٔ خطر بازگردانی کنید."
                       : canEdit
-                        ? "تغییرات در API ذخیره و در audit trail ثبت می‌شوند."
+                        ? "تغییرات ذخیره و در تاریخچهٔ عملیات ثبت می‌شوند."
                         : "ویرایش این بخش فقط برای مالک و مدیر فضا مجاز است."}
                   </small>
                 </div>
@@ -415,7 +415,7 @@ export default function WorkspaceSettingsPage() {
                   onChange={(event) => setDisplayUnit(event.target.value as "toman" | "rial")}
                   disabled={!canEdit || pending}
                 >
-                  <option value="rial">ریال (پیش‌فرض)</option>
+                  <option value="rial">ریال</option>
                   <option value="toman">تومان</option>
                 </SelectField>
                 {canEdit ? (
@@ -435,7 +435,7 @@ export default function WorkspaceSettingsPage() {
           {workspace ? (
             <dl>
               <div>
-                <dt>شناسه مسیر</dt>
+                <dt>نشانی فضا</dt>
                 <dd>{workspace.slug}</dd>
               </div>
               <div>
@@ -443,19 +443,35 @@ export default function WorkspaceSettingsPage() {
                 <dd>{workspaceTemplateLabel(workspace.template)}</dd>
               </div>
               <div>
-                <dt>شناسه داخلی</dt>
-                <dd>{workspace.id}</dd>
-              </div>
-              <div>
-                <dt>پایداری runtime</dt>
+                <dt>پایداری ذخیره‌سازی</dt>
                 <dd>{chrome.persistenceLabel}</dd>
               </div>
             </dl>
           ) : null}
           <p>
-            شناسه مسیر و قالب از این فرم تغییر نمی‌کنند تا مسیرها، دسترسی‌ها و داده‌های ماژول‌ها
+            نشانی فضا و قالب از این فرم تغییر نمی‌کنند تا مسیرها، دسترسی‌ها و داده‌های ماژول‌ها
             بدون مهاجرت ناخواسته باقی بمانند.
           </p>
+          {workspace && canEdit ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                void navigator.clipboard
+                  .writeText(workspace.id)
+                  .then(() => {
+                    setSuccess("شناسهٔ فنی در کلیپ‌بورد کپی شد");
+                    setError(null);
+                  })
+                  .catch(() => {
+                    setSuccess(null);
+                    setError("کپی شناسهٔ فنی ممکن نشد");
+                  });
+              }}
+            >
+              کپی شناسهٔ فنی
+            </Button>
+          ) : null}
           <Link href="/spaces">مشاهده و سوییچ بین همه فضاها</Link>
         </aside>
       </div>
@@ -634,7 +650,7 @@ export default function WorkspaceSettingsPage() {
           {settingsSpec?.showAuditLink !== false ? (
             <Link href={wPath(scope.slug, "audit")}>
               <b>تاریخچه عملیات</b>
-              <small>رخدادهای واقعی ثبت‌شده در backend</small>
+              <small>رخدادهای واقعی ثبت‌شدهٔ همین فضا</small>
             </Link>
           ) : null}
         </div>

@@ -5,6 +5,18 @@ import {
   weekdayFaSatFirst,
 } from "@dang/contracts";
 
+/**
+ * Year-month text fields: accept Persian/Arabic digits and «/» or «.» separators
+ * (e.g. «۱۴۰۵/۰۸») and normalise to ASCII «1405-08» for validation and the API.
+ */
+export function normalizeYearMonthInput(raw: string): string {
+  return raw
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\/٫.\u2212\u2013\u2014]/g, "-")
+    .replace(/\s+/g, "");
+}
+
 /** Local calendar day as Gregorian ISO YYYY-MM-DD (storage), for Jalali pickers. */
 export function todayIsoLocal(): string {
   return todayIsoFromDate(new Date());

@@ -1,7 +1,7 @@
 "use client";
 
 import type { PersonalMoneyAccountSummary } from "@dang/contracts";
-import { Button, SelectField, TextField } from "@dang/ui";
+import { Button, MoneyInput, SelectField } from "@dang/ui";
 import { JalaliDateField } from "@/components/jalali-date-field";
 
 type Props = {
@@ -58,10 +58,10 @@ export function PersonalResourcesTransferForm({
             </option>
           ))}
         </SelectField>
-        <TextField
-          label="مبلغ (تومان)"
+        <MoneyInput
+          label="مبلغ"
           value={transferToman}
-          onChange={(e) => onTransferTomanChange(e.target.value)}
+          onValueChange={onTransferTomanChange}
         />
         <JalaliDateField
           label="تاریخ"

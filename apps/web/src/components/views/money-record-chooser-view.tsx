@@ -41,7 +41,7 @@ export function MoneyRecordChooserView() {
             page: "ledger" as const,
             title: NAV_LABELS.dailyEntry,
             summary:
-              "تیک روز×عضو برای مصرف تکراری — کاتالوگ و Dong-To از همین مسیر",
+              "تیک روز×عضو برای مصرف تکراری — کاتالوگ و ورود از اکسل از همین مسیر",
             job: true,
           },
         ]

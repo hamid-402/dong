@@ -21,7 +21,7 @@ import type {
   WorkspaceBalancesResponse,
   WorkspaceSummary,
 } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField, useConfirm } from "@dang/ui";
+import { Amount, Button, MoneyInput, SelectField, TextField, useConfirm } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import {
@@ -1252,11 +1252,10 @@ export function DailyLedgerView() {
                 }}
                 placeholder="1"
               />
-              <TextField
+              <MoneyInput
                 label={moneyFieldLabel("مبلغ واحد", displayUnit)}
                 value={itemUnitToman}
-                onChange={(e) => {
-                  const next = e.target.value;
+                onValueChange={(next) => {
                   setItemUnitToman(next);
                   const unitMoney = displayInputToIrrMinor(next, displayUnit);
                   if (unitMoney) {
@@ -1383,10 +1382,10 @@ export function DailyLedgerView() {
                   </option>
                 ))}
               </SelectField>
-              <TextField
+              <MoneyInput
                 label={moneyFieldLabel("مبلغ واریز", displayUnit)}
                 value={depositToman}
-                onChange={(e) => setDepositToman(e.target.value)}
+                onValueChange={setDepositToman}
                 placeholder="500000"
               />
               <TextField

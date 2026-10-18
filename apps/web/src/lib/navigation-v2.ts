@@ -157,7 +157,7 @@ const CONTEXTUAL_MOSAIC_META: Readonly<
     intent: "monitor",
   },
   statements: {
-    summary: "ریز حساب قلم‌به‌قلم اعضا، بازه زمانی و دانلود CSV/JSON",
+    summary: "ریز حساب قلم‌به‌قلم اعضا، بازه زمانی و دانلود فایل",
     intent: "monitor",
   },
   payments: {
@@ -249,7 +249,7 @@ const CONTEXTUAL_MOSAIC_META: Readonly<
     intent: "manage",
   },
   admin: {
-    summary: "کنسول سامانه، break-glass، رویداد امنیتی و SLO — فقط نقش platform",
+    summary: "کنسول سامانه، دسترسی اضطراری، رویدادهای امنیتی و SLO — فقط مدیر سامانه",
     intent: "monitor",
   },
   "whats-new": {
@@ -353,7 +353,7 @@ export type AccountNavOptions = {
   platformRole?: string | null;
 };
 
-function isPlatformConsoleRole(role: string | null | undefined): boolean {
+export function isPlatformConsoleRole(role: string | null | undefined): boolean {
   return role === "platform_owner" || role === "platform_support";
 }
 

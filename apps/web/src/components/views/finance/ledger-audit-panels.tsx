@@ -1,7 +1,8 @@
 "use client";
 
-import type { JournalEntrySummary } from "@dang/contracts";
+import { journalAsOfDay, type JournalEntrySummary } from "@dang/contracts";
 import { DataList, DataRow, EmptyHint, SectionCard, StatusPill } from "@/components/ui-blocks";
+import { formatFaDate } from "@/lib/fa-datetime";
 import { auditResultLabel } from "@/lib/status-labels";
 import type { AuditEventDto } from "@/lib/api";
 
@@ -10,6 +11,22 @@ type LedgerAuditPanelsProps = {
   auditEvents: AuditEventDto[];
   memberLabel: (userId: string) => string;
 };
+
+const JOURNAL_SOURCE_LABELS: Record<string, string> = {
+  expense: "هزینه",
+  settlement: "تسویه",
+  payment_receipt: "رسید پرداخت",
+  payment_on_behalf: "پرداخت به‌جای دیگری",
+};
+
+function journalSourceLabel(sourceType: string): string {
+  return JOURNAL_SOURCE_LABELS[sourceType] ?? "سند مالی";
+}
+
+/** Credit side = who paid; debit side = who owes their share. */
+function journalSideLabel(side: "debit" | "credit"): string {
+  return side === "credit" ? "پرداخت‌کننده" : "سهم";
+}
 
 /**
  * Read-only double-entry ledger + audit-event cards.
@@ -30,16 +47,16 @@ export function LedgerAuditPanels({
           {ledgerEntries.map((entry) => (
             <DataRow
               key={entry.id}
-              title={`${entry.sourceType}:${entry.sourceId.slice(0, 8)}`}
+              title={`${journalSourceLabel(entry.sourceType)} · ${formatFaDate(journalAsOfDay(entry))}`}
               meta={entry.lines
-                .map((line) => `${line.side} ${memberLabel(line.userId)}`)
+                .map((line) => `${journalSideLabel(line.side)}: ${memberLabel(line.userId)}`)
                 .join(" · ")}
               trailing={`${entry.lines.length} خط`}
             />
           ))}
         </DataList>
       </SectionCard>
-      <SectionCard title="رویدادهای Audit" badge={auditEvents.length} delayClass="delay4">
+      <SectionCard title="رویدادهای ثبت‌شده" badge={auditEvents.length} delayClass="delay4">
         <DataList>
           {auditEvents.length === 0 ? <EmptyHint>رویدادی نیست.</EmptyHint> : null}
           {auditEvents.slice(0, 12).map((event) => (

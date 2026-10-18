@@ -349,8 +349,9 @@
   white-space: nowrap;
 }
 
+/* Positive tone is a calm text accent only — never a green hero/button fill. */
 .metrics .tone_positive strong {
-  color: var(--success, #198754);
+  color: color-mix(in srgb, var(--success, #198754) 55%, var(--text));
 }
 
 .metrics .tone_attention strong {

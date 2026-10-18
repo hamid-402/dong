@@ -45,11 +45,11 @@ function formatMinorIrr(minor: string): string {
 function warehouseModeLabel(mode: AnalyticsWarehouseSnapshot["mode"]): string {
   switch (mode) {
     case "postgres_replica_etl":
-      return "Postgres replica + ETL";
+      return "انبار دادهٔ تحلیلی (نسخهٔ جداگانه)";
     case "postgres_etl":
-      return "Postgres schema analytics";
+      return "انبار دادهٔ تحلیلی";
     case "memory_etl":
-      return "حافظه (dev)";
+      return "حافظهٔ موقت";
     default:
       return mode;
   }
@@ -322,7 +322,7 @@ export function ProductMetricsView() {
             <>
               <StatusLine>
                 حالت: {warehouseModeLabel(warehouse.mode)} · پایداری:{" "}
-                {warehouse.persistence === "postgres" ? "Postgres" : "حافظه"} · آخرین ETL:{" "}
+                {warehouse.persistence === "postgres" ? "دائمی" : "حافظه"} · آخرین ETL:{" "}
                 {warehouse.lastRun
                   ? `${warehouse.lastRun.status} · ${formatWhen(warehouse.lastRun.finishedAt)} · ${warehouse.lastRun.rowsUpserted} روز`
                   : "هنوز اجرا نشده"}

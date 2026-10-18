@@ -32,7 +32,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "چطور بفهمم سرویس واقعی است نه نمایشی؟",
-    a: "وضعیت و برچسب‌های اعتماد از /health/ready و /system/capabilities می‌آیند؛ اگر دیتابیس یا درگاه stub باشد، صریحاً گفته می‌شود.",
+    a: "وضعیت سرویس و برچسب‌های اطمینان همین‌جا از خود سامانه خوانده می‌شوند؛ اگر پایگاه داده یا درگاه پرداخت آزمایشی باشد، صریحاً گفته می‌شود.",
   },
   {
     q: "بعد از ثبت‌نام کجا می‌روم؟",
@@ -119,7 +119,7 @@ export function MarketingLanding() {
           </p>
           <p className="siteSection__lead">
             برای گروه‌های کوچک تا تیم‌های عملیاتی: ثبت خرج، تأیید خرید، تجهیزات و
-            تسویه — با ماندهٔ واقعی از API، نه آمار نمایشی.
+            تسویه — با ماندهٔ واقعی، نه آمار نمایشی.
           </p>
           <p className="siteHero__status" aria-live="polite">
             وضعیت سرویس:{" "}
@@ -136,7 +136,7 @@ export function MarketingLanding() {
           </div>
         ) : (
           <p className="siteHero__trustHint liveHint">
-            برچسب‌های اعتماد پس از پاسخ capabilities نمایش داده می‌شوند.
+            برچسب‌های اطمینان پس از بررسی وضعیت سرویس نمایش داده می‌شوند.
           </p>
         )}
       </section>
@@ -160,7 +160,7 @@ export function MarketingLanding() {
           </li>
           <li>
             <strong>صداقت فنی</strong>
-            <span>اگر سرویس stub باشد، در capabilities و UI پنهان نمی‌ماند.</span>
+            <span>اگر بخشی آزمایشی باشد، پنهان نمی‌شود و صریحاً اعلام می‌شود.</span>
           </li>
         </ul>
       </section>
@@ -170,7 +170,7 @@ export function MarketingLanding() {
           <h2 id="site-simplify-title">بدهی‌های درهم؛ تسویهٔ کمینه</h2>
           <p className="siteSection__lead">
             وقتی چند نفر به هم بدهکارند، تعداد پرداخت‌های متقابل بالا می‌رود. دنگ
-            مسیر تسویه را کوتاه می‌کند — فقط وقتی قابلیت در capabilities فعال باشد،
+            مسیر تسویه را کوتاه می‌کند — فقط وقتی قابلیت در این محیط فعال باشد،
             و بدون عددهای تبلیغاتی جعلی.
           </p>
         </div>
@@ -181,11 +181,11 @@ export function MarketingLanding() {
           </li>
           <li>
             <strong>پیشنهاد کمینه</strong>
-            <span>الگوریتم، مجموعهٔ پرداخت‌های لازم را پیشنهاد می‌دهد (پرچم محصول).</span>
+            <span>سامانه کمترین پرداخت‌های لازم را پیشنهاد می‌دهد.</span>
           </li>
           <li>
             <strong>تأیید واقعی</strong>
-            <span>ادعا و تأیید تسویه در API ثبت می‌شود — نه فقط روی بنر معرفی.</span>
+            <span>ادعا و تأیید تسویه در دفتر ثبت می‌شود — نه فقط روی بنر معرفی.</span>
           </li>
         </ol>
         <div className="siteSimplifyCompare" role="group" aria-label="قبل و بعد مفهومی">

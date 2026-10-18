@@ -19,6 +19,11 @@ import { NAV_LABELS } from "@/lib/nav-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { FlashMessages } from "@/lib/use-flash-message";
 import { formatFaDateTime } from "@/lib/fa-datetime";
+import {
+  makerCheckerModeLabel,
+  securityCategoryLabel,
+  securitySeverityLabel,
+} from "@/lib/status-labels";
 import { t } from "@/lib/i18n";
 
 function formatWhen(iso: string): string {
@@ -146,18 +151,18 @@ function WorkspaceSecurityOpsInner() {
               }
             >
               <option value="">{t("securityOps.allSeverities")}</option>
-              <option value="info">info</option>
-              <option value="low">low</option>
-              <option value="medium">medium</option>
-              <option value="high">high</option>
-              <option value="critical">critical</option>
+              <option value="info">{securitySeverityLabel("info")}</option>
+              <option value="low">{securitySeverityLabel("low")}</option>
+              <option value="medium">{securitySeverityLabel("medium")}</option>
+              <option value="high">{securitySeverityLabel("high")}</option>
+              <option value="critical">{securitySeverityLabel("critical")}</option>
             </SelectField>
             <StatusLine>
               {antifraudLive
                 ? t("securityOps.antifraudHint")
                 : t("securityOps.antifraudOff")}
               {makerMode !== "off"
-                ? ` · ${t("securityOps.makerHint", { mode: makerMode })}`
+                ? ` · ${t("securityOps.makerHint", { mode: makerCheckerModeLabel(makerMode) })}`
                 : ""}
             </StatusLine>
           </FormStack>
@@ -173,7 +178,7 @@ function WorkspaceSecurityOpsInner() {
                 <li key={ev.id}>
                   <strong>{ev.event}</strong>
                   {" · "}
-                  {ev.category}/{ev.severity}
+                  {securityCategoryLabel(ev.category)} · {securitySeverityLabel(ev.severity)}
                   {" · "}
                   {formatWhen(ev.occurredAt)}
                   {ev.reason ? ` · ${ev.reason}` : ""}

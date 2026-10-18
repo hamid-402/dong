@@ -88,18 +88,18 @@ export function SiteStatusProvider({ children }: { children: ReactNode }) {
   const trustBadges: string[] = [];
   if (caps) {
     if (caps.persistence.iam === "postgres" && caps.databaseConfigured) {
-      trustBadges.push("Postgres + RLS");
+      trustBadges.push("ذخیره‌سازی دائمی");
     }
-    if (!caps.allowDevAuth) trustBadges.push("ورود production");
+    if (!caps.allowDevAuth) trustBadges.push("ورود با حساب کاربری");
     if (!caps.stubs.paymentProvider) {
       if (caps.providers?.payment === "zarinpal") {
-        trustBadges.push("PSP واقعی (زرین‌پال)");
+        trustBadges.push("درگاه پرداخت زرین‌پال");
       } else if (caps.providers?.payment === "local_psp") {
-        trustBadges.push("LocalPSP");
+        trustBadges.push("درگاه آزمایشی");
       }
     }
     if (caps.providers?.email === "resend") trustBadges.push("ایمیل واقعی");
-    if (caps.providers?.jobs === "redis_queue") trustBadges.push("صف کار واقعی");
+    if (caps.providers?.jobs === "redis_queue") trustBadges.push("پردازش پس‌زمینه");
     if (caps.persistence.attachmentBlob === "local") {
       trustBadges.push("ذخیره رسید محلی");
     }
@@ -110,10 +110,10 @@ export function SiteStatusProvider({ children }: { children: ReactNode }) {
     : offline
       ? "سرویس در دسترس نیست"
       : health?.status === "ready"
-        ? `آماده · ${caps?.databaseConfigured ? "متصل" : "بدون DB"}`
+        ? `آماده · ${caps?.databaseConfigured ? "متصل" : "بدون پایگاه داده"}`
         : health?.status === "degraded"
           ? "تخریب‌شده"
-          : "پاسخ ناقص از API";
+          : "پاسخ ناقص از سرور";
 
   return (
     <SiteStatusContext.Provider
@@ -327,7 +327,7 @@ export function SiteFooter() {
               ) : null}
               <li>
                 <a href={healthUrl} target="_blank" rel="noreferrer">
-                  وضعیت سرویس (API)
+                  وضعیت سرویس
                 </a>
               </li>
             </ul>
@@ -337,9 +337,6 @@ export function SiteFooter() {
         <div className="authLayout__footerBar">
           <span>
             © {year} دنگ همکاری · نسخه {caps?.version ?? "…"}
-            {caps
-              ? ` · IAM ${caps.persistence.iam} · اعلان ${caps.persistence.notification}`
-              : null}
           </span>
         </div>
       </div>

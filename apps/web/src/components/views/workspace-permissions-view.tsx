@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { isFinanceManagerRole, ACCESS_POLICY_VERSION } from "@dang/contracts";
-import { Button, SelectField, TextField } from "@dang/ui";
+import { isFinanceManagerRole } from "@dang/contracts";
+import { Button, MoneyInput, SelectField, TextField, formatMoneyWithUnit } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -26,8 +26,9 @@ import {
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalWorkspaceScope } from "@/components/shell/workspace-scope";
-import { membershipRoleLabel } from "@/lib/status-labels";
-import { tomanInputToIrrMinor, irrMinorToTomanInput } from "@/lib/irr-money";
+import { accessPolicyLabel, membershipRoleLabel } from "@/lib/status-labels";
+import { displayInputToIrrMinor } from "@/lib/irr-money";
+import { useDisplayUnit } from "@/lib/display-unit";
 import { wPath } from "@/lib/workspace-paths";
 
 const EDITABLE_ROLES = ["admin", "finance", "deputy_finance", "member", "approver", "buyer"];
@@ -35,6 +36,7 @@ const EDITABLE_ROLES = ["admin", "finance", "deputy_finance", "member", "approve
 export function WorkspacePermissionsView() {
   const chrome = useAppChrome();
   const scope = useOptionalWorkspaceScope();
+  const displayUnit = useDisplayUnit();
   const workspaceId = scope?.workspaceId || chrome.workspaceId;
   const [data, setData] = useState<WorkspacePermissionsDto | null>(null);
   const [policyAudit, setPolicyAudit] = useState<PolicyAuditDto | null>(null);
@@ -134,10 +136,10 @@ export function WorkspacePermissionsView() {
     const startsAt = new Date().toISOString();
     const endsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const capMoney = deputyCapToman.trim()
-      ? tomanInputToIrrMinor(deputyCapToman)
+      ? displayInputToIrrMinor(deputyCapToman, displayUnit)
       : null;
     if (deputyCapToman.trim() && !capMoney) {
-      setError("سقف تأیید باید عدد تومان معتبر باشد (یا خالی برای بدون سقف)");
+      setError("سقف تأیید باید عدد معتبر باشد (یا خالی برای بدون سقف)");
       return;
     }
     startTransition(() => {
@@ -178,17 +180,20 @@ export function WorkspacePermissionsView() {
     >
       <WorkspacePageFrame
       title={NAV_LABELS.permissions}
-      description={"grant نقش و جانشینی از accessPolicy واقعی."}
+      description="اعطای نقش و جانشینی مالی بر اساس سطح دسترسی فعال در این فضا."
       primaryAction={scope?.slug ? <Link href={wPath(scope.slug, "members")}>{NAV_LABELS.members}</Link> : <Link href="/spaces">{NAV_LABELS.spacesList}</Link>}
       state="ready"
     >
-      <SectionCard title="سطح دسترسی قابل‌ویرایش" badge={accessPolicy ?? "—"}>
+      <SectionCard
+        title="سطح دسترسی قابل‌ویرایش"
+        badge={accessPolicy ? accessPolicyLabel(accessPolicy) : "در حال خواندن"}
+      >
         {error ? <StatusLine>{error}</StatusLine> : null}
         {!accessPolicy ? (
-          <ContentSkeleton rows={2} label="در حال خواندن capabilities…" />
+          <ContentSkeleton rows={2} label="در حال خواندن تنظیمات دسترسی…" />
         ) : accessPolicy !== "rbac_abac_grants_v1" ? (
           <EmptyHint>
-            این استقرار grant قابل‌ویرایش را گزارش نکرده ({accessPolicy}).
+            ویرایش اعطای نقش در این محیط فعال نیست (سطح دسترسی: {accessPolicyLabel(accessPolicy)}).
           </EmptyHint>
         ) : !data ? (
           <EmptyHint>داده‌ای نیست یا دسترسی ندارید.</EmptyHint>
@@ -231,15 +236,15 @@ export function WorkspacePermissionsView() {
                   <option value="deny">منع</option>
                 </SelectField>
                 <Button type="button" disabled={pending} onClick={saveRoleGrant}>
-                  ذخیره grant نقش
+                  ذخیرهٔ اعطای نقش
                 </Button>
               </FormStack>
             ) : (
-              <EmptyHint>فقط مالک می‌تواند grant نقش را ویرایش کند.</EmptyHint>
+              <EmptyHint>فقط مالک می‌تواند اعطای نقش را ویرایش کند.</EmptyHint>
             )}
-            <SectionCard title="grantهای نقش فعلی" badge={data.roleGrants.length}>
+            <SectionCard title="اعطاهای نقش فعلی" badge={data.roleGrants.length}>
               {data.roleGrants.length === 0 ? (
-                <EmptyHint>هنوز grant سفارشی ثبت نشده — سیاست پیش‌فرض RBAC/ABAC برقرار است.</EmptyHint>
+                <EmptyHint>هنوز اعطای سفارشی ثبت نشده — سیاست پیش‌فرض نقش‌ها برقرار است.</EmptyHint>
               ) : (
                 <DataList>
                   {data.roleGrants.map((g) => (
@@ -256,25 +261,30 @@ export function WorkspacePermissionsView() {
               {canDeputy ? (
                 <FormStack>
                   <StatusLine>
-                    سقف تأیید اختیاری است (تومان). خالی = بدون سقف عددی. ارزیابی دسترسی:{" "}
-                    {ACCESS_POLICY_VERSION}.
+                    سقف تأیید اختیاری است. خالی = بدون سقف عددی.
                   </StatusLine>
-                  <TextField
-                    label="شناسه کاربر (UUID)"
+                  <SelectField
+                    label="عضو جانشین"
                     value={deputyUserId}
                     onChange={(e) => setDeputyUserId(e.target.value)}
-                  />
+                  >
+                    <option value="">انتخاب عضو…</option>
+                    {memberOptions.map((m) => (
+                      <option key={m.userId} value={m.userId}>
+                        {m.displayName}
+                      </option>
+                    ))}
+                  </SelectField>
                   <TextField
                     label="دلیل"
                     value={deputyReason}
                     onChange={(e) => setDeputyReason(e.target.value)}
                   />
-                  <TextField
-                    label="سقف تأیید (تومان، اختیاری)"
+                  <MoneyInput
+                    label="سقف تأیید (اختیاری)"
                     value={deputyCapToman}
-                    onChange={(e) => setDeputyCapToman(e.target.value)}
-                    inputMode="numeric"
-                    hint="بالای این مبلغ برای جانشین DENY_ATTRIBUTE می‌شود"
+                    onValueChange={setDeputyCapToman}
+                    hint="بالای این مبلغ، جانشین نمی‌تواند تأیید کند"
                   />
                   <Button type="button" disabled={pending} onClick={createDeputy}>
                     بازه ۷روزه بساز
@@ -288,10 +298,13 @@ export function WorkspacePermissionsView() {
                   {data.deputyWindows.map((w) => (
                     <DataRow
                       key={w.id}
-                      title={w.userId}
-                      meta={`${w.active ? "فعال" : "غیرفعال"} · ${w.reason || "—"} · سقف: ${
+                      title={
+                        memberOptions.find((m) => m.userId === w.userId)?.displayName ??
+                        "عضو حذف‌شده"
+                      }
+                      meta={`${w.active ? "فعال" : "غیرفعال"} · ${w.reason || "بدون دلیل"} · سقف: ${
                         w.approvalCapMinor
-                          ? `${irrMinorToTomanInput(w.approvalCapMinor)} تومان`
+                          ? formatMoneyWithUnit(w.approvalCapMinor, displayUnit)
                           : "بدون سقف"
                       }`}
                       actions={
@@ -312,25 +325,24 @@ export function WorkspacePermissionsView() {
 
       {myRole === "owner" || myRole === "admin" || myRole === "auditor" ? (
         <SectionCard
-          title="ممیزی سیاست‌های داخلی (Policy DSL)"
+          title="مرور سیاست‌های دسترسی"
           badge={policyAudit ? String(policyAudit.policies.length) : "—"}
         >
           {policyAuditError ? <StatusLine>{policyAuditError}</StatusLine> : null}
           {!policyAudit && !policyAuditError ? (
-            <ContentSkeleton rows={2} label="در حال خواندن policy-audit…" />
+            <ContentSkeleton rows={2} label="در حال خواندن سیاست‌ها…" />
           ) : null}
           {policyAudit ? (
             <>
               <p>
-                منبع: {policyAudit.source} · نقش شما:{" "}
-                {membershipRoleLabel(policyAudit.actorRole)} — فقط رجیستری built-in؛ grant
-                سفارشی اینجا نیست.
+                نقش شما: {membershipRoleLabel(policyAudit.actorRole)} — فقط سیاست‌های پیش‌فرض
+                سامانه؛ اعطای سفارشی در این فهرست نیست.
               </p>
               <DataList>
                 {policyAudit.policies.map((p) => (
                   <DataRow
                     key={p.policyId}
-                    title={`${p.action} · ${p.effect}`}
+                    title={`${p.action} · ${p.effect === "allow" ? "اجازه" : "منع"}`}
                     meta={`${p.roleOnlyAllows ? "نقش به‌تنهایی اجازه می‌دهد" : "نقش به‌تنهایی کافی نیست"} · ${p.noteForActor}`}
                   />
                 ))}
@@ -341,7 +353,7 @@ export function WorkspacePermissionsView() {
       ) : null}
 
       {dryRunEnabled && (myRole === "owner" || myRole === "admin" || myRole === "auditor") ? (
-        <SectionCard title="Dry-run دسترسی (بدون تغییر)">
+        <SectionCard title="آزمایش دسترسی (بدون تغییر)">
           <FormStack>
             <SelectField
               label="عضو"
@@ -355,17 +367,16 @@ export function WorkspacePermissionsView() {
               ))}
             </SelectField>
             <TextField
-              label="action"
+              label="اقدام"
               value={dryAction}
               onChange={(e) => setDryAction(e.target.value)}
               dir="ltr"
               hint="مثلاً expense.create یا invite.create"
             />
-            <TextField
-              label="مبلغ (تومان، اختیاری)"
+            <MoneyInput
+              label="مبلغ (اختیاری)"
               value={dryAmountToman}
-              onChange={(e) => setDryAmountToman(e.target.value)}
-              dir="ltr"
+              onValueChange={setDryAmountToman}
             />
             <Button
               type="button"
@@ -375,25 +386,22 @@ export function WorkspacePermissionsView() {
                 startTransition(() => {
                   void (async () => {
                     try {
-                      const toman = Number(dryAmountToman.replaceAll(",", ""));
+                      const dryMoney = displayInputToIrrMinor(dryAmountToman, displayUnit);
                       const result = await permissionsApi.dryRun(workspaceId, {
                         userId: dryUserId,
                         action: dryAction.trim(),
-                        amountMinor:
-                          Number.isFinite(toman) && toman > 0
-                            ? String(Math.round(toman) * 10)
-                            : undefined,
+                        amountMinor: dryMoney?.amountMinor,
                       });
                       setDryResult(
                         `${result.allowed ? "مجاز" : "غیرمجاز"} · ${result.reason}` +
                           (result.matched
-                            ? ` · ${result.matched.source}/${result.matched.effect}`
+                            ? ` · ${result.matched.effect === "allow" ? "اجازه" : "منع"}`
                             : ""),
                       );
                       setError(null);
                     } catch (err: unknown) {
                       setDryResult(null);
-                      setError(friendlyErrorMessage(err, "dry-run ناموفق"));
+                      setError(friendlyErrorMessage(err, "آزمایش دسترسی ناموفق بود"));
                     }
                   })();
                 });

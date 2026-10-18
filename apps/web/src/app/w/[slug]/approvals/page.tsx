@@ -25,6 +25,7 @@ import { friendlyErrorMessage } from "@/lib/api-errors";
 import {
   approvalQueueKindLabel,
   approvalQueueStatusLabel,
+  makerCheckerModeLabel,
   membershipRoleLabel,
 } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
@@ -232,7 +233,7 @@ function WorkspaceApprovalsPageInner() {
     >
       <WorkspacePageFrame
         title={NAV_LABELS.approvals}
-        description="صف اقدام‌های واقعی در انتظار تأیید — بدون badge جعلی."
+        description="درخواست‌هایی که منتظر تأیید شما یا دیگر اعضا هستند."
         primaryAction={
           workspace ? (
             <Link href={wPath(workspace.slug, "expenses")}>{NAV_LABELS.expenses}</Link>
@@ -257,7 +258,9 @@ function WorkspaceApprovalsPageInner() {
                   ? t("approvals.makerFourEyes")
                   : mode === "four_eyes_queue_v1"
                     ? t("approvals.makerQueue")
-                    : mode;
+                    : mode === "four_eyes_tiers_v1"
+                      ? "تأیید دو نفره چندمرحله‌ای: موارد حساس بر اساس مبلغ چند تأیید می‌گیرند."
+                      : `${makerCheckerModeLabel(mode)} فعال است.`;
             const slaNote =
               sla === "hours_v1"
                 ? ` · ${t("approvals.slaHours")}`
@@ -284,7 +287,7 @@ function WorkspaceApprovalsPageInner() {
                   : "در حال تشخیص نقش…"}
             </StatusLine>
           ) : actorUserId ? (
-            <StatusLine>اقدام‌ها روی موارد واقعی صف — بدون badge جعلی.</StatusLine>
+            <StatusLine>هر اقدام روی همین فهرست اعمال می‌شود.</StatusLine>
           ) : null}
           {items.length === 0 ? (
             <EmptyHint>

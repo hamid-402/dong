@@ -129,7 +129,7 @@ export function OrgFinanceView() {
       ) : (
         <ProductGrid>
           <StatusLine>
-            اگر بخشی را نمی‌بینید، پرچم مربوط در capabilities خاموش است (نه باگ UI).
+            اگر بخشی را نمی‌بینید، قابلیت مربوط در این محیط روشن نیست.
           </StatusLine>
           {flags?.costCenter && chrome.workspaceId ? (
             <CostCentersPanel workspaceId={chrome.workspaceId} readOnly={readOnly} />

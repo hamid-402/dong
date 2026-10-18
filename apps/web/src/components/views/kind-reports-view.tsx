@@ -8,7 +8,7 @@ import {
   type ReportViewSummary,
   type SpaceKind,
 } from "@dang/contracts";
-import { useConfirm } from "@dang/ui";
+import { formatMoneyWithUnit, useConfirm } from "@dang/ui";
 import { ProChart } from "@/components/charts/pro-chart";
 import { ReportInsights } from "@/components/charts/report-insights";
 import {
@@ -26,10 +26,7 @@ import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
-import {
-  formatChartToman,
-  netsToShareSeries,
-} from "@/lib/chart-format";
+import { netsToShareSeries } from "@/lib/chart-format";
 import {
   buildShareInsights,
   buildTrendInsights,
@@ -358,7 +355,7 @@ export function KindReportsView({
         description={
           chartsEnabled
             ? `بینش و نمودار همهٔ فضاهای «${label}» — ثبت خرج و تسویه فقط داخل هر فضاست.`
-            : `مانده و تسویهٔ باز همهٔ فضاهای «${label}» از داشبورد زنده — نمودار خرج وقتی charts_v1 فعال باشد اضافه می‌شود.`
+            : `مانده و تسویهٔ باز همهٔ فضاهای «${label}» از داشبورد زنده — نمودار خرج در صورت فعال‌بودن قابلیت نمودار اضافه می‌شود.`
         }
         actions={
           <>
@@ -451,8 +448,8 @@ export function KindReportsView({
           {!chartsEnabled ? (
             <StatusLine>
               <StatusPill tone="warn">نمودار خرج</StatusPill>
-              مقایسهٔ مانده از داشبورد فعال است. روند خرج و ترکیب دسته وقتی
-              capabilities.providers.charts برابر charts_v1 باشد از API سرور می‌آید.
+              مقایسهٔ مانده فعال است. روند خرج و ترکیب دسته فقط وقتی قابلیت نمودار
+              در این محیط روشن باشد نمایش داده می‌شود.
             </StatusLine>
           ) : null}
 
@@ -464,7 +461,7 @@ export function KindReportsView({
                   series={mergedTrend}
                   loading={pending && !mergedTrend}
                   variant="line"
-                  primaryLabel="جمع خرج (تومان)"
+                  primaryLabel="جمع خرج"
                   exportable
                 />
                 <ProChart
@@ -472,7 +469,7 @@ export function KindReportsView({
                   series={spendLeaderboard}
                   loading={pending && spendRanks.length === 0 && spaces.length > 0}
                   variant="hbar"
-                  primaryLabel="جمع خرج بازه (تومان)"
+                  primaryLabel="جمع خرج بازه"
                   exportable
                 />
               </>
@@ -481,7 +478,7 @@ export function KindReportsView({
               title="مقایسهٔ قدرمطلق ماندهٔ فضاها"
               series={netShare}
               variant="hbar"
-              primaryLabel="مانده (تومان)"
+              primaryLabel="مانده"
               compact
               exportable
             />
@@ -491,7 +488,7 @@ export function KindReportsView({
                 series={mergedMix}
                 loading={pending && !mergedMix}
                 variant="donut"
-                primaryLabel="جمع (تومان)"
+                primaryLabel="جمع"
                 exportable
               />
             ) : null}
@@ -647,9 +644,7 @@ export function KindReportsView({
                               />
                             </td>
                             <td className="kindReports__num">
-                              {spend && spend.spendMinor > 0n
-                                ? `${formatChartToman(spend.spendMinor)} تومان`
-                                : "—"}
+                              {formatMoneyWithUnit(spend ? spend.spendMinor : 0n, displayUnit)}
                             </td>
                             <td className="kindReports__num">
                               {spend && spend.spendMinor > 0n ? (
@@ -666,7 +661,7 @@ export function KindReportsView({
                                   </span>
                                 </span>
                               ) : (
-                                "—"
+                                "بدون خرج"
                               )}
                             </td>
                             <td>
@@ -675,7 +670,7 @@ export function KindReportsView({
                                   {mom.text}
                                 </span>
                               ) : (
-                                "—"
+                                "بدون مقایسه"
                               )}
                             </td>
                           </>
@@ -700,6 +695,7 @@ export function KindReportsView({
                 </tbody>
               </table>
             </div>
+            <p className="kindReports__scrollHint">برای دیدن همه ستون‌ها، جدول را به چپ و راست بکشید.</p>
           </SectionCard>
 
           {chartsEnabled && spaceTrends.some((s) => s.series.points.length > 0) ? (
@@ -713,7 +709,7 @@ export function KindReportsView({
                       title={s.name}
                       series={s.series}
                       variant="line"
-                      primaryLabel="خرج (تومان)"
+                      primaryLabel="خرج"
                       compact
                       exportable
                     />

@@ -29,6 +29,7 @@ import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { AppShell } from "@/components/app-shell";
 import { EmptyHint, FormStack, SectionCard } from "@/components/ui-blocks";
 import { api } from "@/lib/api";
+import { JalaliDateField } from "@/components/jalali-date-field";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { todayIsoLocal } from "@/lib/fa-datetime";
 import { useLiveInvalidation } from "@/lib/live-invalidation";
@@ -376,10 +377,10 @@ export function FriendsGroupView() {
                             value={outingBudgetToman}
                             onChange={(e) => setOutingBudgetToman(e.target.value)}
                           />
-                          <TextField
-                            label="پایان بازه (YYYY-MM-DD، اختیاری)"
+                          <JalaliDateField
+                            label="پایان بازه (اختیاری)"
                             value={outingEndsOn}
-                            onChange={(e) => setOutingEndsOn(e.target.value)}
+                            onChange={setOutingEndsOn}
                           />
                           <Button type="button" onClick={onCreateOuting} disabled={pending}>
                             ساخت گردش

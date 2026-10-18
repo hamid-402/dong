@@ -170,7 +170,7 @@ export function DailyLedgerOverviewTable({
         <span>
           واریز:{" "}
           {depositRange === 0n ? (
-            <span className={styles.muted}>—</span>
+            <span className={styles.muted}>بدون واریز</span>
           ) : (
             <Amount irrMinor={depositRange.toString()} />
           )}
@@ -301,14 +301,14 @@ export function DailyLedgerOverviewTable({
                   </td>
                   <td className={`${styles.num} ${styles.hideSm}`}>
                     {depositMinor === "0" ? (
-                      <span className={styles.muted}>—</span>
+                      <span className={styles.muted}><Amount irrMinor="0" /></span>
                     ) : (
                       <Amount irrMinor={depositMinor} />
                     )}
                   </td>
                   <td className={`${styles.num} ${styles.hideMd}`}>
                     {items === 0 ? (
-                      <span className={styles.muted}>—</span>
+                      <span className={styles.muted}>بدون قلم</span>
                     ) : (
                       new Intl.NumberFormat("fa-IR").format(items)
                     )}
@@ -390,7 +390,7 @@ export function DailyLedgerOverviewTable({
                     واریز{" "}
                     <b>
                       {depositMinor === "0" ? (
-                        <span className={styles.muted}>—</span>
+                        <span className={styles.muted}><Amount irrMinor="0" /></span>
                       ) : (
                         <Amount irrMinor={depositMinor} />
                       )}
@@ -400,7 +400,7 @@ export function DailyLedgerOverviewTable({
                     قلم{" "}
                     <b>
                       {items === 0
-                        ? "—"
+                        ? "بدون قلم"
                         : new Intl.NumberFormat("fa-IR").format(items)}
                     </b>
                   </span>

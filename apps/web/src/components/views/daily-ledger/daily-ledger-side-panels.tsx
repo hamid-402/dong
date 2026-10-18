@@ -186,17 +186,17 @@ export function DailyLedgerSidePanels({
         <details className="reportDetails">
           <summary>
             <span>ورود از جدول</span>
-            <span>Dong-To / Excel · پیش‌نمایش → تأیید</span>
+            <span>ورود از اکسل · پیش‌نمایش ← تأیید</span>
           </summary>
           <div className="reportDetails__body">
             <StatusLine>
-              Paste جدول عمومی یا فایل <code>.xlsx</code> — اول پیش‌نمایش می‌آید، بعد از
+              جدول را جای‌گذاری کنید یا فایل اکسل (<code>.xlsx</code>) بدهید — اول پیش‌نمایش می‌آید، بعد از
               نگاشت (در صورت نیاز) تأیید ورود. ستون شرکت → هزینه مشترک. این همان{" "}
               {NAV_LABELS.dailyEntry} است، نه مسیر سوم.
             </StatusLine>
             {onSheetSourceChange ? (
               <SelectField
-                label="منبع برگه Excel"
+                label="منبع برگه اکسل"
                 value={sheetSource}
                 onChange={(e) =>
                   onSheetSourceChange(
@@ -225,7 +225,7 @@ export function DailyLedgerSidePanels({
                 onClick={onRunImport}
                 disabled={pending || !importCsv.trim()}
               >
-                پیش‌نمایش Paste / CSV
+                پیش‌نمایش جدول چسبانده‌شده / CSV
               </Button>
               {onImportXlsxFile ? (
                 <>
@@ -246,7 +246,7 @@ export function DailyLedgerSidePanels({
                     disabled={pending}
                     onClick={() => fileRef.current?.click()}
                   >
-                    پیش‌نمایش فایل Excel
+                    پیش‌نمایش فایل اکسل
                   </Button>
                 </>
               ) : null}

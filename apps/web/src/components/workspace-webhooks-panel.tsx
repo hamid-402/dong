@@ -20,6 +20,16 @@ import { friendlyErrorMessage } from "@/lib/api-errors";
 import { newClientId } from "@/lib/id";
 import { useOptionalAppChrome } from "@/lib/use-app-chrome";
 
+/** User-facing names for webhook event keys (keys stay in the payload). */
+const WEBHOOK_EVENT_LABELS: Record<string, string> = {
+  "expense.posted": "ثبت هزینه",
+  "settlement.confirmed": "تأیید تسویه",
+};
+
+function webhookEventLabel(event: string): string {
+  return WEBHOOK_EVENT_LABELS[event] ?? "رویداد دیگر";
+}
+
 /** Outbound webhooks — only interactive when capabilities.outboundWebhooks=hmac_v1. */
 export function WorkspaceWebhooksPanel({
   workspaceId,
@@ -67,24 +77,24 @@ export function WorkspaceWebhooksPanel({
     return (
       <SectionCard title="وب‌هوک خروجی">
         <EmptyHint>
-          قابلیت outboundWebhooks در capabilities خاموش است — بدون HMAC ادعا نمی‌شود.
+          ارسال خودکار رویدادها به نشانی بیرونی در این محیط فعال نیست.
         </EmptyHint>
       </SectionCard>
     );
   }
 
   return (
-    <SectionCard title="وب‌هوک خروجی (HMAC)" badge={rows.length}>
+    <SectionCard title="وب‌هوک خروجی" badge={rows.length}>
       <StatusLine>
-        رویدادها: expense.posted · settlement.confirmed — امضا با هدر x-dang-signature
+        رویدادهای ارسالی: ثبت هزینه · تأیید تسویه. هر ارسال با امضای رمزنگاری‌شده همراه است تا گیرنده اصالت آن را بسنجد.
       </StatusLine>
       {error ? <StatusLine>{error}</StatusLine> : null}
       {info ? <StatusLine>{info}</StatusLine> : null}
       {!readOnly ? (
         <FormStack density="compact">
-          <TextField label="URL" value={url} onChange={(e) => setUrl(e.target.value)} />
+          <TextField label="نشانی گیرنده" value={url} onChange={(e) => setUrl(e.target.value)} />
           <TextField
-            label="Secret (حداقل ۱۶ کاراکتر)"
+            label="کلید امضا (حداقل ۱۶ کاراکتر)"
             value={secret}
             onChange={(e) => setSecret(e.target.value)}
           />
@@ -127,7 +137,7 @@ export function WorkspaceWebhooksPanel({
             <DataRow
               key={row.id}
               title={row.url}
-              meta={row.events.join(", ")}
+              meta={row.events.map(webhookEventLabel).join("، ")}
               trailing={
                 <StatusPill tone={row.active ? "ok" : "neutral"}>
                   {row.active ? "فعال" : "غیرفعال"}
@@ -158,7 +168,7 @@ export function WorkspaceWebhooksPanel({
           ))}
         </DataList>
       )}
-      <StatusLine>لاگ ارسال‌های اخیر</StatusLine>
+      <StatusLine>ارسال‌های اخیر</StatusLine>
       {deliveries.length === 0 ? (
         <EmptyHint>هنوز ارسالی ثبت نشده</EmptyHint>
       ) : (
@@ -166,8 +176,8 @@ export function WorkspaceWebhooksPanel({
           {deliveries.map((d) => (
             <DataRow
               key={d.id}
-              title={d.eventType}
-              meta={`${d.detail}${d.statusCode != null ? ` · HTTP ${d.statusCode}` : ""} · ${d.webhookId.slice(0, 8)}…`}
+              title={webhookEventLabel(d.eventType)}
+              meta={`${d.detail}${d.statusCode != null ? ` · کد پاسخ ${d.statusCode.toLocaleString("fa-IR")}` : ""}`}
               trailing={
                 <StatusPill tone={d.ok ? "ok" : "warn"}>
                   {d.ok ? "موفق" : "ناموفق"}

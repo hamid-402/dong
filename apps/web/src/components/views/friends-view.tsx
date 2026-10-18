@@ -449,7 +449,7 @@ export function FriendsView() {
           </FormStack>
           {lastMatchMeta ? (
             <p className="liveHint" style={{ marginTop: 8 }}>
-              آخرین اجرا: {lastMatchMeta.matched} از {lastMatchMeta.submitted} · منبع API
+              آخرین اجرا: {lastMatchMeta.matched} از {lastMatchMeta.submitted}
             </p>
           ) : null}
           {matchResults.length > 0 ? (

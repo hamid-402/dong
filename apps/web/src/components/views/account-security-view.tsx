@@ -13,6 +13,7 @@ import { NotificationPrefsPanel } from "@/components/notification-prefs-panel";
 import { api, ApiError, clearClientSession } from "@/lib/api";
 import { formatFaDateTime } from "@/lib/fa-datetime";
 import { NAV_LABELS } from "@/lib/nav-labels";
+import { userAgentLabel } from "@/lib/status-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useRouter } from "next/navigation";
 import styles from "./account-security-view.module.css";
@@ -95,7 +96,7 @@ export function AccountSecurityView() {
     >
       <WorkspacePageFrame
         title={NAV_LABELS.security}
-        description="نشست‌ها، عامل دوم، و ترجیحات اعلان — وضعیت فقط از API حساب."
+        description="نشست‌ها، عامل دوم، و ترجیحات اعلان — همان وضعیت واقعی حساب شما."
         secondaryActions={<Link href="/account">پروفایل</Link>}
       >
       {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
@@ -107,7 +108,7 @@ export function AccountSecurityView() {
                 <div className={styles.sessionHeading}>
                   <div>
                     <b>{session.current ? "این دستگاه" : "نشست دیگر"}</b>
-                    <small>{session.userAgent || "مرورگر گزارش نشده"}</small>
+                    <small title={session.userAgent || undefined}>{userAgentLabel(session.userAgent)}</small>
                   </div>
                   <StatusPill tone={session.current ? "ok" : "neutral"}>
                     {session.current ? "جاری" : "فعال"}
@@ -163,7 +164,7 @@ export function AccountSecurityView() {
           </div>
           <div>
             <span>نشست‌ها</span>
-            <b>ابطال سراسری نشست‌ها از backend</b>
+            <b>خروج همزمان از همهٔ دستگاه‌ها از سرور</b>
             <Button type="button" variant="secondary" size="sm" onClick={revokeAllSessions} disabled={pending}>
               خروج از همه دستگاه‌ها
             </Button>

@@ -28,7 +28,7 @@ export function PersonalResourcesSummaryBlock({ summary }: Props) {
           <strong>{summary.activeAccountCount}</strong>
           <span className="pfRowMeta">
             {" "}
-            · ذخیره: {summary.persistence === "postgres" ? "Postgres" : "حافظه"}
+            · ذخیره: {summary.persistence === "postgres" ? "دائمی" : "حافظه"}
           </span>
         </div>
         {summary.currentMonthBudget ? (

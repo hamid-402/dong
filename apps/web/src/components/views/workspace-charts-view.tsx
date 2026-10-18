@@ -41,20 +41,20 @@ import styles from "./workspace-charts-view.module.css";
 function warehouseModeLabel(mode: AnalyticsWarehouseSnapshot["mode"]): string {
   switch (mode) {
     case "postgres_replica_etl":
-      return "Postgres replica + ETL";
+      return "انبار دادهٔ تحلیلی (نسخهٔ جداگانه)";
     case "postgres_etl":
-      return "Postgres schema analytics";
+      return "انبار دادهٔ تحلیلی";
     case "memory_etl":
-      return "حافظه (dev)";
+      return "حافظهٔ موقت";
     default:
       return mode;
   }
 }
 
-function seriesTotalToman(series: ChartSeriesResponse | null): string {
-  if (!series || series.points.length === 0) return "—";
+function seriesTotalLabel(series: ChartSeriesResponse | null): string {
+  if (!series || series.points.length === 0) return "بدون مبلغ";
   const total = series.points.reduce((a, p) => a + chartPointMinor(p), 0n);
-  return `${formatChartToman(total)} تومان`;
+  return formatChartToman(total);
 }
 
 export function WorkspaceChartsView() {
@@ -282,7 +282,7 @@ export function WorkspaceChartsView() {
               </div>
               <div className={styles.summaryCard}>
                 <span className={styles.summaryLabel}>جمع خرج بازه</span>
-                <p className={styles.summaryValue}>{seriesTotalToman(labeledTrend)}</p>
+                <p className={styles.summaryValue}>{seriesTotalLabel(labeledTrend)}</p>
                 <span className={styles.summaryHint}>از روند ماهانه</span>
               </div>
               <div className={styles.summaryCard}>
@@ -290,7 +290,7 @@ export function WorkspaceChartsView() {
                 <p className={styles.summaryValue}>{topMember?.label ?? "—"}</p>
                 <span className={styles.summaryHint}>
                   {topMember
-                    ? `${formatChartToman(chartPointMinor(topMember))} تومان`
+                    ? formatChartToman(chartPointMinor(topMember))
                     : "داده کافی نیست"}
                 </span>
               </div>
@@ -328,7 +328,7 @@ export function WorkspaceChartsView() {
               loading={pending && !trend}
               error={error}
               variant="line"
-              primaryLabel="جمع خرج (تومان)"
+              primaryLabel="جمع خرج"
               exportable
             />
             <ProChart
@@ -336,7 +336,7 @@ export function WorkspaceChartsView() {
               series={labeledShare}
               loading={pending && !share}
               variant="donut"
-              primaryLabel="سهم (تومان)"
+              primaryLabel="سهم"
               exportable
             />
             <ProChart
@@ -344,7 +344,7 @@ export function WorkspaceChartsView() {
               series={labeledMix}
               loading={pending && !mix}
               variant="donut"
-              primaryLabel="جمع (تومان)"
+              primaryLabel="جمع"
               exportable
             />
             <ProChart
@@ -352,7 +352,7 @@ export function WorkspaceChartsView() {
               series={labeledBalance}
               loading={pending && !balance}
               variant="line"
-              primaryLabel="مانده طلب (تومان)"
+              primaryLabel="مانده طلب"
               exportable
             />
           </div>
@@ -374,7 +374,7 @@ export function WorkspaceChartsView() {
                   <>
                     <StatusLine>
                       حالت: {warehouseModeLabel(warehouse.mode)} · پایداری:{" "}
-                      {warehouse.persistence === "postgres" ? "Postgres" : "حافظه"} ·
+                      {warehouse.persistence === "postgres" ? "دائمی" : "حافظه"} ·
                       آخرین ETL:{" "}
                       {warehouse.lastRun
                         ? `${warehouse.lastRun.status} · ${formatFaDateTime(warehouse.lastRun.finishedAt)} · ${warehouse.lastRun.rowsUpserted.toLocaleString("fa-IR")} روز`

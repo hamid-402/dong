@@ -108,7 +108,7 @@ export function FxRatesPanel({
       <StatusLine>
         {conversionLive
           ? "تبدیل زنده فعال است — همان مسیر برای بستن مبلغ IRR خرج از ارز مبدأ."
-          : "تبدیل زنده در capabilities خاموش است — فقط جدول نرخ و پیش‌نمایش (بدون ثبت خودکار خرج)."}
+          : "تبدیل زنده در این محیط خاموش است — فقط جدول نرخ و پیش‌نمایش (بدون ثبت خودکار خرج)."}
       </StatusLine>
       {canWrite && !readOnly ? (
         <FormStack density="compact">

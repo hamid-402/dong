@@ -320,3 +320,107 @@ export function persistenceLabelFa(
   if (postgres === 0) return "حافظه موقت (توسعه)";
   return `مختلط (${postgres}/${postgres + memory} پایدار)`;
 }
+
+/* ── Technical capability / mode strings → plain Persian (web only) ───────── */
+
+/** Maker-checker mode from capabilities.providers.makerChecker. */
+export function makerCheckerModeLabel(mode: string | null | undefined): string {
+  if (!mode || mode === "off") return "خاموش";
+  if (mode === "four_eyes") return "تأیید دو نفره";
+  if (mode === "four_eyes_queue_v1") return "تأیید دو نفره با صف";
+  if (mode === "four_eyes_tiers_v1") return "تأیید دو نفره چندمرحله‌ای";
+  return "فعال";
+}
+
+/** Audit integrity mode from capabilities.providers.auditIntegrity. */
+export function auditIntegrityLabel(mode: string | null | undefined): string {
+  if (mode === "hash_chain") return "زنجیرهٔ ثبت رویدادها فعال است";
+  if (mode === "append_only") return "رویدادها فقط افزوده می‌شوند و ویرایش‌پذیر نیستند";
+  return "نامشخص";
+}
+
+/** Access-policy mode from capabilities.providers.accessPolicy. */
+export function accessPolicyLabel(policy: string | null | undefined): string {
+  if (policy === "rbac_abac_grants_v1") return "دسترسی نقش";
+  if (policy === "rbac_abac_v1") return "دسترسی نقش و شرط";
+  if (policy === "role_sets_v1") return "مجموعه نقش‌ها";
+  if (policy === "inline") return "دسترسی پایه";
+  return "نامشخص";
+}
+
+/** Payment gateway provider from capabilities.providers.payment. */
+export function paymentProviderLabel(provider: string | null | undefined): string {
+  if (provider === "local_psp") return "درگاه آزمایشی";
+  if (provider === "zarinpal") return "زرین‌پال";
+  return "متصل نیست";
+}
+
+/** Analytics warehouse mode from capabilities.providers.analyticsWarehouse. */
+export function analyticsWarehouseLabel(mode: string | null | undefined): string {
+  if (mode === "postgres_etl" || mode === "postgres_replica_etl") return "انبار دادهٔ تحلیلی";
+  if (mode === "memory_etl") return "تحلیل موقت (حافظه)";
+  return "غیرفعال";
+}
+
+const CATALOG_SLUG_LABELS: Record<string, string> = {
+  "food-drink": "خوراک و نوشیدنی",
+  services: "خدمات",
+  misc: "متفرقه",
+};
+
+/** Catalog category slug → Persian title (slug itself stays in the data). */
+export function catalogSlugLabel(slug: string, fallback?: string): string {
+  return CATALOG_SLUG_LABELS[slug] ?? fallback ?? slug;
+}
+
+const SECURITY_CATEGORY_LABELS: Record<string, string> = {
+  fraud: "ضدتقلب",
+  access: "دسترسی",
+  auth: "ورود",
+};
+
+export function securityCategoryLabel(category: string): string {
+  return SECURITY_CATEGORY_LABELS[category] ?? "سایر";
+}
+
+const SECURITY_SEVERITY_LABELS: Record<string, string> = {
+  info: "اطلاع",
+  low: "کم",
+  medium: "متوسط",
+  high: "زیاد",
+  critical: "بحرانی",
+};
+
+export function securitySeverityLabel(severity: string): string {
+  return SECURITY_SEVERITY_LABELS[severity] ?? severity;
+}
+
+/** «Chrome روی Windows» from a raw user-agent string. */
+export function userAgentLabel(userAgent: string | null | undefined): string {
+  const ua = (userAgent ?? "").trim();
+  if (!ua) return "دستگاه ناشناس";
+  const browser = /Edg(?:e|A|iOS)?\//.test(ua)
+    ? "Edge"
+    : /OPR\/|Opera/.test(ua)
+      ? "Opera"
+      : /(?:Chrome|CriOS)\//.test(ua)
+        ? "Chrome"
+        : /(?:Firefox|FxiOS)\//.test(ua)
+          ? "Firefox"
+          : /Safari\//.test(ua)
+            ? "Safari"
+            : null;
+  const os = /Windows/.test(ua)
+    ? "Windows"
+    : /Android/.test(ua)
+      ? "Android"
+      : /iPhone|iPad|iPod/.test(ua)
+        ? "iOS"
+        : /Mac OS X|Macintosh/.test(ua)
+          ? "macOS"
+          : /Linux/.test(ua)
+            ? "Linux"
+            : null;
+  if (browser && os) return `${browser} روی ${os}`;
+  return browser ?? os ?? "دستگاه ناشناس";
+}

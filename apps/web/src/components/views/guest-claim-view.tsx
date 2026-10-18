@@ -63,7 +63,7 @@ function GuestClaimInner() {
 
   function onClaim() {
     if (!token.trim()) {
-      setError("توکن claim لازم است");
+      setError("کد لینک پیوستن لازم است");
       return;
     }
     if (!canClaim) {
@@ -106,7 +106,7 @@ function GuestClaimInner() {
   return (
     <AuthShell
       title="تصاحب جایگاه مهمان"
-      description="با توکن لینک claim وارد فضای گروهی شوید"
+      description="با کد لینک پیوستن به فضای گروهی بپیوندید"
     >
       {!sessionReady ? (
         <EmptyHint>در حال بررسی نشست…</EmptyHint>
@@ -115,7 +115,7 @@ function GuestClaimInner() {
           {message ? <StatusLine>{message}</StatusLine> : null}
           {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
           <TextField
-            label="توکن claim"
+            label="کد لینک پیوستن"
             value={token}
             onChange={(e) => setToken(e.target.value)}
           />
@@ -155,7 +155,7 @@ function GuestClaimInner() {
 
 export function GuestClaimView() {
   return (
-    <Suspense fallback={<p className="liveHint">در حال بارگذاری claim…</p>}>
+    <Suspense fallback={<p className="liveHint">در حال بارگذاری…</p>}>
       <GuestClaimInner />
     </Suspense>
   );

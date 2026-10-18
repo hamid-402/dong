@@ -49,6 +49,7 @@ import {
 import { spaceHomeStyles } from "@/components/views/space-home/space-home-layout";
 import { modulesForTemplate } from "@/lib/workspace-modules";
 import { api } from "@/lib/api";
+import { normalizeYearMonthInput } from "@/lib/fa-datetime";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { expenseHrefForUnit } from "@/lib/expense-unit-href";
 import { hubPathFor } from "@/lib/hub-links";
@@ -181,7 +182,7 @@ export function BuildingSpaceView() {
     if (!workspaceId) return;
     const toman = Number(chargeToman.replaceAll(",", ""));
     if (!/^\d{4}-\d{2}$/.test(chargeYearMonth)) {
-      setError("ماه شارژ باید به صورت YYYY-MM باشد");
+      setError("ماه شارژ نامعتبر است؛ مثلاً ۲۰۲۶/۱۰");
       return;
     }
     if (!Number.isFinite(toman) || toman <= 0) {
@@ -410,9 +411,10 @@ export function BuildingSpaceView() {
                   <SectionCard title="صدور شارژ ماهانه" delayClass="delay2">
                     <FormStack>
                       <TextField
-                        label="ماه (YYYY-MM)"
+                        label="ماه شارژ"
                         value={chargeYearMonth}
-                        onChange={(e) => setChargeYearMonth(e.target.value)}
+                        onChange={(e) => setChargeYearMonth(normalizeYearMonthInput(e.target.value))}
+                        hint="مثلاً ۲۰۲۶/۱۰ (سال و ماه میلادی)"
                         dir="ltr"
                       />
                       <TextField

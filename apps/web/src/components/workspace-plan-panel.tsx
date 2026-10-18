@@ -180,11 +180,11 @@ export function WorkspacePlanPanel({
 
       {saasBillingOn ? (
         <StatusLine>
-          PSP:{" "}
+          درگاه پرداخت:{" "}
           {paymentProvider === "zarinpal"
             ? "زرین‌پال فعال — پرداخت اشتراک مجاز"
             : paymentProvider === "local_psp"
-              ? "LocalPSP — پرداخت اشتراک مجاز"
+              ? "درگاه آزمایشی — پرداخت اشتراک مجاز"
               : "پرداخت آنلاین در دسترس نیست"}
         </StatusLine>
       ) : null}

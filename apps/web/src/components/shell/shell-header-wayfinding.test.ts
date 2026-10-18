@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compactTrailCrumbs, headerCrumbs, splitWayfinding } from "@/components/shell/shell-header-wayfinding";
+import { compactTrailCrumbs, headerCrumbs, isSpaceCrumb, splitWayfinding } from "@/components/shell/shell-header-wayfinding";
 
 describe("splitWayfinding", () => {
   it("splits title from ancestors", () => {
@@ -70,5 +70,14 @@ describe("splitWayfinding", () => {
     ]);
     expect(title).toBe("جزئیات");
     expect(ancestors.map((a) => a.label)).toEqual(["آکمه"]);
+  });
+
+  it("recognises the space-home crumb so its name truncates last", () => {
+    expect(isSpaceCrumb({ label: "آکمه", href: "/w/acme" })).toBe(true);
+    expect(isSpaceCrumb({ label: "آکمه", href: "/w/acme/" })).toBe(true);
+    expect(isSpaceCrumb({ label: "مالی", href: "/w/acme?folder=finance" })).toBe(false);
+    expect(isSpaceCrumb({ label: "خرج", href: "/w/acme/expenses" })).toBe(false);
+    expect(isSpaceCrumb({ label: "خانه", href: "/home" })).toBe(false);
+    expect(isSpaceCrumb({ label: "بدون لینک" })).toBe(false);
   });
 });
