@@ -13,6 +13,7 @@ export function SpaceHomeLayout({
   primaryAction,
   secondaryAction,
   keyNumber,
+  stats,
   actions,
   activity,
   chart,
@@ -23,6 +24,7 @@ export function SpaceHomeLayout({
   primaryAction?: ReactNode;
   secondaryAction?: ReactNode;
   keyNumber: ReactNode;
+  stats?: ReactNode;
   actions: ReactNode;
   activity: ReactNode;
   chart?: ReactNode;
@@ -45,13 +47,16 @@ export function SpaceHomeLayout({
         ) : null}
       </header>
 
-      <div className={styles.slotKey}>{keyNumber}</div>
-      <div className={styles.slotActions}>{actions}</div>
-      <div className={styles.slotSide}>
-        {activity}
+      <div className={styles.slotStats}>
+        {keyNumber}
+        {stats}
         {chart}
       </div>
-      {extras ? <div className={`${styles.slotExtras} ${styles.extras}`}>{extras}</div> : null}
+      <div className={styles.slotActions}>{actions}</div>
+      <aside className={styles.slotSide}>
+        {activity}
+        {extras ? <div className={styles.extras}>{extras}</div> : null}
+      </aside>
     </div>
   );
 }

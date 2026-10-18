@@ -861,6 +861,62 @@ export function OverviewView() {
               ) : undefined
             }
             secondaryAction={secondaryAction}
+            stats={
+            spaceKind === "personal" ||
+            chrome.capabilities?.providers?.pettyCash === "fund_v1" ? (
+              <TreasuryBalanceCard
+                spaceKind={spaceKind}
+                funds={data?.pettyCashFunds ?? []}
+                paymentsHref={canonicalHref("payments", slug)}
+                savingsHref="/me/finance#goals"
+                canManage={isFinanceManagerRole(data?.myRole)}
+                pending={pending}
+                density="compact"
+                savingsBalanceMinor={
+                  spaceKind === "personal" ? data?.savingsBalanceMinor : null
+                }
+                savingsGoalCount={data?.savingsGoalCount}
+                onEnsureDefault={
+                  data?.workspaceId &&
+                  isFinanceManagerRole(data.myRole) &&
+                  spaceKind !== "personal"
+                    ? () => {
+                        startTransition(() => {
+                          void (async () => {
+                            try {
+                              const result =
+                                await api.ensureDefaultPettyCashFund(
+                                  data.workspaceId,
+                                  {
+                                    idempotencyKey: crypto.randomUUID(),
+                                  },
+                                );
+                              setData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      pettyCashFunds: result.funds.filter(
+                                        (f) => f.active,
+                                      ),
+                                    }
+                                  : prev,
+                              );
+                            } catch (err) {
+                              setError(
+                                friendlyErrorMessage(
+                                  err,
+                                  "ایجاد تنخواه ناموفق",
+                                ),
+                              );
+                            }
+                          })();
+                        });
+                      }
+                    : undefined
+                }
+              />
+            ) : null
+            }
             keyNumber={keyNumberNode}
             actions={<SpaceHomeActions items={actionItems} />}
             activity={<SpaceHomeActivity items={activityItems} />}
@@ -891,60 +947,6 @@ export function OverviewView() {
                     slug={slug}
                     myRole={data.myRole}
                     onError={setError}
-                  />
-                ) : null}
-                {spaceKind === "personal" ||
-                chrome.capabilities?.providers?.pettyCash === "fund_v1" ? (
-                  <TreasuryBalanceCard
-                    spaceKind={spaceKind}
-                    funds={data?.pettyCashFunds ?? []}
-                    paymentsHref={canonicalHref("payments", slug)}
-                    savingsHref="/me/finance#goals"
-                    canManage={isFinanceManagerRole(data?.myRole)}
-                    pending={pending}
-                    density="compact"
-                    savingsBalanceMinor={
-                      spaceKind === "personal" ? data?.savingsBalanceMinor : null
-                    }
-                    savingsGoalCount={data?.savingsGoalCount}
-                    onEnsureDefault={
-                      data?.workspaceId &&
-                      isFinanceManagerRole(data.myRole) &&
-                      spaceKind !== "personal"
-                        ? () => {
-                            startTransition(() => {
-                              void (async () => {
-                                try {
-                                  const result =
-                                    await api.ensureDefaultPettyCashFund(
-                                      data.workspaceId,
-                                      {
-                                        idempotencyKey: crypto.randomUUID(),
-                                      },
-                                    );
-                                  setData((prev) =>
-                                    prev
-                                      ? {
-                                          ...prev,
-                                          pettyCashFunds: result.funds.filter(
-                                            (f) => f.active,
-                                          ),
-                                        }
-                                      : prev,
-                                  );
-                                } catch (err) {
-                                  setError(
-                                    friendlyErrorMessage(
-                                      err,
-                                      "ایجاد تنخواه ناموفق",
-                                    ),
-                                  );
-                                }
-                              })();
-                            });
-                          }
-                        : undefined
-                    }
                   />
                 ) : null}
                 {slug &&
