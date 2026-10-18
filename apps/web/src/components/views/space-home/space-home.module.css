@@ -4,6 +4,35 @@
   display: grid;
   gap: 1rem;
   max-width: 42rem;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "header"
+    "key"
+    "actions"
+    "side"
+    "extras";
+  align-items: start;
+}
+
+.layout > .header { grid-area: header; }
+.slotKey { grid-area: key; min-width: 0; }
+.slotActions { grid-area: actions; min-width: 0; }
+.slotSide { grid-area: side; min-width: 0; display: grid; gap: 1rem; align-content: start; }
+.slotExtras { grid-area: extras; min-width: 0; }
+
+/* Wide screens: main column (balance, actions, flows) + side column (activity, chart). */
+@media (min-width: 1100px) {
+  .layout {
+    max-width: 72rem;
+    column-gap: 1.5rem;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-rows: auto auto auto 1fr;
+    grid-template-areas:
+      "header header"
+      "key side"
+      "actions side"
+      "extras side";
+  }
 }
 
 .header {

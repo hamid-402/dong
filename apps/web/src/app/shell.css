@@ -4524,7 +4524,8 @@ html[data-scheme="dark"] .groupOpsRail__open{
   display: block;
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 .shell-v2__header-nav--mobileKinds .spaceKindTabs,
 .shell-v2__header-nav--mobileKinds .spaceKindTabs__tab,
@@ -6560,7 +6561,8 @@ html[data-density="compact"] .shell-v2__header {
   min-height: 56px;
   max-height: 56px;
   min-width: 0;
-  overflow: hidden;
+  /* visible: header dropdowns are absolutely positioned and must not be clipped */
+  overflow: visible;
 }
 .shell-v2__bar > *,
 .shell-v2__zone--start > *{

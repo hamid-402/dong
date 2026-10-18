@@ -45,11 +45,13 @@ export function SpaceHomeLayout({
         ) : null}
       </header>
 
-      {keyNumber}
-      {actions}
-      {activity}
-      {chart}
-      {extras ? <div className={styles.extras}>{extras}</div> : null}
+      <div className={styles.slotKey}>{keyNumber}</div>
+      <div className={styles.slotActions}>{actions}</div>
+      <div className={styles.slotSide}>
+        {activity}
+        {chart}
+      </div>
+      {extras ? <div className={`${styles.slotExtras} ${styles.extras}`}>{extras}</div> : null}
     </div>
   );
 }
