@@ -1,5 +1,49 @@
 /* Unified shell v2 — viewport tokens + WorkspaceSwitcher/status/profile (from mosaic). */
 
+/* Shared centered page frame — header chrome, section row, and page bodies. */
+:root{
+  --page-frame-max: 42rem;
+  /* Match .shell-v2__main base padding-inline (10px 12px). */
+  --page-frame-pad: 12px;
+}
+
+@media (min-width: 720px) {
+  :root{
+    --page-frame-max: 64rem;
+  }
+}
+
+@media (min-width: 700px) {
+  :root{
+    /* Match tablet .shell-v2__main padding-inline (14px 16px / tablet 16px). */
+    --page-frame-pad: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root{
+    --page-frame-pad: 28px;
+  }
+}
+
+@media (min-width: 1100px) {
+  :root{
+    --page-frame-max: 80rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  :root{
+    --page-frame-pad: 2rem;
+  }
+}
+
+.page-frame{
+  width: 100%;
+  max-width: var(--page-frame-max);
+  margin-inline: auto;
+}
+
 .app-viewport{
   --m-1: var(--space-1, 4px);
   --m-2: var(--space-2, 8px);
@@ -1446,7 +1490,7 @@ a.shell-navMenu__leaveLink:hover{
   flex: 1;
   min-width: 0;
   overflow: visible;
-  padding: 10px 12px calc(72px + env(safe-area-inset-bottom, 0px));
+  padding: 10px var(--page-frame-pad) calc(72px + env(safe-area-inset-bottom, 0px));
 }
 
 .shell-offline-banner{
@@ -2314,7 +2358,7 @@ html[data-density="compact"] .shell-page-trail__back{
 
   .shell-v2__header:not(.shell-v2__header--sub){
     grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr) auto;
-    padding-inline: 24px;
+    padding-inline: var(--page-frame-pad);
   }
 
   /* Subpages: back | wayfinding+search | utilities */
@@ -2328,7 +2372,7 @@ html[data-density="compact"] .shell-page-trail__back{
   }
 
   .shell-v2__main{
-    padding: 18px 28px max(18px, env(safe-area-inset-bottom, 0px));
+    padding: 18px var(--page-frame-pad) max(18px, env(safe-area-inset-bottom, 0px));
     max-width: none;
     width: 100%;
     margin-inline: 0;
@@ -2344,7 +2388,7 @@ html[data-density="compact"] .shell-page-trail__back{
 
   .shell-v2--desktop .shell-v2__header:not(.shell-v2__header--sub){
     grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr) auto;
-    padding-inline: 24px;
+    padding-inline: var(--page-frame-pad);
   }
 
   .shell-v2--desktop .shell-v2__header-nav{
@@ -2352,7 +2396,7 @@ html[data-density="compact"] .shell-page-trail__back{
   }
 
   .shell-v2--desktop .shell-v2__main{
-    padding: 18px 28px max(18px, env(safe-area-inset-bottom, 0px));
+    padding: 18px var(--page-frame-pad) max(18px, env(safe-area-inset-bottom, 0px));
     max-width: none;
     width: 100%;
     margin-inline: 0;
@@ -5496,7 +5540,7 @@ html[data-scheme="dark"] .shell-fab{
   }
 
   .shell-v2__main{
-    padding: 14px 16px calc(76px + env(safe-area-inset-bottom, 0px));
+    padding: 14px var(--page-frame-pad) calc(76px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -5691,7 +5735,7 @@ html[data-scheme="light"] .shell-tabs--dock .shell-tabs__tab.is-active{
 
   .shell-v2__main,
 .shell-v2--desktop .shell-v2__main{
-    padding: 18px 28px max(18px, env(safe-area-inset-bottom, 0px));
+    padding: 18px var(--page-frame-pad) max(18px, env(safe-area-inset-bottom, 0px));
     max-width: none;
     margin-inline: 0;
     width: 100%;
@@ -5701,7 +5745,7 @@ html[data-scheme="light"] .shell-tabs--dock .shell-tabs__tab.is-active{
 .shell-v2--desktop .shell-v2__header{
     min-height: 4.25rem;
     padding-block: 10px;
-    padding-inline: 24px;
+    padding-inline: var(--page-frame-pad);
     gap: 14px;
   }
 
@@ -5772,14 +5816,14 @@ html[data-scheme="light"] .shell-tabs--dock .shell-tabs__tab.is-active{
   }
 
   .shell-v2--tablet .shell-v2__main{
-    padding-inline: 16px;
+    padding-inline: var(--page-frame-pad);
     max-width: none;
     margin-inline: 0;
     width: 100%;
   }
 
   .shell-v2--tablet .shell-v2__header{
-    padding-inline: 16px;
+    padding-inline: var(--page-frame-pad);
   }
 }
 
@@ -6528,7 +6572,7 @@ summary:focus-visible,
 @media (min-width: 1280px) {
   .shell-v2__main,
   .shell-v2--desktop .shell-v2__main {
-    padding-inline: 2rem;
+    padding-inline: var(--page-frame-pad);
   }
 
   .authGate__main {
@@ -6567,6 +6611,37 @@ html[data-density="compact"] .shell-v2__header {
 .shell-v2__bar > *,
 .shell-v2__zone--start > *{
   min-width: 0;
+}
+
+/*
+ * Page-frame alignment (desktop/tablet): header + place row stay full-bleed
+ * for background/border; inner content shares max-width + pad with main.
+ * Mobile (<768px) keeps the existing 8px header padding and bar layout.
+ */
+@media (min-width: 768px) {
+  .shell-v2__header,
+  .shell-v2--desktop .shell-v2__header,
+  .shell-v2--tablet .shell-v2__header,
+  html[data-scheme="light"] .shell-v2__header,
+  html[data-density="compact"] .shell-v2__header {
+    padding-inline: var(--page-frame-pad);
+    overflow: visible;
+  }
+
+  .shell-v2__bar {
+    width: 100%;
+    max-width: var(--page-frame-max);
+    margin-inline: auto;
+    overflow: visible;
+  }
+
+  /* Place row: border/background full width of header; content matches bar. */
+  .shell-v2__place,
+  .shell-v2__place--line {
+    margin-inline: 0;
+    padding-inline: max(0px, calc((100% - var(--page-frame-max)) / 2));
+    overflow: visible;
+  }
 }
 
 .shell-v2__zone {
