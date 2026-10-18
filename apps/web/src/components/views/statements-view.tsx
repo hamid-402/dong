@@ -31,6 +31,7 @@ import { useFlashMessage, FlashMessages } from "@/lib/use-flash-message";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { wPath } from "@/lib/workspace-paths";
 import { t } from "@/lib/i18n";
+import { FinanceInsightsSwitch } from "@/components/shell/finance-insights-switch";
 import styles from "./statements-view.module.css";
 import { StatementsTour } from "@/components/views/statements-tour";
 
@@ -925,6 +926,7 @@ export function StatementsView({
       }
       state="ready"
     >
+      {slug ? <FinanceInsightsSwitch slug={slug} /> : null}
       <FlashMessages successMessage={successMessage} error={detail ? error : null} />
 
       <section className={styles.toolbar} aria-label={t("statements.rangeTitle")}>

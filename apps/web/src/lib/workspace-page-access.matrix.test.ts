@@ -55,27 +55,40 @@ describe("S10-18 page access matrix", () => {
     ).toBe(false);
   });
 
-  it("metrics denied for guest/member; allowed for owner/admin/finance/auditor", () => {
-    const denied: MembershipRole[] = ["guest", "member"];
-    const allowed: MembershipRole[] = ["owner", "admin", "finance", "auditor"];
-    for (const role of denied) {
+  it("metrics requires platformConsole; persona still blocks guest/member", () => {
+    expect(
+      workspacePageAccess({
+        page: "metrics",
+        template: "friends_family",
+        role: "owner",
+      }).allowed,
+    ).toBe(false);
+    for (const role of ["owner", "admin", "finance", "auditor"] as MembershipRole[]) {
       expect(
         workspacePageAccess({
           page: "metrics",
           template: "friends_family",
           role,
-        }).allowed,
-      ).toBe(false);
-    }
-    for (const role of allowed) {
-      expect(
-        workspacePageAccess({
-          page: "metrics",
-          template: "friends_family",
-          role,
+          flags: { platformConsole: true },
         }).allowed,
       ).toBe(true);
     }
+    expect(
+      workspacePageAccess({
+        page: "metrics",
+        template: "friends_family",
+        role: "member",
+        flags: { platformConsole: true },
+      }).allowed,
+    ).toBe(false);
+    expect(
+      workspacePageAccess({
+        page: "metrics",
+        template: "friends_family",
+        role: "guest",
+        flags: { platformConsole: true },
+      }).allowed,
+    ).toBe(false);
   });
 
   it("addons/approvals/orgFinance/jobs honor flags", () => {
@@ -134,13 +147,21 @@ describe("S10-18 page access matrix", () => {
         role: "owner",
         flags: { jobsAvailable: true },
       }).allowed,
+    ).toBe(false);
+    expect(
+      workspacePageAccess({
+        page: "jobs",
+        template: "friends_family",
+        role: "owner",
+        flags: { jobsAvailable: true, platformConsole: true },
+      }).allowed,
     ).toBe(true);
     expect(
       workspacePageAccess({
         page: "jobs",
         template: "friends_family",
         role: "owner",
-        flags: { jobsRedisQueue: true },
+        flags: { jobsRedisQueue: true, platformConsole: true },
       }).allowed,
     ).toBe(true);
     expect(
@@ -148,31 +169,47 @@ describe("S10-18 page access matrix", () => {
         page: "jobs",
         template: "friends_family",
         role: "member",
-        flags: { jobsRedisQueue: true },
+        flags: { jobsRedisQueue: true, platformConsole: true },
       }).allowed,
     ).toBe(false);
   });
 
-  it("spaceNav never lists metrics for guest across templates", () => {
+  it("spaceNav never lists metrics without platformConsole across templates", () => {
     for (const template of TEMPLATES) {
-      const items = spaceNav(template, "slug", undefined, "guest").flatMap(
+      const items = spaceNav(template, "slug", undefined, "owner").flatMap(
         (s) => s.items,
       );
       expect(items.some((i) => i.key === "metrics")).toBe(false);
+      const ownerItems = spaceNav(
+        template,
+        "slug",
+        { platformConsole: true },
+        "owner",
+      ).flatMap((s) => s.items);
+      expect(ownerItems.some((i) => i.key === "metrics")).toBe(true);
     }
   });
 
-  it("spaceNav lists jobs with jobsAvailable or redis for owner/admin", () => {
+  it("spaceNav lists jobs only with platformConsole when jobs provider is live", () => {
+    expect(
+      spaceNav("friends_family", "slug", { jobsAvailable: true }, "owner")
+        .flatMap((s) => s.items)
+        .some((i) => i.key === "jobs"),
+    ).toBe(false);
     for (const role of ROLES) {
       const items = spaceNav(
         "friends_family",
         "slug",
-        { jobsAvailable: true },
+        { jobsAvailable: true, platformConsole: true },
         role,
       ).flatMap((s) => s.items);
       const hasJobs = items.some((i) => i.key === "jobs");
-      // Strict nav: unknown/empty role must not advertise jobs to normal users.
-      const expectJobs = role === "owner" || role === "admin";
+      // owner/admin/finance have navKeys "all"; empty role stays discoverable.
+      const expectJobs =
+        role === "" ||
+        role === "owner" ||
+        role === "admin" ||
+        role === "finance";
       expect(hasJobs).toBe(expectJobs);
     }
   });

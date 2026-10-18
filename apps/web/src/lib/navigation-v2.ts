@@ -1,6 +1,5 @@
 import type { ProductFeatureFlags, WorkspaceTemplate } from "@dang/contracts";
 import {
-  canViewProductMetrics as canViewProductMetricsStrict,
   isExpenseApproverRole,
   isWorkspaceAdminRole,
   roleAllowsNavKey,
@@ -10,7 +9,6 @@ import { hubPathFor } from "@/lib/hub-links";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { t } from "@/lib/i18n";
 import { modulesForTemplate } from "@/lib/workspace-modules";
-import { canViewJobsDlqStrict } from "@/lib/workspace-page-access";
 import { wPath, type WorkspacePage } from "@/lib/workspace-paths";
 import { ROUTE_GEM } from "@/lib/tile-gem-palettes";
 import type { ShellIcon } from "@/components/app-shell";
@@ -25,6 +23,8 @@ const PERSONAL_HIDDEN_NAV_KEYS = new Set([
   "ledger",
   "subunits",
   "partners",
+  "addons",
+  "security-ops",
 ]);
 
 /** Preferred primary tab keys for the compact in-space header (max 3). */
@@ -111,6 +111,8 @@ export type SpaceNavFlags = Partial<
   accessPolicyGrants?: boolean;
   /** antifraud heuristics or maker-checker ≠ off */
   securityOpsV1?: boolean;
+  /** platform_owner / platform_support — jobs + product metrics console */
+  platformConsole?: boolean;
 };
 
 export function spaceNavItemHint(key: string): string | undefined {
@@ -657,8 +659,8 @@ export function spaceNav(
             },
           ]
         : []),
-      // Strict: never advertise metrics/jobs to normal members or while role is unknown.
-      ...(canViewProductMetricsStrict(role)
+      // Platform console only — not space owner/admin/finance.
+      ...(flags?.platformConsole
         ? [
             {
               key: "metrics",
@@ -668,7 +670,7 @@ export function spaceNav(
             },
           ]
         : []),
-      ...((flags?.jobsAvailable || flags?.jobsRedisQueue) && canViewJobsDlqStrict(role)
+      ...((flags?.jobsAvailable || flags?.jobsRedisQueue) && flags?.platformConsole
         ? [
             {
               key: "jobs",
@@ -736,7 +738,7 @@ export function primarySpaceNavKeys(
 ): string[] {
   const kind = spaceKindForTemplate(template);
   if (kind === "personal") {
-    return ["expenses", "personal-finance", "recurring"];
+    return ["expenses", "invoices", "recurring"];
   }
   if (kind === "group") {
     return ["expenses", "settlements", "members"];

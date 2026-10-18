@@ -87,6 +87,25 @@ describe("workspace section tabs", () => {
     expect(screen.queryByRole("menuitem", { name: NAV_LABELS.statements })).toBeNull();
   });
 
+  it("sends گزارش و نمودار to statements when charts is off", () => {
+    render(
+      <WorkspaceSectionTabs
+        template="friends_family"
+        slug="acme"
+        role="owner"
+        flags={{ statementsV1: true }}
+        pathname="/w/acme/statements"
+        folder={null}
+        activeDomain="finance"
+        isHrefActive={(href) => href === "/w/acme/statements"}
+      />,
+    );
+
+    const reports = screen.getByRole("link", { name: REPORTS_CHARTS_SECTION_LABEL });
+    expect(reports.getAttribute("href")).toBe("/w/acme/statements");
+    expect(reports.getAttribute("aria-current")).toBe("page");
+  });
+
   it("highlights بیشتر with the active nested item name", () => {
     render(
       <WorkspaceSectionTabs
@@ -115,6 +134,7 @@ describe("workspace section tabs", () => {
         template="friends_family"
         slug="acme"
         role="owner"
+        flags={{ chartsV1: true, statementsV1: true }}
         pathname="/w/acme/expenses"
         folder={null}
         activeDomain="finance"
@@ -130,6 +150,7 @@ describe("workspace section tabs", () => {
     expect(screen.getByRole("menuitem", { name: "خلاصه" })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: NAV_LABELS.settlements })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: NAV_LABELS.recurring })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: NAV_LABELS.statements })).toBeTruthy();
   });
 
   it("resolves the mobile current label helper", () => {

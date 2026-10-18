@@ -456,7 +456,7 @@ export default function WorkspaceSettingsPage() {
             شناسه مسیر و قالب از این فرم تغییر نمی‌کنند تا مسیرها، دسترسی‌ها و داده‌های ماژول‌ها
             بدون مهاجرت ناخواسته باقی بمانند.
           </p>
-          <Link href="/home">مشاهده و سوییچ بین همه فضاها</Link>
+          <Link href="/spaces">مشاهده و سوییچ بین همه فضاها</Link>
         </aside>
       </div>
 

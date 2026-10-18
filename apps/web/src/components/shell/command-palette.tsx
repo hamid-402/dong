@@ -280,7 +280,7 @@ export function CommandPalette() {
     for (const section of spaceNav(
       template,
       slug,
-      spaceNavFlagsFromCapabilities(chrome.capabilities),
+      spaceNavFlagsFromCapabilities(chrome.capabilities, chrome.platformRole),
       membershipRole || null,
     )) {
       for (const item of section.items) {

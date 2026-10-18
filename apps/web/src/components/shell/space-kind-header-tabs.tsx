@@ -21,6 +21,16 @@ import { SpaceSectionMoreMenu } from "@/components/shell/space-section-more-menu
 import { classicPathToWorkspacePage, wPath } from "@/lib/workspace-paths";
 import { useViewportMode } from "@/lib/use-viewport";
 import { t } from "@/lib/i18n";
+import { NAV_LABELS } from "@/lib/nav-labels";
+
+/** «گزارش و نمودار» destination — charts when live, else statements. */
+export function reportsChartsHref(
+  slug: string,
+  flags?: SpaceNavFlags,
+): string {
+  if (flags?.chartsV1) return wPath(slug, "charts");
+  return wPath(slug, "statements");
+}
 
 type KindTab = {
   key: "home" | SpaceKind;
@@ -245,7 +255,17 @@ export function WorkspaceSectionTabs({
                 {
                   key: "reports-charts",
                   label: REPORTS_CHARTS_SECTION_LABEL,
-                  href: wPath(slug, "charts"),
+                  href: reportsChartsHref(slug, flags),
+                  icon: "receipt" as const,
+                },
+              ]
+            : []),
+          ...(flags?.statementsV1
+            ? [
+                {
+                  key: "statements",
+                  label: NAV_LABELS.statements,
+                  href: wPath(slug, "statements"),
                   icon: "receipt" as const,
                 },
               ]
@@ -282,7 +302,7 @@ export function WorkspaceSectionTabs({
       </Link>
       {showReportsCharts ? (
         <Link
-          href={wPath(slug, "charts")}
+          href={reportsChartsHref(slug, flags)}
           className={`shell-sectionTabs__tab shell-sectionTabs__tab--section${reportsActive ? " is-active" : ""}`}
           aria-current={reportsActive ? "page" : undefined}
           data-section="reports-charts"

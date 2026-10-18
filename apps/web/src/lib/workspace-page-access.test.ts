@@ -23,7 +23,7 @@ describe("workspacePageAccess", () => {
     ).toBe(false);
   });
 
-  it("denies metrics for guest and allows owner", () => {
+  it("denies metrics without platformConsole; allows with it", () => {
     expect(
       workspacePageAccess({
         page: "metrics",
@@ -37,10 +37,18 @@ describe("workspacePageAccess", () => {
         template: "friends_family",
         role: "owner",
       }).allowed,
+    ).toBe(false);
+    expect(
+      workspacePageAccess({
+        page: "metrics",
+        template: "friends_family",
+        role: "owner",
+        flags: { platformConsole: true },
+      }).allowed,
     ).toBe(true);
   });
 
-  it("denies jobs without redis_queue or for non-admin", () => {
+  it("denies jobs without redis_queue or platformConsole", () => {
     expect(
       workspacePageAccess({
         page: "jobs",
@@ -63,13 +71,13 @@ describe("workspacePageAccess", () => {
         role: "owner",
         flags: { jobsAvailable: true },
       }).allowed,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       workspacePageAccess({
         page: "jobs",
         template: "friends_family",
         role: "owner",
-        flags: { jobsAvailable: true },
+        flags: { jobsAvailable: true, platformConsole: true },
       }).allowed,
     ).toBe(true);
     expect(
@@ -77,7 +85,7 @@ describe("workspacePageAccess", () => {
         page: "jobs",
         template: "friends_family",
         role: "owner",
-        flags: { jobsRedisQueue: true },
+        flags: { jobsRedisQueue: true, platformConsole: true },
       }).allowed,
     ).toBe(true);
   });

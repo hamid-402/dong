@@ -25,7 +25,6 @@ import { canonicalHref, wPath } from "@/lib/workspace-paths";
 import { slugFromPathname } from "@/lib/workspace-storage";
 import { useViewportMode } from "@/lib/use-viewport";
 import { t } from "@/lib/i18n";
-import { NAV_LABELS } from "@/lib/nav-labels";
 import { workspaceDisplayName } from "@/lib/workspace-display-name";
 import { spaceKindForTemplate, type SpaceKind } from "@dang/contracts";
 import { assignKindGems, shellKindStyle } from "@/lib/tile-gem-palettes";
@@ -66,7 +65,10 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
       ? `${canonicalHref("settings", slug)}#danger`
       : null;
   const archived = Boolean(active?.archivedAt);
-  const railFlags = spaceNavFlagsFromCapabilities(chrome.capabilities);
+  const railFlags = spaceNavFlagsFromCapabilities(
+    chrome.capabilities,
+    chrome.platformRole,
+  );
   const tabHrefs = tabs.map((tab) => tab.href).join("|");
   useEffect(() => {
     for (const tab of tabs) router.prefetch(tab.href);
@@ -89,8 +91,6 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
       .map((ws) => ws.id);
     return shellKindStyle(assignKindGems(realmKind, ids).get(active.id));
   })();
-  const showCatalog =
-    Boolean(railFlags.catalogV1) && realmKind != null && realmKind !== "personal";
 
   const statementPrint =
     typeof pathname === "string" && /\/statements\/[^/]+\/print\/?$/.test(pathname);
@@ -165,11 +165,6 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
                 activeDomain={location.activeDomain}
                 isHrefActive={location.isHrefActive}
               />
-              {showCatalog ? (
-                <Link href={wPath(slug, "catalog")} className="shell-v2__catalogLink">
-                  {NAV_LABELS.catalog}
-                </Link>
-              ) : null}
               <ShellPageTrail
                 items={location.trail}
                 fallbackHref={wPath(slug)}

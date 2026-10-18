@@ -2301,6 +2301,12 @@ html[data-density="compact"] .shell-page-trail__back{
 
 /* Desktop: full-bleed shell + full-width content; larger type/controls for readability. */
 @media (min-width: 1024px) {
+  /* Dock duplicates header destinations on desktop — hide it. */
+  .shell-v2__dock,
+  .shell-v2__dock--desktop {
+    display: none !important;
+  }
+
   .shell-v2{
     max-width: none;
     width: 100%;
@@ -2322,7 +2328,7 @@ html[data-density="compact"] .shell-page-trail__back{
   }
 
   .shell-v2__main{
-    padding: 18px 28px calc(88px + env(safe-area-inset-bottom, 0px));
+    padding: 18px 28px max(18px, env(safe-area-inset-bottom, 0px));
     max-width: none;
     width: 100%;
     margin-inline: 0;
@@ -2346,7 +2352,7 @@ html[data-density="compact"] .shell-page-trail__back{
   }
 
   .shell-v2--desktop .shell-v2__main{
-    padding: 18px 28px calc(88px + env(safe-area-inset-bottom, 0px));
+    padding: 18px 28px max(18px, env(safe-area-inset-bottom, 0px));
     max-width: none;
     width: 100%;
     margin-inline: 0;
@@ -5684,7 +5690,7 @@ html[data-scheme="light"] .shell-tabs--dock .shell-tabs__tab.is-active{
 
   .shell-v2__main,
 .shell-v2--desktop .shell-v2__main{
-    padding: 18px 28px calc(88px + env(safe-area-inset-bottom, 0px));
+    padding: 18px 28px max(18px, env(safe-area-inset-bottom, 0px));
     max-width: none;
     margin-inline: 0;
     width: 100%;

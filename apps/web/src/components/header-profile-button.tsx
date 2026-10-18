@@ -17,6 +17,10 @@ export function HeaderProfileButton({ notice = null }: { notice?: ReactNode }) {
   const name = chrome.userName?.trim() || "پروفایل";
   const initial = name.slice(0, 1) || "ک";
   const online = chrome.ready && !chrome.error;
+  const platformConsole =
+    chrome.capabilities?.providers?.platformAdmin === "platform_v1" &&
+    (chrome.platformRole === "platform_owner" ||
+      chrome.platformRole === "platform_support");
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
@@ -73,6 +77,15 @@ export function HeaderProfileButton({ notice = null }: { notice?: ReactNode }) {
           <Link href="/account" className="header-profileMenu__item" onClick={() => setOpen(false)}>
             حساب من
           </Link>
+          {platformConsole ? (
+            <Link
+              href="/admin"
+              className="header-profileMenu__item"
+              onClick={() => setOpen(false)}
+            >
+              کنسول سامانه
+            </Link>
+          ) : null}
           <button
             type="button"
             className="header-profileMenu__item"

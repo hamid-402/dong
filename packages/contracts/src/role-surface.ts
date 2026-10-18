@@ -173,6 +173,8 @@ export const MEMBER_NAV_KEYS = new Set([
   "recurring",
   "proposals",
   "addons",
+  "ledger",
+  "payments",
 ]);
 
 /** Approver: queue-first shell. */

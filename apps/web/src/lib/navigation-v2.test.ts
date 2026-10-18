@@ -66,13 +66,15 @@ describe("navigation-v2", () => {
       "ledger",
       "subunits",
       "partners",
+      "addons",
+      "security-ops",
     ]) {
       expect(keys).not.toContain(key);
     }
     expect(keys).toEqual(expect.arrayContaining(["expenses", "personal-finance", "recurring"]));
   });
 
-  it("keeps audit/security-ops for owner/admin only; metrics/jobs use strict gates", () => {
+  it("keeps audit/security-ops for owner/admin; metrics/jobs need platformConsole", () => {
     const member = spaceNav("friends_family", "g1", { securityOpsV1: true }, "member");
     expect(member.flatMap((s) => s.items.map((i) => i.key))).not.toContain("audit");
     expect(member.flatMap((s) => s.items.map((i) => i.key))).not.toContain("security-ops");
@@ -84,7 +86,21 @@ describe("navigation-v2", () => {
       "owner",
     );
     const oversight = owner.find((s) => s.key === "oversight")?.items.map((i) => i.key) ?? [];
-    expect(oversight).toEqual(expect.arrayContaining(["audit", "security-ops", "metrics", "jobs"]));
+    expect(oversight).toEqual(expect.arrayContaining(["audit", "security-ops"]));
+    expect(oversight).not.toContain("metrics");
+    expect(oversight).not.toContain("jobs");
+
+    const platform = spaceNav(
+      "friends_family",
+      "g1",
+      { securityOpsV1: true, jobsAvailable: true, platformConsole: true },
+      "owner",
+    );
+    const platformOversight =
+      platform.find((s) => s.key === "oversight")?.items.map((i) => i.key) ?? [];
+    expect(platformOversight).toEqual(
+      expect.arrayContaining(["audit", "security-ops", "metrics", "jobs"]),
+    );
 
     const unknown = spaceNav("friends_family", "g1", { jobsAvailable: true }, null);
     expect(unknown.some((s) => s.key === "oversight")).toBe(false);
@@ -114,10 +130,15 @@ describe("navigation-v2", () => {
     expect(expenseFabHref("friends_family", "g1")).toBe("/w/g1/record");
   });
 
-  it("includes metrics and audit in oversight nav for finance roles", () => {
+  it("includes audit in oversight for owner; metrics only with platformConsole", () => {
     const sections = spaceNav("friends_family", "g1", undefined, "owner");
     const oversight = sections.find((s) => s.key === "oversight");
-    expect(oversight?.items.map((i) => i.key)).toEqual(["audit", "metrics"]);
+    expect(oversight?.items.map((i) => i.key)).toEqual(["audit"]);
+    expect(
+      spaceNav("friends_family", "g1", { platformConsole: true }, "owner")
+        .find((s) => s.key === "oversight")
+        ?.items.map((i) => i.key),
+    ).toEqual(["audit", "metrics"]);
     expect(sections.find((s) => s.key === "people")?.items.map((i) => i.key)).toEqual([
       "members",
     ]);
@@ -206,7 +227,7 @@ describe("navigation-v2", () => {
     expect(keys).not.toContain("audit");
   });
 
-  it("shows jobs for owner when inline_stub or redis_queue is live", () => {
+  it("shows jobs only with platformConsole when jobs provider is live", () => {
     const without = spaceNav("friends_family", "g1", undefined, "owner");
     expect(
       without.find((s) => s.key === "oversight")?.items.some((i) => i.key === "jobs"),
@@ -220,12 +241,22 @@ describe("navigation-v2", () => {
     );
     expect(
       withInline.find((s) => s.key === "oversight")?.items.some((i) => i.key === "jobs"),
+    ).toBe(false);
+
+    const withPlatform = spaceNav(
+      "friends_family",
+      "g1",
+      { jobsAvailable: true, platformConsole: true },
+      "owner",
+    );
+    expect(
+      withPlatform.find((s) => s.key === "oversight")?.items.some((i) => i.key === "jobs"),
     ).toBe(true);
 
     const withRedis = spaceNav(
       "friends_family",
       "g1",
-      { jobsRedisQueue: true },
+      { jobsRedisQueue: true, platformConsole: true },
       "owner",
     );
     expect(
@@ -235,7 +266,7 @@ describe("navigation-v2", () => {
     const member = spaceNav(
       "friends_family",
       "g1",
-      { jobsAvailable: true },
+      { jobsAvailable: true, platformConsole: true },
       "member",
     );
     expect(member.some((s) => s.key === "oversight")).toBe(false);
@@ -250,7 +281,7 @@ describe("navigation-v2", () => {
   it("picks primary section keys per space kind", () => {
     expect(primarySpaceNavKeys("personal")).toEqual([
       "expenses",
-      "personal-finance",
+      "invoices",
       "recurring",
     ]);
     expect(primarySpaceNavKeys("friends_family")).toEqual([

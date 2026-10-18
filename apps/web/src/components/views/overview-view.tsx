@@ -374,7 +374,10 @@ export function OverviewView() {
   const spaceKind = spaceKindForTemplate(activeWs?.template);
   const { role: membershipRole } = useWorkspaceMembershipRole(chrome.workspaceId);
   const domainSections = (() => {
-    const flags = spaceNavFlagsFromCapabilities(chrome.capabilities);
+    const flags = spaceNavFlagsFromCapabilities(
+      chrome.capabilities,
+      chrome.platformRole,
+    );
     const base = contextualMosaicSections(
       activeWs?.template,
       slug,

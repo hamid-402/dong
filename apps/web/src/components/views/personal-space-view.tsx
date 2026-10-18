@@ -280,7 +280,7 @@ export function PersonalSpaceView() {
                   ثبت خرج
                 </Link>
               ) : (
-                <Link href="/home">{NAV_LABELS.spacesList}</Link>
+                <Link href="/spaces">{NAV_LABELS.spacesList}</Link>
               )
             }
             secondaryAction={
@@ -374,7 +374,7 @@ export function PersonalSpaceView() {
                 <TreasuryBalanceCard
                   spaceKind="personal"
                   funds={[]}
-                  paymentsHref="/me/finance#goals"
+                  paymentsHref={slug ? wPath(slug, "payments") : "/me/finance#goals"}
                   savingsHref="/me/finance#goals"
                   canManage={goalsLive}
                   pending={pending}

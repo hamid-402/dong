@@ -1,0 +1,38 @@
+.switch {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 10px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.875rem;
+  line-height: 1.3;
+  color: var(--muted);
+  text-decoration: none;
+  border-inline-end: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+
+.link:last-child {
+  border-inline-end: none;
+}
+
+.link:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+
+.linkActive {
+  color: var(--text);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}

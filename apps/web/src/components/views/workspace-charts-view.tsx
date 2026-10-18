@@ -34,6 +34,7 @@ import { useLiveInvalidation } from "@/lib/live-invalidation";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useWorkspaceScope } from "@/components/shell/workspace-scope";
+import { FinanceInsightsSwitch } from "@/components/shell/finance-insights-switch";
 import { wPath } from "@/lib/workspace-paths";
 import styles from "./workspace-charts-view.module.css";
 
@@ -252,6 +253,7 @@ export function WorkspaceChartsView() {
         state="ready"
       >
         <div className={styles.stack}>
+          {slug ? <FinanceInsightsSwitch slug={slug} /> : null}
           <ReportRangeToolbar
             months={months}
             onMonthsChange={setMonths}
@@ -387,7 +389,9 @@ export function WorkspaceChartsView() {
                     >
                       {etlPending ? "در حال ETL…" : "اجرای ETL"}
                     </button>
-                    {slug ? (
+                    {slug &&
+                    (chrome.platformRole === "platform_owner" ||
+                      chrome.platformRole === "platform_support") ? (
                       <StatusLine>
                         جزئیات بیشتر در{" "}
                         <Link href={wPath(slug, "metrics")}>{NAV_LABELS.metrics}</Link>

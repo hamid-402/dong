@@ -227,7 +227,7 @@ export function ProfileView() {
         eyebrow="حساب"
         title="حساب من"
         description="هویت، امنیت و ترجیح‌های شخصی — جدا از خانهٔ فضای کاری."
-        actions={<Link href="/home">{NAV_LABELS.spacesList}</Link>}
+        actions={<Link href="/spaces">{NAV_LABELS.spacesList}</Link>}
       />
       <MotionSceneStrip kind="security" prominence="banner" />
       {debugVerifyUrl ? (

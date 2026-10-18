@@ -71,7 +71,9 @@ export function ShellToolsView() {
       : null);
   const groupParsed =
     domainParam != null ? parseDomainSubGroup(domainParam, groupQuery) : null;
-  const flagsKey = JSON.stringify(spaceNavFlagsFromCapabilities(chrome.capabilities));
+  const flagsKey = JSON.stringify(
+    spaceNavFlagsFromCapabilities(chrome.capabilities, chrome.platformRole),
+  );
 
   const sections = contextualMosaicSections(
     active?.template,

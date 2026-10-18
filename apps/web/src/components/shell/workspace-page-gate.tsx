@@ -66,7 +66,10 @@ export function WorkspacePageGate({ page, children, needRole = false }: Props) {
   const access: PageAccessResult = workspacePageAccess({
     page,
     template,
-    flags: spaceNavFlagsFromCapabilities(chrome.capabilities),
+    flags: spaceNavFlagsFromCapabilities(
+      chrome.capabilities,
+      chrome.platformRole,
+    ),
     role,
   });
 

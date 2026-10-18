@@ -113,6 +113,8 @@ describe("role-surface — 6-role product model", () => {
     const member = roleNavProfile("member");
     assert.ok(member && member.navKeys !== "all");
     assert.equal(roleAllowsNavKey("member", "expenses"), true);
+    assert.equal(roleAllowsNavKey("member", "ledger"), true);
+    assert.equal(roleAllowsNavKey("member", "payments"), true);
     assert.equal(roleAllowsNavKey("member", "approvals"), false);
     assert.equal(roleAllowsNavKey("member", "jobs"), false);
 

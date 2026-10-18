@@ -179,7 +179,7 @@ export function WorkspacePermissionsView() {
       <WorkspacePageFrame
       title={NAV_LABELS.permissions}
       description={"grant نقش و جانشینی از accessPolicy واقعی."}
-      primaryAction={scope?.slug ? <Link href={wPath(scope.slug, "members")}>{NAV_LABELS.members}</Link> : <Link href="/home">{NAV_LABELS.spacesList}</Link>}
+      primaryAction={scope?.slug ? <Link href={wPath(scope.slug, "members")}>{NAV_LABELS.members}</Link> : <Link href="/spaces">{NAV_LABELS.spacesList}</Link>}
       state="ready"
     >
       <SectionCard title="سطح دسترسی قابل‌ویرایش" badge={accessPolicy ?? "—"}>

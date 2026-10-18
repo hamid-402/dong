@@ -35,6 +35,8 @@ type AccessFlags = Partial<ProductFeatureFlags> & {
   accessPolicyGrants?: boolean;
   /** Honest: antifraud heuristics or maker-checker live → security-ops page. */
   securityOpsV1?: boolean;
+  /** platform_owner / platform_support — jobs + product metrics. */
+  platformConsole?: boolean;
 };
 
 function orgFinanceLive(flags?: AccessFlags): boolean {
@@ -76,9 +78,10 @@ export function canViewJobsDlqStrict(
   return canManageJobsDlq(role);
 }
 
-/** Merge product flags + jobs provider for nav/access. */
+/** Merge product flags + jobs provider + platform role for nav/access. */
 export function spaceNavFlagsFromCapabilities(
   capabilities: SystemCapabilities | null | undefined,
+  platformRole?: string | null,
 ): AccessFlags {
   return {
     ...capabilities?.productFlags,
@@ -98,6 +101,8 @@ export function spaceNavFlagsFromCapabilities(
       capabilities?.providers?.antifraud === "heuristics_v1" ||
       (capabilities?.providers?.makerChecker != null &&
         capabilities.providers.makerChecker !== "off"),
+    platformConsole:
+      platformRole === "platform_owner" || platformRole === "platform_support",
   };
 }
 
@@ -312,11 +317,11 @@ export function workspacePageAccess(input: {
       return { allowed: true, reason: "" };
 
     case "metrics":
-      if (!canViewProductMetricsStrict(role || null)) {
+      if (!flags?.platformConsole) {
         return {
           allowed: false,
           reason:
-            "متریک محصول فقط برای مدیر مالی، مالک، ادمین یا حسابرس فضای کاری قابل مشاهده است.",
+            "متریک محصول فقط برای نقش platform سامانه (platform_owner / platform_support) قابل مشاهده است.",
         };
       }
       return { allowed: true, reason: "" };
@@ -329,10 +334,11 @@ export function workspacePageAccess(input: {
             "صف کارها وقتی providers.jobs برابر inline_stub یا redis_queue باشد در دسترس است (از capabilities).",
         };
       }
-      if (!canViewJobsDlqStrict(role || null)) {
+      if (!flags?.platformConsole) {
         return {
           allowed: false,
-          reason: "مشاهده و اجرای کارها فقط برای مالک یا ادمین فضای کاری مجاز است.",
+          reason:
+            "صف کارها فقط برای نقش platform سامانه (platform_owner / platform_support) قابل مشاهده است.",
         };
       }
       return { allowed: true, reason: "" };
