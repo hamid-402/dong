@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { ActivityItem } from "@dang/contracts";
 import {
   spaceKindForTemplate,
@@ -196,7 +196,7 @@ export function OverviewView() {
   const chrome = useAppChrome();
   const theme = useOptionalTheme();
   const motionEnabled = theme ? theme.allowsAmbient || theme.allowsFeedback : true;
-  const [data, setData] = useState<DashboardState | null>(null);
+  const [loadedData, setData] = useState<DashboardState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [allowDemoSeed, setAllowDemoSeed] = useState(false);
   const [demoConfirm, setDemoConfirm] = useState<
@@ -205,15 +205,23 @@ export function OverviewView() {
   const [pending, startTransition] = useTransition();
   const dashRange = useMemo(() => rangeForPreset("month"), []);
   const [feedItems, setFeedItems] = useState<ActivityItem[]>([]);
+  const loadRequestRef = useRef(0);
+  const workspaceIdRef = useRef(chrome.workspaceId);
+  workspaceIdRef.current = chrome.workspaceId;
+  const activityLive = chrome.capabilities?.providers?.activityFeed === "activity_v1";
+  const chartsLive = chrome.capabilities?.providers?.charts === "charts_v1";
+  const activeWs = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
+  /** Stale dashboard from a previous space must not render under the new space. */
+  const data =
+    loadedData !== null && loadedData.workspaceId === chrome.workspaceId
+      ? loadedData
+      : null;
   const balance = useAnimatedBalance(
     data?.balanceIrrMinor ?? 0,
     motionEnabled,
     Boolean(data),
     HOME_UNIT,
   );
-  const activityLive = chrome.capabilities?.providers?.activityFeed === "activity_v1";
-  const chartsLive = chrome.capabilities?.providers?.charts === "charts_v1";
-  const activeWs = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
   const slug = activeWs?.slug ?? null;
   const expensesHref = canonicalHref("expenses", slug);
   const recordHref = canonicalHref("record", slug);
@@ -223,6 +231,7 @@ export function OverviewView() {
   const invoicesHref = canonicalHref("invoices", slug);
 
   function load(workspaceId: string, from = dashRange.from, to = dashRange.to) {
+    const requestId = ++loadRequestRef.current;
     startTransition(() => {
       void (async () => {
         try {
@@ -232,6 +241,12 @@ export function OverviewView() {
             chrome.workspaces.find((item) => item.id === workspaceId) ??
             chrome.workspaces[0];
           if (!workspace) {
+            if (
+              requestId !== loadRequestRef.current ||
+              workspaceId !== workspaceIdRef.current
+            ) {
+              return;
+            }
             setError("فضای کاری ندارید — یک فضا بسازید یا از دعوت استفاده کنید.");
             setData(null);
             return;
@@ -265,6 +280,12 @@ export function OverviewView() {
               .catch(() => []);
             approvalSlaBreached = queue.filter((item) => item.slaBreached).length;
           }
+          if (
+            requestId !== loadRequestRef.current ||
+            workspace.id !== workspaceIdRef.current
+          ) {
+            return;
+          }
           setFeedItems(activityPage.items);
           setAllowDemoSeed(Boolean(chrome.demoSeedAllowed));
           const netMinor = Number(dashboard.actorNet.amountMinor);
@@ -273,6 +294,12 @@ export function OverviewView() {
             kind === "personal"
               ? null
               : await api.getBalances(workspace.id).catch(() => null);
+          if (
+            requestId !== loadRequestRef.current ||
+            workspace.id !== workspaceIdRef.current
+          ) {
+            return;
+          }
           const actorId = chrome.actor?.userId ?? "";
           const edge =
             balanceBook && actorId
@@ -350,6 +377,12 @@ export function OverviewView() {
           });
           setError(null);
         } catch (err: unknown) {
+          if (
+            requestId !== loadRequestRef.current ||
+            workspaceId !== workspaceIdRef.current
+          ) {
+            return;
+          }
           setError(friendlyErrorMessage(err, "خطای ناشناخته"));
         }
       })();
@@ -358,6 +391,9 @@ export function OverviewView() {
 
   useEffect(() => {
     if (!chrome.ready || !chrome.workspaceId) return;
+    setData(null);
+    setFeedItems([]);
+    setError(null);
     load(chrome.workspaceId);
   }, [chrome.ready, chrome.workspaceId]);
 
@@ -794,7 +830,8 @@ export function OverviewView() {
       ) : null}
 
       <WorkspacePageFrame title="" state="ready">
-        {!chrome.ready || (!data && pending) ? (
+        {!chrome.ready ||
+        (!data && Boolean(chrome.workspaceId) && (pending || !error)) ? (
           <LoadingState label="در حال بارگذاری خانه…" rows={4} />
         ) : error && !data ? (
           <ErrorState
@@ -846,7 +883,7 @@ export function OverviewView() {
           />
         ) : (
           <SpaceHomeLayout
-            title={data?.workspaceName || NAV_LABELS.home}
+            title={activeWs?.name || data?.workspaceName || NAV_LABELS.home}
             roleBadge={
               data?.myRole ? membershipRoleLabel(data.myRole) : null
             }
