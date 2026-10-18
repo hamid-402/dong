@@ -23,7 +23,19 @@ export function SpaceHomeActivity({
   emptyLine?: string;
   max?: number;
 }) {
-  const shown = items.slice(0, max);
+  // Collapse back-to-back repeats of the same notice (e.g. daily "high balance" alerts) into one row.
+  const groups: { item: SpaceHomeActivityItem; count: number }[] = [];
+  for (const item of items) {
+    const prev = groups[groups.length - 1];
+    if (prev && prev.item.title === item.title) {
+      prev.count += 1;
+    } else {
+      groups.push({ item, count: 1 });
+    }
+  }
+  const shown = groups.slice(0, max).map(({ item, count }) =>
+    count > 1 ? { ...item, title: `${item.title} (${count.toLocaleString("fa-IR")} بار)` } : item,
+  );
 
   return (
     <section className={styles.section} aria-labelledby="space-home-activity-title">

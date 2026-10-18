@@ -23,7 +23,7 @@
 /* Wide screens: main column (balance, actions, flows) + side column (activity, chart). */
 @media (min-width: 1100px) {
   .layout {
-    max-width: 72rem;
+    max-width: none;
     column-gap: 1.5rem;
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
     grid-template-rows: auto auto auto 1fr;
