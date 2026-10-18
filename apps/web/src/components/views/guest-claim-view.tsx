@@ -93,7 +93,7 @@ function GuestClaimInner() {
           const ws = await api.getWorkspace(result.placeholder.workspaceId).catch(() => null);
           if (ws?.slug) {
             window.setTimeout(() => {
-              router.push(wPath(ws.slug, "space"));
+              router.push(wPath(ws.slug));
             }, 1200);
           }
         } catch (err: unknown) {

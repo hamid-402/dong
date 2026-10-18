@@ -45,6 +45,8 @@ import {
   type SpaceHomeActionItem,
   type SpaceHomeActivityItem,
 } from "@/components/views/space-home";
+import { PersonalHomeExtras } from "@/components/views/space-home/personal-home-extras";
+import { GroupOutingHomePanel } from "@/components/views/space-home/group-outing-home-panel";
 import { spaceHomeStyles } from "@/components/views/space-home/space-home-layout";
 import { api, getDevIdentity, setDevIdentity } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
@@ -869,8 +871,27 @@ export function OverviewView() {
             }
             extras={
               <>
+                {spaceKind === "personal" &&
+                data?.workspaceId &&
+                !isReadOnlyRole(data?.myRole) ? (
+                  <PersonalHomeExtras
+                    workspaceId={data.workspaceId}
+                    onPosted={() => {
+                      if (chrome.workspaceId) load(chrome.workspaceId);
+                    }}
+                    onError={setError}
+                  />
+                ) : null}
                 {spaceKind === "personal" && !isReadOnlyRole(data?.myRole) ? (
                   <MoneyEntryChooser slug={slug} />
+                ) : null}
+                {spaceKind === "group" && data?.workspaceId && slug ? (
+                  <GroupOutingHomePanel
+                    workspaceId={data.workspaceId}
+                    slug={slug}
+                    myRole={data.myRole}
+                    onError={setError}
+                  />
                 ) : null}
                 {spaceKind === "personal" ||
                 chrome.capabilities?.providers?.pettyCash === "fund_v1" ? (

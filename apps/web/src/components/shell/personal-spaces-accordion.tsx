@@ -302,7 +302,7 @@ export function PersonalSpacesAccordion({
                       return (
                         <div key={ws.id} className={styles.rowShell}>
                           <Link
-                            href={wPath(ws.slug, "space")}
+                            href={wPath(ws.slug)}
                             className={styles.row}
                             style={gemCssVars(gemById.get(ws.id))}
                             onClick={() => chrome.selectWorkspace(ws.id)}
@@ -352,7 +352,7 @@ export function PersonalSpacesAccordion({
                           </Link>
                           <div className={styles.rowActions}>
                             <Link
-                              href={wPath(ws.slug, "space")}
+                              href={wPath(ws.slug)}
                               className={styles.rowAction}
                               onClick={() => chrome.selectWorkspace(ws.id)}
                             >

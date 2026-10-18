@@ -47,7 +47,7 @@ export function PersonalFinanceHubView() {
         }
         secondaryActions={
           personalSpace ? (
-            <Link href={wPath(personalSpace.slug, "space")}>دفتر من</Link>
+            <Link href={wPath(personalSpace.slug)}>دفتر من</Link>
           ) : undefined
         }
       >

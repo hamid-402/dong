@@ -533,7 +533,7 @@ export function SpacesHubView({
                     {pinnedSpaces.map((ws) => (
                       <li key={`pin-${ws.id}`}>
                         <Link
-                          href={wPath(ws.slug, "space")}
+                          href={wPath(ws.slug)}
                           onClick={() => chrome.selectWorkspace(ws.id)}
                         >
                           {ws.name}
@@ -550,7 +550,7 @@ export function SpacesHubView({
                     {recentSpaces.map((ws) => (
                       <li key={`recent-${ws.id}`}>
                         <Link
-                          href={wPath(ws.slug, "space")}
+                          href={wPath(ws.slug)}
                           onClick={() => chrome.selectWorkspace(ws.id)}
                         >
                           {ws.name}
@@ -650,7 +650,7 @@ export function SpacesHubView({
                             className={`homeSpaceCard${active ? " is-active" : ""}`}
                           >
                             <Link
-                              href={wPath(ws.slug, "space")}
+                              href={wPath(ws.slug)}
                               className="spaces-mosaic__main"
                               onClick={() => chrome.selectWorkspace(ws.id)}
                               aria-current={active ? "page" : undefined}

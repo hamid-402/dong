@@ -131,7 +131,7 @@ export function HomeRootLauncher({
       for (const item of section.items) hrefs.add(item.href);
     }
     if (slug) {
-      hrefs.add(wPath(slug, "space"));
+      hrefs.add(wPath(slug));
       hrefs.add(wPath(slug, "expenses"));
       hrefs.add(wPath(slug, "record"));
       hrefs.add(`${wPath(slug, "expenses")}#quick-expense`);
@@ -244,7 +244,7 @@ export function HomeRootLauncher({
   const quickItems: ContextualMosaicItem[] = [
     {
       key: "this-space",
-      href: wPath(slug, "space"),
+      href: wPath(slug),
       label: spaceTabLabel(kind),
       icon: "home",
       summary: t("shell.homeThisSpaceHint"),

@@ -75,7 +75,7 @@ describe("space switcher", () => {
 
     fireEvent.click(screen.getByRole("option", { name: "شرکت" }));
     expect(selectWorkspace).toHaveBeenCalledWith("workspace-2");
-    expect(push).toHaveBeenCalledWith("/w/company/space");
+    expect(push).toHaveBeenCalledWith("/w/company");
   });
 
   it("shows kind and space name inside a space, with kind list, create, and leave", () => {

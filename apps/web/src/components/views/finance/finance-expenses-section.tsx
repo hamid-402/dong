@@ -166,7 +166,7 @@ export function FinanceExpensesSection(props: FinanceExpensesSectionProps) {
   }, [outingSpace, props.selectedId]);
 
   const expensesHref = props.slug ? wPath(props.slug, "expenses") : "";
-  const spaceHref = props.slug ? wPath(props.slug, "space") : null;
+  const spaceHref = props.slug ? wPath(props.slug) : null;
 
   return (
     <div className="financeExpensesLayers">

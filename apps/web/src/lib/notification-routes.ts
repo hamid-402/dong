@@ -57,7 +57,7 @@ export function notificationTargetHref(
     return slug ? wPath(slug, "approvals") : absoluteForPage("approvals", null);
   }
   if (event === "personal.budget.alert") {
-    return slug ? wPath(slug, "space") : absoluteForPage("space", null);
+    return slug ? wPath(slug) : absoluteForPage("home", null);
   }
   const route = notification.metadata?.route;
   if (route?.startsWith("/")) {

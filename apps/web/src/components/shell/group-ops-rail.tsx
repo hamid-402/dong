@@ -169,7 +169,7 @@ export function GroupOpsRail({
 
   items.push({
     key: "space",
-    href: wPath(slug, "space"),
+    href: wPath(slug),
     label: kindLabel,
     hint: `مانده و نمای کلی ${kindLabel}`,
     icon: "home",

@@ -627,7 +627,7 @@ export default function WorkspaceSettingsPage() {
               <small>صورتحساب بازهٔ دلخواه با دستور واریز</small>
             </Link>
           ) : null}
-          <Link href={wPath(scope.slug, "space")}>
+          <Link href={wPath(scope.slug)}>
             <b>خانهٔ فضا</b>
             <small>نمای متناسب با نقش و نوع فضای کاری</small>
           </Link>

@@ -141,7 +141,7 @@ describe("kind header switcher", () => {
     );
     fireEvent.click(screen.getByRole("option", { name: /خانه/ }));
     expect(selectWorkspace).toHaveBeenCalledWith("workspace-1");
-    expect(push).toHaveBeenCalledWith("/w/home/space");
+    expect(push).toHaveBeenCalledWith("/w/home");
   });
 
   it("supports Escape, arrows, and aria attributes", async () => {

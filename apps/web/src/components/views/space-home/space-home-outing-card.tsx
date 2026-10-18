@@ -39,7 +39,7 @@ export function SpaceHomeOutingCard({
         {spaceHref ? (
           <p className={styles.outingMeta}>
             <Link href={spaceHref} className={styles.destLink}>
-              مدیریت و ساخت گردش در صفحهٔ فضا
+              مدیریت و ساخت گردش در خانهٔ فضا
             </Link>
           </p>
         ) : null}

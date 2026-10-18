@@ -636,7 +636,7 @@ export function KindReportsView({
                           {(index + 1).toLocaleString("fa-IR")}
                         </td>
                         <th scope="row">
-                          <Link href={wPath(ws.slug, "space")}>{ws.name}</Link>
+                          <Link href={wPath(ws.slug)}>{ws.name}</Link>
                         </th>
                         {chartsEnabled ? (
                           <>

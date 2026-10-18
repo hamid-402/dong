@@ -176,7 +176,7 @@ export function ShellSpaceSwitcher({
   function go(ws: SpaceRow) {
     selectWorkspace(ws.id);
     setOpen(false);
-    router.push(wPath(ws.slug, "space"));
+    router.push(wPath(ws.slug));
   }
 
   function onPanelKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {

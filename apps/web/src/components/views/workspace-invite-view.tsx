@@ -308,7 +308,7 @@ export function WorkspaceInviteView() {
             <nav className={styles.toolbarNav} aria-label="مسیرهای مرتبط">
               <Link href={wPath(slug, "expenses")}>{NAV_LABELS.expenses}</Link>
               <Link href={wPath(slug, "settlements")}>{NAV_LABELS.settlements}</Link>
-              <Link href={wPath(slug, "space")}>خلاصهٔ گروه</Link>
+              <Link href={wPath(slug)}>خلاصهٔ گروه</Link>
               {canManage ? <a href="#member-add-panel">افزودن عضو</a> : null}
               {canInvite ? <a href="#invite-create-panel">ساخت دعوت</a> : null}
             </nav>

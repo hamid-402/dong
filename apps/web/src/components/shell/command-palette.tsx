@@ -201,7 +201,7 @@ export function CommandPalette() {
       push({
         id: "shortcut-space",
         label: NAV_LABELS.space,
-        href: wPath(slug, "space"),
+        href: wPath(slug),
         group: t("shell.groupShortcut"),
         channel: "page",
       });

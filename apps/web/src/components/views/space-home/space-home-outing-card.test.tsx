@@ -23,7 +23,7 @@ describe("SpaceHomeOutingCard", () => {
           { id: "o2", title: "سفر", expenseIds: [] },
         ]}
         expensesHref="/w/g/expenses"
-        spaceHref="/w/g/space"
+        spaceHref="/w/g"
       />,
     );
     expect(screen.getByText(/گردش چندخرجی/)).toBeTruthy();
@@ -32,6 +32,6 @@ describe("SpaceHomeOutingCard", () => {
     expect(friday.getAttribute("href")).toContain("#quick-expense");
     expect(
       screen.getByRole("link", { name: /مدیریت و ساخت گردش/ }).getAttribute("href"),
-    ).toBe("/w/g/space");
+    ).toBe("/w/g");
   });
 });

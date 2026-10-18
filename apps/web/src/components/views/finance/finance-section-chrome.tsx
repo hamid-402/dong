@@ -60,7 +60,7 @@ export function buildFinanceSectionChrome(input: {
       secondary: slug ? (
         <>
           <Link href={membersHrefSafe}>{NAV_LABELS.members}</Link>
-          <Link href={wPath(slug, "space")}>{NAV_LABELS.spaceGroup}</Link>
+          <Link href={wPath(slug)}>{NAV_LABELS.spaceGroup}</Link>
         </>
       ) : undefined,
     };

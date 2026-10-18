@@ -201,7 +201,7 @@ export function ShellKindHeaderSwitcher() {
     selectWorkspace(ws.id);
     setOpenKind(null);
     setQuery("");
-    router.push(wPath(ws.slug, "space"));
+    router.push(wPath(ws.slug));
   }
 
   function onPanelKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
