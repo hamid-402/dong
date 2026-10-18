@@ -43,16 +43,18 @@ export function WorkspaceWebhooksPanel({
   function refresh() {
     startTransition(() => {
       void Promise.all([
-        api.listWebhooks(workspaceId),
-        api.listWebhookDeliveries(workspaceId),
-      ])
-        .then(([hooks, logs]) => {
-          setRows(hooks);
-          setDeliveries(logs);
-        })
-        .catch((err: unknown) =>
-          setError(friendlyErrorMessage(err, "بارگذاری وب‌هوک")),
-        );
+        api.listWebhooks(workspaceId).catch((err: unknown) => {
+          setError(friendlyErrorMessage(err, "بارگذاری وب‌هوک"));
+          return [] as WorkspaceWebhookSummary[];
+        }),
+        api.listWebhookDeliveries(workspaceId).catch(() => {
+          /* Deliveries may 500 when migration is pending — calm empty state. */
+          return [] as WorkspaceWebhookDeliverySummary[];
+        }),
+      ]).then(([hooks, logs]) => {
+        setRows(hooks);
+        setDeliveries(logs);
+      });
     });
   }
 
@@ -156,9 +158,9 @@ export function WorkspaceWebhooksPanel({
           ))}
         </DataList>
       )}
-      <StatusLine>لاگ تحویل اخیر (واقعی از dispatch)</StatusLine>
+      <StatusLine>لاگ ارسال‌های اخیر</StatusLine>
       {deliveries.length === 0 ? (
-        <EmptyHint>هنوز تحویلی ثبت نشده — پس از expense.posted / settlement.confirmed ظاهر می‌شود.</EmptyHint>
+        <EmptyHint>هنوز ارسالی ثبت نشده</EmptyHint>
       ) : (
         <DataList>
           {deliveries.map((d) => (

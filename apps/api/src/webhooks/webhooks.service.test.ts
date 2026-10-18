@@ -239,6 +239,27 @@ test("G15 WebhooksService.create forbidden for plain member", async () => {
   );
 });
 
+test("G15 WebhooksService.listDeliveries returns empty when none recorded", async () => {
+  const { iam, owner, workspace } = await seed();
+  const store = new MemoryWorkspaceWebhookStore();
+  const service = new WebhooksService(store, iam);
+  const empty = await service.listDeliveries(owner, workspace.id);
+  assert.deepEqual(empty, []);
+});
+
+test("G15 WebhooksService.listDeliveries returns [] on missing relation (42P01)", async () => {
+  const { iam, owner, workspace } = await seed();
+  const store = new MemoryWorkspaceWebhookStore();
+  store.listDeliveries = async () => {
+    const err = new Error('relation "ops.workspace_webhook_delivery" does not exist');
+    (err as { code?: string }).code = "42P01";
+    throw err;
+  };
+  const service = new WebhooksService(store, iam);
+  const rows = await service.listDeliveries(owner, workspace.id);
+  assert.deepEqual(rows, []);
+});
+
 test("G15 WebhooksService.dispatchEvent network error returns ok:false", async () => {
   const { iam, owner, workspace } = await seed();
   const store = new MemoryWorkspaceWebhookStore();

@@ -12,7 +12,20 @@ import type {
   WorkspaceWebhookDeliverySummary,
   WorkspaceWebhookSummary,
 } from "@dang/contracts";
+import { createLogger } from "@dang/observability";
 import type { WorkspaceWebhookRecord, WorkspaceWebhookStore } from "./webhook.store.js";
+
+const logger = createLogger("dang-api-webhooks-pg");
+
+/** PostgreSQL undefined_table — migration 0086 not applied yet. */
+function isUndefinedTableError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: string }).code === "42P01"
+  );
+}
 
 function toSummary(row: typeof workspaceWebhook.$inferSelect): WorkspaceWebhookSummary {
   return {
@@ -186,34 +199,45 @@ export class PostgresWorkspaceWebhookStore implements WorkspaceWebhookStore {
     opts?: { webhookId?: string; limit?: number },
   ): Promise<WorkspaceWebhookDeliverySummary[]> {
     const limit = Math.min(Math.max(opts?.limit ?? 40, 1), 100);
-    return withTenantContext(
-      this.db,
-      { workspaceId, userId: workspaceId },
-      async (tx) => {
-        const rows = await tx
-          .select()
-          .from(workspaceWebhookDelivery)
-          .where(
-            opts?.webhookId
-              ? and(
-                  eq(workspaceWebhookDelivery.workspaceId, workspaceId),
-                  eq(workspaceWebhookDelivery.webhookId, opts.webhookId),
-                )
-              : eq(workspaceWebhookDelivery.workspaceId, workspaceId),
-          )
-          .orderBy(desc(workspaceWebhookDelivery.createdAt))
-          .limit(limit);
-        return rows.map((row) => ({
-          id: row.id,
-          workspaceId: row.workspaceId,
-          webhookId: row.webhookId,
-          eventType: row.eventType,
-          ok: row.ok,
-          statusCode: row.statusCode ?? undefined,
-          detail: row.detail,
-          createdAt: row.createdAt.toISOString(),
-        }));
-      },
-    );
+    try {
+      return await withTenantContext(
+        this.db,
+        { workspaceId, userId: workspaceId },
+        async (tx) => {
+          const rows = await tx
+            .select()
+            .from(workspaceWebhookDelivery)
+            .where(
+              opts?.webhookId
+                ? and(
+                    eq(workspaceWebhookDelivery.workspaceId, workspaceId),
+                    eq(workspaceWebhookDelivery.webhookId, opts.webhookId),
+                  )
+                : eq(workspaceWebhookDelivery.workspaceId, workspaceId),
+            )
+            .orderBy(desc(workspaceWebhookDelivery.createdAt))
+            .limit(limit);
+          return rows.map((row) => ({
+            id: row.id,
+            workspaceId: row.workspaceId,
+            webhookId: row.webhookId,
+            eventType: row.eventType,
+            ok: row.ok,
+            statusCode: row.statusCode ?? undefined,
+            detail: row.detail,
+            createdAt: row.createdAt.toISOString(),
+          }));
+        },
+      );
+    } catch (err: unknown) {
+      if (isUndefinedTableError(err)) {
+        logger.warn(
+          "ops.workspace_webhook_delivery missing (42P01); returning empty deliveries — apply migration 0086",
+          { workspaceId },
+        );
+        return [];
+      }
+      throw err;
+    }
   }
 }

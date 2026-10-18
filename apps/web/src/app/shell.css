@@ -6590,7 +6590,8 @@ html[data-density="compact"] .shell-v2__header {
   border-bottom: 1px solid var(--dang-border, var(--dang-line));
   box-shadow: none;
   backdrop-filter: none;
-  padding: 0 8px;
+  /* Same inline pad as .shell-v2__main so header edges match page frames. */
+  padding: 0 var(--page-frame-pad);
   gap: 0;
   min-height: 0;
   height: auto;
@@ -6614,34 +6615,33 @@ html[data-density="compact"] .shell-v2__header {
 }
 
 /*
- * Page-frame alignment (desktop/tablet): header + place row stay full-bleed
- * for background/border; inner content shares max-width + pad with main.
- * Mobile (<768px) keeps the existing 8px header padding and bar layout.
+ * Page-frame alignment: header chrome is full-bleed for border/background;
+ * inner bar/place use the same padding-inline as .shell-v2__main
+ * (--page-frame-pad). Do not also max-width-center the bar — that inset
+ * the header ~6px past the main content edges on wide viewports.
  */
-@media (min-width: 768px) {
-  .shell-v2__header,
-  .shell-v2--desktop .shell-v2__header,
-  .shell-v2--tablet .shell-v2__header,
-  html[data-scheme="light"] .shell-v2__header,
-  html[data-density="compact"] .shell-v2__header {
-    padding-inline: var(--page-frame-pad);
-    overflow: visible;
-  }
+.shell-v2__header,
+.shell-v2--desktop .shell-v2__header,
+.shell-v2--tablet .shell-v2__header,
+html[data-scheme="light"] .shell-v2__header,
+html[data-density="compact"] .shell-v2__header {
+  padding-inline: var(--page-frame-pad);
+  overflow: visible;
+}
 
-  .shell-v2__bar {
-    width: 100%;
-    max-width: var(--page-frame-max);
-    margin-inline: auto;
-    overflow: visible;
-  }
+.shell-v2__bar {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  overflow: visible;
+}
 
-  /* Place row: border/background full width of header; content matches bar. */
-  .shell-v2__place,
-  .shell-v2__place--line {
-    margin-inline: 0;
-    padding-inline: max(0px, calc((100% - var(--page-frame-max)) / 2));
-    overflow: visible;
-  }
+/* Place row border full-bleed; content inset matches bar/main. */
+.shell-v2__place,
+.shell-v2__place--line {
+  margin-inline: calc(-1 * var(--page-frame-pad));
+  padding-inline: var(--page-frame-pad);
+  overflow: visible;
 }
 
 .shell-v2__zone {

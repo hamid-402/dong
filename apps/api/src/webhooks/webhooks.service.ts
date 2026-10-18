@@ -80,7 +80,22 @@ export class WebhooksService {
     opts?: { webhookId?: string; limit?: number },
   ): Promise<WorkspaceWebhookDeliverySummary[]> {
     await this.requireMember(workspaceId, actor.userId);
-    return this.store.listDeliveries(workspaceId, opts);
+    try {
+      return await this.store.listDeliveries(workspaceId, opts);
+    } catch (err: unknown) {
+      const code =
+        typeof err === "object" && err !== null && "code" in err
+          ? (err as { code?: string }).code
+          : undefined;
+      if (code === "42P01") {
+        logger.warn(
+          "webhook deliveries unavailable (missing relation); returning empty list",
+          { workspaceId },
+        );
+        return [];
+      }
+      throw err;
+    }
   }
 
   async deactivate(

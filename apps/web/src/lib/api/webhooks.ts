@@ -9,12 +9,18 @@ import { postWithOfflineQueue } from "./offline-post";
 export const webhooksApi = {
   listWebhooks: (workspaceId: string) =>
     apiFetch<WorkspaceWebhookSummary[]>(`/workspaces/${workspaceId}/webhooks`),
-  listWebhookDeliveries: (workspaceId: string, webhookId?: string) =>
-    apiFetch<WorkspaceWebhookDeliverySummary[]>(
-      webhookId
-        ? `/workspaces/${workspaceId}/webhooks/${webhookId}/deliveries`
-        : `/workspaces/${workspaceId}/webhooks/deliveries`,
-    ),
+  listWebhookDeliveries: async (workspaceId: string, webhookId?: string) => {
+    try {
+      return await apiFetch<WorkspaceWebhookDeliverySummary[]>(
+        webhookId
+          ? `/workspaces/${workspaceId}/webhooks/${webhookId}/deliveries`
+          : `/workspaces/${workspaceId}/webhooks/deliveries`,
+      );
+    } catch {
+      /* Missing delivery table / transient 5xx — UI shows calm empty state. */
+      return [] as WorkspaceWebhookDeliverySummary[];
+    }
+  },
   createWebhook: (workspaceId: string, body: CreateWorkspaceWebhookRequest) =>
     postWithOfflineQueue<WorkspaceWebhookSummary>({
       path: `/workspaces/${workspaceId}/webhooks`,

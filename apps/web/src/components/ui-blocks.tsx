@@ -147,7 +147,7 @@ export function EmptyHint({
       </div>
     );
   }
-  return <p className="emptyHint">{children}</p>;
+  return <div className="emptyHint">{children}</div>;
 }
 
 const STICKER_SHELL_ICON: Record<StickerName, ShellIcon> = {
