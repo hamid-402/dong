@@ -855,7 +855,8 @@ button.shell-sectionTabs__tab:focus-visible{
   z-index: 75;
   min-width: min(18rem, 86vw);
   max-width: min(22rem, 92vw);
-  max-height: min(70vh, 28rem);
+  /* Viewport-relative: avoid the old 28rem (448px) hard cap that hid items at 1366. */
+  max-height: calc(100dvh - 10rem - 16px);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0.4rem 0;
@@ -863,6 +864,29 @@ button.shell-sectionTabs__tab:focus-visible{
   border-radius: 12px;
   background: var(--surface, var(--dang-bg));
   box-shadow: 0 10px 28px color-mix(in srgb, var(--text) 14%, transparent);
+  scrollbar-gutter: stable;
+}
+
+.shell-sectionMore__panel.has-more-below{
+  box-shadow:
+    0 10px 28px color-mix(in srgb, var(--text) 14%, transparent),
+    inset 0 -14px 0 -10px color-mix(in srgb, var(--text) 12%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--kind-edge, var(--primary)) 42%, var(--line));
+}
+
+.shell-sectionMore__scrollHint{
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0.35rem 0.85rem 0.45rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  background: var(--surface, var(--dang-bg));
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
 }
 
 .shell-sectionMore__panel--sheet{
@@ -874,7 +898,7 @@ button.shell-sectionTabs__tab:focus-visible{
   width: 100%;
   min-width: 0;
   max-width: none;
-  max-height: min(78vh, 36rem);
+  max-height: min(78dvh, calc(100dvh - 4rem));
   border-radius: 16px 16px 0 0;
   padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
 }
@@ -4650,8 +4674,8 @@ html[data-scheme="dark"] .groupOpsRail__open{
   }
 }
 
-/* Kind families — violet (personal) / calm indigo-blue (group) / warm (building) / primary blue (org).
-   Group never uses success green: it is a primary↔info blend, distinct from org's pure primary. */
+/* Kind families — violet (personal) / calm steel-blue (group) / warm (building) / primary blue (org).
+   Group never uses success green or olive gems for chrome; steel tint from primary, no G-dominant wash. */
 [data-kind="personal"],
 [data-space-kind="personal"]{
   --kind-mid: var(--dang-info);
@@ -4660,8 +4684,8 @@ html[data-scheme="dark"] .groupOpsRail__open{
 
 [data-kind="group"],
 [data-space-kind="group"]{
-  --kind-mid: color-mix(in srgb, var(--dang-primary) 58%, var(--dang-info));
-  --kind-edge: color-mix(in srgb, var(--dang-primary-line) 58%, var(--dang-info-line));
+  --kind-mid: color-mix(in srgb, var(--dang-primary) 62%, #64748b);
+  --kind-edge: color-mix(in srgb, var(--dang-primary-line) 55%, #475569);
 }
 
 [data-kind="building"],
@@ -4729,30 +4753,16 @@ html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-current-realm{
 
 .spacesBalanceOverview[data-space-kind]{
   border-color: color-mix(in srgb, var(--kind-edge) 50%, var(--line));
-  background:
-    radial-gradient(
-      circle at 100% 0%,
-      color-mix(in srgb, var(--kind-mid) 26%, transparent),
-      transparent 48%
-    ),
-    linear-gradient(
-      165deg,
-      color-mix(in srgb, var(--kind-edge) 16%, var(--surface)),
-      var(--surface)
-    );
+  background: color-mix(in srgb, var(--kind-edge) 14%, var(--surface));
 }
 
 .spaces-hub__group[data-kind] .spaces-hub__heading{
   color: color-mix(in srgb, var(--kind-mid) 70%, var(--text));
 }
 
-/* Inside a realm, cards pick up that family's hue. Buttons stay a dark fill with light type. */
+/* Inside a realm, cards pick up that family's hue (solid wash — no gradients). */
 .shell-v2[data-kind]{
-  --dang-card-wash: radial-gradient(
-    circle at 100% 0%,
-    color-mix(in srgb, var(--kind-mid) 20%, transparent),
-    transparent 46%
-  );
+  --dang-card-wash: color-mix(in srgb, var(--kind-mid) 12%, transparent);
 }
 
 .shell-v2[data-kind] a.shell-v2__cta,
@@ -4778,7 +4788,7 @@ html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-current-realm{
 }
 
 .shell-v2[data-kind] .sectionCardHead::before{
-  background: linear-gradient(90deg, var(--kind-mid), var(--kind-edge));
+  background: var(--kind-edge);
 }
 
 .shell-v2[data-kind] .workspacePageFrame > .moduleChrome{

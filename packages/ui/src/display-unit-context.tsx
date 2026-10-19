@@ -18,7 +18,7 @@ export function DisplayUnitProvider({
   );
 }
 
-/** Resolved unit from nearest DisplayUnitProvider, else rial. */
+/** Resolved unit from nearest DisplayUnitProvider, else تومان. */
 export function useDisplayUnit(): DisplayUnit {
   return useContext(DisplayUnitContext);
 }

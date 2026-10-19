@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import type {
   AuthActor,
   DisplayUnitPreference,
@@ -95,6 +96,9 @@ function sessionFromActor(actor: AuthActor | null): SessionSummary | null {
 }
 
 export function AppChromeProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const inWorkspaceRoute =
+    typeof pathname === "string" && pathname.startsWith("/w/");
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [userName, setUserName] = useState("");
@@ -495,7 +499,8 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
   return (
     <DisplayUnitProvider
       userPreference={userDisplayUnit}
-      workspaceUnit={workspaceDisplayUnit}
+      /* Outside /w/* (e.g. /me/finance) follow user → default تومان, not last space. */
+      workspaceUnit={inWorkspaceRoute ? workspaceDisplayUnit : null}
     >
       <AppChromeContext.Provider value={value}>{children}</AppChromeContext.Provider>
     </DisplayUnitProvider>

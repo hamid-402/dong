@@ -5,6 +5,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import Link from "next/link";
@@ -43,9 +44,19 @@ export function SpaceSectionMoreMenu({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const [moreBelow, setMoreBelow] = useState(false);
 
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
   useBodyScrollLock(open && presentation === "sheet");
+
+  const updateMoreBelow = useCallback(() => {
+    const el = panelRef.current;
+    if (!el) {
+      setMoreBelow(false);
+      return;
+    }
+    setMoreBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 2);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -72,6 +83,23 @@ export function SpaceSectionMoreMenu({
     const first = panelRef.current?.querySelector<HTMLElement>(FOCUSABLE_ITEM);
     first?.focus();
   }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      setMoreBelow(false);
+      return;
+    }
+    const el = panelRef.current;
+    if (!el) return;
+    updateMoreBelow();
+    el.addEventListener("scroll", updateMoreBelow, { passive: true });
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateMoreBelow) : null;
+    ro?.observe(el);
+    return () => {
+      el.removeEventListener("scroll", updateMoreBelow);
+      ro?.disconnect();
+    };
+  }, [open, sections, updateMoreBelow]);
 
   function items(): HTMLElement[] {
     return Array.from(
@@ -162,7 +190,7 @@ export function SpaceSectionMoreMenu({
             id={panelId}
             className={`shell-sectionMore__panel${
               presentation === "sheet" ? " shell-sectionMore__panel--sheet" : ""
-            }`}
+            }${moreBelow ? " has-more-below" : ""}`}
             role="menu"
             aria-label="بخش‌های بیشتر"
             onKeyDown={onPanelKeyDown}
@@ -185,6 +213,11 @@ export function SpaceSectionMoreMenu({
                 ))}
               </div>
             ))}
+            {moreBelow ? (
+              <p className="shell-sectionMore__scrollHint" aria-hidden="true">
+                بیشتر ↓
+              </p>
+            ) : null}
           </div>
         </>
       ) : null}

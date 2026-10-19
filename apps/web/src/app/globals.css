@@ -1822,12 +1822,7 @@ html[data-motion="off"] .dang-motion-feedback *{
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
   border-radius: var(--r-lg);
-  background:
-    linear-gradient(
-      165deg,
-      color-mix(in srgb, var(--surface) 97%, var(--primary)),
-      color-mix(in srgb, var(--surface-2, var(--surface)) 92%, transparent)
-    );
+  background: color-mix(in srgb, var(--surface) 94%, var(--primary));
   box-shadow: 0 6px 16px color-mix(in srgb, var(--bg) 24%, transparent);
   overflow: hidden;
 }

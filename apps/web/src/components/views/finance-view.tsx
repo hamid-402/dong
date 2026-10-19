@@ -823,14 +823,14 @@ export function FinanceView({
                 ? () => {
                     void promptText({
                       title: "واریز ماهانه",
-                      label: `مبلغ (${unitLabel})`,
+                      label: "مبلغ",
                       confirmLabel: "ثبت واریز",
                       tone: "default",
                     }).then((raw) => {
                       if (raw == null) return;
                       const money = displayInputToIrrMinor(raw, displayUnit);
                       if (!money) {
-                        setError("مبلغ معتبر نیست");
+                        setError(`مبلغ معتبر نیست (${unitLabel})`);
                         return;
                       }
                       startTransition(() => {
@@ -1106,14 +1106,14 @@ export function FinanceView({
                         ? () => {
                             void promptText({
                               title: "واریز ماهانه",
-                              label: `مبلغ (${unitLabel})`,
+                              label: "مبلغ",
                               confirmLabel: "ثبت واریز",
                               tone: "default",
                             }).then((raw) => {
                               if (raw == null) return;
                               const money = displayInputToIrrMinor(raw, displayUnit);
                               if (!money) {
-                                setError("مبلغ معتبر نیست");
+                                setError(`مبلغ معتبر نیست (${unitLabel})`);
                                 return;
                               }
                               startTransition(() => {

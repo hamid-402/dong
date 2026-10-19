@@ -118,19 +118,19 @@ export const ROUTE_GEM: Readonly<Record<string, string>> = {
  */
 /** Shell accent for the open space — same gem the directory tile uses. */
 export function shellKindStyle(gemKey: string | undefined): CSSProperties {
-  const gem = TILE_GEM_PALETTES[gemKey ?? ""] ?? TILE_GEM_PALETTES.teal;
+  // Tile gems only — kind washes/tabs/chips stay on CSS [data-kind] families
+  // so group never picks up olive/green gem hues for chrome.
+  const gem = TILE_GEM_PALETTES[gemKey ?? ""] ?? TILE_GEM_PALETTES.slate;
   if (!gem) return {};
   return {
     "--tile-gem-edge": gem.edge,
     "--tile-gem-mid": gem.mid,
     "--tile-gem-center": gem.center,
-    "--kind-mid": gem.mid,
-    "--kind-edge": gem.edge,
   } as CSSProperties;
 }
 
 export function gemCssVars(gemKey?: string): CSSProperties {
-  const gem = TILE_GEM_PALETTES[gemKey ?? ""] ?? TILE_GEM_PALETTES.teal;
+  const gem = TILE_GEM_PALETTES[gemKey ?? ""] ?? TILE_GEM_PALETTES.slate;
   if (!gem) return {};
   return {
     "--tile-gem-edge": gem.edge,
@@ -142,7 +142,8 @@ export function gemCssVars(gemKey?: string): CSSProperties {
 /** Sibling hues inside one kind. Menus stay on the lead color; each space picks one. */
 export const KIND_GEM_FAMILY: Record<SpaceKind, readonly string[]> = {
   personal: ["indigo", "ocean", "cobalt", "arctic", "periwinkle", "dusk", "navy", "ice", "denim", "sapphire"],
-  group: ["teal", "emerald", "olive", "cyan", "jade", "pine", "spring", "viridian", "moss", "meadow"],
+  /* Calm steel / slate blues — no green/olive; distinct from personal indigo and org violet. */
+  group: ["slate", "graphite", "sky", "blue", "denim", "navy", "cobalt", "sapphire", "arctic", "ice"],
   building: ["amber", "gold", "copper", "rust", "bronze", "apricot", "honey", "wheat", "saffron", "coral"],
   org: ["violet", "plum", "iris", "grape", "lilac", "royal", "fuchsia", "orchid", "mulberry", "amethyst"],
 };
