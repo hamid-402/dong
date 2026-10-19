@@ -170,11 +170,11 @@ export function WorkspacePlanPanel({
         usage ? (
           <StatusLine>
             مصرف {usage.periodMonth}: {usage.seatsUsed.toLocaleString("fa-IR")} عضو ·{" "}
-            {usage.postedExpensesInPeriod.toLocaleString("fa-IR")} خرج posted · پلن{" "}
+            {usage.postedExpensesInPeriod.toLocaleString("fa-IR")} خرج ثبت‌شده · پلن{" "}
             {PLAN_LABEL[usage.currentPlan]}
           </StatusLine>
         ) : (
-          <StatusLine>در حال خواندن metering…</StatusLine>
+          <StatusLine>در حال خواندن مصرف اشتراک…</StatusLine>
         )
       ) : null}
 

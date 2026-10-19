@@ -20,8 +20,9 @@ import {
 import {
   Amount,
   Button,
+  MoneyInput,
   TextField,
-  formatMoneyFromIrrMinor,
+  formatMoneyWithUnit,
 } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -58,18 +59,18 @@ import {
   expenseStatusLabel,
   membershipRoleLabel,
 } from "@/lib/status-labels";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { displayInputToIrrMinor } from "@/lib/irr-money";
 import { FlashMessages, useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { wPath } from "@/lib/workspace-paths";
-
-const HOME_UNIT = "toman" as const;
-const UNIT_LABEL = "تومان";
 
 /**
  * Building-kind space home — SpaceHomeLayout; deep tools on section menu.
  */
 export function BuildingSpaceView() {
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
   const scope = useOptionalWorkspaceScope();
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
   const [loading, setLoading] = useState(true);
@@ -86,7 +87,7 @@ export function BuildingSpaceView() {
   const [chargeYearMonth, setChargeYearMonth] = useState(() =>
     new Date().toISOString().slice(0, 7),
   );
-  const [chargeToman, setChargeToman] = useState("");
+  const [chargeAmount, setChargeAmount] = useState("");
   const [chargeAutoPost, setChargeAutoPost] = useState(false);
 
   const workspaceId = scope?.workspaceId || chrome.workspaceId;
@@ -180,13 +181,13 @@ export function BuildingSpaceView() {
 
   function onGenerateCharges() {
     if (!workspaceId) return;
-    const toman = Number(chargeToman.replaceAll(",", ""));
+    const amount = displayInputToIrrMinor(chargeAmount, displayUnit);
     if (!/^\d{4}-\d{2}$/.test(chargeYearMonth)) {
       setError("ماه شارژ نامعتبر است؛ مثلاً ۲۰۲۶/۱۰");
       return;
     }
-    if (!Number.isFinite(toman) || toman <= 0) {
-      setError("مبلغ شارژ هر واحد (تومان) لازم است");
+    if (!amount) {
+      setError("مبلغ شارژ هر واحد لازم است");
       return;
     }
     startTransition(() => {
@@ -194,7 +195,7 @@ export function BuildingSpaceView() {
         try {
           const result = await api.generateBuildingCharges(workspaceId, {
             yearMonth: chargeYearMonth,
-            amountMinorPerUnit: String(Math.round(toman) * 10),
+            amountMinorPerUnit: amount.amountMinor,
             autoPost: chargeAutoPost,
             idempotencyKey: newClientId(),
           });
@@ -233,7 +234,7 @@ export function BuildingSpaceView() {
       items.push({
         id: row.userId,
         title: memberName(row.userId),
-        detail: `${formatMoneyFromIrrMinor(row.net.amountMinor, HOME_UNIT)} ${UNIT_LABEL}`,
+        detail: formatMoneyWithUnit(row.net.amountMinor, displayUnit),
         href: settlementsHref,
         actionLabel: "تسویه",
       });
@@ -248,16 +249,16 @@ export function BuildingSpaceView() {
       });
     }
     return items.slice(0, 5);
-  }, [arrears, openSettlements, settlementsHref, members]);
+  }, [arrears, openSettlements, settlementsHref, members, displayUnit]);
 
   const activityItems = useMemo((): SpaceHomeActivityItem[] => {
     return expenses.slice(0, 5).map((expense) => ({
       id: expense.id,
       title: expense.title,
-      detail: `${expenseStatusLabel(expense.status)} · ${formatMoneyFromIrrMinor(expense.total.amountMinor, HOME_UNIT)} ${UNIT_LABEL}`,
+      detail: `${expenseStatusLabel(expense.status)} · ${formatMoneyWithUnit(expense.total.amountMinor, displayUnit)}`,
       href: `${expensesHref}?expense=${encodeURIComponent(expense.id)}#expense-inspector`,
     }));
-  }, [expenses, expensesHref]);
+  }, [expenses, expensesHref, displayUnit]);
 
   const unpaidLabel =
     arrears.length > 0
@@ -417,11 +418,10 @@ export function BuildingSpaceView() {
                         hint="مثلاً ۲۰۲۶/۱۰ (سال و ماه میلادی)"
                         dir="ltr"
                       />
-                      <TextField
-                        label={`مبلغ هر واحد (${UNIT_LABEL})`}
-                        value={chargeToman}
-                        onChange={(e) => setChargeToman(e.target.value)}
-                        dir="ltr"
+                      <MoneyInput
+                        label="مبلغ هر واحد"
+                        value={chargeAmount}
+                        onValueChange={setChargeAmount}
                       />
                       <label className="liveHint" style={{ display: "flex", gap: 8 }}>
                         <input

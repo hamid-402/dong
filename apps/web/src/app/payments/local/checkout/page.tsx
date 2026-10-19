@@ -91,10 +91,10 @@ function LocalCheckoutInner() {
           </a>
           <span className={styles.crumb}>پرداخت آزمایشی</span>
         </nav>
-        <p className={styles.brand}>دنگ · LocalPSP</p>
+        <p className={styles.brand}>دنگ · درگاه آزمایشی</p>
         <h1 className={styles.title}>پرداخت آزمایشی محلی</h1>
         <p className={styles.lead}>
-          این مسیر PSP داخل محصول است — بدون زرین‌پال. مبلغ فقط از سرور خوانده می‌شود.
+          این مسیر درگاه آزمایشی داخل محصول است — بدون زرین‌پال. مبلغ فقط از سرور خوانده می‌شود.
         </p>
 
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
@@ -129,7 +129,7 @@ function LocalCheckoutInner() {
             <p>پرداخت تأیید شد.</p>
             <p className={styles.meta}>
               مبلغ سرور: {formatIrrMinor(done.amount.amountMinor)} تومان
-              {done.refId ? ` · ref ${done.refId}` : ""}
+              {done.refId ? ` · پیگیری ${done.refId}` : ""}
             </p>
             <p className={styles.meta}>در حال بازگشت…</p>
           </div>

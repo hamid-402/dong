@@ -10,7 +10,7 @@ import type {
   WorkspaceReportResponse,
 } from "@dang/contracts";
 import { resolveDailyLedgerRange } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { Amount, Button, MoneyInput, SelectField, TextField } from "@dang/ui";
 import {
   DataList,
   DataRow,
@@ -23,6 +23,8 @@ import { JalaliDateField } from "@/components/jalali-date-field";
 import { ReportComparePanel } from "@/components/report-compare-panel";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { displayInputToIrrMinor } from "@/lib/irr-money";
 import { recurringCadenceLabel } from "@/lib/status-labels";
 import { useOptionalAppChrome } from "@/lib/use-app-chrome";
 
@@ -48,6 +50,7 @@ export function WorkspaceReportsPanel({
   onChanged?: () => void;
 }) {
   const chrome = useOptionalAppChrome();
+  const displayUnit = useDisplayUnit();
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(todayIso);
   const [groupBy, setGroupBy] = useState<ReportGroupBy>("day");
@@ -57,11 +60,11 @@ export function WorkspaceReportsPanel({
   const [categoryName, setCategoryName] = useState("");
   const [categoryParentId, setCategoryParentId] = useState("");
   const [ruleTitle, setRuleTitle] = useState("");
-  const [ruleToman, setRuleToman] = useState("");
+  const [ruleAmount, setRuleAmount] = useState("");
   const [ruleCadence, setRuleCadence] = useState<"weekly" | "monthly" | "yearly">(
     "monthly",
   );
-  const [reviseToman, setReviseToman] = useState("");
+  const [reviseAmount, setReviseAmount] = useState("");
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -193,8 +196,8 @@ export function WorkspaceReportsPanel({
 
   function onCreateRecurring() {
     const title = ruleTitle.trim();
-    const amount = Number(ruleToman.replaceAll(",", ""));
-    if (!title || !Number.isFinite(amount) || amount <= 0) {
+    const amount = displayInputToIrrMinor(ruleAmount, displayUnit);
+    if (!title || !amount) {
       setError("عنوان و مبلغ قاعده لازم است");
       return;
     }
@@ -203,14 +206,14 @@ export function WorkspaceReportsPanel({
         try {
           await api.createRecurringRule(workspaceId, {
             title,
-            amount: { amountMinor: String(Math.round(amount) * 10), currency: "IRR" },
+            amount,
             cadence: ruleCadence,
             nextRunOn: todayIso(),
             visibility: defaultVisibility,
             idempotencyKey: newClientId(),
           });
           setRuleTitle("");
-          setRuleToman("");
+          setRuleAmount("");
           await refreshMeta();
           setError(null);
         } catch (err: unknown) {
@@ -242,20 +245,20 @@ export function WorkspaceReportsPanel({
   }
 
   function onReviseRule(ruleId: string) {
-    const amount = Number(reviseToman.replaceAll(",", ""));
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setError("برای نسخه‌بندی، مبلغ تومان جدید را وارد کنید");
+    const amount = displayInputToIrrMinor(reviseAmount, displayUnit);
+    if (!amount) {
+      setError("برای نسخه‌بندی، مبلغ جدید را وارد کنید");
       return;
     }
     startTransition(() => {
       void (async () => {
         try {
           await api.reviseRecurringRule(workspaceId, ruleId, {
-            amountMinor: String(Math.round(amount) * 10),
+            amountMinor: amount.amountMinor,
             effectiveFrom: todayIso(),
             idempotencyKey: newClientId(),
           });
-          setReviseToman("");
+          setReviseAmount("");
           await refreshMeta();
           setError(null);
           setInfo("نسخهٔ جدید قاعده از امروز ثبت شد؛ تاریخچه حفظ می‌شود");
@@ -434,10 +437,10 @@ export function WorkspaceReportsPanel({
             <>
               <FormStack density="compact">
                 <TextField label="عنوان" value={ruleTitle} onChange={(e) => setRuleTitle(e.target.value)} />
-                <TextField
-                  label="مبلغ (تومان)"
-                  value={ruleToman}
-                  onChange={(e) => setRuleToman(e.target.value)}
+                <MoneyInput
+                  label="مبلغ"
+                  value={ruleAmount}
+                  onValueChange={setRuleAmount}
                 />
                 <SelectField
                   label="دوره"
@@ -465,10 +468,10 @@ export function WorkspaceReportsPanel({
                 برای تغییر مبلغ بدون خراب‌کردن تاریخچه، مبلغ جدید را بزنید و «نسخه از امروز» را روی قاعده بزنید.
               </p>
               {recurring.length > 0 ? (
-                <TextField
-                  label="مبلغ جدید برای نسخه‌بندی (تومان)"
-                  value={reviseToman}
-                  onChange={(e) => setReviseToman(e.target.value)}
+                <MoneyInput
+                  label="مبلغ جدید برای نسخه‌بندی"
+                  value={reviseAmount}
+                  onValueChange={setReviseAmount}
                 />
               ) : null}
             </>

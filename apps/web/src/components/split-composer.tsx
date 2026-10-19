@@ -4,14 +4,19 @@ import { newClientId } from "@/lib/id";
 
 import { useMemo, type ReactNode } from "react";
 import type {
+  DisplayUnit,
   ExpenseItemInput,
   ExpenseSplitLine,
   ExpenseVisibility,
   MembershipSummary,
   SplitMethod,
 } from "@dang/contracts";
-import { allocateExpenseSplit, allocateItemizedSplit } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField, useConfirm, usePrompt } from "@dang/ui";
+import {
+  allocateExpenseSplit,
+  allocateItemizedSplit,
+  displayIntegerToIrrMinor,
+} from "@dang/contracts";
+import { Amount, Button, MoneyInput, SelectField, TextField, useConfirm, usePrompt } from "@dang/ui";
 import { DataList, DataRow, EmptyHint, FormStack } from "@/components/ui-blocks";
 import {
   RowSelectCheckbox,
@@ -21,6 +26,8 @@ import {
 import { useRowSelection } from "@/components/selection/use-row-selection";
 import selStyles from "@/components/selection/selection-action-bar.module.css";
 import { CatalogPicker } from "@/components/catalog-picker";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { irrMinorToDisplayInput, normalizeMoneyInput } from "@/lib/irr-money";
 import styles from "./split-composer.module.css";
 
 export type SplitComposerValue = {
@@ -87,16 +94,20 @@ type Props = {
   compact?: boolean;
 };
 
-function tomanToMinor(toman: string): string | null {
-  const n = Number(toman.replaceAll(",", ""));
+function displayAmountToMinor(raw: string, unit: DisplayUnit): string | null {
+  const n = Number(normalizeMoneyInput(raw).replaceAll("/", ""));
   if (!Number.isFinite(n) || n < 0) return null;
-  return String(Math.round(n) * 10);
+  try {
+    return displayIntegerToIrrMinor(Math.round(n), unit);
+  } catch {
+    return null;
+  }
 }
 
-function optionalMoneyError(raw: string): string | undefined {
+function optionalMoneyError(raw: string, unit: DisplayUnit): string | undefined {
   const trimmed = raw.trim();
   if (!trimmed) return undefined;
-  return tomanToMinor(trimmed) == null ? "مبلغ معتبر نیست" : undefined;
+  return displayAmountToMinor(trimmed, unit) == null ? "مبلغ معتبر نیست" : undefined;
 }
 
 export function emptySplitComposer(visibility: ExpenseVisibility = "shared"): SplitComposerValue {
@@ -201,7 +212,10 @@ export function splitComposerFromExpense(
   return next;
 }
 
-function buildItemInputs(value: SplitComposerValue): ExpenseItemInput[] {
+function buildItemInputs(
+  value: SplitComposerValue,
+  unit: DisplayUnit,
+): ExpenseItemInput[] {
   return value.items
     .filter((item) => item.title.trim() && item.assigneeUserIds.length > 0)
     .map((item) => {
@@ -210,7 +224,7 @@ function buildItemInputs(value: SplitComposerValue): ExpenseItemInput[] {
       const amountMinor =
         qty != null && unitPrice
           ? String(Math.round(qty * Number(unitPrice)))
-          : (tomanToMinor(item.toman) ?? "0");
+          : (displayAmountToMinor(item.toman, unit) ?? "0");
       return {
         title: item.title.trim(),
         amount: {
@@ -265,6 +279,7 @@ export function SplitComposer({
 }: Props) {
   const confirm = useConfirm();
   const promptText = usePrompt();
+  const displayUnit = useDisplayUnit();
   const itemIds = useMemo(() => value.items.map((item) => item.key), [value.items]);
   const itemSelection = useRowSelection(itemIds);
   const preview = useMemo(() => {
@@ -274,11 +289,11 @@ export function SplitComposer({
         return [] as ExpenseSplitLine[];
       }
       if (value.splitMethod === "itemized") {
-        const items = buildItemInputs(value);
+        const items = buildItemInputs(value, displayUnit);
         if (items.length === 0) return [] as ExpenseSplitLine[];
-        const tipMinor = tomanToMinor(value.tipToman);
-        const taxMinor = tomanToMinor(value.taxToman);
-        const discountMinor = tomanToMinor(value.discountToman);
+        const tipMinor = displayAmountToMinor(value.tipToman, displayUnit);
+        const taxMinor = displayAmountToMinor(value.taxToman, displayUnit);
+        const discountMinor = displayAmountToMinor(value.discountToman, displayUnit);
         const result = allocateItemizedSplit({
           items,
           tip: tipMinor && tipMinor !== "0" ? { amountMinor: tipMinor, currency: "IRR" } : undefined,
@@ -288,12 +303,11 @@ export function SplitComposer({
               ? { amountMinor: discountMinor, currency: "IRR" }
               : undefined,
         });
-        const toman = String(Number(result.total.amountMinor) / 10);
-        onDerivedTotalToman?.(toman);
+        onDerivedTotalToman?.(irrMinorToDisplayInput(result.total.amountMinor, displayUnit));
         return result.splits;
       }
 
-      const minor = tomanToMinor(totalToman);
+      const minor = displayAmountToMinor(totalToman, displayUnit);
       if (!minor || Number(minor) <= 0 || value.participantUserIds.length === 0) {
         return [] as ExpenseSplitLine[];
       }
@@ -303,7 +317,7 @@ export function SplitComposer({
           : value.participantUserIds.map((userId) => {
               const raw = value.lineInputs[userId] ?? "";
               if (value.splitMethod === "amount") {
-                const lineMinor = tomanToMinor(raw) ?? "0";
+                const lineMinor = displayAmountToMinor(raw, displayUnit) ?? "0";
                 return {
                   userId,
                   amount: { amountMinor: lineMinor, currency: "IRR" as const },
@@ -333,7 +347,7 @@ export function SplitComposer({
     } catch {
       return [];
     }
-  }, [totalToman, value, members, onDerivedTotalToman]);
+  }, [totalToman, value, members, onDerivedTotalToman, displayUnit]);
 
   function toggleParticipant(userId: string) {
     if (value.visibility === "private" && !canAssignPrivateToOthers) return;
@@ -483,7 +497,7 @@ export function SplitComposer({
           {value.multiPayer ? (
             <>
               <p className="liveHint">
-                مبلغ پرداخت هر نفر را به تومان وارد کنید؛ جمع باید با کل خرج یکی باشد
+                مبلغ پرداخت هر نفر را وارد کنید؛ جمع باید با کل خرج یکی باشد
                 {Number.isFinite(totalTomanNum) && totalTomanNum > 0
                   ? ` (جمع الان: ${Math.round(multiPayerSumToman).toLocaleString("fa-IR")} از ${Math.round(totalTomanNum).toLocaleString("fa-IR")})`
                   : ""}
@@ -503,18 +517,20 @@ export function SplitComposer({
                       }
                       meta={active ? "پرداخت‌کننده" : undefined}
                       trailing={
-                        <TextField
-                          label="مبلغ پرداخت (تومان)"
+                        <MoneyInput
+                          label="مبلغ پرداخت"
                           value={paid}
-                          inputMode="decimal"
-                          error={optionalMoneyError(paid) ?? (paid.trim() ? payerError : undefined)}
-                          onChange={(event) =>
+                          error={
+                            optionalMoneyError(paid, displayUnit) ??
+                            (paid.trim() ? payerError : undefined)
+                          }
+                          onValueChange={(next) =>
                             onChange({
                               ...value,
                               multiPayer: true,
                               payerInputs: {
                                 ...payerInputs,
-                                [member.userId]: event.target.value,
+                                [member.userId]: next,
                               },
                             })
                           }
@@ -853,14 +869,13 @@ export function SplitComposer({
                     </Button>
                   </p>
                 ) : null}
-                <TextField
-                  label="مبلغ (تومان)"
+                <MoneyInput
+                  label="مبلغ"
                   value={item.toman}
-                  inputMode="decimal"
-                  error={optionalMoneyError(item.toman)}
-                  onChange={(event) => {
+                  error={optionalMoneyError(item.toman, displayUnit)}
+                  onValueChange={(next) => {
                     const items = value.items.slice();
-                    items[index] = { ...item, toman: event.target.value };
+                    items[index] = { ...item, toman: next };
                     onChange({ ...value, items });
                   }}
                 />
@@ -905,26 +920,23 @@ export function SplitComposer({
             افزودن خط فاکتور
           </Button>
           <div className="splitComposer__extras">
-            <TextField
+            <MoneyInput
               label="انعام"
               value={value.tipToman}
-              inputMode="decimal"
-              error={optionalMoneyError(value.tipToman)}
-              onChange={(e) => onChange({ ...value, tipToman: e.target.value })}
+              error={optionalMoneyError(value.tipToman, displayUnit)}
+              onValueChange={(next) => onChange({ ...value, tipToman: next })}
             />
-            <TextField
+            <MoneyInput
               label="مالیات"
               value={value.taxToman}
-              inputMode="decimal"
-              error={optionalMoneyError(value.taxToman)}
-              onChange={(e) => onChange({ ...value, taxToman: e.target.value })}
+              error={optionalMoneyError(value.taxToman, displayUnit)}
+              onValueChange={(next) => onChange({ ...value, taxToman: next })}
             />
-            <TextField
+            <MoneyInput
               label="تخفیف"
               value={value.discountToman}
-              inputMode="decimal"
-              error={optionalMoneyError(value.discountToman)}
-              onChange={(e) => onChange({ ...value, discountToman: e.target.value })}
+              error={optionalMoneyError(value.discountToman, displayUnit)}
+              onValueChange={(next) => onChange({ ...value, discountToman: next })}
             />
           </div>
         </div>
@@ -976,56 +988,67 @@ export function SplitComposer({
                   {value.splitMethod !== "equal" &&
                   value.splitMethod !== "formula" &&
                   value.participantUserIds.includes(member.userId) ? (
-                    <TextField
-                      label={
-                        value.splitMethod === "amount"
-                          ? "تومان"
-                          : value.splitMethod === "percent"
-                            ? "درصد"
-                            : "سهم"
-                      }
-                      value={
-                        value.lineInputs[member.userId] ??
-                        (value.splitMethod === "shares"
-                          ? String(member.defaultShares ?? 1)
-                          : "")
-                      }
-                      inputMode="decimal"
-                      error={(() => {
-                        const raw =
+                    value.splitMethod === "amount" ? (
+                      <MoneyInput
+                        label="مبلغ"
+                        value={value.lineInputs[member.userId] ?? ""}
+                        error={(() => {
+                          const raw = value.lineInputs[member.userId] ?? "";
+                          return (
+                            optionalMoneyError(raw, displayUnit) ??
+                            (raw.trim() ? amountSumError : undefined)
+                          );
+                        })()}
+                        onValueChange={(next) =>
+                          onChange({
+                            ...value,
+                            lineInputs: {
+                              ...value.lineInputs,
+                              [member.userId]: next,
+                            },
+                          })
+                        }
+                      />
+                    ) : (
+                      <TextField
+                        label={value.splitMethod === "percent" ? "درصد" : "سهم"}
+                        value={
                           value.lineInputs[member.userId] ??
                           (value.splitMethod === "shares"
                             ? String(member.defaultShares ?? 1)
-                            : "");
-                        if (value.splitMethod === "amount") {
-                          return (
-                            optionalMoneyError(raw) ??
-                            (raw.trim() ? amountSumError : undefined)
-                          );
+                            : "")
                         }
-                        if (value.splitMethod === "percent") {
-                          const n = Number(raw.replaceAll(",", ""));
-                          if (raw.trim() && (!Number.isFinite(n) || n < 0 || n > 100)) {
-                            return "درصد معتبر نیست";
+                        inputMode="decimal"
+                        error={(() => {
+                          const raw =
+                            value.lineInputs[member.userId] ??
+                            (value.splitMethod === "shares"
+                              ? String(member.defaultShares ?? 1)
+                              : "");
+                          if (value.splitMethod === "percent") {
+                            const n = Number(raw.replaceAll(",", ""));
+                            if (raw.trim() && (!Number.isFinite(n) || n < 0 || n > 100)) {
+                              return "درصد معتبر نیست";
+                            }
+                            return raw.trim() ? percentSumError : undefined;
                           }
-                          return raw.trim() ? percentSumError : undefined;
+                          const n = Number(raw.replaceAll(",", ""));
+                          if (raw.trim() && (!Number.isFinite(n) || n < 1)) {
+                            return "سهم باید حداقل ۱ باشد";
+                          }
+                          return undefined;
+                        })()}
+                        onChange={(event) =>
+                          onChange({
+                            ...value,
+                            lineInputs: {
+                              ...value.lineInputs,
+                              [member.userId]: event.target.value,
+                            },
+                          })
                         }
-                        const n = Number(raw.replaceAll(",", ""));
-                        if (raw.trim() && (!Number.isFinite(n) || n < 1)) {
-                          return "سهم باید حداقل ۱ باشد";
-                        }
-                        return undefined;
-                      })()}
-                      onChange={(event) =>
-                        onChange({
-                          ...value,
-                          lineInputs: {
-                            ...value.lineInputs,
-                            [member.userId]: event.target.value,
-                          },
-                        })
-                      }
-                    />
+                      />
+                    )
                   ) : null}
                 </label>
               ))}
@@ -1066,7 +1089,10 @@ export function SplitComposer({
   );
 }
 
-export function buildSplitPayloadFromComposer(value: SplitComposerValue): {
+export function buildSplitPayloadFromComposer(
+  value: SplitComposerValue,
+  unit: DisplayUnit = "toman",
+): {
   splitMethod: SplitMethod;
   participantUserIds: string[];
   splitLines?: ExpenseSplitLine[];
@@ -1088,7 +1114,7 @@ export function buildSplitPayloadFromComposer(value: SplitComposerValue): {
       amount: { amountMinor: string; currency: "IRR" };
     }> = [];
     for (const [userId, raw] of Object.entries(value.payerInputs ?? {})) {
-      const minor = tomanToMinor(raw);
+      const minor = displayAmountToMinor(raw, unit);
       if (!minor || minor === "0") continue;
       lines.push({
         userId,
@@ -1104,10 +1130,10 @@ export function buildSplitPayloadFromComposer(value: SplitComposerValue): {
     : undefined;
 
   if (value.splitMethod === "itemized") {
-    const items = buildItemInputs(value);
-    const tipMinor = tomanToMinor(value.tipToman);
-    const taxMinor = tomanToMinor(value.taxToman);
-    const discountMinor = tomanToMinor(value.discountToman);
+    const items = buildItemInputs(value, unit);
+    const tipMinor = displayAmountToMinor(value.tipToman, unit);
+    const taxMinor = displayAmountToMinor(value.taxToman, unit);
+    const discountMinor = displayAmountToMinor(value.discountToman, unit);
     const result = allocateItemizedSplit({
       items,
       tip: tipMinor && tipMinor !== "0" ? { amountMinor: tipMinor, currency: "IRR" } : undefined,
@@ -1160,7 +1186,7 @@ export function buildSplitPayloadFromComposer(value: SplitComposerValue): {
       if (value.splitMethod === "amount") {
         return {
           userId,
-          amount: { amountMinor: tomanToMinor(raw) ?? "0", currency: "IRR" as const },
+          amount: { amountMinor: displayAmountToMinor(raw, unit) ?? "0", currency: "IRR" as const },
         };
       }
       if (value.splitMethod === "percent") {

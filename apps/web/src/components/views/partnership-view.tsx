@@ -13,7 +13,7 @@ import type {
   PeriodLockSummary,
 } from "@dang/contracts";
 import { isReadOnlyRole } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { Amount, Button, MoneyInput, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
 import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
@@ -32,7 +32,8 @@ import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { todayIsoLocal } from "@/lib/fa-datetime";
 import { hubPathFor } from "@/lib/hub-links";
-import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { displayInputToIrrMinor } from "@/lib/irr-money";
 import { agreementStatusLabel, membershipRoleLabel } from "@/lib/status-labels";
 import { t } from "@/lib/i18n";
 import { useFlashMessage } from "@/lib/use-flash-message";
@@ -61,6 +62,7 @@ function statusTone(status: string): "neutral" | "ok" | "warn" | "danger" | "gol
 
 export function PartnershipView() {
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
   const [workspaceId, setWorkspaceId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -70,12 +72,12 @@ export function PartnershipView() {
   const [locks, setLocks] = useState<PeriodLockSummary[]>([]);
   const [report, setReport] = useState<MemberAccountReport | null>(null);
   const [agreementTitle, setAgreementTitle] = useState("قرارداد شراکت پروژه");
-  const [contribToman, setContribToman] = useState("100000000");
-  const [loanToman, setLoanToman] = useState("1000000");
+  const [contribAmount, setContribAmount] = useState("100000000");
+  const [loanAmount, setLoanAmount] = useState("1000000");
   const [loanBorrowerId, setLoanBorrowerId] = useState("");
   const [agreedPrices, setAgreedPrices] = useState<AgreedPriceSummary[]>([]);
   const [priceTitle, setPriceTitle] = useState("قیمت توافقی پایه");
-  const [priceToman, setPriceToman] = useState("45000000");
+  const [priceAmount, setPriceAmount] = useState("45000000");
 
   const partnerPricesLive =
     chrome.capabilities?.providers?.partnerPrices === "partner_prices_v1";
@@ -261,26 +263,27 @@ export function PartnershipView() {
           {agreement && self ? (
             <SectionCard title={t("partners.sectionCashIn")} delayClass="delay1">
               <GuardedForm>
-                <TextField
-                  label="مبلغ (تومان)"
-                  value={contribToman}
-                  onChange={(e) => setContribToman(e.target.value)}
+                <MoneyInput
+                  label="مبلغ"
+                  value={contribAmount}
+                  onValueChange={setContribAmount}
                 />
                 <Button
                   type="button"
                   onClick={() => {
                     void (async () => {
                       try {
-                        const toman = Number(contribToman.replaceAll(",", ""));
+                        const amount = displayInputToIrrMinor(contribAmount, displayUnit);
+                        if (!amount) {
+                          setError("مبلغ نامعتبر است");
+                          return;
+                        }
                         await api.recordContribution(workspaceId, {
                           workspaceId,
                           agreementId: agreement.id,
                           memberUserId: self.userId,
                           kind: "cash",
-                          amount: {
-                            amountMinor: String(Math.round(toman) * 10),
-                            currency: "IRR",
-                          },
+                          amount,
                           idempotencyKey: newClientId(),
                         });
                         await refresh(workspaceId);
@@ -301,10 +304,10 @@ export function PartnershipView() {
           {agreement && self && !readOnly ? (
             <SectionCard title={t("partners.sectionLoan")} delayClass="delay1">
               <GuardedForm>
-                <TextField
-                  label="مبلغ (تومان)"
-                  value={loanToman}
-                  onChange={(e) => setLoanToman(e.target.value)}
+                <MoneyInput
+                  label="مبلغ"
+                  value={loanAmount}
+                  onValueChange={setLoanAmount}
                 />
                 <SelectField
                   label="قرض‌گیرنده"
@@ -322,7 +325,7 @@ export function PartnershipView() {
                   onClick={() => {
                     void (async () => {
                       try {
-                        const amount = tomanInputToIrrMinor(loanToman);
+                        const amount = displayInputToIrrMinor(loanAmount, displayUnit);
                         if (!amount) {
                           setError("مبلغ نامعتبر است");
                           return;
@@ -356,7 +359,7 @@ export function PartnershipView() {
                   onClick={() => {
                     void (async () => {
                       try {
-                        const amount = tomanInputToIrrMinor(loanToman);
+                        const amount = displayInputToIrrMinor(loanAmount, displayUnit);
                         if (!amount) {
                           setError("مبلغ نامعتبر است");
                           return;
@@ -391,19 +394,19 @@ export function PartnershipView() {
                   value={priceTitle}
                   onChange={(e) => setPriceTitle(e.target.value)}
                 />
-                <TextField
-                  label="مبلغ (تومان)"
-                  value={priceToman}
-                  onChange={(e) => setPriceToman(e.target.value)}
+                <MoneyInput
+                  label="مبلغ"
+                  value={priceAmount}
+                  onValueChange={setPriceAmount}
                 />
                 <Button
                   type="button"
                   onClick={() => {
                     void (async () => {
                       try {
-                        const amount = tomanInputToIrrMinor(priceToman);
+                        const amount = displayInputToIrrMinor(priceAmount, displayUnit);
                         if (!amount) {
-                          setError("مبلغ نامعتبر است (عدد تومان / IRR)");
+                          setError("مبلغ نامعتبر است");
                           return;
                         }
                         await api.createAgreedPrice(workspaceId, agreement.id, {

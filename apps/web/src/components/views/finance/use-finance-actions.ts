@@ -205,6 +205,7 @@ export function useFinanceActions(deps: FinanceActionsDeps) {
                   participantUserIds: privateAssignee ? [privateAssignee] : [me.actor.userId],
                 }
               : split,
+            displayUnit,
           );
           const fxCode = originalCurrency.trim().toUpperCase();
           const fxMajor = originalAmountMajor.trim();

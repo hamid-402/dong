@@ -106,7 +106,7 @@ export function KindAggregatePanel({
           title="مقایسهٔ ماندهٔ فضاها"
           series={netShare}
           variant="hbar"
-          primaryLabel="مانده (تومان)"
+          primaryLabel="مانده"
           compact
         />
 

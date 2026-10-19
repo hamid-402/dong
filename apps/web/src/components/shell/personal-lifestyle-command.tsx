@@ -9,20 +9,16 @@ import {
   type LifeDomain,
   type MonthLifestyleSnapshot,
 } from "@dang/contracts";
-import { Amount, Button, TextField } from "@dang/ui";
+import { Amount, Button, MoneyInput, TextField } from "@dang/ui";
 import { JalaliDateField } from "@/components/jalali-date-field";
 import { PersonalSpacesAccordion } from "@/components/shell/personal-spaces-accordion";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { displayInputToIrrMinor } from "@/lib/irr-money";
 import { newClientId } from "@/lib/id";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import styles from "./personal-lifestyle-command.module.css";
-
-function tomanToMinor(toman: string): string {
-  const n = Number(toman.replaceAll(",", "").trim());
-  if (!Number.isFinite(n) || n <= 0) return "";
-  return String(Math.round(n) * 10);
-}
 
 function monthLabelFa(yearMonth: string): string {
   const [y, m] = yearMonth.split("-").map(Number);
@@ -64,6 +60,7 @@ type FlowPanel = "paycheck" | "allocation" | "annual";
  */
 export function PersonalLifestyleCommand() {
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
   const titleId = useId();
   const [snap, setSnap] = useState<MonthLifestyleSnapshot | null>(null);
   const [plan, setPlan] = useState<AllocationPlanSummary | null>(null);
@@ -74,7 +71,7 @@ export function PersonalLifestyleCommand() {
   const [loaded, setLoaded] = useState(false);
   const [openPanel, setOpenPanel] = useState<FlowPanel | null>("paycheck");
 
-  const [paycheckToman, setPaycheckToman] = useState("");
+  const [paycheckAmount, setPaycheckAmount] = useState("");
   const [paycheckDate, setPaycheckDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -116,9 +113,9 @@ export function PersonalLifestyleCommand() {
   }, [chrome.ready, yearMonth]);
 
   function submitPaycheck() {
-    const amountMinor = tomanToMinor(paycheckToman);
-    if (!amountMinor) {
-      setError("مبلغ حقوق را به تومان وارد کنید");
+    const money = displayInputToIrrMinor(paycheckAmount, displayUnit);
+    if (!money) {
+      setError("مبلغ حقوق را وارد کنید");
       return;
     }
     startTransition(async () => {
@@ -126,13 +123,13 @@ export function PersonalLifestyleCommand() {
       setInfo(null);
       try {
         const pc = await api.createPaycheck({
-          amountMinor,
+          amountMinor: money.amountMinor,
           occurredOn: paycheckDate,
           note: `حقوق ${monthLabelFa(yearMonth)}`,
           idempotencyKey: newClientId(),
         });
         if (pc.yearMonth !== yearMonth) setYearMonth(pc.yearMonth);
-        setPaycheckToman("");
+        setPaycheckAmount("");
         setInfo("حقوق ثبت شد و به حساب شخصی واریز شد");
         await api.recomputeMonthlyClose(pc.yearMonth).catch(() => undefined);
         refresh(pc.yearMonth);
@@ -406,11 +403,10 @@ export function PersonalLifestyleCommand() {
                 مبلغ به حساب شخصی واریز می‌شود و برای همین ماه شمسی یک‌بار قابل ثبت است.
               </p>
               <div className={styles.formRow}>
-                <TextField
-                  label="مبلغ (تومان)"
-                  value={paycheckToman}
-                  onChange={(e) => setPaycheckToman(e.target.value)}
-                  inputMode="numeric"
+                <MoneyInput
+                  label="مبلغ"
+                  value={paycheckAmount}
+                  onValueChange={setPaycheckAmount}
                   autoComplete="off"
                 />
                 <JalaliDateField

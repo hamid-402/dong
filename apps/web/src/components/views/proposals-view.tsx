@@ -11,7 +11,7 @@ import type {
   ProposalSummary,
 } from "@dang/contracts";
 import { spaceKindForTemplate, isReadOnlyRole } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { Amount, Button, MoneyInput, SelectField, TextField } from "@dang/ui";
 import { AppShell } from "@/components/app-shell";
 import { OperationsModuleHeader } from "@/components/views/finance/finance-operations-header";
 import {
@@ -25,7 +25,8 @@ import {
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { hubPathFor } from "@/lib/hub-links";
-import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { displayInputToIrrMinor } from "@/lib/irr-money";
 import { membershipRoleLabel, proposalStatusLabel } from "@/lib/status-labels";
 import { useFlashMessage } from "@/lib/use-flash-message";
 import { useAppChrome } from "@/lib/use-app-chrome";
@@ -65,6 +66,7 @@ function ProposalProgress({ yes, required }: { yes: number; required: number }) 
 
 export function ProposalsView() {
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<ProposalSettingsSummary | null>(null);
@@ -74,7 +76,7 @@ export function ProposalsView() {
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<ProposalKind>("goods");
   const [description, setDescription] = useState("");
-  const [toman, setToman] = useState("");
+  const [estimateAmount, setEstimateAmount] = useState("");
   const [quorumDraft, setQuorumDraft] = useState("51");
   const [pending, startTransition] = useTransition();
 
@@ -134,7 +136,13 @@ export function ProposalsView() {
       setError("عنوان پیشنهاد را وارد کنید");
       return;
     }
-    const tomanNum = toman.trim() ? tomanInputToIrrMinor(toman) : null;
+    const estimate = estimateAmount.trim()
+      ? displayInputToIrrMinor(estimateAmount, displayUnit)
+      : null;
+    if (estimateAmount.trim() && !estimate) {
+      setError("برآورد نامعتبر است");
+      return;
+    }
     startTransition(() => {
       void (async () => {
         try {
@@ -143,12 +151,12 @@ export function ProposalsView() {
             kind,
             title: name,
             description: description.trim() || undefined,
-            estimatedAmount: tomanNum ?? undefined,
+            estimatedAmount: estimate ?? undefined,
             idempotencyKey: newClientId(),
           });
           setTitle("");
           setDescription("");
-          setToman("");
+          setEstimateAmount("");
           flashSuccess("پیشنهاد ثبت شد و برای رأی اعضا باز است");
           await refresh(chrome.workspaceId);
         } catch (err: unknown) {
@@ -316,11 +324,10 @@ export function ProposalsView() {
                     onChange={(e) => setDescription(e.target.value)}
                     hint="اختیاری — دلیل یا مشخصات"
                   />
-                  <TextField
-                    label="برآورد (تومان)"
-                    value={toman}
-                    onChange={(e) => setToman(e.target.value)}
-                    inputMode="numeric"
+                  <MoneyInput
+                    label="برآورد"
+                    value={estimateAmount}
+                    onValueChange={setEstimateAmount}
                     hint="اختیاری — بعداً در نیاز خرید دیده می‌شود"
                   />
                   <Button type="button" disabled={pending} onClick={onCreate}>

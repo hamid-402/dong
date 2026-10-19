@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type { MembershipSummary, PersonalAddonChargeSummary } from "@dang/contracts";
-import { Amount, Button, SelectField, TextField } from "@dang/ui";
+import { Amount, Button, MoneyInput, SelectField, TextField } from "@dang/ui";
 import {
   DataList,
   DataRow,
@@ -22,7 +22,8 @@ import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { formatFaDateTime } from "@/lib/fa-datetime";
 import { newClientId } from "@/lib/id";
-import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { displayInputToIrrMinor } from "@/lib/irr-money";
 import styles from "./addon-charges-panel.module.css";
 
 type Props = {
@@ -64,10 +65,11 @@ export function AddonChargesPanel({
   onSuccess,
   onChargesChange,
 }: Props) {
+  const displayUnit = useDisplayUnit();
   const [charges, setCharges] = useState<PersonalAddonChargeSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
-  const [amountToman, setAmountToman] = useState("");
+  const [amountInput, setAmountInput] = useState("");
   const [targetUserId, setTargetUserId] = useState("");
   const [linkedExpenseId, setLinkedExpenseId] = useState("");
   const [sharedExpenses, setSharedExpenses] = useState<
@@ -114,9 +116,9 @@ export function AddonChargesPanel({
   }
 
   function onCreate() {
-    const amount = tomanInputToIrrMinor(amountToman);
+    const amount = displayInputToIrrMinor(amountInput, displayUnit);
     if (!title.trim() || !amount || !targetUserId) {
-      onError("عنوان، مبلغ تومان و عضو هدف را کامل کنید");
+      onError("عنوان، مبلغ و عضو هدف را کامل کنید");
       return;
     }
     startTransition(() => {
@@ -130,7 +132,7 @@ export function AddonChargesPanel({
             idempotencyKey: newClientId(),
           });
           setTitle("");
-          setAmountToman("");
+          setAmountInput("");
           setLinkedExpenseId("");
           onSuccess("اضافهٔ شخصی ثبت شد — تا تأیید، در صورتحساب قطعی نیست");
           await reload();
@@ -197,10 +199,10 @@ export function AddonChargesPanel({
             value={title}
             onChange={(event) => setTitle(event.target.value)}
           />
-          <TextField
-            label="مبلغ (تومان)"
-            value={amountToman}
-            onChange={(event) => setAmountToman(event.target.value)}
+          <MoneyInput
+            label="مبلغ"
+            value={amountInput}
+            onValueChange={setAmountInput}
           />
           <SelectField
             label="برای عضو"

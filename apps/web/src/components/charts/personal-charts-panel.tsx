@@ -100,8 +100,8 @@ export function PersonalChartsPanel() {
           series={income}
           loading={pending && !income}
           variant="dualColumn"
-          primaryLabel="درآمد (تومان)"
-          secondaryLabel="هزینه (تومان)"
+          primaryLabel="درآمد"
+          secondaryLabel="هزینه"
           exportable
         />
         <ProChart
@@ -109,7 +109,7 @@ export function PersonalChartsPanel() {
           series={burn}
           loading={pending && !burn}
           variant="line"
-          primaryLabel="خرج روز (تومان)"
+          primaryLabel="خرج روز"
           secondaryLabel="سقف بودجه"
           exportable
         />
@@ -118,7 +118,7 @@ export function PersonalChartsPanel() {
           series={goals}
           loading={pending && !goals}
           variant="progress"
-          primaryLabel="واریز شده (تومان)"
+          primaryLabel="واریز شده"
           secondaryLabel="هدف"
           exportable
         />

@@ -16,7 +16,7 @@ import {
   MONEY_INTENT_KIND_CATALOG,
   moneyIntentMeta,
 } from "@dang/contracts";
-import { Amount, Button, TextField } from "@dang/ui";
+import { Amount, Button, MoneyInput, TextField } from "@dang/ui";
 import {
   DataList,
   DataRow,
@@ -31,16 +31,12 @@ import { api } from "@/lib/api";
 import { normalizeYearMonthInput } from "@/lib/fa-datetime";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { formatFaDateTime } from "@/lib/fa-datetime";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { displayInputToIrrMinor } from "@/lib/irr-money";
 import { useAppChrome } from "@/lib/use-app-chrome";
 
 function currentYearMonth(): string {
   return currentJalaliYearMonth();
-}
-
-function tomanToMinor(toman: string): string {
-  const n = Number(toman.replaceAll(",", ""));
-  if (!Number.isFinite(n) || n <= 0) return "";
-  return String(Math.round(n) * 10);
 }
 
 function incomeKindLabel(kind: IncomeSourceKind): string {
@@ -67,6 +63,7 @@ export function PersonalDepthPanel({
   goalsLive?: boolean;
 }) {
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
   const intentsLive = chrome.capabilities?.providers?.moneyIntents === "intents_v1";
   const [tab, setTab] = useState<Tab>(goalsLive ? "goals" : "month");
   const [goals, setGoals] = useState<SavingsGoalSummary[]>([]);
@@ -80,22 +77,22 @@ export function PersonalDepthPanel({
   const [pending, startTransition] = useTransition();
 
   const [goalName, setGoalName] = useState("");
-  const [goalTargetToman, setGoalTargetToman] = useState("");
+  const [goalTargetAmount, setGoalTargetAmount] = useState("");
   const [goalDate, setGoalDate] = useState("");
   const [contribGoalId, setContribGoalId] = useState("");
-  const [contribToman, setContribToman] = useState("");
+  const [contribAmount, setContribAmount] = useState("");
 
   const [incomeName, setIncomeName] = useState("");
   const [incomeKind, setIncomeKind] = useState<IncomeSourceKind>("salary");
-  const [incomeExpectedToman, setIncomeExpectedToman] = useState("");
+  const [incomeExpectedAmount, setIncomeExpectedAmount] = useState("");
 
-  const [alertLimitToman, setAlertLimitToman] = useState("");
+  const [alertLimitAmount, setAlertLimitAmount] = useState("");
   const [alertThreshold, setAlertThreshold] = useState("80");
 
   const [intentName, setIntentName] = useState("");
   const [intentKind, setIntentKind] = useState<MoneyIntentKind>("save_income_percent");
   const [intentPercent, setIntentPercent] = useState("");
-  const [intentAmountToman, setIntentAmountToman] = useState("");
+  const [intentAmount, setIntentAmount] = useState("");
   const [intentGoalId, setIntentGoalId] = useState("");
 
   async function refresh() {
@@ -149,8 +146,8 @@ export function PersonalDepthPanel({
       setError("اهداف پس‌انداز در این محیط فعال نیست");
       return;
     }
-    const targetMinor = tomanToMinor(goalTargetToman);
-    if (!goalName.trim() || !targetMinor) {
+    const target = displayInputToIrrMinor(goalTargetAmount, displayUnit);
+    if (!goalName.trim() || !target) {
       setError("نام و مبلغ هدف لازم است");
       return;
     }
@@ -159,12 +156,12 @@ export function PersonalDepthPanel({
         try {
           await api.createSavingsGoal({
             name: goalName.trim(),
-            targetMinor,
+            targetMinor: target.amountMinor,
             targetDate: goalDate || undefined,
             idempotencyKey: newClientId(),
           });
           setGoalName("");
-          setGoalTargetToman("");
+          setGoalTargetAmount("");
           setGoalDate("");
           setInfo("هدف پس‌انداز ثبت شد");
           await refresh();
@@ -177,8 +174,8 @@ export function PersonalDepthPanel({
   }
 
   function onAddContribution() {
-    const amountMinor = tomanToMinor(contribToman);
-    if (!contribGoalId || !amountMinor) {
+    const amount = displayInputToIrrMinor(contribAmount, displayUnit);
+    if (!contribGoalId || !amount) {
       setError("هدف و مبلغ واریز لازم است");
       return;
     }
@@ -186,11 +183,11 @@ export function PersonalDepthPanel({
       void (async () => {
         try {
           await api.addSavingsGoalContribution(contribGoalId, {
-            amountMinor,
+            amountMinor: amount.amountMinor,
             occurredAt: new Date().toISOString(),
             idempotencyKey: newClientId(),
           });
-          setContribToman("");
+          setContribAmount("");
           setInfo("واریز ثبت شد؛ پیشرفت از ledger حساب پیوندی + واریزهاست");
           await refresh();
           setError(null);
@@ -206,22 +203,24 @@ export function PersonalDepthPanel({
       setError("نام منبع درآمد لازم است");
       return;
     }
-    const expectedMinor = incomeExpectedToman
-      ? tomanToMinor(incomeExpectedToman)
+    const expected = incomeExpectedAmount.trim()
+      ? displayInputToIrrMinor(incomeExpectedAmount, displayUnit)
       : undefined;
+    if (incomeExpectedAmount.trim() && !expected) {
+      setError("مبلغ مورد انتظار نامعتبر است");
+      return;
+    }
     startTransition(() => {
       void (async () => {
         try {
           await api.createIncomeSource({
             name: incomeName.trim(),
             kind: incomeKind,
-            expected: expectedMinor
-              ? { amountMinor: expectedMinor, currency: "IRR" }
-              : undefined,
+            expected: expected ?? undefined,
             idempotencyKey: newClientId(),
           });
           setIncomeName("");
-          setIncomeExpectedToman("");
+          setIncomeExpectedAmount("");
           setInfo("منبع درآمد ثبت شد");
           await refresh();
           setError(null);
@@ -248,9 +247,9 @@ export function PersonalDepthPanel({
   }
 
   function onSaveAlert() {
-    const limitMinor = tomanToMinor(alertLimitToman);
+    const limit = displayInputToIrrMinor(alertLimitAmount, displayUnit);
     const thresholdPercent = Number(alertThreshold);
-    if (!limitMinor || !Number.isFinite(thresholdPercent)) {
+    if (!limit || !Number.isFinite(thresholdPercent)) {
       setError("سقف و آستانه هشدار لازم است");
       return;
     }
@@ -272,14 +271,14 @@ export function PersonalDepthPanel({
               {
                 scope: "total" as const,
                 period: "month" as const,
-                limitMinor,
+                limitMinor: limit.amountMinor,
                 thresholdPercent: Math.min(100, Math.max(1, Math.floor(thresholdPercent))),
                 channel: "inapp" as const,
                 active: true,
               },
             ],
           });
-          setAlertLimitToman("");
+          setAlertLimitAmount("");
           setInfo("هشدار سقف ثبت شد؛ فقط با خرج واقعی بیش از آستانه فعال می‌شود");
           await refresh();
           setError(null);
@@ -294,7 +293,9 @@ export function PersonalDepthPanel({
   function onCreateIntent() {
     const meta = moneyIntentMeta(intentKind);
     const targetPercent = intentPercent ? Number(intentPercent) : undefined;
-    const targetMinor = meta.needsAmount ? tomanToMinor(intentAmountToman) : undefined;
+    const target = meta.needsAmount
+      ? displayInputToIrrMinor(intentAmount, displayUnit)
+      : undefined;
     if (!intentName.trim()) {
       setError("نام قاعده لازم است");
       return;
@@ -303,7 +304,7 @@ export function PersonalDepthPanel({
       setError("درصد هدف بین ۱ تا ۱۰۰ لازم است");
       return;
     }
-    if (meta.needsAmount && !targetMinor) {
+    if (meta.needsAmount && !target) {
       setError("مبلغ هدف لازم است");
       return;
     }
@@ -318,13 +319,13 @@ export function PersonalDepthPanel({
             name: intentName.trim(),
             kind: intentKind,
             targetPercent,
-            targetMinor: targetMinor || undefined,
+            targetMinor: target?.amountMinor,
             goalId: meta.needsGoalId ? intentGoalId : undefined,
             idempotencyKey: newClientId(),
           });
           setIntentName("");
           setIntentPercent("");
-          setIntentAmountToman("");
+          setIntentAmount("");
           setInfo("قاعده مالی ثبت شد");
           await refresh();
           setError(null);
@@ -395,10 +396,10 @@ export function PersonalDepthPanel({
             value={goalName}
             onChange={(e) => setGoalName(e.target.value)}
           />
-          <TextField
-            label="مبلغ هدف (تومان)"
-            value={goalTargetToman}
-            onChange={(e) => setGoalTargetToman(e.target.value)}
+          <MoneyInput
+            label="مبلغ هدف"
+            value={goalTargetAmount}
+            onValueChange={setGoalTargetAmount}
           />
           <JalaliDateField label="تاریخ هدف (اختیاری)" value={goalDate} onChange={setGoalDate} />
           <Button type="button" onClick={onCreateGoal} disabled={pending || !goalsLive}>
@@ -467,10 +468,10 @@ export function PersonalDepthPanel({
                   ))}
                 </select>
               </label>
-              <TextField
-                label="مبلغ واریز (تومان)"
-                value={contribToman}
-                onChange={(e) => setContribToman(e.target.value)}
+              <MoneyInput
+                label="مبلغ واریز"
+                value={contribAmount}
+                onValueChange={setContribAmount}
               />
               <Button type="button" onClick={onAddContribution} disabled={pending}>
                 ثبت واریز
@@ -515,10 +516,10 @@ export function PersonalDepthPanel({
             />
           ) : null}
           {moneyIntentMeta(intentKind).needsAmount ? (
-            <TextField
-              label="مبلغ هدف (تومان)"
-              value={intentAmountToman}
-              onChange={(e) => setIntentAmountToman(e.target.value)}
+            <MoneyInput
+              label="مبلغ هدف"
+              value={intentAmount}
+              onValueChange={setIntentAmount}
             />
           ) : null}
           {moneyIntentMeta(intentKind).needsGoalId ? (
@@ -673,10 +674,10 @@ export function PersonalDepthPanel({
               <option value="other">سایر</option>
             </select>
           </label>
-          <TextField
-            label="مبلغ مورد انتظار (تومان، اختیاری)"
-            value={incomeExpectedToman}
-            onChange={(e) => setIncomeExpectedToman(e.target.value)}
+          <MoneyInput
+            label="مبلغ مورد انتظار (اختیاری)"
+            value={incomeExpectedAmount}
+            onValueChange={setIncomeExpectedAmount}
           />
           <Button type="button" onClick={onCreateIncome} disabled={pending}>
             افزودن منبع درآمد
@@ -714,10 +715,10 @@ export function PersonalDepthPanel({
           <StatusLine>
             هشدار فقط وقتی می‌زند که جمع خرج واقعی دوره از آستانهٔ سقف بگذرد — نه به‌صورت نمایشی.
           </StatusLine>
-          <TextField
-            label="سقف ماهانه (تومان)"
-            value={alertLimitToman}
-            onChange={(e) => setAlertLimitToman(e.target.value)}
+          <MoneyInput
+            label="سقف ماهانه"
+            value={alertLimitAmount}
+            onValueChange={setAlertLimitAmount}
           />
           <TextField
             label="آستانه هشدار (٪)"
