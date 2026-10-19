@@ -119,7 +119,7 @@ a.ctaLink:visited {
   padding: 0 1.05rem;
   border-radius: 0.55rem;
   background: var(--primary-deep, #1e3a8a);
-  color: #f8fafc;
+  color: var(--dang-primary-ink);
   text-decoration: none;
   font-size: 0.88rem;
   font-weight: 650;

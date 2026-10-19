@@ -91,7 +91,7 @@
   --dang-info-soft: #e6d6f8;
   --dang-info-mid: #e0c8f6;
   --dang-info-line: #7539d0;
-  --dang-placeholder: #6b645c;
+  --dang-placeholder: #625b53;
 
   --dang-fill-subtle: color-mix(in srgb, var(--dang-text) 4%, transparent);
   --dang-fill-soft: color-mix(in srgb, var(--dang-text) 6%, transparent);
@@ -126,11 +126,11 @@
   --dang-muted: #4e4e52;
   --dang-line: #616168;
   --dang-line-strong: #4e4e52;
-  --dang-primary: #365fbf;
+  --dang-primary: #2f56b0;
   --dang-primary-deep: #2c4377;
   --dang-primary-ink: #ffffff;
-  --dang-link: #365fbf;
-  --dang-focus: #365fbf;
+  --dang-link: #2f56b0;
+  --dang-focus: #2f56b0;
   --dang-gold: #6d4e30;
   --dang-gold-soft: #f2ebe4;
   --dang-gold-mid: #efe3d6;
@@ -246,11 +246,11 @@
   --dang-muted: #b7c0d4;
   --dang-line: #9aa6be;
   --dang-line-strong: #b7c0d4;
-  --dang-primary: #5c92ff;
+  --dang-primary: #7aa5ff;
   --dang-primary-deep: #4d86f2;
   --dang-primary-ink: #0a1730;
-  --dang-link: #5c92ff;
-  --dang-focus: #5c92ff;
+  --dang-link: #7aa5ff;
+  --dang-focus: #7aa5ff;
   --dang-gold: #f0c15a;
   --dang-gold-soft: #3d311a;
   --dang-gold-mid: #4a3c1e;

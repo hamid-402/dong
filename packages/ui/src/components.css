@@ -368,7 +368,7 @@ textarea.dang-control {
 }
 
 .dang-badge--ok {
-  color: var(--dang-success);
+  color: var(--dang-text);
   background: var(--dang-success-soft);
   border-color: var(--dang-success-line);
 }

@@ -45,7 +45,7 @@
   --info: var(--dang-info, #5a12c0);
   --info-soft: var(--dang-info-soft, #e6d6f8);
   --info-line: var(--dang-info-line, #7539d0);
-  --placeholder: var(--dang-placeholder, #6b645c);
+  --placeholder: var(--dang-placeholder, #625b53);
   --ink: var(--text);
   --accent: var(--primary);
   --panel: var(--surface);
@@ -786,8 +786,7 @@ html[data-scheme="dark"] .actionCard{
   font-weight: 500;
 }
 .balanceCard__hint{
-  color: var(--text);
-  opacity: 0.75;
+  color: var(--dang-muted);
   max-width: 48%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1887,8 +1886,8 @@ html[data-motion="off"] .dang-motion-feedback *{
 .uxSecondaryActions button{
   min-height: 2.45rem;
   padding: 0 0.9rem;
-  color: var(--muted);
-  background: var(--fill-subtle);
+  color: var(--dang-text);
+  background: transparent;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   text-decoration: none;
@@ -1901,8 +1900,9 @@ html[data-motion="off"] .dang-motion-feedback *{
 }
 .uxSecondaryActions a:hover,
 .uxSecondaryActions button:hover{
-  color: var(--text);
-  border-color: var(--line-strong);
+  color: var(--dang-text);
+  background: transparent;
+  border: 1px solid var(--line);
 }
 
 .uxPrimaryPanel{
@@ -3820,6 +3820,13 @@ html[data-scheme="light"] .siteHero__plane{
   color: var(--primary-ink);
 }
 
+a.authLayout__headerBtn--primary,
+a.authLayout__headerBtn--primary:link,
+a.authLayout__headerBtn--primary:visited,
+a.authLayout__headerBtn--primary:hover{
+  color: var(--dang-primary-ink);
+}
+
 .authLayout__headerBtn--primary:hover{
   filter: brightness(1.05);
 }
@@ -4491,7 +4498,7 @@ a.authLayout__devLink:hover{
 }
 
 .profileAtelier__eyebrow{
-  color: rgba(201, 170, 112, 0.95);
+  color: var(--dang-gold);
   font-size:0.875rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -5832,7 +5839,7 @@ a.authLayout__devLink:hover{
   padding: 2px 7px;
   border-radius: 6px;
   color: var(--dang-text);
-  background: rgba(5, 10, 18, 0.55);
+  background: var(--dang-surface);
   font-size:0.875rem;
   font-weight: 700;
 }

@@ -1915,9 +1915,14 @@ html[data-scheme="dark"] .shell-tools__folder-tile small{
 }
 
 html[data-scheme="dark"] .shell-tools__folder-count{
-  background: color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 8%, transparent);
-  color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 75%, light-dark(var(--dang-surface), var(--dang-text)));
+  background: var(--dang-primary-soft);
+  color: var(--dang-primary);
   border: 1px solid color-mix(in srgb, light-dark(var(--dang-surface), var(--dang-text)) 12%, transparent);
+}
+
+html[data-scheme="dark"] .shell-tools__folder-tile--attention .shell-tools__folder-count{
+  background: var(--dang-warning-soft);
+  color: var(--dang-warning);
 }
 
 .shell-tools__folder-tile[aria-disabled="true"],
@@ -1932,13 +1937,18 @@ html[data-scheme="dark"] .shell-tools__folder-count{
   min-width: 32px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 32%, transparent);
-  color: var(--tile-gem-edge, var(--primary));
+  background: var(--dang-primary-soft);
+  color: var(--dang-primary);
   font-size:0.875rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   position: relative;
   z-index: 1;
+}
+
+.shell-tools__folder-tile--attention .shell-tools__folder-count{
+  background: var(--dang-warning-soft);
+  color: var(--dang-warning);
 }
 
 .shell-tools__folder-tile--attention{
@@ -2757,7 +2767,8 @@ html[data-density="compact"] .shell-page-trail__back{
   min-width: 1.25rem;
   padding: 1px 6px;
   border-radius: 999px;
-  background: var(--fill-soft);
+  color: var(--dang-text);
+  background: var(--dang-surface-3);
   font-size:0.875rem;
 }
 
@@ -2934,7 +2945,7 @@ html[data-scheme="dark"] .spaces-mosaic__main small{
 }
 
 html[data-scheme="dark"] .spaces-mosaic__ops a{
-  background: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 28%, var(--dang-text));
+  background: var(--dang-surface-2);
   border-color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 45%, var(--dang-muted));
   color: var(--dang-text);
 }
@@ -4741,8 +4752,8 @@ html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-current-realm{
 }
 
 .spaces-hub__chip[data-kind] span{
-  color: inherit;
-  background: color-mix(in srgb, var(--kind-mid) 22%, transparent);
+  color: var(--dang-text);
+  background: var(--dang-surface-3);
 }
 
 .spaces-hub__chip[data-kind].is-active{
@@ -4771,8 +4782,8 @@ html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-current-realm{
 .shell-v2[data-kind] a.shell-v2__cta:hover,
 .shell-v2[data-kind] .moduleChrome__actions > :first-child,
 .shell-v2[data-kind] .productHeaderActions > :first-child{
-  background: var(--kind-edge);
-  color: var(--dang-text);
+  background: var(--dang-primary);
+  color: var(--dang-primary-ink);
   border-color: transparent;
 }
 

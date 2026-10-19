@@ -97,10 +97,10 @@ describe("ledger palette contrast", () => {
     expect(white["--dang-surface"]).toBe("#f4f4f5");
     expect(white["--dang-text"]).toBe("#141414");
     expect(white["--dang-muted"]).toBe("#4e4e52");
-    expect(white["--dang-primary"]).toBe("#365fbf");
+    expect(white["--dang-primary"]).toBe("#2f56b0");
     expect(white["--dang-primary-ink"]).toBe("#ffffff");
     expect(white["--dang-line"]).toBe("#616168");
-    expect(white["--dang-focus"]).toBe("#365fbf");
+    expect(white["--dang-focus"]).toBe("#2f56b0");
     expect(white["--dang-primary-soft"]).toBe("#e4e8f2");
     expect(white["--dang-primary-line"]).toBe("#637cb6");
 
@@ -130,9 +130,9 @@ describe("ledger palette contrast", () => {
     expect(midnight["--dang-bg"]).toBe("#121826");
     expect(midnight["--dang-surface"]).toBe("#1a2233");
     expect(midnight["--dang-text"]).toBe("#e6e9f2");
-    expect(midnight["--dang-primary"]).toBe("#5c92ff");
+    expect(midnight["--dang-primary"]).toBe("#7aa5ff");
     expect(midnight["--dang-line"]).toBe("#9aa6be");
-    expect(midnight["--dang-focus"]).toBe("#5c92ff");
+    expect(midnight["--dang-focus"]).toBe("#7aa5ff");
     expect(midnight["--dang-primary-soft"]).toBe("#1a2642");
     expect(midnight["--dang-primary-line"]).toBe("#6e90dd");
 
