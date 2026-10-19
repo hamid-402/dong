@@ -6545,12 +6545,10 @@ textarea::placeholder{
   gap: 0.75rem;
   margin: 0.75rem 0 1rem;
 }
-/* —— Account page (حساب من): centered frame, two columns on wide screens —— */
+/* —— Account page (حساب من): two columns on wide screens; width from shell .page-frame —— */
 .accountFrame{
   width: 100%;
   min-width: 0;
-  max-width: var(--page-frame-max);
-  margin-inline: auto;
 }
 
 .profilePage{

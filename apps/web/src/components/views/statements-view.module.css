@@ -6,6 +6,10 @@
   border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
   border-radius: var(--dang-radius-lg, 16px);
   background: var(--dang-surface-2);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .presets {
@@ -352,6 +356,23 @@ button.presetActive:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
 .tableWrap {
   border-radius: var(--dang-radius-md, 12px);
   border: 1px solid var(--dang-line, rgba(220, 229, 225, 0.11));
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tableScrollHint {
+  display: none;
+  margin: 6px 0 0;
+  color: var(--dang-muted, var(--muted));
+  font-size: 0.875rem;
+}
+
+@media (max-width: 720px) {
+  .tableScrollHint {
+    display: block;
+  }
 }
 
 .tableCaption {

@@ -4,8 +4,7 @@
   display: grid;
   gap: 1rem;
   width: 100%;
-  max-width: var(--page-frame-max);
-  margin-inline: auto;
+  min-width: 0;
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
     "header"

@@ -321,6 +321,7 @@ export function WorkspaceChartsView() {
             </EmptyHint>
           ) : null}
 
+          <div className={`tableScroll ${styles.chartScroll}`}>
           <div className={styles.grid}>
             <ProChart
               title="روند خرج ماهانه"
@@ -355,6 +356,8 @@ export function WorkspaceChartsView() {
               primaryLabel="مانده طلب"
               exportable
             />
+          </div>
+          <p className={styles.scrollHint}>برای دیدن بیشتر بکشید</p>
           </div>
 
           {warehouseEnabled ? (

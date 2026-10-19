@@ -188,51 +188,53 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
             </div>
           ) : null}
           <main id="main" className="shell-v2__main" tabIndex={-1}>
-            {chrome.error ||
-            chrome.capabilitiesUnavailable ||
-            chrome.notificationsError ? (
-              <div className="shell-chrome-banner" role="status">
-                <span>
-                  {chrome.error ??
-                    chrome.notificationsError ??
-                    "capabilities در دسترس نیست — برخی برچسب‌های اعتماد ممکن است ناقص باشند."}
-                </span>
-                <button
-                  type="button"
-                  className="textButton"
-                  onClick={() => chrome.refreshChrome()}
-                >
-                  تلاش دوباره
-                </button>
-              </div>
-            ) : null}
-            {chrome.capabilities?.providers?.offlineSync === "mutation_queue_v1" &&
-            chrome.offlineQueueCount > 0 ? (
-              <div className="shell-offline-banner" role="status">
-                <span>
-                  {t("offline.bannerTitle", { count: chrome.offlineQueueCount })}
-                </span>
-                <div className="shell-offline-banner__actions">
+            <div className="page-frame">
+              {chrome.error ||
+              chrome.capabilitiesUnavailable ||
+              chrome.notificationsError ? (
+                <div className="shell-chrome-banner" role="status">
+                  <span>
+                    {chrome.error ??
+                      chrome.notificationsError ??
+                      "capabilities در دسترس نیست — برخی برچسب‌های اعتماد ممکن است ناقص باشند."}
+                  </span>
                   <button
                     type="button"
                     className="textButton"
-                    onClick={() => {
-                      void chrome.flushOfflineQueue();
-                    }}
+                    onClick={() => chrome.refreshChrome()}
                   >
-                    {t("offline.bannerRetry")}
-                  </button>
-                  <button
-                    type="button"
-                    className="textButton"
-                    onClick={() => shellApi?.setNotificationsOpen(true)}
-                  >
-                    {t("offline.bannerOpen")}
+                    تلاش دوباره
                   </button>
                 </div>
-              </div>
-            ) : null}
-            {children}
+              ) : null}
+              {chrome.capabilities?.providers?.offlineSync === "mutation_queue_v1" &&
+              chrome.offlineQueueCount > 0 ? (
+                <div className="shell-offline-banner" role="status">
+                  <span>
+                    {t("offline.bannerTitle", { count: chrome.offlineQueueCount })}
+                  </span>
+                  <div className="shell-offline-banner__actions">
+                    <button
+                      type="button"
+                      className="textButton"
+                      onClick={() => {
+                        void chrome.flushOfflineQueue();
+                      }}
+                    >
+                      {t("offline.bannerRetry")}
+                    </button>
+                    <button
+                      type="button"
+                      className="textButton"
+                      onClick={() => shellApi?.setNotificationsOpen(true)}
+                    >
+                      {t("offline.bannerOpen")}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {children}
+            </div>
           </main>
         </div>
 
@@ -255,7 +257,13 @@ export function AppShellV2({ children }: { children: ReactNode }) {
     <SessionGate>
       <AppChromeProvider>
         <ShellV2Provider>
-          <Suspense fallback={<main id="main" className="shell-v2__main" tabIndex={-1}>{children}</main>}>
+          <Suspense
+            fallback={
+              <main id="main" className="shell-v2__main" tabIndex={-1}>
+                <div className="page-frame">{children}</div>
+              </main>
+            }
+          >
             <AppShellV2Inner>{children}</AppShellV2Inner>
           </Suspense>
         </ShellV2Provider>

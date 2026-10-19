@@ -332,6 +332,7 @@ export function DailyLedgerOverviewTable({
           </tbody>
         </table>
       </div>
+      <p className={styles.scrollHint}>برای دیدن بیشتر بکشید</p>
       <div className={styles.dockFooter}>{footer}</div>
 
       <ul

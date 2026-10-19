@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import type { MembershipSummary } from "@dang/contracts";
-import { Button, TextField } from "@dang/ui";
+import { Button, MoneyInput, TextField } from "@dang/ui";
 import {
   SplitComposer,
   emptySplitComposer,
@@ -13,11 +13,10 @@ import { PersonalSpacesAccordion } from "@/components/shell/personal-spaces-acco
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { todayIsoLocal } from "@/lib/fa-datetime";
-import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { displayInputToIrrMinor } from "@/lib/irr-money";
 import { newClientId } from "@/lib/id";
 import { useAppChrome } from "@/lib/use-app-chrome";
-
-const UNIT_LABEL = "تومان";
 
 /** Kind-only personal home blocks: quick private expense + other spaces. */
 export function PersonalHomeExtras({
@@ -32,12 +31,13 @@ export function PersonalHomeExtras({
   onSuccess?: (message: string) => void;
 }) {
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
   const [members, setMembers] = useState<MembershipSummary[]>([]);
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [categoryId, setCategoryId] = useState("");
   const [currentUserId, setCurrentUserId] = useState("");
   const [title, setTitle] = useState("");
-  const [toman, setToman] = useState("");
+  const [amount, setAmount] = useState("");
   const [split, setSplit] = useState<SplitComposerValue>(emptySplitComposer("private"));
   const [pending, startTransition] = useTransition();
 
@@ -74,13 +74,13 @@ export function PersonalHomeExtras({
 
   function onCreateExpense() {
     const name = title.trim();
-    const total = tomanInputToIrrMinor(toman);
+    const total = displayInputToIrrMinor(amount, displayUnit);
     if (!name) {
       onError?.("عنوان لازم است");
       return;
     }
     if (!total) {
-      onError?.("مبلغ نامعتبر است (فقط تومان)");
+      onError?.("مبلغ نامعتبر است");
       return;
     }
     if (!currentUserId) {
@@ -106,7 +106,7 @@ export function PersonalHomeExtras({
           await api.submitExpense(workspaceId, created.id);
           await api.postExpense(workspaceId, created.id);
           setTitle("");
-          setToman("");
+          setAmount("");
           onSuccess?.("خرج شخصی ثبت و در دفتر اعمال شد");
           onPosted?.();
         } catch (err) {
@@ -128,10 +128,10 @@ export function PersonalHomeExtras({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
-          <TextField
-            label={`مبلغ (${UNIT_LABEL})`}
-            value={toman}
-            onChange={(e) => setToman(e.target.value)}
+          <MoneyInput
+            label="مبلغ"
+            value={amount}
+            onValueChange={setAmount}
           />
           {categories.length > 0 ? (
             <label className="field">
@@ -151,7 +151,7 @@ export function PersonalHomeExtras({
           ) : null}
           <SplitComposer
             members={members}
-            totalToman={toman}
+            totalToman={amount}
             value={split}
             onChange={setSplit}
             personalOnly

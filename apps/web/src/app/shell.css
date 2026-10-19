@@ -44,6 +44,11 @@
   margin-inline: auto;
 }
 
+/* Escape hatch for rare full-bleed pages; do not use unless intentionally opted in. */
+.page-frame--bleed{
+  max-width: none;
+}
+
 .app-viewport{
   --m-1: var(--space-1, 4px);
   --m-2: var(--space-2, 8px);
@@ -3160,6 +3165,9 @@ html[data-scheme="dark"] .spaces-mosaic__ops a{
   /* Prefer .tableScroll on the wrapper in TSX; keep a safe fallback. */
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .kindReports__scrollHint{
@@ -6649,10 +6657,12 @@ html[data-density="compact"] .shell-v2__header {
 }
 
 /*
- * Page-frame alignment: header chrome is full-bleed for border/background;
- * inner bar/place use the same padding-inline as .shell-v2__main
- * (--page-frame-pad). Do not also max-width-center the bar — that inset
- * the header ~6px past the main content edges on wide viewports.
+ * Page-frame alignment: header background/border stay full-bleed.
+ * Single padding source is --page-frame-pad on the header (same as main).
+ * Inner .shell-v2__bar and .shell-v2__place content are max-width-centered
+ * to var(--page-frame-max) so their edges match .page-frame in main (±1px).
+ * overflow: visible keeps kind dropdown and «بیشتر» unclipped.
+ * Below 720px, page-frame-max exceeds the content box → no extra inset.
  */
 .shell-v2__header,
 .shell-v2--desktop .shell-v2__header,
@@ -6665,16 +6675,20 @@ html[data-density="compact"] .shell-v2__header {
 
 .shell-v2__bar {
   width: 100%;
-  max-width: none;
-  margin-inline: 0;
+  max-width: var(--page-frame-max);
+  margin-inline: auto;
   overflow: visible;
 }
 
-/* Place row border full-bleed; content inset matches bar/main. */
+/* Place row border full-bleed; inner content matches bar / .page-frame. */
 .shell-v2__place,
 .shell-v2__place--line {
   margin-inline: calc(-1 * var(--page-frame-pad));
-  padding-inline: var(--page-frame-pad);
+  /* 100% = header content box; + pad restores viewport-relative centering. */
+  padding-inline: max(
+    var(--page-frame-pad),
+    calc((100% - var(--page-frame-max)) / 2 + var(--page-frame-pad))
+  );
   overflow: visible;
 }
 

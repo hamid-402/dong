@@ -15,8 +15,9 @@ import { resolveDailyLedgerRange, spaceKindForTemplate } from "@dang/contracts";
 import {
   Amount,
   Button,
+  MoneyInput,
   TextField,
-  formatMoneyFromIrrMinor,
+  formatMoneyWithUnit,
   usePrompt,
 } from "@dang/ui";
 import { WorkspacePageFrame } from "@/components/shell/workspace-page-frame";
@@ -50,7 +51,8 @@ import { moneyPulseFlowSeries } from "@dang/contracts";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { todayIsoLocal } from "@/lib/fa-datetime";
-import { tomanInputToIrrMinor } from "@/lib/irr-money";
+import { useDisplayUnit } from "@/lib/display-unit";
+import { displayInputToIrrMinor } from "@/lib/irr-money";
 import { createWorkspaceWithUniqueSlug } from "@/lib/group-slug";
 import { NAV_LABELS } from "@/lib/nav-labels";
 import { expenseStatusLabel } from "@/lib/status-labels";
@@ -62,13 +64,11 @@ import { wPath } from "@/lib/workspace-paths";
 import { netFromIrrMinor } from "@/lib/space-net-balance";
 
 const initialSplit: SplitComposerValue = emptySplitComposer("private");
-/** Space-home pages always show تومان. */
-const HOME_UNIT = "toman" as const;
-const UNIT_LABEL = "تومان";
 
 /** Personal space home — SpaceHomeLayout + quick expense + savings. */
 export function PersonalSpaceView() {
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
   const promptText = usePrompt();
   usePersonalFinanceHashScroll();
   const scope = useOptionalWorkspaceScope();
@@ -81,7 +81,7 @@ export function PersonalSpaceView() {
   const [categoryId, setCategoryId] = useState("");
   const [currentUserId, setCurrentUserId] = useState("");
   const [title, setTitle] = useState("");
-  const [toman, setToman] = useState("");
+  const [amount, setAmount] = useState("");
   const [split, setSplit] = useState<SplitComposerValue>(initialSplit);
   const [pending, startTransition] = useTransition();
   const [savingsFund, setSavingsFund] = useState<PersonalSavingsFundSummary | null>(
@@ -168,13 +168,13 @@ export function PersonalSpaceView() {
   function onCreateExpense() {
     if (!workspace) return;
     const name = title.trim();
-    const total = tomanInputToIrrMinor(toman);
+    const total = displayInputToIrrMinor(amount, displayUnit);
     if (!name) {
       setError("عنوان لازم است");
       return;
     }
     if (!total) {
-      setError("مبلغ نامعتبر است (فقط تومان)");
+      setError("مبلغ نامعتبر است");
       return;
     }
     startTransition(() => {
@@ -197,7 +197,7 @@ export function PersonalSpaceView() {
           await api.submitExpense(workspace.id, created.id);
           await api.postExpense(workspace.id, created.id);
           setTitle("");
-          setToman("");
+          setAmount("");
           flashSuccess("خرج شخصی ثبت و در دفتر اعمال شد");
           await refresh(workspace.id);
         } catch (err: unknown) {
@@ -210,7 +210,7 @@ export function PersonalSpaceView() {
   const pageError = error ?? chrome.error;
   const slug = workspace?.slug ?? scope?.slug ?? null;
   const pulseNet = moneyPulse
-    ? netFromIrrMinor(moneyPulse.net.amountMinor, HOME_UNIT)
+    ? netFromIrrMinor(moneyPulse.net.amountMinor, displayUnit)
     : null;
 
   const actionItems = useMemo((): SpaceHomeActionItem[] => {
@@ -220,7 +220,7 @@ export function PersonalSpaceView() {
       items.push({
         id: expense.id,
         title: expense.title,
-        detail: `${expenseStatusLabel(expense.status)} · ${formatMoneyFromIrrMinor(expense.total.amountMinor, HOME_UNIT)} ${UNIT_LABEL}`,
+        detail: `${expenseStatusLabel(expense.status)} · ${formatMoneyWithUnit(expense.total.amountMinor, displayUnit)}`,
         href: slug
           ? `${wPath(slug, "expenses")}?expense=${encodeURIComponent(expense.id)}#expense-inspector`
           : "/me/finance",
@@ -228,18 +228,18 @@ export function PersonalSpaceView() {
       });
     }
     return items;
-  }, [expenses, slug]);
+  }, [expenses, slug, displayUnit]);
 
   const activityItems = useMemo((): SpaceHomeActivityItem[] => {
     return expenses.slice(0, 5).map((expense) => ({
       id: expense.id,
       title: expense.title,
-      detail: `${expenseStatusLabel(expense.status)} · ${formatMoneyFromIrrMinor(expense.total.amountMinor, HOME_UNIT)} ${UNIT_LABEL}`,
+      detail: `${expenseStatusLabel(expense.status)} · ${formatMoneyWithUnit(expense.total.amountMinor, displayUnit)}`,
       href: slug
         ? `${wPath(slug, "expenses")}?expense=${encodeURIComponent(expense.id)}#expense-inspector`
         : undefined,
     }));
-  }, [expenses, slug]);
+  }, [expenses, slug, displayUnit]);
 
   const chartSeries = useMemo(() => {
     if (!chartsLive || !moneyPulse) return null;
@@ -296,7 +296,7 @@ export function PersonalSpaceView() {
                     ? "—"
                     : pulseNet.tone === "settled"
                       ? "صفر"
-                      : `${pulseNet.tone === "credit" ? "+" : "−"}${formatMoneyFromIrrMinor(Math.abs(pulseNet.irrMinor), HOME_UNIT)} ${UNIT_LABEL}`
+                      : `${pulseNet.tone === "credit" ? "+" : "−"}${formatMoneyWithUnit(Math.abs(pulseNet.irrMinor), displayUnit)}`
                 }
                 tone={pulseNet?.tone ?? "settled"}
                 meta={
@@ -304,13 +304,11 @@ export function PersonalSpaceView() {
                     <>
                       <span>
                         درآمد{" "}
-                        {formatMoneyFromIrrMinor(moneyPulse.income.amountMinor, HOME_UNIT)}{" "}
-                        {UNIT_LABEL}
+                        {formatMoneyWithUnit(moneyPulse.income.amountMinor, displayUnit)}
                       </span>
                       <span>
                         خرج{" "}
-                        {formatMoneyFromIrrMinor(moneyPulse.expense.amountMinor, HOME_UNIT)}{" "}
-                        {UNIT_LABEL}
+                        {formatMoneyWithUnit(moneyPulse.expense.amountMinor, displayUnit)}
                       </span>
                     </>
                   ) : null
@@ -336,10 +334,10 @@ export function PersonalSpaceView() {
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                     />
-                    <TextField
-                      label={`مبلغ (${UNIT_LABEL})`}
-                      value={toman}
-                      onChange={(e) => setToman(e.target.value)}
+                    <MoneyInput
+                      label="مبلغ"
+                      value={amount}
+                      onValueChange={setAmount}
                     />
                     {categories.length > 0 ? (
                       <label className="field">
@@ -359,7 +357,7 @@ export function PersonalSpaceView() {
                     ) : null}
                     <SplitComposer
                       members={members}
-                      totalToman={toman}
+                      totalToman={amount}
                       value={split}
                       onChange={setSplit}
                       personalOnly
@@ -412,12 +410,12 @@ export function PersonalSpaceView() {
                       ? () => {
                           void promptText({
                             title: "واریز ماهانه",
-                            label: `مبلغ (${UNIT_LABEL})`,
+                            label: "مبلغ",
                             confirmLabel: "ثبت واریز",
                             tone: "default",
                           }).then((raw) => {
                             if (raw == null) return;
-                            const money = tomanInputToIrrMinor(raw);
+                            const money = displayInputToIrrMinor(raw, displayUnit);
                             if (!money) {
                               setError("مبلغ معتبر نیست");
                               return;

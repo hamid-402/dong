@@ -242,6 +242,7 @@ export function OnboardingView() {
       userName={chrome.userName || me?.actor.displayName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
+      <div className="workspacePageFrame">
       <PageHeader
         eyebrow="مدیریت"
         title={
@@ -451,6 +452,7 @@ export function OnboardingView() {
           </SectionCard>
         </ProductGrid>
       )}
+      </div>
     </AppShell>
   );
 }

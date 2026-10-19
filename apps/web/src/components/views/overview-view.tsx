@@ -17,8 +17,9 @@ import {
 import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
 import {
   ErrorState,
+  displayUnitLabel,
   formatMoney,
-  formatMoneyFromIrrMinor,
+  formatMoneyWithUnit,
   irrMinorToDisplayInteger,
   LoadingState,
   type DisplayUnit,
@@ -74,6 +75,7 @@ import {
   needStatusLabel,
 } from "@/lib/status-labels";
 import { netFromIrrMinor, sortPeersByAbsNet } from "@/lib/space-net-balance";
+import { useDisplayUnit } from "@/lib/display-unit";
 import { useAppChrome } from "@/lib/use-app-chrome";
 import { useOptionalTheme } from "@/lib/theme";
 import { formatFaDate } from "@/lib/fa-datetime";
@@ -81,10 +83,6 @@ import { FlashMessages } from "@/lib/use-flash-message";
 import { FirstRunTour } from "@/components/views/first-run-tour";
 import { DemoConfirmDialog } from "@/components/views/demo-confirm-dialog";
 import { rangeForPreset } from "@/components/shell/home-money-command";
-
-/** Space-home pages always show تومان. */
-const HOME_UNIT: DisplayUnit = "toman";
-const UNIT_LABEL = "تومان";
 
 function useAnimatedBalance(
   targetIrrMinor: number,
@@ -195,6 +193,7 @@ export function OverviewView() {
   const homeFolder = parseDomainGroup(folderQuery);
   const homeGroup = searchParams.get("group");
   const chrome = useAppChrome();
+  const displayUnit = useDisplayUnit();
   const theme = useOptionalTheme();
   const motionEnabled = theme ? theme.allowsAmbient || theme.allowsFeedback : true;
   const [loadedData, setData] = useState<DashboardState | null>(null);
@@ -220,7 +219,7 @@ export function OverviewView() {
     data?.balanceIrrMinor ?? 0,
     motionEnabled,
     Boolean(data),
-    HOME_UNIT,
+    displayUnit,
   );
   const slug = activeWs?.slug ?? null;
   const expensesHref = canonicalHref("expenses", slug);
@@ -478,9 +477,9 @@ export function OverviewView() {
       }
     : {};
 
-  const myNet = netFromIrrMinor(data?.balanceIrrMinor ?? 0, HOME_UNIT);
+  const myNet = netFromIrrMinor(data?.balanceIrrMinor ?? 0, displayUnit);
   const pulseNet = data?.moneyPulse
-    ? netFromIrrMinor(data.moneyPulse.net.amountMinor, HOME_UNIT)
+    ? netFromIrrMinor(data.moneyPulse.net.amountMinor, displayUnit)
     : null;
 
   const primaryCta = spaceHomePrimaryCta(spaceKind, {
@@ -495,16 +494,16 @@ export function OverviewView() {
         ? invoicesHref
         : recordHref;
 
-  const actionItems = useMemo((): SpaceHomeActionItem[] => {
+  const actionItems = ((): SpaceHomeActionItem[] => {
     if (!data || !slug) return [];
     const items: SpaceHomeActionItem[] = [];
 
     if (spaceKind === "group" || spaceKind === "building") {
-      const peers = sortPeersByAbsNet(data.peerBalances, HOME_UNIT).slice(0, 5);
+      const peers = sortPeersByAbsNet(data.peerBalances, displayUnit).slice(0, 5);
       for (const peer of peers) {
         const settleDisplay = irrMinorToDisplayInteger(
           Math.abs(peer.net.irrMinor),
-          HOME_UNIT,
+          displayUnit,
         ).toString();
         const href = `${settlementsHref}${settlementsHref.includes("?") ? "&" : "?"}settleTo=${encodeURIComponent(peer.userId)}&settleAmount=${settleDisplay}#settlement-panel`;
         items.push({
@@ -512,8 +511,8 @@ export function OverviewView() {
           title: peer.name,
           detail:
             peer.net.tone === "debt"
-              ? `${formatMoneyFromIrrMinor(Math.abs(peer.net.irrMinor), HOME_UNIT)} ${UNIT_LABEL} بدهی`
-              : `${formatMoneyFromIrrMinor(peer.net.irrMinor, HOME_UNIT)} ${UNIT_LABEL} طلب`,
+              ? `${formatMoneyWithUnit(Math.abs(peer.net.irrMinor), displayUnit)} بدهی`
+              : `${formatMoneyWithUnit(peer.net.irrMinor, displayUnit)} طلب`,
           href,
           actionLabel: "تسویه",
         });
@@ -559,18 +558,9 @@ export function OverviewView() {
     }
 
     return items.slice(0, 5);
-  }, [
-    data,
-    slug,
-    spaceKind,
-    HOME_UNIT,
-    UNIT_LABEL,
-    settlementsHref,
-    procurementHref,
-    expensesHref,
-  ]);
+  })();
 
-  const activityItems = useMemo((): SpaceHomeActivityItem[] => {
+  const activityItems = ((): SpaceHomeActivityItem[] => {
     const items: SpaceHomeActivityItem[] = [];
     if (activityLive) {
       for (const item of feedItems.slice(0, 5)) {
@@ -590,7 +580,7 @@ export function OverviewView() {
         items.push({
           id: `exp-${expense.id}`,
           title: expense.title,
-          detail: `${expense.status} · ${formatMoneyFromIrrMinor(expense.irrMinor, HOME_UNIT)} ${UNIT_LABEL}`,
+          detail: `${expense.status} · ${formatMoneyWithUnit(expense.irrMinor, displayUnit)}`,
           href: `${financeHref}?expense=${encodeURIComponent(expense.id)}#expense-inspector`,
         });
       }
@@ -605,17 +595,7 @@ export function OverviewView() {
       }
     }
     return items.slice(0, 5);
-  }, [
-    activityLive,
-    feedItems,
-    data,
-    HOME_UNIT,
-    UNIT_LABEL,
-    financeHref,
-    spaceKind,
-    procurementHref,
-    expensesHref,
-  ]);
+  })();
 
   const chartSeries = useMemo(() => {
     if (!chartsLive || !data?.moneyPulse) return null;
@@ -637,20 +617,18 @@ export function OverviewView() {
           amount={
             pulseNet.tone === "settled"
               ? "صفر"
-              : `${pulseNet.tone === "credit" ? "+" : "−"}${formatMoneyFromIrrMinor(Math.abs(pulseNet.irrMinor), HOME_UNIT)} ${UNIT_LABEL}`
+              : `${pulseNet.tone === "credit" ? "+" : "−"}${formatMoneyWithUnit(Math.abs(pulseNet.irrMinor), displayUnit)}`
           }
           tone={pulseNet.tone}
           meta={
             <>
               <span>
                 درآمد{" "}
-                {formatMoneyFromIrrMinor(data.moneyPulse.income.amountMinor, HOME_UNIT)}{" "}
-                {UNIT_LABEL}
+                {formatMoneyWithUnit(data.moneyPulse.income.amountMinor, displayUnit)}
               </span>
               <span>
                 خرج{" "}
-                {formatMoneyFromIrrMinor(data.moneyPulse.expense.amountMinor, HOME_UNIT)}{" "}
-                {UNIT_LABEL}
+                {formatMoneyWithUnit(data.moneyPulse.expense.amountMinor, displayUnit)}
               </span>
             </>
           }
@@ -701,7 +679,7 @@ export function OverviewView() {
               ? data.openSettlementCount > 0
                 ? `${data.openSettlementCount.toLocaleString("fa-IR")} تسویه در جریان`
                 : "تسویه"
-              : `${myNet.tone === "credit" ? "+" : "−"}${balance} ${UNIT_LABEL}`
+              : `${myNet.tone === "credit" ? "+" : "−"}${balance} ${displayUnitLabel(displayUnit)}`
         }
         tone={myNet.tone}
         meta={
@@ -892,7 +870,7 @@ export function OverviewView() {
                 canManage={isFinanceManagerRole(data?.myRole)}
                 pending={pending}
                 density="compact"
-                displayUnit={HOME_UNIT}
+                displayUnit={displayUnit}
                 memberLabel={
                   data
                     ? (userId) =>

@@ -707,6 +707,7 @@ export function StatementsView({
             </tbody>
           </table>
         </div>
+        <p className={styles.tableScrollHint}>برای دیدن بیشتر بکشید</p>
 
         <footer className={styles.billFooter}>
           <div className={styles.footerBlock} data-emphasis="totals">

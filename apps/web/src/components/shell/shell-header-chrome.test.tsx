@@ -157,6 +157,10 @@ describe("home header link", () => {
     expect(idle?.querySelector(".shell-icon")).toBeTruthy();
     expect(idle?.getAttribute("aria-current")).toBeNull();
     expect(document.querySelector("a.shell-v2__wordmark")?.nextElementSibling).toBe(idle);
+    const main = document.querySelector("main#main.shell-v2__main");
+    const frame = main?.querySelector(":scope > .page-frame");
+    expect(frame).toBeTruthy();
+    expect(frame?.textContent).toContain("page");
     unmount();
 
     nav.pathname = "/home";
@@ -185,5 +189,20 @@ describe("narrow header css", () => {
     expect(narrow).not.toMatch(/\.shell-sectionTabs\s*\{[^}]*overflow-x:\s*auto/);
     expect(narrow).toMatch(/\.shell-sectionTabs__tab[\s\S]{0,700}min-height:\s*44px/);
     expect(narrow).toContain(".shell-sectionTabs__tab:focus-visible");
+  });
+
+  it("centers header bar/place to the shared page frame max-width", () => {
+    const frame = css.slice(css.indexOf("* Page-frame alignment:"));
+    expect(frame).toMatch(
+      /\.shell-v2__bar\s*\{[^}]*max-width:\s*var\(--page-frame-max\)/,
+    );
+    expect(frame).toMatch(
+      /\.shell-v2__bar\s*\{[^}]*margin-inline:\s*auto/,
+    );
+    expect(frame).toMatch(
+      /\.shell-v2__place,\s*\n\.shell-v2__place--line\s*\{[\s\S]*?overflow:\s*visible/,
+    );
+    expect(css).toContain(".page-frame--bleed");
+    expect(css).not.toContain("Do not also max-width-center the bar");
   });
 });

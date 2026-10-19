@@ -227,6 +227,7 @@ export function ProposalsView() {
       userName={chrome.userName || undefined}
       persistenceLabel={chrome.persistenceLabel}
     >
+      <div className="workspacePageFrame">
       {error ? <p className="liveError">{error}</p> : null}
       {successMessage ? <p className="liveSuccess">{successMessage}</p> : null}
       {chrome.workspaceId && workspace ? (
@@ -551,6 +552,7 @@ export function ProposalsView() {
           ) : null}
         </ProductGrid>
       ) : null}
+      </div>
     </AppShell>
   );
 }

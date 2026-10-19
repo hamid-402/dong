@@ -7,6 +7,7 @@
 }
 
 .scroll {
+  overflow-x: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
   scroll-behavior: smooth;
@@ -16,7 +17,21 @@
   border-radius: clamp(10px, 1.5vw, 14px);
   background: var(--surface);
   max-width: 100%;
+  min-width: 0;
   max-height: min(42rem, max(16rem, calc(100dvh - 18rem - env(safe-area-inset-bottom, 0px))));
+}
+
+.scrollHint {
+  display: none;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 720px) {
+  .scrollHint {
+    display: block;
+  }
 }
 
 .table {
