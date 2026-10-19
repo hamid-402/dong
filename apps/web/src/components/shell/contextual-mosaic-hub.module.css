@@ -455,7 +455,7 @@
 }
 
 :global(html[data-scheme="dark"]) .body > p{
-  color: color-mix(in srgb, var(--dang-primary-ink) 82%, transparent);
+  color: var(--dang-muted);
 }
 
 
@@ -467,7 +467,7 @@
 
 :global(html[data-scheme="dark"]) .tile .fact b,
 :global(html[data-scheme="dark"]) .tile .fact small{
-  color: var(--dang-primary-ink);
+  color: var(--dang-text);
 }
 
 :global(html[data-scheme="dark"]) .pin{

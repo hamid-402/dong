@@ -185,7 +185,7 @@
 .todayMark {
   font-size:0.875rem;
   font-weight: 700;
-  color: var(--primary);
+  color: color-mix(in srgb, var(--primary) 80%, var(--dang-text));
   padding: 1px 6px;
   border-radius: 4px;
   border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--line));

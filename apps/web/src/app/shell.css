@@ -4737,7 +4737,7 @@ html[data-scheme="dark"] .groupOpsRail__open{
 
 html[data-scheme="light"] .spaceKindTabs__tab[data-kind],
 html[data-scheme="light"] .spaces-hub__chip[data-kind]{
-  color: color-mix(in srgb, var(--kind-edge) 78%, var(--dang-primary-deep));
+  color: color-mix(in srgb, var(--kind-edge) 55%, var(--dang-text));
 }
 
 html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-active,
@@ -4780,8 +4780,8 @@ html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-current-realm{
 .shell-v2[data-kind] a.shell-v2__cta:link,
 .shell-v2[data-kind] a.shell-v2__cta:visited,
 .shell-v2[data-kind] a.shell-v2__cta:hover,
-.shell-v2[data-kind] .moduleChrome__actions > :first-child,
-.shell-v2[data-kind] .productHeaderActions > :first-child{
+.shell-v2[data-kind] .moduleChrome__actions > :first-child:not(.uxSecondaryActions),
+.shell-v2[data-kind] .productHeaderActions > :first-child:not(.uxSecondaryActions){
   background: var(--dang-primary);
   color: var(--dang-primary-ink);
   border-color: transparent;
@@ -4792,8 +4792,8 @@ html[data-scheme="light"] .spaceKindTabs__tab[data-kind].is-current-realm{
 .shell-v2[data-kind="group"] a.shell-v2__cta:link,
 .shell-v2[data-kind="group"] a.shell-v2__cta:visited,
 .shell-v2[data-kind="group"] a.shell-v2__cta:hover,
-.shell-v2[data-kind="group"] .moduleChrome__actions > :first-child,
-.shell-v2[data-kind="group"] .productHeaderActions > :first-child{
+.shell-v2[data-kind="group"] .moduleChrome__actions > :first-child:not(.uxSecondaryActions),
+.shell-v2[data-kind="group"] .productHeaderActions > :first-child:not(.uxSecondaryActions){
   background: var(--dang-primary);
   color: var(--dang-primary-ink);
 }

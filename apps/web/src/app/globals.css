@@ -1862,15 +1862,15 @@ html[data-motion="off"] .dang-motion-feedback *{
   justify-content: flex-start;
   flex: 0 0 auto;
 }
-.moduleChrome__actions > :first-child,
-.productHeaderActions > :first-child{
+.moduleChrome__actions > :first-child:not(.uxSecondaryActions),
+.productHeaderActions > :first-child:not(.uxSecondaryActions){
   color: var(--primary-ink);
   background: var(--primary);
   border-color: transparent;
   font-weight: 750;
 }
-.moduleChrome__actions > :first-child:hover,
-.productHeaderActions > :first-child:hover{
+.moduleChrome__actions > :first-child:not(.uxSecondaryActions):hover,
+.productHeaderActions > :first-child:not(.uxSecondaryActions):hover{
   color: var(--primary-ink);
   border-color: transparent;
   filter: brightness(1.04);
@@ -1882,8 +1882,10 @@ html[data-motion="off"] .dang-motion-feedback *{
   gap: 8px;
   align-items: center;
 }
-.uxSecondaryActions a,
-.uxSecondaryActions button{
+.productHeaderActions .uxSecondaryActions a,
+.productHeaderActions .uxSecondaryActions button,
+.moduleChrome__actions .uxSecondaryActions a,
+.moduleChrome__actions .uxSecondaryActions button{
   min-height: 2.45rem;
   padding: 0 0.9rem;
   color: var(--dang-text);
@@ -1898,8 +1900,10 @@ html[data-motion="off"] .dang-motion-feedback *{
   font-size: 0.9rem;
   font-weight: 600;
 }
-.uxSecondaryActions a:hover,
-.uxSecondaryActions button:hover{
+.productHeaderActions .uxSecondaryActions a:hover,
+.productHeaderActions .uxSecondaryActions button:hover,
+.moduleChrome__actions .uxSecondaryActions a:hover,
+.moduleChrome__actions .uxSecondaryActions button:hover{
   color: var(--dang-text);
   background: transparent;
   border: 1px solid var(--line);
