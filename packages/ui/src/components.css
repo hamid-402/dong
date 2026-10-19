@@ -367,7 +367,7 @@ textarea.dang-control {
   line-height: 1.3;
 }
 
-.dang-badge--ok {
+.dang-badge.dang-badge--ok {
   color: var(--dang-text);
   background: color-mix(in srgb, var(--dang-success-soft) 72%, var(--dang-surface));
   border-color: var(--dang-success-line);
