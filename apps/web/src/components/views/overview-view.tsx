@@ -210,7 +210,12 @@ export function OverviewView() {
   const workspaceIdRef = useRef(chrome.workspaceId);
   const activityLive = chrome.capabilities?.providers?.activityFeed === "activity_v1";
   const chartsLive = chrome.capabilities?.providers?.charts === "charts_v1";
-  const activeWs = chrome.workspaces.find((w) => w.id === chrome.workspaceId);
+  const workspaces = chrome.workspaces;
+  const workspaceId = chrome.workspaceId;
+  const activeWs = useMemo(
+    () => workspaces.find((w) => w.id === workspaceId),
+    [workspaces, workspaceId],
+  );
   /** Stale dashboard from a previous space must not render under the new space. */
   const data =
     loadedData !== null && loadedData.workspaceId === chrome.workspaceId
@@ -223,12 +228,24 @@ export function OverviewView() {
     displayUnit,
   );
   const slug = activeWs?.slug ?? null;
-  const expensesHref = canonicalHref("expenses", slug);
-  const recordHref = canonicalHref("record", slug);
-  const financeHref = canonicalHref("expenses", slug);
-  const procurementHref = canonicalHref("procurement", slug);
-  const settlementsHref = canonicalHref("settlements", slug);
-  const invoicesHref = canonicalHref("invoices", slug);
+  const {
+    expensesHref,
+    recordHref,
+    financeHref,
+    procurementHref,
+    settlementsHref,
+    invoicesHref,
+  } = useMemo(
+    () => ({
+      expensesHref: canonicalHref("expenses", slug),
+      recordHref: canonicalHref("record", slug),
+      financeHref: canonicalHref("expenses", slug),
+      procurementHref: canonicalHref("procurement", slug),
+      settlementsHref: canonicalHref("settlements", slug),
+      invoicesHref: canonicalHref("invoices", slug),
+    }),
+    [slug],
+  );
 
   function load(workspaceId: string, from = dashRange.from, to = dashRange.to) {
     const requestId = ++loadRequestRef.current;
@@ -416,7 +433,8 @@ export function OverviewView() {
     load(chrome.workspaceId);
   });
 
-  const spaceKind = spaceKindForTemplate(activeWs?.template);
+  const activeTemplate = activeWs?.template;
+  const spaceKind = useMemo(() => spaceKindForTemplate(activeTemplate), [activeTemplate]);
   const { role: membershipRole } = useWorkspaceMembershipRole(chrome.workspaceId);
   const domainSections = (() => {
     const flags = spaceNavFlagsFromCapabilities(

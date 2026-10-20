@@ -12,8 +12,6 @@ export default defineConfig([
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/exhaustive-deps": "off",
       "react-hooks/static-components": "off",
-      // Allow intentional useMemo (e.g. overview action/activity lists with displayUnit).
-      "react-hooks/preserve-manual-memoization": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
