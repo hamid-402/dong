@@ -9,6 +9,7 @@ import {
   readPaymentResultFromUrl,
   readSettleAmountFromUrl,
   readSettleToFromUrl,
+  settleLinkAmountParams,
   stripPaymentResultFromUrl,
 } from "./finance-url";
 
@@ -26,6 +27,28 @@ describe("finance-url", () => {
     expect(readSettleToFromUrl()).toBe("u1");
     expect(readSettleAmountFromUrl()).toBe("12000");
     expect(readExpenseIdFromUrl()).toBe("e9");
+  });
+
+  it("legacy settleAmount without unit returns raw display digits", () => {
+    window.history.replaceState({}, "", "/w/x/expenses?settleAmount=12000");
+    expect(readSettleAmountFromUrl("toman")).toBe("12000");
+    expect(readSettleAmountFromUrl("rial")).toBe("12000");
+  });
+
+  it("unit=rial settleAmount converts IRR minor into the display unit", () => {
+    window.history.replaceState(
+      {},
+      "",
+      `/w/x/expenses?${settleLinkAmountParams(12000)}`,
+    );
+    expect(readSettleAmountFromUrl("toman")).toBe("1200");
+    expect(readSettleAmountFromUrl("rial")).toBe("12000");
+  });
+
+  it("settleLinkAmountParams encodes absolute rial minor with unit=rial", () => {
+    expect(settleLinkAmountParams(12000)).toBe("settleAmount=12000&unit=rial");
+    expect(settleLinkAmountParams(-500)).toBe("settleAmount=500&unit=rial");
+    expect(settleLinkAmountParams(2500n)).toBe("settleAmount=2500&unit=rial");
   });
 
   it("reads from=ledger clarity flag", () => {

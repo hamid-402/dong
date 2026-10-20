@@ -94,7 +94,8 @@ type Props = {
   compact?: boolean;
 };
 
-function displayAmountToMinor(raw: string, unit: DisplayUnit): string | null {
+/** Parse a display-unit amount into IRR minor string (allows zero). */
+export function displayAmountToMinor(raw: string, unit: DisplayUnit): string | null {
   const n = Number(normalizeMoneyInput(raw).replaceAll("/", ""));
   if (!Number.isFinite(n) || n < 0) return null;
   try {

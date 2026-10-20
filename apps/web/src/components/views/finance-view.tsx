@@ -192,12 +192,14 @@ export function FinanceView({
   );
   const [savingsGoalCount, setSavingsGoalCount] = useState(0);
   const [settleToUserId, setSettleToUserId] = useState(() => readSettleToFromUrl());
-  const [settleAmountToman, setSettleAmountToman] = useState(() => readSettleAmountFromUrl());
+  const [settleAmountToman, setSettleAmountToman] = useState(() =>
+    readSettleAmountFromUrl(displayUnit),
+  );
   const [initialExpenseId] = useState(() => readExpenseIdFromUrl());
   const [outingId, setOutingId] = useState(() => readOutingIdFromUrl());
   const [originalCurrency, setOriginalCurrency] = useState("");
   const [originalAmountMajor, setOriginalAmountMajor] = useState("");
-  const settlePrefillDone = useRef(Boolean(readSettleAmountFromUrl()));
+  const settlePrefillDone = useRef(Boolean(readSettleAmountFromUrl(displayUnit)));
   const paymentReturnHandled = useRef(false);
   const [periodTitle, setPeriodTitle] = useState("هفته جاری");
   const [periodKind, setPeriodKind] = useState<PeriodKind>("week");
@@ -463,6 +465,13 @@ export function FinanceView({
     chrome.ready,
     section,
   ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("unit") !== "rial") return;
+    const next = readSettleAmountFromUrl(displayUnit);
+    if (next) setSettleAmountToman(next);
+  }, [displayUnit]);
 
   useEffect(() => {
     if (settlePrefillDone.current || !balances || !settleToUserId || settleAmountToman) return;

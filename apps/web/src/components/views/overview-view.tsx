@@ -83,6 +83,7 @@ import { FlashMessages } from "@/lib/use-flash-message";
 import { FirstRunTour } from "@/components/views/first-run-tour";
 import { DemoConfirmDialog } from "@/components/views/demo-confirm-dialog";
 import { rangeForPreset } from "@/components/shell/home-money-command";
+import { settleLinkAmountParams } from "@/components/views/finance/finance-url";
 
 function useAnimatedBalance(
   targetIrrMinor: number,
@@ -494,18 +495,14 @@ export function OverviewView() {
         ? invoicesHref
         : recordHref;
 
-  const actionItems = ((): SpaceHomeActionItem[] => {
+  const actionItems = useMemo((): SpaceHomeActionItem[] => {
     if (!data || !slug) return [];
     const items: SpaceHomeActionItem[] = [];
 
     if (spaceKind === "group" || spaceKind === "building") {
       const peers = sortPeersByAbsNet(data.peerBalances, displayUnit).slice(0, 5);
       for (const peer of peers) {
-        const settleDisplay = irrMinorToDisplayInteger(
-          Math.abs(peer.net.irrMinor),
-          displayUnit,
-        ).toString();
-        const href = `${settlementsHref}${settlementsHref.includes("?") ? "&" : "?"}settleTo=${encodeURIComponent(peer.userId)}&settleAmount=${settleDisplay}#settlement-panel`;
+        const href = `${settlementsHref}${settlementsHref.includes("?") ? "&" : "?"}settleTo=${encodeURIComponent(peer.userId)}&${settleLinkAmountParams(peer.net.irrMinor)}#settlement-panel`;
         items.push({
           id: `peer-${peer.userId}`,
           title: peer.name,
@@ -558,9 +555,17 @@ export function OverviewView() {
     }
 
     return items.slice(0, 5);
-  })();
+  }, [
+    data,
+    slug,
+    spaceKind,
+    displayUnit,
+    settlementsHref,
+    procurementHref,
+    expensesHref,
+  ]);
 
-  const activityItems = ((): SpaceHomeActivityItem[] => {
+  const activityItems = useMemo((): SpaceHomeActivityItem[] => {
     const items: SpaceHomeActivityItem[] = [];
     if (activityLive) {
       for (const item of feedItems.slice(0, 5)) {
@@ -595,7 +600,16 @@ export function OverviewView() {
       }
     }
     return items.slice(0, 5);
-  })();
+  }, [
+    activityLive,
+    feedItems,
+    data,
+    displayUnit,
+    financeHref,
+    spaceKind,
+    procurementHref,
+    expensesHref,
+  ]);
 
   const chartSeries = useMemo(() => {
     if (!chartsLive || !data?.moneyPulse) return null;

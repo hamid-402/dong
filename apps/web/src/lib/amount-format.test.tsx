@@ -23,7 +23,9 @@ describe("Amount + money format (S11-05)", () => {
   });
 
   it("Amount unit is full contrast, Persian, and tabular", () => {
-    const { container } = render(<Amount irrMinor={1_250_000} />);
+    const { container } = render(
+      <Amount irrMinor={1_250_000} displayUnit="rial" />,
+    );
     const amount = container.querySelector(".dang-amount");
     const unit = container.querySelector(".dang-amount__unit");
     expect(amount).not.toBeNull();

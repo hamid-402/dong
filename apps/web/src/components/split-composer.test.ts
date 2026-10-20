@@ -1,9 +1,32 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSplitPayloadFromComposer,
+  displayAmountToMinor,
   emptySplitComposer,
   splitComposerFromExpense,
 } from "./split-composer";
+
+describe("displayAmountToMinor", () => {
+  it("multiplies toman ×10 and keeps rial as IRR minor", () => {
+    expect(displayAmountToMinor("1000", "toman")).toBe("10000");
+    expect(displayAmountToMinor("1000", "rial")).toBe("1000");
+  });
+
+  it("allows zero and rejects negative", () => {
+    expect(displayAmountToMinor("0", "toman")).toBe("0");
+    expect(displayAmountToMinor("0", "rial")).toBe("0");
+    expect(displayAmountToMinor("-5", "toman")).toBeNull();
+    expect(displayAmountToMinor("-5", "rial")).toBeNull();
+  });
+
+  it("accepts Persian digits and thousand separators", () => {
+    expect(displayAmountToMinor("۱٬۲۵۰", "toman")).toBe("12500");
+    expect(displayAmountToMinor("۱٬۲۵۰", "rial")).toBe("1250");
+    expect(displayAmountToMinor("1,250", "toman")).toBe("12500");
+    expect(displayAmountToMinor("1,250", "rial")).toBe("1250");
+  });
+});
+
 
 describe("buildSplitPayloadFromComposer", () => {
   it("equal split keeps participant ids", () => {

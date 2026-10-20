@@ -1,15 +1,41 @@
 /** Finance page URL query helpers — keep out of finance-view.tsx. */
 
+import type { DisplayUnit } from "@dang/contracts";
+import { irrMinorToDisplayInput } from "@/lib/irr-money";
+
 export function readSettleToFromUrl(): string {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get("settleTo")?.trim() ?? "";
 }
 
-export function readSettleAmountFromUrl(): string {
+/**
+ * Prefill settle form amount from the query string.
+ *
+ * - New links: `settleAmount=<irr-minor>&unit=rial` → converted to `displayUnit`.
+ * - Legacy links: `settleAmount=<digits>` with no `unit` → returned as-is (display digits).
+ */
+export function readSettleAmountFromUrl(displayUnit: DisplayUnit = "toman"): string {
   if (typeof window === "undefined") return "";
-  const raw =
-    new URLSearchParams(window.location.search).get("settleAmount")?.trim() ?? "";
-  return /^\d+$/.test(raw) ? raw : "";
+  const sp = new URLSearchParams(window.location.search);
+  const raw = sp.get("settleAmount")?.trim() ?? "";
+  if (!/^\d+$/.test(raw)) return "";
+  const unit = sp.get("unit")?.trim();
+  if (unit === "rial") {
+    return irrMinorToDisplayInput(raw, displayUnit);
+  }
+  return raw;
+}
+
+/**
+ * Query fragment for settle deep-links: amount is always IRR (rial) minor.
+ * Pair with `settleTo=…` on the sender; receivers use `readSettleAmountFromUrl`.
+ */
+export function settleLinkAmountParams(irrMinor: number | string | bigint): string {
+  const abs =
+    typeof irrMinor === "bigint"
+      ? (irrMinor < 0n ? -irrMinor : irrMinor).toString()
+      : String(Math.abs(Number(irrMinor)));
+  return `settleAmount=${encodeURIComponent(abs)}&unit=rial`;
 }
 
 export function readExpenseIdFromUrl(): string {
