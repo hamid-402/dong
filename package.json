@@ -25,7 +25,7 @@
     "bundle:check": "node scripts/check-bundle-budget.mjs",
     "views:line-budget": "node scripts/view-line-budget.mjs",
     "license:check": "node scripts/license-check.mjs",
-    "test:coverage": "pnpm --filter @dang/contracts test:coverage-check",
+    "test:coverage": "pnpm --filter @dang/contracts test:coverage-check && pnpm --filter @dang/web test:coverage",
     "test:e2e": "pnpm --filter @dang/web test:e2e",
     "smoke:health": "node scripts/smoke-health.mjs",
     "bootstrap": "node scripts/bootstrap.mjs",

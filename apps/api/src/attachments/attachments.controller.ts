@@ -89,7 +89,7 @@ export class AttachmentsController {
   @UseGuards(AuthGuard)
   @ApiOperation({
     summary:
-      "Download stored attachment bytes (400 quarantine-blocked for blocked/error; clean without rescan)",
+      "Download stored attachment bytes (400 quarantine-blocked for blocked/error; pending blocked when CLAMAV_ENABLED; clean without rescan)",
   })
   async downloadContent(
     @CurrentActor() actor: AuthActor,

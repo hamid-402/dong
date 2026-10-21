@@ -10,6 +10,15 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     environmentMatchGlobs: [["src/**/*.test.tsx", "jsdom"]],
     setupFiles: ["./vitest.setup.ts"],
+    coverage: {
+      provider: "v8",
+      include: ["src/**"],
+      thresholds: {
+        lines: 70,
+        branches: 60,
+        functions: 70,
+      },
+    },
   },
   resolve: {
     alias: {

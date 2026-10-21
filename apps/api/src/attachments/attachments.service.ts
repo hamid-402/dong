@@ -291,8 +291,12 @@ export class AttachmentsService {
       });
     }
     // Stored status only — never re-scan (ClamAV outage must not block clean).
-    // blocked and error are refused with 400 quarantine-blocked.
-    if (!mayServeStoredAttachment(attachment.quarantineStatus)) {
+    // blocked/error always refused; pending refused only when CLAMAV_ENABLED.
+    if (
+      !mayServeStoredAttachment(attachment.quarantineStatus, {
+        clamavEnabled: isClamavEnabled(),
+      })
+    ) {
       throw quarantineBlockedException(attachment.quarantineStatus);
     }
     const buffer = await this.blobs.read(workspaceId, attachmentId);

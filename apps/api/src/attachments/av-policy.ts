@@ -11,16 +11,29 @@ export function mayStartOcr(
   return quarantineStatus !== "blocked" && quarantineStatus !== "error";
 }
 
+export type ServeAttachmentOptions = {
+  /** When true (CLAMAV_ENABLED), pending rows are not downloadable. */
+  clamavEnabled?: boolean;
+};
+
 /**
  * Download serves *stored* quarantine status only — never re-scan.
  * Previously clean attachments stay downloadable when ClamAV is down.
  * Blocked malware and scan-error rows are not served (400 quarantine-blocked).
- * pending/scanning remain downloadable when a blob exists (unchanged).
+ * When CLAMAV_ENABLED is off: pending/scanning remain downloadable if a blob exists.
+ * When CLAMAV_ENABLED is on: pending is refused (400 quarantine-blocked) until scanned.
  */
 export function mayServeStoredAttachment(
   quarantineStatus: QuarantineStatus | undefined,
+  options?: ServeAttachmentOptions,
 ): boolean {
-  return quarantineStatus !== "blocked" && quarantineStatus !== "error";
+  if (quarantineStatus === "blocked" || quarantineStatus === "error") {
+    return false;
+  }
+  if (options?.clamavEnabled && quarantineStatus === "pending") {
+    return false;
+  }
+  return true;
 }
 
 /** New ClamAV upload/scan that failed closed — reject with HTTP 503. */

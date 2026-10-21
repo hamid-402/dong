@@ -54,11 +54,22 @@ Load، Spike، Soak، Noisy Tenant، Duplicate Job، Provider Failure و Restore
 
 ## 3. Coverage
 
+```bash
+pnpm test:coverage
+# معادل: contracts test:coverage-check + web test:coverage
+```
+
+| بسته | دستور | آستانه (lines / branches / functions) |
+|------|--------|----------------------------------------|
+| `@dang/contracts` | `pnpm --filter @dang/contracts test:coverage-check` | **≥85 / ≥68 / ≥88** (gate در `package.json`) |
+| `@dang/web` | `pnpm --filter @dang/web test:coverage` | **≥70 / ≥60 / ≥70** (در `vitest.config.mts`)؛ اگر عدد واقعی کمتر بود آستانه پایین نمی‌آید و صریحاً گزارش می‌شود |
+
 - کل کد جدید: حداقل ۸۰٪ Line و Branch
 - Ledger، Authorization، Tenant Middleware و Payment: حداقل ۹۰٪ Branch
 - کاهش Coverage ممنوع
 - Mutation Score هدف Ledger و Authorization: ۷۰٪
 - Flaky Test دارای Owner و SLA اصلاح حداکثر هفت روز
+- Exclude فقط برای generated (`dist/**`) یا فقط-type؛ نه برای بالا بردن عدد
 
 Coverage جایگزین Assertion باکیفیت نیست.
 

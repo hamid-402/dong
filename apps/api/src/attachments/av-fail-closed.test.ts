@@ -71,6 +71,18 @@ test("download: clean remains servable without rescan; error/blocked refused", (
   assert.equal(mayServeStoredAttachment("scanning"), true);
   assert.equal(mayServeStoredAttachment("error"), false);
   assert.equal(mayServeStoredAttachment("blocked"), false);
+  assert.equal(
+    mayServeStoredAttachment("pending", { clamavEnabled: true }),
+    false,
+  );
+  assert.equal(
+    mayServeStoredAttachment("clean", { clamavEnabled: true }),
+    true,
+  );
+  assert.equal(
+    mayServeStoredAttachment("pending", { clamavEnabled: false }),
+    true,
+  );
 });
 
 test("3) getContent refuses quarantineStatus=error with 400 quarantine-blocked", async () => {
@@ -298,5 +310,149 @@ test("1) CLAMAV off → stub path never returns error (several MIME/files)", asy
     );
     assert.equal(out.engine, "stub-av");
     assert.notEqual(out.status, "error");
+  }
+});
+
+test("CLAMAV on + pending with blob → getContent 400 quarantine-blocked", async () => {
+  const store = new MemoryAttachmentStore();
+  const payload = Buffer.from("pending-bytes");
+  const blobs = {
+    mode: () => "local" as const,
+    hashBuffer: (b: Buffer) => sha256(b),
+    write: async () => "/tmp/x",
+    read: async () => payload,
+  } as unknown as AttachmentBlobService;
+  const created = await store.create("u1", {
+    workspaceId: "w1",
+    targetType: "expense",
+    targetId: "e1",
+    kind: "receipt",
+    fileName: "pending.jpg",
+    mimeType: "image/jpeg",
+    sizeBytes: payload.length,
+    contentHash: HASH_A,
+    idempotencyKey: "pend-on",
+  });
+  assert.equal(created.quarantineStatus, "pending");
+  await store.markBlobStored("w1", created.id, "/tmp/x");
+
+  const prevEnabled = process.env.CLAMAV_ENABLED;
+  process.env.CLAMAV_ENABLED = "1";
+  try {
+    const service = buildService(store, blobs);
+    await assert.rejects(
+      () => service.getContent(actor, "w1", created.id),
+      (err: unknown) => {
+        if (!(err instanceof BadRequestException)) return false;
+        const body = err.getResponse() as { type?: string; status?: number };
+        return (
+          body.type === "https://dang.local/problems/quarantine-blocked" &&
+          body.status === 400
+        );
+      },
+    );
+  } finally {
+    if (prevEnabled === undefined) delete process.env.CLAMAV_ENABLED;
+    else process.env.CLAMAV_ENABLED = prevEnabled;
+  }
+});
+
+test("CLAMAV off + pending with blob → getContent succeeds", async () => {
+  const store = new MemoryAttachmentStore();
+  const payload = Buffer.from("pending-ok");
+  let readCalls = 0;
+  const blobs = {
+    mode: () => "local" as const,
+    hashBuffer: (b: Buffer) => sha256(b),
+    write: async () => "/tmp/x",
+    read: async () => {
+      readCalls += 1;
+      return payload;
+    },
+  } as unknown as AttachmentBlobService;
+  const created = await store.create("u1", {
+    workspaceId: "w1",
+    targetType: "expense",
+    targetId: "e1",
+    kind: "receipt",
+    fileName: "pending-off.jpg",
+    mimeType: "image/jpeg",
+    sizeBytes: payload.length,
+    contentHash: HASH_A,
+    idempotencyKey: "pend-off",
+  });
+  assert.equal(created.quarantineStatus, "pending");
+  await store.markBlobStored("w1", created.id, "/tmp/x");
+
+  const prevEnabled = process.env.CLAMAV_ENABLED;
+  process.env.CLAMAV_ENABLED = "0";
+  try {
+    const service = buildService(store, blobs);
+    const file = await service.getContent(actor, "w1", created.id);
+    assert.equal(file.buffer.toString(), "pending-ok");
+    assert.equal(readCalls, 1);
+  } finally {
+    if (prevEnabled === undefined) delete process.env.CLAMAV_ENABLED;
+    else process.env.CLAMAV_ENABLED = prevEnabled;
+  }
+});
+
+test("CLAMAV on + clean with ClamAV down → getContent succeeds without rescan", async () => {
+  const store = new MemoryAttachmentStore();
+  const payload = Buffer.from("clean-no-rescan");
+  let readCalls = 0;
+  const blobs = {
+    mode: () => "local" as const,
+    hashBuffer: (b: Buffer) => sha256(b),
+    write: async () => "/tmp/x",
+    read: async () => {
+      readCalls += 1;
+      return payload;
+    },
+  } as unknown as AttachmentBlobService;
+  const created = await store.create("u1", {
+    workspaceId: "w1",
+    targetType: "expense",
+    targetId: "e1",
+    kind: "receipt",
+    fileName: "clean.jpg",
+    mimeType: "image/jpeg",
+    sizeBytes: payload.length,
+    contentHash: HASH_A,
+    idempotencyKey: "clean-pend-policy",
+  });
+  await store.applyQuarantine("w1", created.id, {
+    attachmentId: created.id,
+    workspaceId: "w1",
+    scannedAt: new Date().toISOString(),
+    status: "clean",
+    engine: "clamav",
+    contentHash: HASH_A,
+  });
+  await store.markBlobStored("w1", created.id, "/tmp/x");
+
+  const prevEnabled = process.env.CLAMAV_ENABLED;
+  const prevHost = process.env.CLAMAV_HOST;
+  const prevPort = process.env.CLAMAV_PORT;
+  process.env.CLAMAV_ENABLED = "1";
+  process.env.CLAMAV_HOST = "127.0.0.1";
+  process.env.CLAMAV_PORT = "1";
+  try {
+    const service = buildService(store, blobs);
+    const file = await service.getContent(actor, "w1", created.id);
+    assert.equal(file.buffer.toString(), "clean-no-rescan");
+    assert.equal(readCalls, 1);
+    assert.equal(downloadRequiresAvRescan(), false);
+    assert.equal(
+      mayServeStoredAttachment("clean", { clamavEnabled: true }),
+      true,
+    );
+  } finally {
+    if (prevEnabled === undefined) delete process.env.CLAMAV_ENABLED;
+    else process.env.CLAMAV_ENABLED = prevEnabled;
+    if (prevHost === undefined) delete process.env.CLAMAV_HOST;
+    else process.env.CLAMAV_HOST = prevHost;
+    if (prevPort === undefined) delete process.env.CLAMAV_PORT;
+    else process.env.CLAMAV_PORT = prevPort;
   }
 });
