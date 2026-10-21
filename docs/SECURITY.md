@@ -154,6 +154,20 @@ Presigned Upload
 SEV1: پاسخ هدف ۱۰ دقیقه و مهار هدف ۶۰ دقیقه. Postmortem بدون سرزنش حداکثر پنج
 روز کاری، همراه Owner و Deadline.
 
+## Residual / شکاف‌های شناخته‌شده (فاز ۳)
+
+- **جدول‌های social بدون RLS؛ پیشنهاد در [`docs/rls-social-proposal.md`](./rls-social-proposal.md)** (اعمال نشده — نیازمند بازبینی CTO).
+- **RES-01:** HttpVault opt-in با تست واحد؛ **باز تا تأیید staging** (`masterKeySource=http_vault` روی staging).
+- **RES-02:** ABAC محلی + `approvalCapMinor`؛ remote PDP ادعا نمی‌شود.
+- **RES-03:** blocker — `ZAP_TARGET_URL` staging موجود نیست (parse gate واحد دارد).
+- **RES-04:** خارج از scope درگاه؛ LocalPSP؛ بدون ادعای جعلی «زرین‌پال فعال».
+- **RES-05:** وابسته به فاز ۶ (baseline لینوکس).
+- **RES-06:** شروع نشده — vendor/تاریخ ندارد.
+
+### Migration social directory (0045 / 0091)
+
+`0045_social_directory_friends` در `drizzle.__drizzle_migrations` روی envهای dev که بعد از همگام‌سازی journal از دست رفته‌اند ممکن است **ردیف نداشته باشد**؛ چون `when` آن قدیمی‌تر از آخرین migration اعمال‌شده است، دوباره اجرا نمی‌شود. پوشش idempotent اشیای همان schema در `0091_social_directory_friends_cover` است. جزئیات: [`packages/db/README.md`](../packages/db/README.md).
+
 ## Supply-chain / وابستگی‌ها
 
 - `braces` (GHSA-vfj7-8cjw-p6xm): ریسک پذیرفته‌شده است چون پچ رسمی ندارد و فقط در ابزار eslint (`eslint-config-next` → micromatch) استفاده می‌شود، نه runtime پرود.

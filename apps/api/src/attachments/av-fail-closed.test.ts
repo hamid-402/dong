@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mayStartOcr } from "./av-policy.js";
+import {
+  downloadRequiresAvRescan,
+  mayServeStoredAttachment,
+  mayStartOcr,
+} from "./av-policy.js";
 
 test("fail-closed: scan error must not start OCR", () => {
   assert.equal(mayStartOcr("error"), false);
@@ -26,4 +30,11 @@ test("create flow: error scan outcome skips OCR enqueue", () => {
   const ocrJobId = "job-ocr-1";
   const shouldEnqueueOcr = Boolean(ocrJobId) && mayStartOcr(scanStatus);
   assert.equal(shouldEnqueueOcr, false);
+});
+
+test("download: clean remains servable without rescan when AV is down", () => {
+  assert.equal(downloadRequiresAvRescan(), false);
+  assert.equal(mayServeStoredAttachment("clean"), true);
+  assert.equal(mayServeStoredAttachment("error"), true);
+  assert.equal(mayServeStoredAttachment("blocked"), false);
 });

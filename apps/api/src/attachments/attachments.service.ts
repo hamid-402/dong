@@ -16,7 +16,7 @@ import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { JobsService } from "../jobs/jobs.service.js";
 import { AttachmentBlobService } from "./attachment-blob.service.js";
 import { ATTACHMENT_STORE, type AttachmentStore } from "./attachment.store.js";
-import { mayStartOcr } from "./av-policy.js";
+import { mayServeStoredAttachment, mayStartOcr } from "./av-policy.js";
 import { scanAttachmentContent } from "./av-scanner.js";
 import { runReceiptOcr } from "./ocr.client.js";
 
@@ -236,6 +236,15 @@ export class AttachmentsService {
         type: "https://dang.local/problems/not-found",
         title: "Attachment content not found",
         status: 404,
+      });
+    }
+    // Fail-closed for malware only — never re-scan on download (ClamAV outage
+    // must not block previously clean files).
+    if (!mayServeStoredAttachment(attachment.quarantineStatus)) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/quarantine-blocked",
+        title: "Attachment blocked by quarantine",
+        status: 400,
       });
     }
     const buffer = await this.blobs.read(workspaceId, attachmentId);

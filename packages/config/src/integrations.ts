@@ -71,9 +71,30 @@ export function isClamavHostConfigured(processEnv: EnvBag = process.env): boolea
   return Boolean(processEnv.CLAMAV_HOST?.trim());
 }
 
-/** Live ClamAV TCP scan only with host + enable flag. */
+/** Opt-in only — default off (unset / 0 / false → stub path). */
+export function isClamavEnabled(processEnv: EnvBag = process.env): boolean {
+  return flag("CLAMAV_ENABLED", processEnv);
+}
+
+/**
+ * Live ClamAV TCP scan only with host + enable flag.
+ * Capabilities use this: configured ⇒ stubs.avScan=false, antivirus=configured.
+ * When enabled without host, scan path is fail-closed (not stub) — see av-scanner.
+ */
 export function isClamavLive(processEnv: EnvBag = process.env): boolean {
-  return isClamavHostConfigured(processEnv) && flag("CLAMAV_ENABLED", processEnv);
+  return isClamavHostConfigured(processEnv) && isClamavEnabled(processEnv);
+}
+
+/** Honest antivirus capability labels derived from env (no fake "live" claims). */
+export function resolveAntivirusCapabilities(processEnv: EnvBag = process.env): {
+  avScanStub: boolean;
+  antivirus: "stub" | "configured";
+} {
+  const live = isClamavLive(processEnv);
+  return {
+    avScanStub: !live,
+    antivirus: live ? "configured" : "stub",
+  };
 }
 
 export function clamavHostPort(processEnv: EnvBag = process.env): {

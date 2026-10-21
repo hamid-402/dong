@@ -83,11 +83,49 @@ ZARINPAL_CALLBACK_URL=https://api.yourdomain.com/api/v1/payments/zarinpal/callba
 
 بدون `ZARINPAL_ENABLED=1` همیشه **LocalPSP** محلی است (تست بدون درگاه).
 
+## ClamAV (آنتی‌ویروس پیوست)
+
+پیش‌فرض **خاموش** است (`CLAMAV_ENABLED` unset/0) → مسیر stub MIME (`engine: stub-av`، `stubs.avScan=true`).
+
+### روشن‌کردن محلی / compose
+
+```env
+CLAMAV_ENABLED=1
+CLAMAV_HOST=127.0.0.1
+CLAMAV_PORT=3310
+```
+
+نمونهٔ compose (سرویس را خودتان اجرا کنید — این runbook نصب نمی‌کند):
+
+```yaml
+# excerpt — clamd listening on 3310
+services:
+  clamav:
+    image: clamav/clamav:stable
+    ports:
+      - "3310:3310"
+```
+
+پس از ری‌استارت API:
+
+- `GET /system/capabilities` → `providers.antivirus=configured` و `stubs.avScan=false`
+- اسکن جدید با daemon در دسترس → `engine: clamav`
+- اگر host خالی / اتصال رد / timeout باشد → **fail-closed** روی upload جدید (`status: error`، هرگز `clean`)
+- پیوست از قبل `clean` هنگام قطعی ClamAV همچنان دانلود می‌شود (بدون اسکن مجدد)
+
+### Rollback
+
+```env
+CLAMAV_ENABLED=0
+```
+
+ری‌استارت API → بازگشت به stub بدون تغییر کد.
+
 ## ترتیب پیشنهادی
 
 1. SMTP/Resend → دعوت و statement.ready خارج از اپ
 2. زرین‌پال sandbox با تونل (مثلاً cloudflared) به callback
-3. ClamAV / OCR جدا (همین الگو: URL + `*_ENABLED=1`)
+3. ClamAV (بالا) / OCR جدا (همین الگو: URL + `*_ENABLED=1`)
 
 ## عمداً باز
 

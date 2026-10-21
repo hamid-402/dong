@@ -1,6 +1,12 @@
 import { createConnection } from "node:net";
-import { clamavHostPort, isClamavLive } from "@dang/config";
+import {
+  clamavHostPort,
+  isClamavEnabled,
+  isClamavHostConfigured,
+} from "@dang/config";
 import { evaluateQuarantine, type QuarantineStatus } from "@dang/contracts";
+
+type EnvBag = Record<string, string | undefined>;
 
 export type AvScanOutcome = {
   status: QuarantineStatus;
@@ -9,18 +15,61 @@ export type AvScanOutcome = {
   contentHash: string;
 };
 
+export type ClamavInstreamFn = (
+  bytes: Uint8Array,
+  options?: { host: string; port: number; timeoutMs?: number },
+) => Promise<{ infected: boolean; detail?: string }>;
+
+export type ScanAttachmentDeps = {
+  /** Override process.env for tests (never log values). */
+  env?: EnvBag;
+  /** Inject ClamAV INSTREAM (mock TCP or fake). */
+  instream?: ClamavInstreamFn;
+  /** Override default 15s ClamAV socket timeout. */
+  timeoutMs?: number;
+};
+
 /**
- * Prefer ClamAV when CLAMAV_ENABLED=1 + CLAMAV_HOST; otherwise MIME/heuristic stub.
+ * Prefer ClamAV when CLAMAV_ENABLED=1; otherwise MIME/heuristic stub.
+ * Fail-closed for *new* scans when enabled: missing host, connect/timeout/error
+ * → status error (never clean). Download paths must not call this.
  */
-export async function scanAttachmentContent(input: {
-  fileName: string;
-  mimeType: string;
-  contentHash: string;
-  bytes?: Uint8Array;
-}): Promise<AvScanOutcome> {
-  if (isClamavLive() && input.bytes && input.bytes.byteLength > 0) {
+export async function scanAttachmentContent(
+  input: {
+    fileName: string;
+    mimeType: string;
+    contentHash: string;
+    bytes?: Uint8Array;
+  },
+  deps: ScanAttachmentDeps = {},
+): Promise<AvScanOutcome> {
+  const env = deps.env ?? process.env;
+
+  if (isClamavEnabled(env)) {
+    if (!isClamavHostConfigured(env)) {
+      return {
+        status: "error",
+        engine: "clamav",
+        detail: "CLAMAV_HOST_MISSING",
+        contentHash: input.contentHash,
+      };
+    }
+    if (!input.bytes || input.bytes.byteLength === 0) {
+      return {
+        status: "error",
+        engine: "clamav",
+        detail: "CLAMAV_NO_BYTES",
+        contentHash: input.contentHash,
+      };
+    }
+    const { host, port } = clamavHostPort(env);
+    const run = deps.instream ?? clamavInstream;
     try {
-      const clam = await clamavInstream(input.bytes);
+      const clam = await run(input.bytes, {
+        host,
+        port,
+        timeoutMs: deps.timeoutMs,
+      });
       return {
         status: clam.infected ? "blocked" : "clean",
         engine: "clamav",
@@ -51,15 +100,20 @@ export async function scanAttachmentContent(input: {
 }
 
 /** ClamAV INSTREAM over TCP — ready when daemon + flags are set. */
-function clamavInstream(bytes: Uint8Array): Promise<{ infected: boolean; detail?: string }> {
-  const { host, port } = clamavHostPort();
+export function clamavInstream(
+  bytes: Uint8Array,
+  options?: { host: string; port: number; timeoutMs?: number },
+): Promise<{ infected: boolean; detail?: string }> {
+  const host = options?.host ?? clamavHostPort().host;
+  const port = options?.port ?? clamavHostPort().port;
+  const timeoutMs = options?.timeoutMs ?? 15_000;
   return new Promise((resolve, reject) => {
     const socket = createConnection({ host, port });
     const chunks: Buffer[] = [];
     const timer = setTimeout(() => {
       socket.destroy();
       reject(new Error("CLAMAV_TIMEOUT"));
-    }, 15_000);
+    }, timeoutMs);
 
     socket.on("connect", () => {
       const header = Buffer.from("zINSTREAM\0");

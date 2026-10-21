@@ -52,3 +52,7 @@ pnpm exec playwright test e2e/visual-shell.spec.ts --update-snapshots
 
 - بدون داده جعلی؛ صفحات واقعی login/404 و در صورت seed، payments/approvals/admin.
 - Hard gate فقط پس از commit baseline لینوکس — تا آن موقع soft فقط artifact می‌سازد.
+
+## Residual (RES-05)
+
+**وابسته به فاز ۶ (baseline لینوکس).** تا فایل‌های `*-chromium-linux.png` commit نشوند، hard gate فعال نیست و RES-05 در tracker باز می‌ماند.

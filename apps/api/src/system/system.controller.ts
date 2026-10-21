@@ -19,6 +19,7 @@ import { resolveSmsProvider } from "../messaging/transactional-sms.service.js";
 import {
   isClamavHostConfigured,
   isClamavLive,
+  resolveAntivirusCapabilities,
   isOcrHttpConfigured,
   isOcrLive,
   groupEmailVerificationEnforced,
@@ -184,6 +185,7 @@ export class SystemController {
     const zarinpalLive = isZarinpalLive(env.zarinpalMerchantId);
     const paymentMode = resolvePaymentProviderMode(env.zarinpalMerchantId);
     const clamLive = isClamavLive();
+    const antivirusCaps = resolveAntivirusCapabilities();
     const ocrLive = isOcrLive();
     const mailMode = this.mailer.mode();
     const workerAlive = await this.jobs.consumerAlive();
@@ -250,14 +252,14 @@ export class SystemController {
         // Derive from providers.payment — never hardcode. local_psp / zarinpal are live adapters.
         paymentProvider: paymentMode === "stub",
         ocr: !ocrLive,
-        avScan: !clamLive,
+        avScan: antivirusCaps.avScanStub,
         backgroundWorker: !(redisConfigured && workerAlive),
         emailDelivery: !this.mailer.isLiveDelivery(),
       },
       providers: {
         payment: paymentMode,
         ocr: ocrLive ? "configured" : "stub",
-        antivirus: clamLive ? "configured" : "stub",
+        antivirus: antivirusCaps.antivirus,
         jobs: jobsProvider,
         email:
           mailMode === "resend"

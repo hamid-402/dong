@@ -41,6 +41,7 @@ pnpm --filter @dang/contracts exec tsx --test tests/finance-property.test.ts
    ```
 3. Restart API → `GET /api/v1/system/capabilities` باید `masterKeySource: "http_vault"` بدهد
 4. اگر Vault قطع باشد، boot/unseal **fail-closed** است — UI را «امن» نشان ندهید
-5. تا مرحلهٔ ۳ سبز نشود، RES-01 در tracker **باز** می‌ماند
+5. تا مرحلهٔ ۳ سبز نشود، RES-01 در tracker **باز تا تأیید staging** می‌ماند
+6. تست واحد (بدون شبکه): `apps/api/src/key-vault/key-vault.res01.test.ts` — بدون پرچم هرگز `http_vault` نیست؛ با پرچم + mock موفق source صادق؛ fail-closed روی `VAULT_HTTP_FETCH_FAILED`
 
 مرجع: [`ADR-kms-master-key.md`](../adr/ADR-kms-master-key.md)
