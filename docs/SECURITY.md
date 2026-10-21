@@ -154,6 +154,10 @@ Presigned Upload
 SEV1: پاسخ هدف ۱۰ دقیقه و مهار هدف ۶۰ دقیقه. Postmortem بدون سرزنش حداکثر پنج
 روز کاری، همراه Owner و Deadline.
 
+## Supply-chain / وابستگی‌ها
+
+- `braces` (GHSA-vfj7-8cjw-p6xm): ریسک پذیرفته‌شده است چون پچ رسمی ندارد و فقط در ابزار eslint (`eslint-config-next` → micromatch) استفاده می‌شود، نه runtime پرود.
+
 ## منابع
 
 - https://owasp.org/www-project-application-security-verification-standard/
