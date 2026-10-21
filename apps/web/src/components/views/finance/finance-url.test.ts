@@ -45,6 +45,18 @@ describe("finance-url", () => {
     expect(readSettleAmountFromUrl("rial")).toBe("12000");
   });
 
+  it("unit=toman settleAmount converts toman digits into the display unit", () => {
+    window.history.replaceState({}, "", "/w/x/expenses?settleAmount=1200&unit=toman");
+    expect(readSettleAmountFromUrl("toman")).toBe("1200");
+    expect(readSettleAmountFromUrl("rial")).toBe("12000");
+  });
+
+  it("unknown unit is treated like a legacy unitless link", () => {
+    window.history.replaceState({}, "", "/w/x/expenses?settleAmount=12000&unit=usd");
+    expect(readSettleAmountFromUrl("toman")).toBe("12000");
+    expect(readSettleAmountFromUrl("rial")).toBe("12000");
+  });
+
   it("settleLinkAmountParams encodes absolute rial minor with unit=rial", () => {
     expect(settleLinkAmountParams(12000)).toBe("settleAmount=12000&unit=rial");
     expect(settleLinkAmountParams(-500)).toBe("settleAmount=500&unit=rial");
@@ -61,6 +73,23 @@ describe("finance-url", () => {
   it("rejects non-numeric settleAmount", () => {
     window.history.replaceState({}, "", "/w/x/expenses?settleAmount=12ab");
     expect(readSettleAmountFromUrl()).toBe("");
+  });
+
+  it("rejects negative or decimal settleAmount", () => {
+    window.history.replaceState({}, "", "/w/x/expenses?settleAmount=-12000");
+    expect(readSettleAmountFromUrl()).toBe("");
+    window.history.replaceState({}, "", "/w/x/expenses?settleAmount=12.5");
+    expect(readSettleAmountFromUrl()).toBe("");
+    window.history.replaceState({}, "", "/w/x/expenses?settleAmount=۱۲٫۵");
+    expect(readSettleAmountFromUrl()).toBe("");
+  });
+
+  it("accepts Persian digit settleAmount", () => {
+    window.history.replaceState({}, "", "/w/x/expenses?settleAmount=۱۲۰۰۰");
+    expect(readSettleAmountFromUrl("toman")).toBe("12000");
+    window.history.replaceState({}, "", "/w/x/expenses?settleAmount=۱۲۰۰۰&unit=rial");
+    expect(readSettleAmountFromUrl("toman")).toBe("1200");
+    expect(readSettleAmountFromUrl("rial")).toBe("12000");
   });
 
   it("reads outing id", () => {

@@ -1,7 +1,11 @@
 /** Finance page URL query helpers — keep out of finance-view.tsx. */
 
 import type { DisplayUnit } from "@dang/contracts";
+import { displayIntegerToIrrMinor } from "@dang/contracts";
+import { latinDigits } from "@dang/ui";
 import { irrMinorToDisplayInput } from "@/lib/irr-money";
+
+const SETTLE_AMOUNT_UNITS = new Set<DisplayUnit>(["rial", "toman"]);
 
 export function readSettleToFromUrl(): string {
   if (typeof window === "undefined") return "";
@@ -12,18 +16,27 @@ export function readSettleToFromUrl(): string {
  * Prefill settle form amount from the query string.
  *
  * - New links: `settleAmount=<irr-minor>&unit=rial` → converted to `displayUnit`.
- * - Legacy links: `settleAmount=<digits>` with no `unit` → returned as-is (display digits).
+ * - Explicit `unit=toman`: amount is toman display digits → converted to `displayUnit`.
+ * - Legacy / unknown unit: `settleAmount=<digits>` → returned as-is (display digits).
+ * - Rejects negative, decimal, or non-numeric amounts (Persian digits allowed).
  */
 export function readSettleAmountFromUrl(displayUnit: DisplayUnit = "toman"): string {
   if (typeof window === "undefined") return "";
   const sp = new URLSearchParams(window.location.search);
-  const raw = sp.get("settleAmount")?.trim() ?? "";
+  const raw = latinDigits(sp.get("settleAmount")?.trim() ?? "").trim();
+  // Integer digits only — ignore negative, decimals, and non-numeric values.
   if (!/^\d+$/.test(raw)) return "";
-  const unit = sp.get("unit")?.trim();
-  if (unit === "rial") {
-    return irrMinorToDisplayInput(raw, displayUnit);
+
+  const unitRaw = sp.get("unit")?.trim() ?? "";
+  if (!SETTLE_AMOUNT_UNITS.has(unitRaw as DisplayUnit)) {
+    return raw;
   }
-  return raw;
+  try {
+    const irrMinor = displayIntegerToIrrMinor(raw, unitRaw as DisplayUnit);
+    return irrMinorToDisplayInput(irrMinor, displayUnit);
+  } catch {
+    return "";
+  }
 }
 
 /**
