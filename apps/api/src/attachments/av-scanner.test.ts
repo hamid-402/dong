@@ -44,18 +44,26 @@ async function withMockClamd(
   }
 }
 
-test("1) CLAMAV_ENABLED off → stub-av engine", async () => {
-  const out = await scanAttachmentContent(
-    {
-      fileName: "receipt.pdf",
-      mimeType: "application/pdf",
-      contentHash: HASH,
-      bytes: sampleBytes(),
-    },
-    { env: { CLAMAV_ENABLED: "0", CLAMAV_HOST: "127.0.0.1" } },
-  );
-  assert.equal(out.engine, "stub-av");
-  assert.notEqual(out.status, "error");
+test("1) CLAMAV_ENABLED off → stub-av never returns error (several MIME/files)", async () => {
+  const samples = [
+    { fileName: "receipt.pdf", mimeType: "application/pdf" },
+    { fileName: "a.jpg", mimeType: "image/jpeg" },
+    { fileName: "b.png", mimeType: "image/png" },
+    { fileName: "c.webp", mimeType: "image/webp" },
+  ];
+  for (const sample of samples) {
+    const out = await scanAttachmentContent(
+      {
+        fileName: sample.fileName,
+        mimeType: sample.mimeType,
+        contentHash: HASH,
+        bytes: sampleBytes(),
+      },
+      { env: { CLAMAV_ENABLED: "0", CLAMAV_HOST: "127.0.0.1" } },
+    );
+    assert.equal(out.engine, "stub-av");
+    assert.notEqual(out.status, "error");
+  }
 });
 
 test("2) enabled + mock OK → clean with engine clamav", async () => {
@@ -174,9 +182,11 @@ test("4c) enabled + timeout → error, never clean", async () => {
   }
 });
 
-test("5) ClamAV down: previously clean still downloadable; no rescan", async () => {
+test("5) ClamAV down: previously clean still downloadable; error/blocked not; no rescan", async () => {
   assert.equal(downloadRequiresAvRescan(), false);
   assert.equal(mayServeStoredAttachment("clean"), true);
+  assert.equal(mayServeStoredAttachment("error"), false);
+  assert.equal(mayServeStoredAttachment("blocked"), false);
 
   let scanCalls = 0;
   const instream = async () => {

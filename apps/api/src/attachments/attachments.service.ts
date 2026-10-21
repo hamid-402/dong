@@ -3,7 +3,9 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
+import { isClamavEnabled } from "@dang/config";
 import {
   type AttachmentSummary,
   type AuthActor,
@@ -16,9 +18,35 @@ import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { JobsService } from "../jobs/jobs.service.js";
 import { AttachmentBlobService } from "./attachment-blob.service.js";
 import { ATTACHMENT_STORE, type AttachmentStore } from "./attachment.store.js";
-import { mayServeStoredAttachment, mayStartOcr } from "./av-policy.js";
+import {
+  isAvUnavailableScanResult,
+  mayServeStoredAttachment,
+  mayStartOcr,
+} from "./av-policy.js";
 import { scanAttachmentContent } from "./av-scanner.js";
 import { runReceiptOcr } from "./ocr.client.js";
+
+function avUnavailableException(detail?: string): ServiceUnavailableException {
+  return new ServiceUnavailableException({
+    type: "https://dang.local/problems/av-unavailable",
+    title: "Antivirus unavailable",
+    status: 503,
+    detail: detail ?? "ClamAV scan could not complete",
+  });
+}
+
+function quarantineBlockedException(
+  quarantineStatus: AttachmentSummary["quarantineStatus"] | undefined,
+): BadRequestException {
+  return new BadRequestException({
+    type: "https://dang.local/problems/quarantine-blocked",
+    title:
+      quarantineStatus === "error"
+        ? "Attachment quarantine scan failed"
+        : "Attachment blocked by quarantine",
+    status: 400,
+  });
+}
 
 @Injectable()
 export class AttachmentsService {
@@ -41,9 +69,14 @@ export class AttachmentsService {
         workspaceId,
       });
       if (current.quarantineStatus === "pending") {
-        await this.scanQuarantine(actor, workspaceId, current.id);
-        current =
-          (await this.attachments.getById(workspaceId, current.id)) ?? current;
+        // Stub AV can scan metadata-only. With ClamAV enabled, wait for bytes
+        // (uploadContent) so missing blob does not fail-closed the create.
+        const existingBlob = await this.blobs.read(workspaceId, current.id);
+        if (existingBlob || !isClamavEnabled()) {
+          await this.scanQuarantine(actor, workspaceId, current.id);
+          current =
+            (await this.attachments.getById(workspaceId, current.id)) ?? current;
+        }
       }
       // Fail-closed: never OCR when quarantine is blocked or error (scan errors persist as error).
       if (current.ocrJobId && mayStartOcr(current.quarantineStatus)) {
@@ -121,6 +154,10 @@ export class AttachmentsService {
       contentHash: evaluated.contentHash,
     };
     await this.attachments.applyQuarantine(workspaceId, attachmentId, result);
+    // Fail-closed upload/scan: ClamAV error → 503; row stays error (not servable).
+    if (isAvUnavailableScanResult(evaluated.status)) {
+      throw avUnavailableException(evaluated.detail);
+    }
     return result;
   }
 
@@ -139,14 +176,7 @@ export class AttachmentsService {
       });
     }
     if (!mayStartOcr(attachment.quarantineStatus)) {
-      throw new BadRequestException({
-        type: "https://dang.local/problems/quarantine-blocked",
-        title:
-          attachment.quarantineStatus === "error"
-            ? "Attachment quarantine scan failed"
-            : "Attachment blocked by quarantine",
-        status: 400,
-      });
+      throw quarantineBlockedException(attachment.quarantineStatus);
     }
     const job = await this.jobs.run("ocr.receipt", workspaceId, {
       attachmentId,
@@ -180,12 +210,11 @@ export class AttachmentsService {
         status: 404,
       });
     }
-    if (attachment.quarantineStatus === "blocked") {
-      throw new BadRequestException({
-        type: "https://dang.local/problems/quarantine-blocked",
-        title: "Attachment blocked by quarantine",
-        status: 400,
-      });
+    if (
+      attachment.quarantineStatus === "blocked" ||
+      attachment.quarantineStatus === "error"
+    ) {
+      throw quarantineBlockedException(attachment.quarantineStatus);
     }
     const encoded = body.contentBase64?.trim();
     if (!encoded) {
@@ -220,6 +249,29 @@ export class AttachmentsService {
         status: 400,
       });
     }
+    // When ClamAV is enabled, scan before marking the blob servable.
+    if (isClamavEnabled()) {
+      const evaluated = await scanAttachmentContent({
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        contentHash: attachment.contentHash,
+        bytes: buffer,
+      });
+      const result: QuarantineScanResult = {
+        attachmentId,
+        workspaceId,
+        scannedAt: new Date().toISOString(),
+        status: evaluated.status,
+        engine: evaluated.engine,
+        detail: evaluated.detail,
+        contentHash: evaluated.contentHash,
+      };
+      await this.attachments.applyQuarantine(workspaceId, attachmentId, result);
+      if (isAvUnavailableScanResult(evaluated.status)) {
+        // Do not write/markBlobStored — attachment stays non-servable.
+        throw avUnavailableException(evaluated.detail);
+      }
+    }
     const storagePath = await this.blobs.write(workspaceId, attachmentId, buffer);
     return this.attachments.markBlobStored(workspaceId, attachmentId, storagePath);
   }
@@ -238,14 +290,10 @@ export class AttachmentsService {
         status: 404,
       });
     }
-    // Fail-closed for malware only — never re-scan on download (ClamAV outage
-    // must not block previously clean files).
+    // Stored status only — never re-scan (ClamAV outage must not block clean).
+    // blocked and error are refused with 400 quarantine-blocked.
     if (!mayServeStoredAttachment(attachment.quarantineStatus)) {
-      throw new BadRequestException({
-        type: "https://dang.local/problems/quarantine-blocked",
-        title: "Attachment blocked by quarantine",
-        status: 400,
-      });
+      throw quarantineBlockedException(attachment.quarantineStatus);
     }
     const buffer = await this.blobs.read(workspaceId, attachmentId);
     if (!buffer) {

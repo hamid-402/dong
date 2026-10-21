@@ -32,7 +32,8 @@ export type ScanAttachmentDeps = {
 /**
  * Prefer ClamAV when CLAMAV_ENABLED=1; otherwise MIME/heuristic stub.
  * Fail-closed for *new* scans when enabled: missing host, connect/timeout/error
- * → status error (never clean). Download paths must not call this.
+ * → status error (never clean). Callers reject upload with HTTP 503 av-unavailable
+ * and must not mark the blob servable. Download paths must not call this.
  */
 export async function scanAttachmentContent(
   input: {

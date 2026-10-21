@@ -14,12 +14,18 @@ export function mayStartOcr(
 /**
  * Download serves *stored* quarantine status only — never re-scan.
  * Previously clean attachments stay downloadable when ClamAV is down.
- * Blocked malware is not served; error/pending/scanning use stored bytes as-is.
+ * Blocked malware and scan-error rows are not served (400 quarantine-blocked).
+ * pending/scanning remain downloadable when a blob exists (unchanged).
  */
 export function mayServeStoredAttachment(
   quarantineStatus: QuarantineStatus | undefined,
 ): boolean {
-  return quarantineStatus !== "blocked";
+  return quarantineStatus !== "blocked" && quarantineStatus !== "error";
+}
+
+/** New ClamAV upload/scan that failed closed — reject with HTTP 503. */
+export function isAvUnavailableScanResult(status: QuarantineStatus): boolean {
+  return status === "error";
 }
 
 /** Download path must never invoke AV; fail-closed applies to new uploads only. */

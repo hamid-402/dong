@@ -47,7 +47,9 @@ export class AttachmentsController {
 
   @Post(":attachmentId/quarantine")
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: "Run stub AV quarantine scan" })
+  @ApiOperation({
+    summary: "Run AV quarantine scan (stub or ClamAV; 503 when ClamAV enabled and scan errors)",
+  })
   quarantine(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
@@ -69,7 +71,10 @@ export class AttachmentsController {
 
   @Post(":attachmentId/content")
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: "Upload attachment bytes (base64); hash must match metadata" })
+  @ApiOperation({
+    summary:
+      "Upload attachment bytes (base64); hash must match metadata; 503 when ClamAV enabled and scan errors",
+  })
   uploadContent(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
@@ -82,7 +87,10 @@ export class AttachmentsController {
 
   @Get(":attachmentId/content")
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: "Download stored attachment bytes" })
+  @ApiOperation({
+    summary:
+      "Download stored attachment bytes (400 quarantine-blocked for blocked/error; clean without rescan)",
+  })
   async downloadContent(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
