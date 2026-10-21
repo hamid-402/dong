@@ -624,6 +624,20 @@
       "when": 1789005900000,
       "tag": "0089_workspace_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1789006000000,
+      "tag": "0090_user_ui_pref_pinned_workspaces",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1789006100000,
+      "tag": "0091_social_directory_friends_cover",
+      "breakpoints": true
     }
   ]
 }

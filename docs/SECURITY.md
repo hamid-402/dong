@@ -158,6 +158,18 @@ SEV1: پاسخ هدف ۱۰ دقیقه و مهار هدف ۶۰ دقیقه. Postmo
 
 - `braces` (GHSA-vfj7-8cjw-p6xm): ریسک پذیرفته‌شده است چون پچ رسمی ندارد و فقط در ابزار eslint (`eslint-config-next` → micromatch) استفاده می‌شود، نه runtime پرود.
 
+### moderate باقی‌مانده (پس از فاز ۱ — `pnpm audit`)
+
+| بسته | نسخه | Advisory | دلیل باقی‌ماندن |
+|------|------|----------|-----------------|
+| `esbuild` | 0.18.20 | [GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99) | transitive از `drizzle-kit` (ابزار migrate/generate)؛ پچ ≥0.25.0 بدون ارتقای tooling ممکن نیست و فقط روی dev server محلی اثر دارد، نه runtime پرود |
+| `fast-uri` | 4.1.4 | [GHSA-hrr3-gc8f-f4qj](https://github.com/advisories/GHSA-hrr3-gc8f-f4qj) | override فاز ۱ روی `4.1.4` (پچ high) قفل شده؛ moderate به ≥4.1.5 نیاز دارد و در batch بعدی overrides bump می‌شود |
+| `fast-uri` | 3.1.7 | [GHSA-hrr3-gc8f-f4qj](https://github.com/advisories/GHSA-hrr3-gc8f-f4qj) | override فاز ۱ روی `3.1.7` قفل شده؛ moderate به ≥3.1.8 نیاز دارد |
+| `fast-uri` | 4.1.4 | [GHSA-jvvf-x445-j334](https://github.com/advisories/GHSA-jvvf-x445-j334) | همان پین `fast-uri@4=4.1.4`؛ پچ moderate ≥4.1.5 در فاز بعدی |
+| `brace-expansion` | 1.1.20 | [GHSA-q2hr-2g5m-vwhr](https://github.com/advisories/GHSA-q2hr-2g5m-vwhr) | override فاز ۱ روی `1.1.20`؛ فقط مسیر eslint/minimatch (dev)، نه runtime پرود؛ پچ ≥1.1.21 در فاز بعدی |
+| `brace-expansion` | 2.1.6 | [GHSA-q2hr-2g5m-vwhr](https://github.com/advisories/GHSA-q2hr-2g5m-vwhr) | override فاز ۱ روی `2.1.6`؛ مسیر `testcontainers` (dev/test)؛ پچ ≥2.1.7 در فاز بعدی |
+| `brace-expansion` | 5.0.11 | [GHSA-q2hr-2g5m-vwhr](https://github.com/advisories/GHSA-q2hr-2g5m-vwhr) | override فاز ۱ روی `5.0.11`؛ مسیر `typescript-eslint` (dev)؛ پچ ≥5.0.12 در فاز بعدی |
+
 ## منابع
 
 - https://owasp.org/www-project-application-security-verification-standard/
