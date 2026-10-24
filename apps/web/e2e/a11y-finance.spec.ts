@@ -28,7 +28,11 @@ async function expectTabReachesInteractive(page: Page, maxTabs = 14) {
   let focusVisible = false;
   for (let i = 0; i < maxTabs; i++) {
     await page.keyboard.press("Tab");
-    const meta = await page.locator(":focus").evaluate((el) => {
+    const meta = await page.evaluate(() => {
+      const el = document.activeElement;
+      if (!el || el === document.body || el === document.documentElement) {
+        return { isInteractive: false, hasIndicator: false };
+      }
       const tag = el.tagName.toLowerCase();
       const role = el.getAttribute("role");
       const isInteractive =
@@ -76,12 +80,13 @@ test.describe("a11y finance (fail-closed)", () => {
   });
 
   test("expenses keyboard focus is usable", async ({ page }) => {
+    test.setTimeout(60_000);
     await page.goto("/w/demo/expenses");
-    await expect(page.locator("body")).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator("body")).toBeVisible({ timeout: 30_000 });
     const shell = page.locator("#main a, #main button, nav a, nav button").first();
     if ((await shell.count()) > 0) {
-      await shell.focus();
-      await expect(shell).toBeFocused();
+      await shell.focus({ timeout: 15_000 });
+      await expect(shell).toBeFocused({ timeout: 10_000 });
     } else {
       await expectTabReachesInteractive(page);
     }

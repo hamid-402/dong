@@ -638,6 +638,13 @@
       "when": 1789006100000,
       "tag": "0091_social_directory_friends_cover",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1789006200000,
+      "tag": "0092_social_rls",
+      "breakpoints": true
     }
   ]
 }

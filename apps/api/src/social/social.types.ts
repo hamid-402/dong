@@ -49,8 +49,14 @@ export type SocialStore = {
     userId: string,
     patch: UpdateDirectoryPrivacyRequest,
   ): Promise<DirectorySettingRecord>;
-  findFriendshipByPair(pairKey: string): Promise<FriendshipRecord | null>;
-  findFriendshipById(id: string): Promise<FriendshipRecord | null>;
+  findFriendshipByPair(
+    pairKey: string,
+    viewerUserId: string,
+  ): Promise<FriendshipRecord | null>;
+  findFriendshipById(
+    id: string,
+    viewerUserId: string,
+  ): Promise<FriendshipRecord | null>;
   listFriendshipsForUser(
     userId: string,
     status?: FriendshipStatus,
@@ -67,8 +73,9 @@ export type SocialStore = {
       blockedByUserId?: string | null;
       respondedAt?: Date | null;
     },
+    viewerUserId: string,
   ): Promise<FriendshipRecord>;
-  deleteFriendship(id: string): Promise<void>;
+  deleteFriendship(id: string, viewerUserId: string): Promise<void>;
   createContactSyncRun(input: {
     userId: string;
     submittedCount: number;

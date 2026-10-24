@@ -16,4 +16,4 @@ Do not edit migrations `0000`–`0091`. New changes need a new incremental file 
 
 Tenant/user GUC helpers live in `0001_tenant_rls.sql` (`app.current_user_id()`, `app.current_workspace_id()`). Session is set via `tenantContextQuery` in `src/client.ts`.
 
-Social tables currently have **no RLS**; proposal only: [`docs/rls-social-proposal.md`](../../docs/rls-social-proposal.md).
+Social tables use FORCE RLS via `0092_social_rls` (user-scoped policies). See [`docs/rls-social-proposal.md`](../../docs/rls-social-proposal.md).

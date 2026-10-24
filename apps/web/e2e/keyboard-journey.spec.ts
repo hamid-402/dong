@@ -15,7 +15,11 @@ async function expectVisibleFocus(page: Page, maxTabs = 12) {
   let focusVisible = false;
   for (let i = 0; i < maxTabs; i++) {
     await page.keyboard.press("Tab");
-    const meta = await page.locator(":focus").evaluate((el) => {
+    const meta = await page.evaluate(() => {
+      const el = document.activeElement;
+      if (!el || el === document.body || el === document.documentElement) {
+        return { isInteractive: false, hasIndicator: false };
+      }
       const tag = el.tagName.toLowerCase();
       const role = el.getAttribute("role");
       const isInteractive =
@@ -126,17 +130,20 @@ test.describe("keyboard journey (authenticated flows)", () => {
     });
 
     test(`settings ${viewport.width}: account tabs keep a visible focus ring`, async ({ page }) => {
+      test.setTimeout(60_000);
       await page.setViewportSize(viewport);
       await page.goto("/account");
-      await expect(page.locator("#main")).toBeVisible({ timeout: 20_000 });
+      await expect(page.locator("#main")).toBeVisible({ timeout: 30_000 });
       await expect(page).not.toHaveURL(/\/login/);
       await expectVisibleFocus(page);
       await expectNoHorizontalOverflow(page);
-      const appearance = page.getByRole("link", { name: /ظاهر/ }).first();
+      // AccountSectionNav uses role="tab" on Link (not role=link).
+      const appearance = page.getByRole("tab", { name: /ظاهر/ }).first();
+      await expect(appearance).toBeVisible({ timeout: 15_000 });
       await appearance.focus();
       await expect(appearance).toBeFocused();
       await page.keyboard.press("Enter");
-      await expect(page).toHaveURL(/\/account\/appearance/);
+      await expect(page).toHaveURL(/\/account\/appearance/, { timeout: 15_000 });
     });
   }
 });

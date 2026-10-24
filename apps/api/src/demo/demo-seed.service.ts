@@ -482,7 +482,7 @@ export class DemoSeedService {
         const friendships = await this.social.listFriendshipsForUser(actor.userId);
         for (const row of friendships) {
           if (!row.note?.includes(DEMO_NOTE)) continue;
-          await this.social.deleteFriendship(row.id);
+          await this.social.deleteFriendship(row.id, actor.userId);
           deletedFriendships += 1;
         }
       }
@@ -807,6 +807,7 @@ export class DemoSeedService {
       const otherId = byKey.get(def.key)!.userId;
       const existing = await this.social.findFriendshipByPair(
         friendshipPairKey(actorUserId, otherId),
+        actorUserId,
       );
       if (existing) continue;
       const row = await this.social.createFriendship({
@@ -814,10 +815,14 @@ export class DemoSeedService {
         addresseeUserId: otherId,
         note: DEMO_NOTE,
       });
-      await this.social.updateFriendshipStatus(row.id, {
-        status: "accepted",
-        respondedAt: new Date(),
-      });
+      await this.social.updateFriendshipStatus(
+        row.id,
+        {
+          status: "accepted",
+          respondedAt: new Date(),
+        },
+        actorUserId,
+      );
       created += 1;
     }
     return created;

@@ -57,12 +57,18 @@ export class MemorySocialStore implements SocialStore {
     return row;
   }
 
-  findFriendshipByPair(pairKey: string): Promise<FriendshipRecord | null> {
+  findFriendshipByPair(
+    pairKey: string,
+    _viewerUserId: string,
+  ): Promise<FriendshipRecord | null> {
     const id = this.byPair.get(pairKey);
     return Promise.resolve(id ? (this.friendships.get(id) ?? null) : null);
   }
 
-  findFriendshipById(id: string): Promise<FriendshipRecord | null> {
+  findFriendshipById(
+    id: string,
+    _viewerUserId: string,
+  ): Promise<FriendshipRecord | null> {
     return Promise.resolve(this.friendships.get(id) ?? null);
   }
 
@@ -109,6 +115,7 @@ export class MemorySocialStore implements SocialStore {
       blockedByUserId?: string | null;
       respondedAt?: Date | null;
     },
+    _viewerUserId: string,
   ): Promise<FriendshipRecord> {
     const row = this.friendships.get(id);
     if (!row) throw new Error("FRIENDSHIP_NOT_FOUND");
@@ -119,7 +126,7 @@ export class MemorySocialStore implements SocialStore {
     return Promise.resolve(row);
   }
 
-  deleteFriendship(id: string): Promise<void> {
+  deleteFriendship(id: string, _viewerUserId: string): Promise<void> {
     const row = this.friendships.get(id);
     if (row) {
       this.friendships.delete(id);

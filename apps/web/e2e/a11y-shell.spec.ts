@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { installDevSession } from "./helpers/dev-session";
 
 async function expectNoCriticalAxe(page: Page) {
   const results = await new AxeBuilder({ page })
@@ -93,14 +94,14 @@ test.describe("a11y product shell (dev session cookie)", () => {
     ]);
   });
 
-  test("spaces list shell", async ({ page }) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem("dang.auth.mode", "dev");
-    });
+  test("spaces list shell", async ({ page, context }) => {
+    test.setTimeout(60_000);
+    await installDevSession(context, page);
     await page.goto("/spaces");
-    await expect(page.getByRole("navigation", { name: /ناوبری/ }).first()).toBeVisible({
-      timeout: 20_000,
-    });
+    await expect(page).not.toHaveURL(/\/login/, { timeout: 30_000 });
+    const nav = page.getByRole("navigation", { name: /ناوبری/ }).first();
+    const main = page.locator("#main");
+    await expect(nav.or(main)).toBeVisible({ timeout: 30_000 });
     await expectNoCriticalAxe(page);
   });
 

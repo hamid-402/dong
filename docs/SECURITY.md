@@ -158,7 +158,7 @@ SEV1: پاسخ هدف ۱۰ دقیقه و مهار هدف ۶۰ دقیقه. Postmo
 
 ## Residual / شکاف‌های شناخته‌شده (فاز ۳)
 
-- **جدول‌های social بدون RLS؛ پیشنهاد در [`docs/rls-social-proposal.md`](./rls-social-proposal.md)** (اعمال نشده — نیازمند بازبینی CTO).
+- **جدول‌های social:** RLS + FORCE در migration `0092_social_rls`؛ policyهای user-scoped روی `user_directory_setting` / `friendship` / `contact_sync_run`. تست ایزوله‌سازی: `packages/db/tests/social-rls-isolation.test.ts`. سند پیشنهاد: [`docs/rls-social-proposal.md`](./rls-social-proposal.md).
 - **RES-01:** HttpVault opt-in با تست واحد؛ **باز تا تأیید staging** (`masterKeySource=http_vault` روی staging).
 - **RES-02:** ABAC محلی + `approvalCapMinor`؛ remote PDP ادعا نمی‌شود.
 - **RES-03:** blocker — `ZAP_TARGET_URL` staging موجود نیست (parse gate واحد دارد).

@@ -237,7 +237,7 @@ export class SocialService {
       });
     }
     const pairKey = friendshipPairKey(actor.userId, target.userId);
-    const existing = await this.social.findFriendshipByPair(pairKey);
+    const existing = await this.social.findFriendshipByPair(pairKey, actor.userId);
     if (existing) {
       if (existing.status === "blocked") {
         throw new ForbiddenException({
@@ -266,7 +266,7 @@ export class SocialService {
           code: "FRIEND_REQUEST_COOLDOWN",
         });
       }
-      await this.social.deleteFriendship(existing.id);
+      await this.social.deleteFriendship(existing.id, actor.userId);
     }
     const row = await this.social.createFriendship({
       requesterUserId: actor.userId,
@@ -277,28 +277,32 @@ export class SocialService {
   }
 
   async acceptRequest(actor: AuthActor, id: string): Promise<FriendshipSummary> {
-    const row = await this.social.findFriendshipById(id);
+    const row = await this.social.findFriendshipById(id, actor.userId);
     if (!row || row.addresseeUserId !== actor.userId || row.status !== "pending") {
       throw new NotFoundException({ title: "Not found", status: 404, detail: "درخواست یافت نشد" });
     }
-    const updated = await this.social.updateFriendshipStatus(id, { status: "accepted" });
+    const updated = await this.social.updateFriendshipStatus(
+      id,
+      { status: "accepted" },
+      actor.userId,
+    );
     const other = await this.accounts.findById(updated.requesterUserId);
     if (!other) throw new NotFoundException({ title: "Not found", status: 404 });
     return toFriendshipSummary(updated, actor.userId, this.toDirectoryUser(other));
   }
 
   async declineRequest(actor: AuthActor, id: string): Promise<{ ok: true }> {
-    const row = await this.social.findFriendshipById(id);
+    const row = await this.social.findFriendshipById(id, actor.userId);
     if (!row || row.addresseeUserId !== actor.userId || row.status !== "pending") {
       throw new NotFoundException({ title: "Not found", status: 404, detail: "درخواست یافت نشد" });
     }
-    await this.social.updateFriendshipStatus(id, { status: "declined" });
+    await this.social.updateFriendshipStatus(id, { status: "declined" }, actor.userId);
     return { ok: true };
   }
 
   /** Requester cancels a pending outgoing request (no cooldown). */
   async cancelOutgoingRequest(actor: AuthActor, id: string): Promise<{ ok: true }> {
-    const row = await this.social.findFriendshipById(id);
+    const row = await this.social.findFriendshipById(id, actor.userId);
     if (!row || row.requesterUserId !== actor.userId || row.status !== "pending") {
       throw new NotFoundException({
         title: "Not found",
@@ -306,17 +310,17 @@ export class SocialService {
         detail: "درخواست خروجی یافت نشد",
       });
     }
-    await this.social.deleteFriendship(row.id);
+    await this.social.deleteFriendship(row.id, actor.userId);
     return { ok: true };
   }
 
   async removeFriend(actor: AuthActor, otherUserId: string): Promise<{ ok: true }> {
     const pairKey = friendshipPairKey(actor.userId, otherUserId);
-    const row = await this.social.findFriendshipByPair(pairKey);
+    const row = await this.social.findFriendshipByPair(pairKey, actor.userId);
     if (!row || row.status !== "accepted") {
       throw new NotFoundException({ title: "Not found", status: 404, detail: "دوستی یافت نشد" });
     }
-    await this.social.deleteFriendship(row.id);
+    await this.social.deleteFriendship(row.id, actor.userId);
     return { ok: true };
   }
 
@@ -325,32 +329,40 @@ export class SocialService {
       throw new BadRequestException({ title: "Invalid", status: 400, detail: "نامعتبر" });
     }
     const pairKey = friendshipPairKey(actor.userId, otherUserId);
-    const existing = await this.social.findFriendshipByPair(pairKey);
+    const existing = await this.social.findFriendshipByPair(pairKey, actor.userId);
     if (existing) {
-      await this.social.updateFriendshipStatus(existing.id, {
-        status: "blocked",
-        blockedByUserId: actor.userId,
-      });
+      await this.social.updateFriendshipStatus(
+        existing.id,
+        {
+          status: "blocked",
+          blockedByUserId: actor.userId,
+        },
+        actor.userId,
+      );
       return { ok: true };
     }
     const created = await this.social.createFriendship({
       requesterUserId: actor.userId,
       addresseeUserId: otherUserId,
     });
-    await this.social.updateFriendshipStatus(created.id, {
-      status: "blocked",
-      blockedByUserId: actor.userId,
-    });
+    await this.social.updateFriendshipStatus(
+      created.id,
+      {
+        status: "blocked",
+        blockedByUserId: actor.userId,
+      },
+      actor.userId,
+    );
     return { ok: true };
   }
 
   async unblock(actor: AuthActor, otherUserId: string): Promise<{ ok: true }> {
     const pairKey = friendshipPairKey(actor.userId, otherUserId);
-    const row = await this.social.findFriendshipByPair(pairKey);
+    const row = await this.social.findFriendshipByPair(pairKey, actor.userId);
     if (!row || row.status !== "blocked" || row.blockedByUserId !== actor.userId) {
       throw new NotFoundException({ title: "Not found", status: 404, detail: "بلاک یافت نشد" });
     }
-    await this.social.deleteFriendship(row.id);
+    await this.social.deleteFriendship(row.id, actor.userId);
     return { ok: true };
   }
 
