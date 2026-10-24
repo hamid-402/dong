@@ -1845,12 +1845,12 @@ html[data-motion="off"] .dang-motion-feedback *{
   font-weight: 750;
   line-height: 1.25;
   letter-spacing: -0.03em;
-  color: var(--text);
+  color: var(--module-chrome-title, var(--text));
 }
 .moduleChrome__desc{
   margin: 0;
   max-width: 46rem;
-  color: var(--muted);
+  color: var(--module-chrome-desc, var(--muted));
   font-size: 0.95rem;
   line-height: 1.55;
 }
@@ -1888,7 +1888,7 @@ html[data-motion="off"] .dang-motion-feedback *{
 .moduleChrome__actions .uxSecondaryActions button{
   min-height: 2.45rem;
   padding: 0 0.9rem;
-  color: var(--dang-text);
+  color: var(--ux-secondary-action-link, var(--dang-text));
   background: transparent;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
@@ -1904,7 +1904,7 @@ html[data-motion="off"] .dang-motion-feedback *{
 .productHeaderActions .uxSecondaryActions button:hover,
 .moduleChrome__actions .uxSecondaryActions a:hover,
 .moduleChrome__actions .uxSecondaryActions button:hover{
-  color: var(--dang-text);
+  color: var(--ux-secondary-action-link, var(--dang-text));
   background: transparent;
   border: 1px solid var(--line);
 }

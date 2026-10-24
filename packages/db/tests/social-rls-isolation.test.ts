@@ -2,10 +2,9 @@
  * Social RLS two-user isolation (migration 0092).
  *
  * Skips when DATABASE_URL is unset. Requires NOBYPASSRLS runtime role.
+ * Does not read .env — set DATABASE_URL in the process environment to run.
  */
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, it } from "node:test";
 import {
   contactSyncRun,
@@ -18,39 +17,12 @@ import {
   withTenantContext,
 } from "../src/index.ts";
 
-function loadRepoEnv(): void {
-  for (const filePath of [
-    resolve(process.cwd(), ".env"),
-    resolve(process.cwd(), "../../.env"),
-    resolve(process.cwd(), "../.env"),
-  ]) {
-    if (!existsSync(filePath)) continue;
-    for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eqIdx = trimmed.indexOf("=");
-      if (eqIdx <= 0) continue;
-      const key = trimmed.slice(0, eqIdx).trim();
-      let value = trimmed.slice(eqIdx + 1).trim();
-      if (
-        (value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))
-      ) {
-        value = value.slice(1, -1);
-      }
-      if (process.env[key] === undefined) process.env[key] = value;
-    }
-    break;
-  }
-}
-
-loadRepoEnv();
 const databaseUrl = process.env.DATABASE_URL;
 
 describe("social RLS isolation", () => {
   it("keeps directory, friendship, and sync rows private across users", async (t) => {
     if (!databaseUrl) {
-      t.skip("DATABASE_URL not set");
+      t.skip("DATABASE_URL not set — skip social RLS isolation (no .env load)");
       return;
     }
 

@@ -93,6 +93,11 @@
   --dang-info-line: #7539d0;
   --dang-placeholder: #625b53;
 
+  /* Module chrome only — not shared body/text tokens (WCAG AA on light wash). */
+  --module-chrome-title: #6a6560;
+  --module-chrome-desc: #6e6967;
+  --ux-secondary-action-link: #6e6967;
+
   --dang-fill-subtle: color-mix(in srgb, var(--dang-text) 4%, transparent);
   --dang-fill-soft: color-mix(in srgb, var(--dang-text) 6%, transparent);
   --dang-fill-hover: color-mix(in srgb, var(--dang-text) 8%, transparent);
@@ -152,6 +157,11 @@
   --dang-info-mid: #e4dcf1;
   --dang-info-line: #8a6dba;
   --dang-placeholder: #5a5a60;
+
+  /* Module chrome only — not shared body/text tokens (WCAG AA on light wash). */
+  --module-chrome-title: #6a6560;
+  --module-chrome-desc: #6e6967;
+  --ux-secondary-action-link: #6e6967;
 
   --dang-fill-subtle: color-mix(in srgb, var(--dang-text) 4%, transparent);
   --dang-fill-soft: color-mix(in srgb, var(--dang-text) 6%, transparent);
@@ -213,6 +223,11 @@
   --dang-info-line: #7366a9;
   --dang-placeholder: #a3a3a3;
 
+  /* Module chrome only — keep dark-theme ink (do not reuse light AA hex). */
+  --module-chrome-title: var(--dang-text);
+  --module-chrome-desc: var(--dang-muted);
+  --ux-secondary-action-link: var(--dang-text);
+
   --dang-fill-subtle: rgba(255, 255, 255, 0.04);
   --dang-fill-soft: rgba(255, 255, 255, 0.06);
   --dang-fill-hover: rgba(255, 255, 255, 0.08);
@@ -272,6 +287,11 @@
   --dang-info-mid: #2e2048;
   --dang-info-line: #a07be0;
   --dang-placeholder: #a8b0c4;
+
+  /* Module chrome only — keep dark-theme ink (do not reuse light AA hex). */
+  --module-chrome-title: var(--dang-text);
+  --module-chrome-desc: var(--dang-muted);
+  --ux-secondary-action-link: var(--dang-text);
 
   --dang-fill-subtle: rgba(255, 255, 255, 0.04);
   --dang-fill-soft: rgba(255, 255, 255, 0.06);

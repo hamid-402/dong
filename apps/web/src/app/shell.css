@@ -2535,7 +2535,7 @@ html[data-density="compact"] .shell-page-trail__back{
 .spaces-hubPage__chrome .moduleChrome__desc{
   margin-top: 8px;
   font-size: 1.02rem;
-  color: var(--muted);
+  color: var(--module-chrome-desc, var(--muted));
   line-height: 1.6;
   max-width: 52rem;
 }
