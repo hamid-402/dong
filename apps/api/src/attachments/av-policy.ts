@@ -40,8 +40,3 @@ export function mayServeStoredAttachment(
 export function isAvUnavailableScanResult(status: QuarantineStatus): boolean {
   return status === "error";
 }
-
-/** Download path must never invoke AV; fail-closed applies to new uploads only. */
-export function downloadRequiresAvRescan(): false {
-  return false;
-}

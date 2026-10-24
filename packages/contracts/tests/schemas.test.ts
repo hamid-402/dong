@@ -5,6 +5,7 @@ import {
   moneySchema,
   previewExpenseSplitSchema,
 } from "../src/schemas/index.js";
+import { assertRejection } from "./assert-rejection.js";
 
 const baseDraft = {
   title: "ناهار",
@@ -22,10 +23,21 @@ test("moneySchema accepts positive IRR minor", () => {
 });
 
 test("moneySchema rejects zero, negative, and non-digit", () => {
-  assert.equal(moneySchema.safeParse({ amountMinor: "0", currency: "IRR" }).success, false);
-  assert.equal(moneySchema.safeParse({ amountMinor: "-5", currency: "IRR" }).success, false);
-  assert.equal(moneySchema.safeParse({ amountMinor: "1.5", currency: "IRR" }).success, false);
-  assert.equal(moneySchema.safeParse({ amountMinor: "10000", currency: "USD" }).success, false);
+  assertRejection(moneySchema.safeParse({ amountMinor: "0", currency: "IRR" }), {
+    path: ["amountMinor"],
+    message: "amount_RANGE",
+  });
+  assertRejection(moneySchema.safeParse({ amountMinor: "-5", currency: "IRR" }), {
+    path: ["amountMinor"],
+    message: "amount_FORMAT",
+  });
+  assertRejection(moneySchema.safeParse({ amountMinor: "1.5", currency: "IRR" }), {
+    path: ["amountMinor"],
+    message: "amount_FORMAT",
+  });
+  assertRejection(moneySchema.safeParse({ amountMinor: "10000", currency: "USD" }), {
+    path: ["currency"],
+  });
 });
 
 test("createExpenseDraftSchema rejects mass-assignment unknown keys", () => {
@@ -34,22 +46,17 @@ test("createExpenseDraftSchema rejects mass-assignment unknown keys", () => {
     status: "posted",
     createdByUserId: "attacker",
   });
-  assert.equal(result.success, false);
-  if (!result.success) {
-    const flat = result.error.flatten();
-    assert.ok(
-      flat.formErrors.some((m) => /unrecognized|unrecognized key/i.test(m)) ||
-        Object.keys(flat.fieldErrors).length >= 0,
-    );
-  }
+  assertRejection(result, { code: "unrecognized_keys" });
 });
 
 test("createExpenseDraftSchema rejects bad amountMinor", () => {
-  const result = createExpenseDraftSchema.safeParse({
-    ...baseDraft,
-    total: { amountMinor: "-5", currency: "IRR" },
-  });
-  assert.equal(result.success, false);
+  assertRejection(
+    createExpenseDraftSchema.safeParse({
+      ...baseDraft,
+      total: { amountMinor: "-5", currency: "IRR" },
+    }),
+    { path: ["total", "amountMinor"], message: "amount_FORMAT" },
+  );
 });
 
 test("createExpenseDraftSchema accepts equal split draft", () => {
@@ -104,10 +111,12 @@ test("createExpenseDraftSchema accepts matching catalog quantity × price", () =
 });
 
 test("previewExpenseSplitSchema rejects empty participants for equal", () => {
-  const result = previewExpenseSplitSchema.safeParse({
-    total: { amountMinor: "100", currency: "IRR" },
-    splitMethod: "equal",
-    participantUserIds: [],
-  });
-  assert.equal(result.success, false);
+  assertRejection(
+    previewExpenseSplitSchema.safeParse({
+      total: { amountMinor: "100", currency: "IRR" },
+      splitMethod: "equal",
+      participantUserIds: [],
+    }),
+    { path: ["participantUserIds"], message: "EXPENSE_PARTICIPANTS" },
+  );
 });

@@ -31,6 +31,7 @@ import {
   createSettlementClaimRequestSchema,
   remindDebtRequestSchema,
 } from "../src/schemas/finance.js";
+import { assertRejection } from "./assert-rejection.js";
 
 const irr = (amountMinor: string) => ({ amountMinor, currency: "IRR" as const });
 const messages = (r: { success: boolean; error?: { issues: Array<{ message: string }> } }) =>
@@ -82,9 +83,9 @@ test("daily-ledger funding source rules apply to create, update and day lines", 
   assert.deepEqual(messages(updateDailyLedgerEntryRequestSchema.safeParse({ ...upd, ...noRef })), [
     "FUNDING_REF_REQUIRED",
   ]);
-  assert.equal(
-    updateDailyLedgerEntryRequestSchema.safeParse({ ...upd, amount: irr("5"), quantity: 1, unitPriceMinor: "9" }).success,
-    false,
+  assertRejection(
+    updateDailyLedgerEntryRequestSchema.safeParse({ ...upd, amount: irr("5"), quantity: 1, unitPriceMinor: "9" }),
+    { message: "AMOUNT_MISMATCH" },
   );
   assert.equal(updateDailyLedgerEntryRequestSchema.safeParse({ ...upd, date: "2026-03-02" }).success, true);
 
@@ -107,29 +108,40 @@ test("daily-ledger funding source rules apply to create, update and day lines", 
     ),
     ["AMOUNT_MISMATCH"],
   );
-  assert.equal(postLedgerDayRequestSchema.safeParse({ ...day, lines: [] }).success, false);
+  assertRejection(postLedgerDayRequestSchema.safeParse({ ...day, lines: [] }), {
+    path: ["lines"],
+  });
 });
 
 test("daily-ledger deposit, day, range-lock schemas", () => {
   const dep = { date: "2026-03-01", amountMinor: "100", fundId: "f1", idempotencyKey: "k" };
   assert.equal(createDailyLedgerDepositRequestSchema.safeParse(dep).success, true);
   assert.equal(createDailyLedgerDepositRequestSchema.safeParse({ ...dep, mode: "gift" }).success, true);
-  assert.equal(createDailyLedgerDepositRequestSchema.safeParse({ ...dep, mode: "x" }).success, false);
-  assert.equal(createDailyLedgerDepositRequestSchema.safeParse({ ...dep, amountMinor: "0" }).success, false);
+  assertRejection(createDailyLedgerDepositRequestSchema.safeParse({ ...dep, mode: "x" }), {
+    path: ["mode"],
+  });
+  assertRejection(createDailyLedgerDepositRequestSchema.safeParse({ ...dep, amountMinor: "0" }), {
+    path: ["amountMinor"],
+    message: "AMOUNT_POSITIVE",
+  });
   assert.equal(upsertWorkspaceDayRequestSchema.safeParse({ isHoliday: true, note: null }).success, true);
-  assert.equal(upsertWorkspaceDayRequestSchema.safeParse({ holiday: true }).success, false);
+  assertRejection(upsertWorkspaceDayRequestSchema.safeParse({ holiday: true }), {
+    code: "unrecognized_keys",
+  });
   assert.equal(
     createWorkspaceRangeLockRequestSchema.safeParse({ from: "2026-03-01", to: "2026-03-31", idempotencyKey: "k" }).success,
     true,
   );
-  assert.equal(
-    createWorkspaceRangeLockRequestSchema.safeParse({ from: "03/01", to: "2026-03-31", idempotencyKey: "k" }).success,
-    false,
+  assertRejection(
+    createWorkspaceRangeLockRequestSchema.safeParse({ from: "03/01", to: "2026-03-31", idempotencyKey: "k" }),
+    { path: ["from"] },
   );
 });
 
 test("daily-ledger CSV import requires some source and bounds columnMap", () => {
-  assert.equal(importDailyLedgerCsvRequestSchema.safeParse({}).success, false);
+  assertRejection(importDailyLedgerCsvRequestSchema.safeParse({}), {
+    message: "csv, paste, xlsxBase64, or rows required",
+  });
   const empty = importDailyLedgerCsvRequestSchema.safeParse({ csv: "   " });
   assert.equal(empty.success, false);
   assert.deepEqual(messages(empty), ["csv, paste, xlsxBase64, or rows required"]);
@@ -217,7 +229,9 @@ test("expense item schema checks quantity x price", () => {
   const item = { title: "Pizza", amount: irr("600"), assigneeUserIds: ["u1"], quantity: 2, unitPriceMinor: "300" };
   assert.equal(expenseItemSchema.safeParse(item).success, true);
   assert.deepEqual(messages(expenseItemSchema.safeParse({ ...item, amount: irr("599") })), ["AMOUNT_MISMATCH"]);
-  assert.equal(expenseItemSchema.safeParse({ ...item, assigneeUserIds: [] }).success, false);
+  assertRejection(expenseItemSchema.safeParse({ ...item, assigneeUserIds: [] }), {
+    path: ["assigneeUserIds"],
+  });
 });
 
 test("previewExpenseSplitSchema mirrors draft split rules", () => {
@@ -233,20 +247,24 @@ test("expense list query rejects inverted date ranges", () => {
   assert.equal(expenseListQuerySchema.safeParse({ from: "2026-01-01", to: "2026-02-01" }).success, true);
   const bad = expenseListQuerySchema.safeParse({ from: "2026-03-01", to: "2026-02-01" });
   assert.deepEqual(messages(bad), ["FROM_AFTER_TO"]);
-  assert.equal(expenseListQuerySchema.safeParse({ status: "bogus" }).success, false);
+  assertRejection(expenseListQuerySchema.safeParse({ status: "bogus" }), { path: ["status"] });
 });
 
 test("reverse/restore/revise expense schemas and fund-party rebuild helpers", () => {
   assert.equal(reverseExpenseRequestSchema.safeParse({}).success, true);
-  assert.equal(reverseExpenseRequestSchema.safeParse({ idempotencyKey: "short" }).success, false);
+  assertRejection(reverseExpenseRequestSchema.safeParse({ idempotencyKey: "short" }), {
+    path: ["idempotencyKey"],
+  });
   assert.equal(restoreExpenseRequestSchema.safeParse({ idempotencyKey: "12345678" }).success, true);
-  assert.equal(restoreExpenseRequestSchema.safeParse({}).success, false);
+  assertRejection(restoreExpenseRequestSchema.safeParse({}), { path: ["idempotencyKey"] });
   assert.equal(reviseExpenseRequestSchema.safeParse({ ...draft, reverseReason: "typo" }).success, true);
 
   assert.deepEqual(rebuildFundPartyJournalsRequestSchema.parse(undefined), { force: false });
   assert.deepEqual(rebuildFundPartyJournalsRequestSchema.parse(""), { force: false });
   assert.deepEqual(rebuildFundPartyJournalsRequestSchema.parse({ force: true }), { force: true });
-  assert.equal(rebuildFundPartyJournalsRequestSchema.safeParse({ force: "yes" }).success, false);
+  assertRejection(rebuildFundPartyJournalsRequestSchema.safeParse({ force: "yes" }), {
+    path: ["force"],
+  });
   assert.equal(
     rebuildFundPartyJournalsResultSchema.safeParse({
       rebuilt: 1,
@@ -259,7 +277,7 @@ test("reverse/restore/revise expense schemas and fund-party rebuild helpers", ()
     }).success,
     true,
   );
-  assert.equal(
+  assertRejection(
     rebuildFundPartyJournalsResultSchema.safeParse({
       rebuilt: -1,
       created: 1,
@@ -268,8 +286,8 @@ test("reverse/restore/revise expense schemas and fund-party rebuild helpers", ()
       skippedAlreadyFund: 0,
       skippedNoFund: 0,
       forced: false,
-    }).success,
-    false,
+    }),
+    { path: ["rebuilt"] },
   );
 });
 
@@ -282,11 +300,12 @@ test("finance schemas: allowance, policy, outing, settlement evidence", () => {
   };
   const parsed = createMemberAllowanceRequestSchema.parse(allowance);
   assert.equal(parsed.alertPct, 80);
-  assert.equal(createMemberAllowanceRequestSchema.safeParse({ ...allowance, alertPct: 101 }).success, false);
-  assert.equal(
-    createMemberAllowanceRequestSchema.safeParse({ ...allowance, limit: irr("0") }).success,
-    false,
-  );
+  assertRejection(createMemberAllowanceRequestSchema.safeParse({ ...allowance, alertPct: 101 }), {
+    path: ["alertPct"],
+  });
+  assertRejection(createMemberAllowanceRequestSchema.safeParse({ ...allowance, limit: irr("0") }), {
+    path: ["limit", "amountMinor"],
+  });
 
   assert.equal(
     updateWorkspaceExpensePolicyRequestSchema.safeParse({
@@ -297,20 +316,20 @@ test("finance schemas: allowance, policy, outing, settlement evidence", () => {
     }).success,
     true,
   );
-  assert.equal(
+  assertRejection(
     updateWorkspaceExpensePolicyRequestSchema.safeParse({
       approvalThresholdMinor: "0",
       requireReceiptAboveMinor: null,
-    }).success,
-    false,
+    }),
+    { path: ["approvalThresholdMinor"] },
   );
-  assert.equal(
+  assertRejection(
     updateWorkspaceExpensePolicyRequestSchema.safeParse({
       approvalThresholdMinor: null,
       requireReceiptAboveMinor: null,
       approvalTiers: [{ minAmountMinor: "100", requiredApprovals: 0 }],
-    }).success,
-    false,
+    }),
+    { path: ["approvalTiers", 0, "requiredApprovals"] },
   );
 
   const outing = { title: "Trip", occurredOn: "2026-03-01", idempotencyKey: "k" };
@@ -319,7 +338,9 @@ test("finance schemas: allowance, policy, outing, settlement evidence", () => {
     messages(createOutingRequestSchema.safeParse({ ...outing, startsOn: "2026-03-05", endsOn: "2026-03-01" })),
     ["ENDS_BEFORE_STARTS"],
   );
-  assert.equal(createOutingRequestSchema.safeParse({ ...outing, budgetCapMinor: "0" }).success, false);
+  assertRejection(createOutingRequestSchema.safeParse({ ...outing, budgetCapMinor: "0" }), {
+    path: ["budgetCapMinor"],
+  });
   assert.equal(createOutingRequestSchema.safeParse({ ...outing, budgetCapMinor: "500" }).success, true);
 
   assert.deepEqual(confirmSettlementRequestSchema.parse(null), {});
@@ -346,8 +367,12 @@ test("finance schemas: transfers, claims, cost centers, reminders", () => {
     }).success,
     true,
   );
-  assert.equal(previewSettlementEffectRequestSchema.safeParse({ transfers: [] }).success, false);
-  assert.equal(createCostCenterRequestSchema.safeParse({ name: "HQ", code: "" }).success, false);
+  assertRejection(previewSettlementEffectRequestSchema.safeParse({ transfers: [] }), {
+    path: ["transfers"],
+  });
+  assertRejection(createCostCenterRequestSchema.safeParse({ name: "HQ", code: "" }), {
+    path: ["code"],
+  });
   assert.equal(
     createSettlementClaimRequestSchema.safeParse({
       workspaceId: "w",
@@ -359,7 +384,7 @@ test("finance schemas: transfers, claims, cost centers, reminders", () => {
     }).success,
     true,
   );
-  assert.equal(
+  assertRejection(
     createSettlementClaimRequestSchema.safeParse({
       workspaceId: "w",
       fromUserId: "a",
@@ -367,10 +392,10 @@ test("finance schemas: transfers, claims, cost centers, reminders", () => {
       amount: irr("5"),
       paymentLinkUrl: "not-url",
       idempotencyKey: "k",
-    }).success,
-    false,
+    }),
+    { path: ["paymentLinkUrl"] },
   );
   assert.equal(confirmSimplifySettlementClaimsRequestSchema.safeParse({ idempotencyKey: "k", settlementIds: ["s1"] }).success, true);
   assert.equal(remindDebtRequestSchema.safeParse({ targetUserId: "u2" }).success, true);
-  assert.equal(remindDebtRequestSchema.safeParse({}).success, false);
+  assertRejection(remindDebtRequestSchema.safeParse({}), { path: ["targetUserId"] });
 });

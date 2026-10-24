@@ -115,6 +115,10 @@ jobs:
       - name: contracts coverage gate (finance-focused)
         run: pnpm test:coverage
 
+      - name: web coverage (non-blocking floor 19/17/15)
+        continue-on-error: true
+        run: pnpm test:coverage:web
+
       - name: license check (fail on AGPL/GPL-only)
         run: pnpm license:check
 

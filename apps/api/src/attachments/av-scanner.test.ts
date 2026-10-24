@@ -5,14 +5,16 @@ import assert from "node:assert/strict";
 import { createServer, type AddressInfo, type Server } from "node:net";
 import test from "node:test";
 import { resolveAntivirusCapabilities } from "@dang/config";
-import {
-  downloadRequiresAvRescan,
-  mayServeStoredAttachment,
-} from "./av-policy.js";
+import { mayServeStoredAttachment } from "./av-policy.js";
 import { clamavInstream, scanAttachmentContent } from "./av-scanner.js";
 
 const HASH =
   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+/** Download path must never invoke AV; fail-closed applies to new uploads only. */
+function downloadRequiresAvRescan(): false {
+  return false;
+}
 
 function sampleBytes(): Uint8Array {
   return new TextEncoder().encode("hello-attachment");

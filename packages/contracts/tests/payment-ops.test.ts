@@ -17,6 +17,7 @@ import {
   spendPettyCashAsExpenseRequestSchema,
   topupPettyCashFromMembersRequestSchema,
 } from "../src/schemas/payment-ops.js";
+import { assertRejection } from "./assert-rejection.js";
 
 const issues = (r: { success: boolean; error?: { issues: Array<{ message: string }> } }) =>
   r.error?.issues.map((i) => i.message) ?? [];
@@ -45,36 +46,36 @@ test("createPaymentReceiptRequestSchema requires a reference for card_to_card", 
 
   assert.ok(createPaymentReceiptRequestSchema.safeParse({ ...base, referenceNo: "R1", destLast4: "1234" }).success);
   assert.ok(createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash" }).success);
-  assert.equal(
-    createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash", destLast4: "12345" }).success,
-    false,
+  assertRejection(
+    createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash", destLast4: "12345" }),
+    { path: ["destLast4"] },
   );
-  assert.equal(
-    createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash", amountMinor: "0" }).success,
-    false,
+  assertRejection(
+    createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash", amountMinor: "0" }),
+    { path: ["amountMinor"] },
   );
-  assert.equal(
-    createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash", paidAt: "yesterday" }).success,
-    false,
+  assertRejection(
+    createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash", paidAt: "yesterday" }),
+    { path: ["paidAt"] },
   );
-  assert.equal(
-    createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash", pan: "4111111111111111" }).success,
-    false,
+  assertRejection(
+    createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash", pan: "4111111111111111" }),
+    { code: "unrecognized_keys" },
   );
 });
 
 test("reject schemas need a non-empty note", () => {
   assert.ok(rejectPaymentReceiptRequestSchema.safeParse({ note: "bad" }).success);
-  assert.equal(rejectPaymentReceiptRequestSchema.safeParse({ note: "   " }).success, false);
+  assertRejection(rejectPaymentReceiptRequestSchema.safeParse({ note: "   " }), { path: ["note"] });
   assert.ok(rejectOnBehalfPaymentRequestSchema.safeParse({ note: "no" }).success);
-  assert.equal(rejectOnBehalfPaymentRequestSchema.safeParse({}).success, false);
+  assertRejection(rejectOnBehalfPaymentRequestSchema.safeParse({}), { path: ["note"] });
 });
 
 test("petty cash fund and movement schemas", () => {
   assert.ok(createPettyCashFundRequestSchema.safeParse({ name: "Box", openingBalanceMinor: "0", idempotencyKey: "k" }).success);
-  assert.equal(
-    createPettyCashFundRequestSchema.safeParse({ name: "Box", openingBalanceMinor: "-1", idempotencyKey: "k" }).success,
-    false,
+  assertRejection(
+    createPettyCashFundRequestSchema.safeParse({ name: "Box", openingBalanceMinor: "-1", idempotencyKey: "k" }),
+    { path: ["openingBalanceMinor"] },
   );
 
   const spend = createPettyCashMovementRequestSchema.safeParse({
@@ -95,13 +96,13 @@ test("petty cash fund and movement schemas", () => {
   assert.ok(
     createPettyCashMovementRequestSchema.safeParse({ kind: "adjust", amountMinor: "-100", idempotencyKey: "k" }).success,
   );
-  assert.equal(
-    createPettyCashMovementRequestSchema.safeParse({ kind: "adjust", amountMinor: "0", idempotencyKey: "k" }).success,
-    false,
+  assertRejection(
+    createPettyCashMovementRequestSchema.safeParse({ kind: "adjust", amountMinor: "0", idempotencyKey: "k" }),
+    { path: ["amountMinor"] },
   );
-  assert.equal(
-    createPettyCashMovementRequestSchema.safeParse({ kind: "bogus", amountMinor: "1", idempotencyKey: "k" }).success,
-    false,
+  assertRejection(
+    createPettyCashMovementRequestSchema.safeParse({ kind: "bogus", amountMinor: "1", idempotencyKey: "k" }),
+    { path: ["kind"] },
   );
 });
 
@@ -120,19 +121,26 @@ test("topup/spend-from-petty-cash schemas validate participants and splits", () 
   assert.ok(topupPettyCashFromMembersRequestSchema.safeParse(body).success);
   assert.ok(spendPettyCashAsExpenseRequestSchema.safeParse({ ...body, title: "Tea" }).success);
   for (const schema of [topupPettyCashFromMembersRequestSchema, spendPettyCashAsExpenseRequestSchema]) {
-    assert.equal(schema.safeParse({ ...body, participantUserIds: [] }).success, false);
-    assert.equal(schema.safeParse({ ...body, occurredOn: "1/3/2026" }).success, false);
-    assert.equal(schema.safeParse({ ...body, amountMinor: "0900" }).success, false);
-    assert.equal(
-      schema.safeParse({ ...body, splitLines: [{ userId: "a", shares: -1 }] }).success,
-      false,
-    );
+    assertRejection(schema.safeParse({ ...body, participantUserIds: [] }), {
+      path: ["participantUserIds"],
+    });
+    assertRejection(schema.safeParse({ ...body, occurredOn: "1/3/2026" }), {
+      path: ["occurredOn"],
+    });
+    assertRejection(schema.safeParse({ ...body, amountMinor: "0900" }), {
+      path: ["amountMinor"],
+    });
+    assertRejection(schema.safeParse({ ...body, splitLines: [{ userId: "a", shares: -1 }] }), {
+      path: ["splitLines", 0, "shares"],
+    });
   }
 });
 
 test("gift schema and credit purchase schemas", () => {
   assert.ok(giftPettyCashRequestSchema.safeParse({ amountMinor: "10", idempotencyKey: "k" }).success);
-  assert.equal(giftPettyCashRequestSchema.safeParse({ amountMinor: "-10", idempotencyKey: "k" }).success, false);
+  assertRejection(giftPettyCashRequestSchema.safeParse({ amountMinor: "-10", idempotencyKey: "k" }), {
+    path: ["amountMinor"],
+  });
 
   const purchase = {
     supplierRef: "Acme",
@@ -142,8 +150,12 @@ test("gift schema and credit purchase schemas", () => {
     idempotencyKey: "k",
   };
   assert.ok(createCreditPurchaseRequestSchema.safeParse(purchase).success);
-  assert.equal(createCreditPurchaseRequestSchema.safeParse({ ...purchase, dueDate: "soon" }).success, false);
-  assert.equal(createCreditPurchaseRequestSchema.safeParse({ ...purchase, supplierRef: "" }).success, false);
+  assertRejection(createCreditPurchaseRequestSchema.safeParse({ ...purchase, dueDate: "soon" }), {
+    path: ["dueDate"],
+  });
+  assertRejection(createCreditPurchaseRequestSchema.safeParse({ ...purchase, supplierRef: "" }), {
+    path: ["supplierRef"],
+  });
 
   assert.ok(
     createCreditPurchasePaymentRequestSchema.safeParse({
@@ -152,9 +164,13 @@ test("gift schema and credit purchase schemas", () => {
       idempotencyKey: "k",
     }).success,
   );
-  assert.equal(
-    createCreditPurchasePaymentRequestSchema.safeParse({ amountMinor: "100", sourceKind: "", idempotencyKey: "k" }).success,
-    false,
+  assertRejection(
+    createCreditPurchasePaymentRequestSchema.safeParse({
+      amountMinor: "100",
+      sourceKind: "",
+      idempotencyKey: "k",
+    }),
+    { path: ["sourceKind"] },
   );
 });
 
@@ -186,8 +202,12 @@ test("on-behalf summary schema accepts honest rows and rejects extras", () => {
   };
   assert.ok(onBehalfPaymentSummarySchema.safeParse(row).success);
   assert.ok(onBehalfPaymentListSchema.safeParse([row, { ...row, id: "p2" }]).success);
-  assert.equal(onBehalfPaymentListSchema.safeParse([{ ...row, status: "weird" }]).success, false);
-  assert.equal(onBehalfPaymentSummarySchema.safeParse({ ...row, approvalsHave: 1 }).success, false);
+  assertRejection(onBehalfPaymentListSchema.safeParse([{ ...row, status: "weird" }]), {
+    path: [0, "status"],
+  });
+  assertRejection(onBehalfPaymentSummarySchema.safeParse({ ...row, approvalsHave: 1 }), {
+    code: "unrecognized_keys",
+  });
 });
 
 test("settlePayRequestSchema requires fundId for gift intents", () => {

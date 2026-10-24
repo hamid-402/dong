@@ -4,6 +4,7 @@ import {
   createPaymentLinkRequestSchema,
   loginRequestSchema,
 } from "../src/schemas/index.js";
+import { assertRejection } from "./assert-rejection.js";
 
 test("valid auth login passes", () => {
   const result = loginRequestSchema.safeParse({
@@ -22,19 +23,23 @@ test("login with username identifier passes schema", () => {
 });
 
 test("login without email or identifier fails", () => {
-  const result = loginRequestSchema.safeParse({
-    password: "secret-password",
-  });
-  assert.equal(result.success, false);
+  assertRejection(
+    loginRequestSchema.safeParse({
+      password: "secret-password",
+    }),
+    { message: "Provide email or identifier" },
+  );
 });
 
 test("payment link with bad amount fails", () => {
-  const result = createPaymentLinkRequestSchema.safeParse({
-    workspaceId: "ws-1",
-    amount: { amountMinor: "-100", currency: "IRR" },
-    description: "settle",
-    returnUrl: "https://example.com/return",
-    idempotencyKey: "pay-1",
-  });
-  assert.equal(result.success, false);
+  assertRejection(
+    createPaymentLinkRequestSchema.safeParse({
+      workspaceId: "ws-1",
+      amount: { amountMinor: "-100", currency: "IRR" },
+      description: "settle",
+      returnUrl: "https://example.com/return",
+      idempotencyKey: "pay-1",
+    }),
+    { path: ["amount", "amountMinor"], message: "amount_FORMAT" },
+  );
 });

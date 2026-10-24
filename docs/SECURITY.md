@@ -101,7 +101,7 @@ Presigned Upload
 - OCR حقیقت مالی نیست و مستقیماً Posted Entry نمی‌سازد.
 - CSV Formula Injection Escape می‌شود.
 - LLM به URL Fetch یا اقدام مالی خودکار دسترسی ندارد.
-- **ClamAV (opt-in `CLAMAV_ENABLED=1`):** اسکن upload جدید اگر نتیجه‌ی `error` بدهد (daemon قطع، timeout، host خالی، بدون bytes) با HTTP **503** و problem type `https://dang.local/problems/av-unavailable` رد می‌شود و فایل به‌صورت قابل‌سرو ذخیره نمی‌شود. وقتی پرچم خاموش است مسیر stub MIME بدون تغییر است.
+- **ClamAV (opt-in `CLAMAV_ENABLED=1`):** اسکن upload جدید اگر نتیجه‌ی `error` بدهد (daemon قطع، timeout، host خالی، بدون bytes) با HTTP **503** و problem type `https://dang.local/problems/av-unavailable` رد می‌شود و فایل به‌صورت قابل‌سرو ذخیره نمی‌شود. اگر اسکن `blocked` بدهد، HTTP **400** با `https://dang.local/problems/quarantine-blocked` برمی‌گردد و blob ذخیره نمی‌شود (وضعیت quarantine روی attachment ثبت می‌شود). وقتی پرچم خاموش است مسیر stub MIME بدون تغییر است.
 - **دانلود quarantine:** پیوست با `quarantineStatus=blocked` یا `error` با HTTP **400** و problem type `https://dang.local/problems/quarantine-blocked` رد می‌شود (**تغییر رفتار:** قبلاً فقط blocked در gate دانلود بود؛ اکنون error هم مثل blocked رد می‌شود). وقتی `CLAMAV_ENABLED=1` است، `pending` هم با همان 400 رد می‌شود تا اسکن کامل شود؛ وقتی پرچم خاموش است `pending` مثل قبل قابل‌دانلود می‌ماند. پیوست `clean` بدون اسکن مجدد قابل‌دانلود می‌ماند حتی وقتی ClamAV قطع است.
 
 ## 8. پرداخت No-custody

@@ -271,6 +271,10 @@ export class AttachmentsService {
         // Do not write/markBlobStored — attachment stays non-servable.
         throw avUnavailableException(evaluated.detail);
       }
+      if (evaluated.status === "blocked") {
+        // Malware: persist quarantine status but never store the blob.
+        throw quarantineBlockedException("blocked");
+      }
     }
     const storagePath = await this.blobs.write(workspaceId, attachmentId, buffer);
     return this.attachments.markBlobStored(workspaceId, attachmentId, storagePath);

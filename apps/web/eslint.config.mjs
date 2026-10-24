@@ -5,7 +5,7 @@ import nextTypeScript from "eslint-config-next/typescript";
 export default defineConfig([
   ...nextVitals,
   ...nextTypeScript,
-  globalIgnores([".next/**", "out/**", "dist/**", "next-env.d.ts"]),
+  globalIgnores([".next/**", "out/**", "dist/**", "coverage/**", "next-env.d.ts"]),
   {
     rules: {
       // Data-fetch/bootstrap effects intentionally set state after mount.

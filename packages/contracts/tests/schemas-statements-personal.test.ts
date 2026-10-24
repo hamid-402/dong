@@ -14,6 +14,7 @@ import {
   lifestyleQuerySchema,
   putAllocationPlanRequestSchema,
 } from "../src/schemas/personal-finance.js";
+import { assertRejection } from "./assert-rejection.js";
 
 const messages = (r: { success: boolean; error?: { issues: Array<{ message: string }> } }) =>
   r.error?.issues.map((i) => i.message) ?? [];
@@ -25,15 +26,23 @@ test("statement query schemas enforce from <= to", () => {
   assert.equal(statementListQuerySchema.parse({ ...ok, granularity: "day" }).granularity, "day");
   assert.deepEqual(messages(statementListQuerySchema.safeParse(bad)), ["from must be <= to"]);
   assert.equal(statementDetailQuerySchema.safeParse(ok).success, true);
-  assert.equal(statementDetailQuerySchema.safeParse(bad).success, false);
+  assertRejection(statementDetailQuerySchema.safeParse(bad), { message: "from must be <= to" });
   assert.equal(createStatementExportRequestSchema.safeParse({ ...ok, format: "xlsx" }).success, true);
-  assert.equal(createStatementExportRequestSchema.safeParse({ ...ok, format: "pdf" }).success, false);
-  assert.equal(createStatementExportRequestSchema.safeParse({ ...bad, format: "csv" }).success, false);
+  assertRejection(createStatementExportRequestSchema.safeParse({ ...ok, format: "pdf" }), {
+    path: ["format"],
+  });
+  assertRejection(createStatementExportRequestSchema.safeParse({ ...bad, format: "csv" }), {
+    message: "from must be <= to",
+  });
   assert.equal(createStatementPackExportRequestSchema.safeParse({ ...ok, format: "pdf", documentNo: "D-1" }).success, true);
-  assert.equal(createStatementPackExportRequestSchema.safeParse({ ...ok, format: "json" }).success, false);
-  assert.equal(createStatementPackExportRequestSchema.safeParse({ ...bad, format: "csv" }).success, false);
+  assertRejection(createStatementPackExportRequestSchema.safeParse({ ...ok, format: "json" }), {
+    path: ["format"],
+  });
+  assertRejection(createStatementPackExportRequestSchema.safeParse({ ...bad, format: "csv" }), {
+    message: "from must be <= to",
+  });
   assert.equal(statementNotifyRequestSchema.safeParse(ok).success, true);
-  assert.equal(statementNotifyRequestSchema.safeParse(bad).success, false);
+  assertRejection(statementNotifyRequestSchema.safeParse(bad), { message: "from must be <= to" });
 });
 
 test("payout instructions normalise card numbers and name the bank from the BIN", () => {
@@ -106,15 +115,27 @@ test("allocation plan percents must add up to 100", () => {
   assert.equal(putAllocationPlanRequestSchema.safeParse({ percents: plan }).success, true);
   const bad = putAllocationPlanRequestSchema.safeParse({ percents: { ...plan, savings: 21 } });
   assert.deepEqual(messages(bad), ["ALLOCATION_SUM"]);
-  assert.equal(putAllocationPlanRequestSchema.safeParse({ percents: { ...plan, solo: -1, savings: 61 } }).success, false);
-  assert.equal(putAllocationPlanRequestSchema.safeParse({ percents: { ...plan, extra: 0 } }).success, false);
+  assertRejection(
+    putAllocationPlanRequestSchema.safeParse({ percents: { ...plan, solo: -1, savings: 61 } }),
+    { path: ["percents", "solo"] },
+  );
+  assertRejection(putAllocationPlanRequestSchema.safeParse({ percents: { ...plan, extra: 0 } }), {
+    path: ["percents"],
+    code: "unrecognized_keys",
+  });
 });
 
 test("paycheck, lifestyle query and annual statement schemas", () => {
   const pay = { amountMinor: "5000000", occurredOn: "2026-03-01", idempotencyKey: "k" };
   assert.equal(createPaycheckRequestSchema.safeParse(pay).success, true);
-  assert.equal(createPaycheckRequestSchema.safeParse({ ...pay, amountMinor: "0" }).success, false);
-  assert.equal(createPaycheckRequestSchema.safeParse({ ...pay, yearMonth: "2026-3" }).success, false);
+  assertRejection(createPaycheckRequestSchema.safeParse({ ...pay, amountMinor: "0" }), {
+    path: ["amountMinor"],
+    message: "amount_RANGE",
+  });
+  assertRejection(createPaycheckRequestSchema.safeParse({ ...pay, yearMonth: "2026-3" }), {
+    path: ["yearMonth"],
+    message: "yearMonth_FORMAT",
+  });
 
   assert.equal(lifestyleQuerySchema.safeParse({}).success, true);
   assert.equal(lifestyleQuerySchema.safeParse({ yearMonth: "2026-03" }).success, true);
@@ -124,6 +145,11 @@ test("paycheck, lifestyle query and annual statement schemas", () => {
   assert.deepEqual(messages(lifestyleQuerySchema.safeParse({ to: "2026-04-01" })), ["FROM_AND_TO"]);
 
   assert.equal(createPersonalAnnualStatementRequestSchema.parse({ jalaliYear: 1405 }).format, "html_print");
-  assert.equal(createPersonalAnnualStatementRequestSchema.safeParse({ jalaliYear: 1299 }).success, false);
-  assert.equal(createPersonalAnnualStatementRequestSchema.safeParse({ jalaliYear: 1405, format: "pdf" }).success, false);
+  assertRejection(createPersonalAnnualStatementRequestSchema.safeParse({ jalaliYear: 1299 }), {
+    path: ["jalaliYear"],
+  });
+  assertRejection(
+    createPersonalAnnualStatementRequestSchema.safeParse({ jalaliYear: 1405, format: "pdf" }),
+    { path: ["format"] },
+  );
 });

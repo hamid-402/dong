@@ -17,6 +17,7 @@ import {
   createDailyLedgerDepositRequestSchema,
   createDailyLedgerEntryRequestSchema,
 } from "../src/schemas/daily-ledger.js";
+import { assertRejection } from "./assert-rejection.js";
 
 test("eachDateInclusive spans inclusive days", () => {
   assert.deepEqual(eachDateInclusive("2026-09-01", "2026-09-03"), [
@@ -310,24 +311,28 @@ test("createDailyLedgerDepositRequestSchema accepts positive gift deposit", () =
   });
   assert.equal(def.success, true);
   if (def.success) assert.equal(def.data.mode, undefined);
-  const bad = createDailyLedgerDepositRequestSchema.safeParse({
-    date: "2026-09-12",
-    amountMinor: "0",
-    fundId: "fund-1",
-    idempotencyKey: "dep-0",
-  });
-  assert.equal(bad.success, false);
+  assertRejection(
+    createDailyLedgerDepositRequestSchema.safeParse({
+      date: "2026-09-12",
+      amountMinor: "0",
+      fundId: "fund-1",
+      idempotencyKey: "dep-0",
+    }),
+    { path: ["amountMinor"], message: "AMOUNT_POSITIVE" },
+  );
 });
 
 test("createDailyLedgerEntryRequestSchema requires fundingRef for petty_cash", () => {
-  const bad = createDailyLedgerEntryRequestSchema.safeParse({
-    date: "2026-09-12",
-    itemName: "نان",
-    amount: { amountMinor: "1000", currency: "IRR" },
-    fundingSourceKind: "petty_cash",
-    idempotencyKey: "e1",
-  });
-  assert.equal(bad.success, false);
+  assertRejection(
+    createDailyLedgerEntryRequestSchema.safeParse({
+      date: "2026-09-12",
+      itemName: "نان",
+      amount: { amountMinor: "1000", currency: "IRR" },
+      fundingSourceKind: "petty_cash",
+      idempotencyKey: "e1",
+    }),
+    { path: ["fundingRefId"], message: "FUNDING_REF_REQUIRED" },
+  );
   const ok = createDailyLedgerEntryRequestSchema.safeParse({
     date: "2026-09-12",
     itemName: "نان",

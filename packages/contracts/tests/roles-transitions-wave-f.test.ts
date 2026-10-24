@@ -43,6 +43,7 @@ import {
   updateWorkspacePlanSchema,
   expenseCsvImportSchema,
 } from "../src/wave-f.js";
+import { assertRejection } from "./assert-rejection.js";
 
 test("role helpers accept only exact role strings", () => {
   assert.equal(roleInSet("owner", WORKSPACE_ADMIN_ROLES), true);
@@ -199,19 +200,29 @@ test("parseExpenseCsv handles BOM, CRLF, quoted commas and escaped quotes", () =
 
 test("wave-f request schemas", () => {
   assert.equal(expenseCsvImportSchema.safeParse({ csvText: "x", idempotencyKey: "k" }).success, true);
-  assert.equal(expenseCsvImportSchema.safeParse({ csvText: "", idempotencyKey: "k" }).success, false);
+  assertRejection(expenseCsvImportSchema.safeParse({ csvText: "", idempotencyKey: "k" }), {
+    path: ["csvText"],
+  });
 
   assert.equal(updateNotificationPreferenceSchema.safeParse({ emailDigest: "weekly", securityAlert: true }).success, true);
-  assert.equal(updateNotificationPreferenceSchema.safeParse({ emailDigest: "daily" }).success, false);
-  assert.equal(updateNotificationPreferenceSchema.safeParse({ emailDigest: "off", surprise: 1 }).success, false);
+  assertRejection(updateNotificationPreferenceSchema.safeParse({ emailDigest: "daily" }), {
+    path: ["emailDigest"],
+  });
+  assertRejection(updateNotificationPreferenceSchema.safeParse({ emailDigest: "off", surprise: 1 }), {
+    code: "unrecognized_keys",
+  });
 
   assert.equal(updateWorkspacePlanSchema.safeParse({ plan: "pro", seatsLimit: null }).success, true);
-  assert.equal(updateWorkspacePlanSchema.safeParse({ plan: "pro", seatsLimit: 0 }).success, false);
-  assert.equal(updateWorkspacePlanSchema.safeParse({ plan: "enterprise" }).success, false);
+  assertRejection(updateWorkspacePlanSchema.safeParse({ plan: "pro", seatsLimit: 0 }), {
+    path: ["seatsLimit"],
+  });
+  assertRejection(updateWorkspacePlanSchema.safeParse({ plan: "enterprise" }), {
+    path: ["plan"],
+  });
 
-  const empty = updateUiPreferenceSchema.safeParse({});
-  assert.equal(empty.success, false);
-  assert.equal(empty.error?.issues[0]?.message, "at_least_one_pref");
+  assertRejection(updateUiPreferenceSchema.safeParse({}), {
+    message: "at_least_one_pref",
+  });
   assert.equal(updateUiPreferenceSchema.safeParse({ dismissShellTour: false }).success, true);
 });
 

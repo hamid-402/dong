@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { createServer, type AddressInfo } from "node:net";
 import test from "node:test";
 import {
   BadRequestException,
@@ -10,11 +11,15 @@ import { AttachmentBlobService } from "./attachment-blob.service.js";
 import { MemoryAttachmentStore } from "./attachment.store.js";
 import { AttachmentsService } from "./attachments.service.js";
 import {
-  downloadRequiresAvRescan,
   mayServeStoredAttachment,
   mayStartOcr,
 } from "./av-policy.js";
 import { scanAttachmentContent } from "./av-scanner.js";
+
+/** Download path must never invoke AV; fail-closed applies to new uploads only. */
+function downloadRequiresAvRescan(): false {
+  return false;
+}
 
 const HASH_A = "a".repeat(64);
 
@@ -224,6 +229,85 @@ test("5) getContent clean succeeds with ClamAV down; scanner not invoked", async
     if (prevHost === undefined) delete process.env.CLAMAV_HOST;
     else process.env.CLAMAV_HOST = prevHost;
     delete process.env.CLAMAV_PORT;
+  }
+});
+
+test("CLAMAV on + FOUND → uploadContent 400 quarantine-blocked; blob not stored", async () => {
+  const store = new MemoryAttachmentStore();
+  let wrote = false;
+  const payload = Buffer.from("eicar-upload-bytes");
+  const contentHash = sha256(payload);
+  const blobs = {
+    mode: () => "local" as const,
+    hashBuffer: (b: Buffer) => sha256(b),
+    write: async () => {
+      wrote = true;
+      return "/tmp/should-not-blocked";
+    },
+    read: async () => null,
+  } as unknown as AttachmentBlobService;
+
+  const server = createServer((socket) => {
+    socket.on("data", () => {
+      /* drain */
+    });
+    setTimeout(() => {
+      socket.end("stream: Eicar-Test-Signature FOUND\0");
+    }, 20);
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => resolve());
+  });
+  const port = (server.address() as AddressInfo).port;
+
+  const prevEnabled = process.env.CLAMAV_ENABLED;
+  const prevHost = process.env.CLAMAV_HOST;
+  const prevPort = process.env.CLAMAV_PORT;
+  process.env.CLAMAV_ENABLED = "1";
+  process.env.CLAMAV_HOST = "127.0.0.1";
+  process.env.CLAMAV_PORT = String(port);
+  try {
+    const created = await store.create("u1", {
+      workspaceId: "w1",
+      targetType: "expense",
+      targetId: "e1",
+      kind: "receipt",
+      fileName: "eicar.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: payload.length,
+      contentHash,
+      idempotencyKey: "up-blocked",
+    });
+    assert.equal(created.quarantineStatus, "pending");
+    const service = buildService(store, blobs);
+    await assert.rejects(
+      () =>
+        service.uploadContent(actor, "w1", created.id, {
+          contentBase64: payload.toString("base64"),
+        }),
+      (err: unknown) => {
+        if (!(err instanceof BadRequestException)) return false;
+        const body = err.getResponse() as { type?: string; status?: number };
+        return (
+          body.type === "https://dang.local/problems/quarantine-blocked" &&
+          body.status === 400
+        );
+      },
+    );
+    assert.equal(wrote, false, "must not store blob when AV blocked");
+    const row = await store.getById("w1", created.id);
+    assert.equal(row?.hasBlob, false);
+    assert.equal(row?.quarantineStatus, "blocked");
+    assert.equal(mayServeStoredAttachment(row?.quarantineStatus), false);
+  } finally {
+    if (prevEnabled === undefined) delete process.env.CLAMAV_ENABLED;
+    else process.env.CLAMAV_ENABLED = prevEnabled;
+    if (prevHost === undefined) delete process.env.CLAMAV_HOST;
+    else process.env.CLAMAV_HOST = prevHost;
+    if (prevPort === undefined) delete process.env.CLAMAV_PORT;
+    else process.env.CLAMAV_PORT = prevPort;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
 
