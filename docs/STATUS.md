@@ -166,3 +166,7 @@
 - Web `:3005` · API `:3006` · Redis worker · Postgres
 - Canary: [`docs/ops/CANARY-DEPLOY.md`](./ops/CANARY-DEPLOY.md) · Analytics ETL: [`docs/ops/ANALYTICS-WAREHOUSE.md`](./ops/ANALYTICS-WAREHOUSE.md)
 - پایلوت: [`docs/ops/PILOT.md`](./ops/PILOT.md)
+
+## فاز ۷ (چک‌لیست انتشار — خلاصه)
+
+جزئیات جدول در [`ops/PHASE5-HARDENING.md`](./ops/PHASE5-HARDENING.md). محلی روی `dev`: license / bundle / sbom / openapi:break / canary:policy:test / smoke:health پاس؛ audit high و a11y با residual صریح؛ visual Windows از production build تازه؛ Linux baseline فقط با workflow GitHub `visual-baseline-capture`.

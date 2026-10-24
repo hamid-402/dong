@@ -233,10 +233,10 @@ export async function resolveWorkspace(
     return null;
   }
 
-  const seeded = await seedDemoWorkspace(request);
-  if (seeded) return { id: seeded.id, slug: seeded.slug, source: "seed" };
+  // Seed may create demo-aftab* which product chrome soft-hides; still useful to
+  // ensure IAM/demo rows exist before we pick a chrome-visible workspace.
+  await seedDemoWorkspace(request);
 
-  // Fallback: reuse an existing workspace for the e2e subject (seed may be disabled).
   const listed =
     (await tryGetJson<Array<{ id?: string; slug?: string; template?: string }>>(
       request,
@@ -248,8 +248,14 @@ export async function resolveWorkspace(
       `${API_ORIGIN}/api/v1/workspaces`,
       headers,
     ));
+  // Prefer chrome-visible workspaces — demo-aftab* is soft-hidden in product chrome
+  // (see apps/web/src/lib/demo-workspaces.ts); deep-links to it redirect to /home.
+  const visible = (listed ?? []).filter(
+    (w) => w.id && w.slug && !String(w.slug).toLowerCase().startsWith("demo-aftab"),
+  );
   const pick =
-    listed?.find((w) => w.id && w.slug && w.template !== "personal") ??
+    visible.find((w) => w.template !== "personal") ??
+    visible.find((w) => Boolean(w.slug)) ??
     listed?.find((w) => w.id && w.slug);
   if (pick?.id && pick.slug) {
     return { id: pick.id, slug: pick.slug, source: "seed" };

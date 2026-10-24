@@ -145,7 +145,9 @@ test.describe("visual shell snapshots", () => {
       "Need PLAYWRIGHT_WORKSPACE_SLUG or /demo/seed for payments visual.",
     );
     await page.goto(`/w/${resolved!.slug}/payments`);
+    await expect(page).toHaveURL(/\/payments/);
     await expect(page.locator("#main")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/این فضا پیدا نشد/)).toHaveCount(0);
     await expect(page).toHaveScreenshot("payments.png", {
       fullPage: true,
       maxDiffPixelRatio: 0.03,
@@ -168,7 +170,9 @@ test.describe("visual shell snapshots", () => {
       "Need PLAYWRIGHT_WORKSPACE_SLUG or /demo/seed for approvals visual.",
     );
     await page.goto(`/w/${resolved!.slug}/approvals`);
+    await expect(page).toHaveURL(/\/approvals/);
     await expect(page.locator("body")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/این فضا پیدا نشد/)).toHaveCount(0);
     await expect(page).toHaveScreenshot("approvals.png", {
       fullPage: true,
       maxDiffPixelRatio: 0.03,
@@ -198,7 +202,12 @@ test.describe("visual shell snapshots", () => {
       }
     });
     await page.goto(`/w/${resolved!.slug}/statements`);
+    await expect(page).toHaveURL(/\/statements/);
     await expect(page.locator("#main")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/این فضا پیدا نشد/)).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: /ریز حساب|Statements/i }),
+    ).toBeVisible({ timeout: 20_000 });
     await expect(page).toHaveScreenshot("statements.png", {
       fullPage: true,
       maxDiffPixelRatio: 0.03,
@@ -223,10 +232,27 @@ test.describe("visual shell snapshots", () => {
     const me = await page.request.get("/api/v1/auth/me").then((r) => r.json()).catch(() => null);
     const userId = me?.actor?.userId as string | undefined;
     test.skip(!userId, "Need authenticated actor for print route.");
-    await page.goto(
-      `/w/${resolved!.slug}/statements/${encodeURIComponent(userId!)}/print`,
-    );
+    // Avoid native print dialog during screenshot capture.
+    await page.addInitScript(() => {
+      window.print = () => {};
+    });
+    const printPath = `/w/${resolved!.slug}/statements/${encodeURIComponent(userId!)}/print`;
+    await page.goto(printPath);
+    await expect(page).toHaveURL(new RegExp(`/statements/.+/print`));
     await expect(page.locator("#main")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("در حال بررسی نشست…")).toHaveCount(0, {
+      timeout: 15_000,
+    });
+    await expect(page.getByText(/در حال آماده‌سازی چاپ/)).toHaveCount(0, {
+      timeout: 20_000,
+    });
+    await expect(page.getByText(/این فضا پیدا نشد/)).toHaveCount(0);
+    await expect(
+      page.getByText(/دیالوگ چاپ به‌صورت خودکار|Print dialog opens/i),
+    ).toBeVisible({ timeout: 20_000 });
+    // Apply print media so @media print chrome-hiding CSS is active
+    // (must differ from screen `statements.png`).
+    await page.emulateMedia({ media: "print" });
     await expect(page).toHaveScreenshot("statements-print.png", {
       fullPage: true,
       maxDiffPixelRatio: 0.03,

@@ -45,3 +45,22 @@ pnpm --filter @dang/contracts exec tsx --test tests/finance-property.test.ts
 6. تست واحد (بدون شبکه): `apps/api/src/key-vault/key-vault.res01.test.ts` — بدون پرچم هرگز `http_vault` نیست؛ با پرچم + mock موفق source صادق؛ fail-closed روی `VAULT_HTTP_FETCH_FAILED`
 
 مرجع: [`ADR-kms-master-key.md`](../adr/ADR-kms-master-key.md)
+
+## فاز ۷ — چک‌لیست انتشار (اجرای محلی روی `dev`، ۱۴۰۵/۰۸/۰۲)
+
+بدون SMTP / SMS / درگاه بیرونی و بدون دیتابیس پرود. نتیجهٔ صادق:
+
+| # | مورد | دستور | نتیجه |
+|---|------|--------|--------|
+| 4 | audit high+ | `pnpm audit --audit-level=high` | **رد** — ۲ critical + ۴ high (Storybook preview/dev-server GHSA-f2ph / GHSA-px85؛ zod GHSA-mrhx؛ undici در testcontainers GHSA-xjj6). پچ Storybook/zod خارج از این batch. |
+| 5 | license | `pnpm license:check` | **پاس** |
+| 6 | bundle | `pnpm bundle:check` | **پاس** — static ≈ ۴٫۲۶ MiB (warn ۸ / fail ۱۵) |
+| 8 | smoke سلامت | `pnpm smoke:health` | **پاس** روی API `:3006` + web `:3005` لوکال |
+| 10 | SBOM | `pnpm sbom:generate` | **پاس** — `artifacts/sbom.cdx.json` (gitignore) |
+| 11 | OpenAPI break | `pnpm openapi:break` | **پاس** — ۴۱۹ route، additive |
+| 12 | canary policy | `pnpm canary:policy:test` | **پاس** (۴ تست واحد؛ URL زندهٔ canary اجرا نشد — نیاز به `CANARY_*` env) |
+| 14 | a11y | `pnpm test:a11y` | **رد جزئی** — ۳۹ پاس / ۶ رد (color-contrast جدی روی theme کاغذی؛ timeout کیبورد/spaces روی production build). بدون تغییر UI در این فاز. |
+| — | visual Windows | build + production server | **پاس** — ۱۹× `*-chromium-win32.png`؛ `statements-print` با `emulateMedia({media:'print'})` از `statements` متمایز |
+| — | visual Linux CI | workflow `visual-baseline-capture` | **نیاز به GitHub** — `workflow_dispatch`؛ بعد از `pnpm --filter @dang/web build` snapshot لینوکس می‌گیرد. روی این ماشین اجرا نشد. |
+
+**یادداشت production web:** با `output: "standalone"`، `next start` هشدار می‌دهد؛ baselines ویندوز با `node apps/web/.next/standalone/apps/web/server.js` (پس از کپی `.next/static`) گرفته شد تا نشانگر dev ظاهر نشود.
