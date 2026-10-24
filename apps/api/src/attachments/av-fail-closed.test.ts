@@ -268,6 +268,13 @@ test("CLAMAV on + FOUND → uploadContent 400 quarantine-blocked; blob not store
   process.env.CLAMAV_HOST = "127.0.0.1";
   process.env.CLAMAV_PORT = String(port);
   try {
+    let createCalls = 0;
+    const originalCreate = store.create.bind(store);
+    store.create = ((...args: Parameters<MemoryAttachmentStore["create"]>) => {
+      createCalls += 1;
+      return originalCreate(...args);
+    }) as MemoryAttachmentStore["create"];
+
     const created = await store.create("u1", {
       workspaceId: "w1",
       targetType: "expense",
@@ -280,6 +287,8 @@ test("CLAMAV on + FOUND → uploadContent 400 quarantine-blocked; blob not store
       idempotencyKey: "up-blocked",
     });
     assert.equal(created.quarantineStatus, "pending");
+    assert.equal(createCalls, 1);
+    const createCallsBeforeUpload = createCalls;
     const service = buildService(store, blobs);
     await assert.rejects(
       () =>
@@ -296,6 +305,11 @@ test("CLAMAV on + FOUND → uploadContent 400 quarantine-blocked; blob not store
       },
     );
     assert.equal(wrote, false, "must not store blob when AV blocked");
+    assert.equal(
+      createCalls,
+      createCallsBeforeUpload,
+      "blocked uploadContent must not insert a new attachment row",
+    );
     const row = await store.getById("w1", created.id);
     assert.equal(row?.hasBlob, false);
     assert.equal(row?.quarantineStatus, "blocked");

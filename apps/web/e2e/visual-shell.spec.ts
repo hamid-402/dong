@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 /**
  * R10-23 / S11-12 / D3 — visual regression (opt-in only).
@@ -16,11 +16,55 @@ import { test, expect } from "@playwright/test";
  *   (Linux CI vs Windows local will differ — do not hard-fail CI by default).
  *   Update: playwright test e2e/visual-shell.spec.ts --update-snapshots
  *
+ * Phase 6 matrix: login / 404 / home × light|dark × desktop|mobile.
+ * Windows filenames use *-chromium-win32.png; Linux CI baselines must be
+ * captured via workflow `visual-baseline-capture` (see VISUAL-REGRESSION.md).
+ *
  * See docs/ops/VISUAL-REGRESSION.md
  */
 const enabled =
   process.env.VISUAL_REGRESSION === "1" ||
   process.env.npm_lifecycle_event === "test:visual";
+
+const SCHEMES = [
+  { scheme: "light" as const, theme: "paper" as const },
+  { scheme: "dark" as const, theme: "midnight" as const },
+];
+
+const VIEWPORTS = [
+  { id: "desktop" as const, width: 1280, height: 800 },
+  { id: "mobile" as const, width: 360, height: 740 },
+];
+
+const shotOpts = {
+  fullPage: true,
+  maxDiffPixelRatio: 0.02,
+  animations: "disabled" as const,
+};
+
+async function applyScheme(
+  page: Page,
+  scheme: "light" | "dark",
+  theme: "paper" | "midnight",
+) {
+  await page.evaluate(
+    ({ scheme: s, theme: t }) => {
+      try {
+        window.localStorage.setItem("dang-theme", t);
+      } catch {
+        /* ignore */
+      }
+      document.documentElement.setAttribute("data-theme", t);
+      document.documentElement.setAttribute("data-scheme", s);
+    },
+    { scheme, theme },
+  );
+  await expect
+    .poll(async () =>
+      page.evaluate(() => document.documentElement.getAttribute("data-scheme")),
+    )
+    .toBe(scheme);
+}
 
 test.describe("visual shell snapshots", () => {
   test.skip(!enabled, "Set VISUAL_REGRESSION=1 to enable (R10-23; CI remains opt-in)");
@@ -28,22 +72,51 @@ test.describe("visual shell snapshots", () => {
   test("login", async ({ page }) => {
     await page.goto("/login");
     await expect(page.getByRole("heading", { name: /ورود|Sign in/i })).toBeVisible();
-    await expect(page).toHaveScreenshot("login.png", {
-      fullPage: true,
-      maxDiffPixelRatio: 0.02,
-      animations: "disabled",
-    });
+    await expect(page).toHaveScreenshot("login.png", shotOpts);
   });
 
   test("not-found", async ({ page }) => {
     await page.goto("/not-a-real-route-404-check");
     await expect(page.getByText(/پیدا نشد|not found/i)).toBeVisible();
-    await expect(page).toHaveScreenshot("not-found.png", {
-      fullPage: true,
-      maxDiffPixelRatio: 0.02,
-      animations: "disabled",
-    });
+    await expect(page).toHaveScreenshot("not-found.png", shotOpts);
   });
+
+  for (const { scheme, theme } of SCHEMES) {
+    for (const vp of VIEWPORTS) {
+      test(`login ${scheme} ${vp.id}`, async ({ page }) => {
+        await page.setViewportSize({ width: vp.width, height: vp.height });
+        await page.goto("/login");
+        await expect(page.getByRole("heading", { name: /ورود|Sign in/i })).toBeVisible();
+        await applyScheme(page, scheme, theme);
+        await expect(page).toHaveScreenshot(`login-${scheme}-${vp.id}.png`, shotOpts);
+      });
+
+      test(`not-found ${scheme} ${vp.id}`, async ({ page }) => {
+        await page.setViewportSize({ width: vp.width, height: vp.height });
+        await page.goto("/not-a-real-route-404-check");
+        await expect(page.getByText(/پیدا نشد|not found/i)).toBeVisible();
+        await applyScheme(page, scheme, theme);
+        await expect(page).toHaveScreenshot(`not-found-${scheme}-${vp.id}.png`, shotOpts);
+      });
+
+      test(`home after login ${scheme} ${vp.id}`, async ({ page, context }) => {
+        const { installDevSession } = await import("./helpers/dev-session");
+        await installDevSession(context, page);
+        await page.setViewportSize({ width: vp.width, height: vp.height });
+        await page.goto("/home");
+        await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
+        await expect(page.getByText("در حال بررسی نشست…")).toHaveCount(0, {
+          timeout: 15_000,
+        });
+        await expect(page.locator("body")).toBeVisible({ timeout: 20_000 });
+        await applyScheme(page, scheme, theme);
+        await expect(page).toHaveScreenshot(`home-${scheme}-${vp.id}.png`, {
+          ...shotOpts,
+          maxDiffPixelRatio: 0.03,
+        });
+      });
+    }
+  }
 
   test("admin gate (honest 404 or console)", async ({ page, context }) => {
     const { installDevSession } = await import("./helpers/dev-session");
