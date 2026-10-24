@@ -4,25 +4,45 @@ import AxeBuilder from "@axe-core/playwright";
 import { installDevSession } from "./helpers/dev-session";
 
 async function expectNoCriticalAxe(page: Page) {
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
-    .analyze();
-  const critical = results.violations.filter(
-    (v) => v.impact === "critical" || v.impact === "serious",
-  );
-  const moderate = results.violations.filter(
-    (v) => v.impact === "moderate" || v.impact === "minor",
-  );
-  for (const v of moderate) {
-    console.warn(
-      `[a11y ${v.impact ?? "unknown"}] ${v.id}: ${v.help} (${v.nodes.length} nodes)`,
-    );
+  // Dev/turbopack can remount mid-analyze (HMR / concurrent compiles). Retry once
+  // the document is settled again — keeps this helper usable on long seeded routes.
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await page.waitForLoadState("domcontentloaded");
+      const results = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
+        .analyze();
+      const critical = results.violations.filter(
+        (v) => v.impact === "critical" || v.impact === "serious",
+      );
+      const moderate = results.violations.filter(
+        (v) => v.impact === "moderate" || v.impact === "minor",
+      );
+      for (const v of moderate) {
+        console.warn(
+          `[a11y ${v.impact ?? "unknown"}] ${v.id}: ${v.help} (${v.nodes.length} nodes)`,
+        );
+      }
+      expect(
+        critical,
+        critical.map((v) => `${v.id}: ${v.help} (${v.nodes.length})`).join("\n") ||
+          "no critical/serious violations",
+      ).toEqual([]);
+      return;
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const transient =
+        /Execution context was destroyed|Target closed|net::ERR_ABORTED|frame was detached/i.test(
+          msg,
+        );
+      if (!transient || attempt === 2) throw err;
+      await page.waitForLoadState("load").catch(() => undefined);
+      await page.waitForTimeout(400);
+    }
   }
-  expect(
-    critical,
-    critical.map((v) => `${v.id}: ${v.help} (${v.nodes.length})`).join("\n") ||
-      "no critical/serious violations",
-  ).toEqual([]);
+  throw lastError;
 }
 
 test.describe("a11y public surfaces", () => {
@@ -137,6 +157,7 @@ test.describe("a11y product shell (dev session cookie)", () => {
 
   // High-traffic product routes (dong-50 #11). Prefer a seeded slug when API is up.
   test("seeded workspace high-traffic routes axe", async ({ page, request, context }) => {
+    test.setTimeout(180_000);
     const { resolveWorkspaceSlug, installDevSession } = await import("./helpers/dev-session");
     await installDevSession(context, page);
     const resolved = await resolveWorkspaceSlug(request);
@@ -170,7 +191,25 @@ test.describe("a11y product shell (dev session cookie)", () => {
       `/me/finance`,
       `/not-a-real-route-404-check`,
     ] as const) {
-      await page.goto(path);
+      // domcontentloaded avoids hanging on long-lived streams; retries cover
+      // mid-nav ERR_ABORTED when next.dev remounts under parallel workers.
+      for (let navAttempt = 0; navAttempt < 3; navAttempt++) {
+        try {
+          await page.goto(path, { waitUntil: "domcontentloaded", timeout: 30_000 });
+          break;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (
+            !/net::ERR_ABORTED|frame was detached|Execution context was destroyed/i.test(
+              msg,
+            ) ||
+            navAttempt === 2
+          ) {
+            throw err;
+          }
+          await page.waitForTimeout(500);
+        }
+      }
       await expect(page.locator("body")).toBeVisible({ timeout: 20_000 });
       await expectNoCriticalAxe(page);
     }

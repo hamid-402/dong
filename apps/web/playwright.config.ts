@@ -1,15 +1,26 @@
 import { defineConfig, devices } from "@playwright/test";
+import { resolve } from "node:path";
 
 /**
  * Smoke E2E — assumes web is reachable (dev or preview).
  * CI can start `pnpm --filter @dang/web start` after build, or skip if BASE_URL unset.
+ *
+ * Artifacts live under repo `artifacts/` (gitignored) so next.dev / turbopack
+ * watchers under apps/web do not reload when Playwright writes results.
  */
+const playwrightArtifactsRoot = resolve(__dirname, "../../artifacts/playwright");
+
 export default defineConfig({
   testDir: "./e2e",
+  outputDir: resolve(playwrightArtifactsRoot, "test-results"),
   timeout: 60_000,
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
+  reporter: [
+    ["list"],
+    ["html", { open: "never", outputFolder: resolve(playwrightArtifactsRoot, "report") }],
+  ],
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3005",
     trace: "on-first-retry",
