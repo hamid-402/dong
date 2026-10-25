@@ -118,6 +118,38 @@ test.describe("visual shell snapshots", () => {
     }
   }
 
+  for (const { scheme, theme } of SCHEMES) {
+    test(`expense FAB after login ${scheme} mobile`, async ({
+      page,
+      context,
+      request,
+    }) => {
+      const { installDevSession, resolveWorkspaceSlug } = await import(
+        "./helpers/dev-session"
+      );
+      await installDevSession(context, page);
+      const resolved = await resolveWorkspaceSlug(request);
+      test.skip(
+        !resolved,
+        "Need PLAYWRIGHT_WORKSPACE_SLUG or /demo/seed for expense FAB visual.",
+      );
+      await page.setViewportSize({ width: 360, height: 740 });
+      await page.goto(`/w/${resolved!.slug}`);
+      await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
+      await expect(page.getByText("در حال بررسی نشست…")).toHaveCount(0, {
+        timeout: 15_000,
+      });
+      await expect(page.locator("#main")).toBeVisible({ timeout: 20_000 });
+      await applyScheme(page, scheme, theme);
+      const fab = page.locator("a.shell-fab");
+      await expect(fab).toBeVisible({ timeout: 20_000 });
+      await expect(page).toHaveScreenshot(
+        `expense-fab-${scheme}-mobile.png`,
+        shotOpts,
+      );
+    });
+  }
+
   test("admin gate (honest 404 or console)", async ({ page, context }) => {
     const { installDevSession } = await import("./helpers/dev-session");
     await installDevSession(context, page);
