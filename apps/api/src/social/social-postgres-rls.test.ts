@@ -1,8 +1,9 @@
 /**
- * Postgres social directory under RLS (اجرای ۶).
+ * Postgres social directory under RLS (اجرای ۶–۷).
  *
  * B finds A by username and sends a friend request while session stays B.
  * Negative: B must not SELECT A's full user_directory_setting row.
+ * GUC: directory_public_settings restores prior app.user_id (اجرای ۷).
  *
  * Skips when DATABASE_URL is unset. Does not load .env — set DATABASE_URL
  * in the process environment (NOBYPASSRLS role, preferably dang_runtime).
@@ -179,4 +180,63 @@ test("postgres B cannot SELECT A's full user_directory_setting row", async (t) =
       .where(eq(userDirectorySetting.userId, userA.userId));
   });
   assert.equal(bSees.length, 0, "B must not SELECT A's full directory settings row");
+});
+
+test("postgres directory_public_settings restores prior app.user_id", async (t) => {
+  if (!databaseUrl) {
+    t.skip("DATABASE_URL not set — skip app.user_id restore (no .env load)");
+    return;
+  }
+
+  const { pool, close } = createDatabase(databaseUrl);
+  t.after(async () => {
+    await close();
+  });
+
+  const fnProbe = await pool.query<{ exists: boolean }>(`
+    select exists(
+      select 1
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'social'
+        and p.proname = 'directory_public_settings'
+    ) as exists
+  `);
+  if (!fnProbe.rows[0]?.exists) {
+    t.skip("social.directory_public_settings not applied yet");
+    return;
+  }
+
+  const client = await pool.connect();
+  try {
+    const prior = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    await client.query("BEGIN");
+    try {
+      await client.query(`select set_config('app.user_id', $1, true)`, [prior]);
+      const before = await client.query<{ v: string | null }>(
+        `select current_setting('app.user_id', true) as v`,
+      );
+      assert.equal(before.rows[0]?.v, prior);
+
+      await client.query(
+        `select * from social.directory_public_settings($1::uuid)`,
+        ["00000000-0000-0000-0000-000000000001"],
+      );
+
+      const after = await client.query<{ v: string | null }>(
+        `select current_setting('app.user_id', true) as v`,
+      );
+      assert.equal(
+        after.rows[0]?.v,
+        prior,
+        "app.user_id must equal pre-call value after directory_public_settings",
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    }
+  } finally {
+    client.release();
+  }
 });

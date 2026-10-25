@@ -652,6 +652,13 @@
       "when": 1789006300000,
       "tag": "0093_directory_public_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1789006400000,
+      "tag": "0094_directory_public_settings_volatile",
+      "breakpoints": true
     }
   ]
 }
