@@ -41,3 +41,7 @@
 - [`docs/STATUS.md`](./STATUS.md)
 - [`docs/SECURITY.md`](./SECURITY.md) — residualها
 - `kara-logs/run4-report.md` — جزئیات اجرای ۴
+
+## بدهی فنی
+
+- tokenهای `--module-chrome-title`، `--module-chrome-desc` و `--ux-secondary-action-link` (کامیت 614f450) بیرون از اسکوپ مالی عملاً اثری ندارند، چون قواعد با اولویت بالاتر رنگ را تعیین می‌کنند (baselineهای visual تغییری نکردند). در بازبینی بعدی CSS یا حذف شوند یا یکپارچه شوند. contrast مالی با `--finance-muted-ink` در `.financeAaScope` رفع شده است (efbb8e5).
