@@ -58,9 +58,13 @@ export async function installDevSession(context: BrowserContext, page: Page): Pr
   );
 
   const headers = devHeaders();
+  // Prefer web proxy so Set-Cookie lands on the page origin; fall back to API
+  // and mirror cookies onto 127.0.0.1 (Playwright may keep API-port jars separate).
   const boot =
     (await tryPost(context.request, `${WEB_ORIGIN}/api/v1/auth/dev/bootstrap-session`, headers)) ||
     (await tryPost(context.request, `${API_ORIGIN}/api/v1/auth/dev/bootstrap-session`, headers));
+
+  await mirrorDevCookies(context);
 
   if (!boot) {
     await context.addCookies([
@@ -71,6 +75,42 @@ export async function installDevSession(context: BrowserContext, page: Page): Pr
         path: "/",
       },
     ]);
+  }
+}
+
+/** Copy session cookies from the request jar onto the browser host used by web. */
+async function mirrorDevCookies(context: BrowserContext): Promise<void> {
+  try {
+    const { cookies } = await context.request.storageState();
+    const keep = new Set(["dang_session", "dang_csrf", "dang_web_session"]);
+    const mirrored = cookies
+      .filter((c) => keep.has(c.name) && c.value)
+      .map((c) => ({
+        name: c.name,
+        value: c.value,
+        domain: "127.0.0.1",
+        path: c.path || "/",
+        httpOnly: Boolean(c.httpOnly),
+        secure: Boolean(c.secure),
+        sameSite: (c.sameSite as "Strict" | "Lax" | "None" | undefined) ?? "Lax",
+        ...(typeof c.expires === "number" && c.expires > 0 ? { expires: c.expires } : {}),
+      }));
+    if (mirrored.length > 0) {
+      await context.addCookies(mirrored);
+    }
+    // Soft gate used by some middleware paths alongside HttpOnly dang_session.
+    if (!mirrored.some((c) => c.name === "dang_web_session")) {
+      await context.addCookies([
+        {
+          name: "dang_web_session",
+          value: "1",
+          domain: "127.0.0.1",
+          path: "/",
+        },
+      ]);
+    }
+  } catch {
+    /* best-effort — caller may still fall back to dang_web_session alone */
   }
 }
 

@@ -1,3 +1,10 @@
+/* Scoped AA muted ink for /me/finance — light wash only; not shared --muted / dark. */
+:global(:root) .financeAaScope,
+:global(html[data-theme="paper"]) .financeAaScope,
+:global(html[data-theme="white"]) .financeAaScope {
+  --finance-muted-ink: #6e6967; /* ≥4.5:1 on #f5f1ea / #f7f4ee (~4.7) */
+}
+
 .subnav {
   display: flex;
   flex-wrap: wrap;
@@ -11,7 +18,7 @@
 
 .subnavLink {
   text-decoration: none;
-  color: color-mix(in srgb, var(--text) 78%, transparent);
+  color: var(--finance-muted-ink, var(--muted));
   font-size:0.875rem;
   font-weight: 600;
   padding: 0.4rem 0.75rem;

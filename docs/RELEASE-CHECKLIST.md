@@ -1,11 +1,11 @@
 # چک‌لیست انتشار (پایلوت داخلی / LocalPSP)
 
 مرجع موارد: `kara-logs/dong-upgrade-plan.md` بخش فاز ۷.  
-بدون ادعای SMTP / SMS / درگاه بیرونی. نتایج محلی روی `dev` تا **اجرای ۴** (۱۴۰۵/۰۸/۰۲).
+بدون ادعای SMTP / SMS / درگاه بیرونی. نتایج محلی روی `dev` تا **اجرای ۵** (۱۴۰۵/۰۸/۰۳).
 
-| # | مورد | دستور / شواهد | نتیجه (نهایی تا اجرای ۴) |
+| # | مورد | دستور / شواهد | نتیجه (نهایی تا اجرای ۵) |
 |---|------|----------------|-------------------------|
-| 1 | typecheck / lint / build | `pnpm check` | typecheck و lint پاس (اجرای ۳/۴) |
+| 1 | typecheck / lint / build | `pnpm check` | typecheck و lint پاس (اجرای ۳–۵) |
 | 2 | تست واحد | `pnpm test` | **پاس** (اجرای ۳؛ RLS بدون `DATABASE_URL` → skip روشن) |
 | 3 | coverage | `pnpm test:coverage` | قراردادها + web در فاز ۴؛ آستانه‌ها در `packages/contracts` / web |
 | 4 | audit high+ | `pnpm audit --audit-level=high` | باقی‌ماندهٔ transitive (Storybook / …) — جزئیات `kara-logs/run2-report.md` |
@@ -17,15 +17,16 @@
 | 10 | SBOM | `pnpm sbom:generate` | **پاس** → `artifacts/sbom.cdx.json` |
 | 11 | OpenAPI break | `pnpm openapi:break` | **پاس** (additive) |
 | 12 | canary policy | `pnpm canary:policy:test` | **پاس** (واحد؛ URL زنده نیاز `CANARY_*`) |
-| 13 | visual hard | فاز ۶ + baseline لینوکس | **ویندوز:** baselineهای win32 (شامل payments/approvals/statements/statements-print) با standalone روی `:3005` در اجرای ۴ تأیید/بازتولید شد. **تنها مورد باز:** اجرای `workflow_dispatch`ی `visual-baseline-capture` روی GitHub (ubuntu) برای `*-chromium-linux.png`. پیشنهاد: پس از commit لینوکس، آستانهٔ `maxDiffPixelRatio` را در صورت پایداری سخت‌تر کنید (فعلاً دست نخورده). |
-| 14 | a11y | `pnpm test:a11y` | اجرای ۴: **۴۳/۴۵** (`PLAYWRIGHT_CHANNEL=chrome` روی next.dev). `a11y-finance` seeded و `shell:139` پاس. باقی: `target-size` روی `/spaces`؛ یک `color-contrast` روی `.dang-control` در مسیر landmarks seeded (خارج از scope token اجرای ۴). خروجی Playwright به `artifacts/playwright/` منتقل شد تا reload watcher کمتر شود. |
+| 13 | visual hard | فاز ۶ + baseline لینوکس | **ویندوز:** baselineهای win32 در اجرای ۴ تأیید شد. **تنها مورد باز:** `workflow_dispatch`ی `visual-baseline-capture` روی GitHub (ubuntu). |
+| 14 | a11y | `pnpm test:a11y` | اجرای ۵: **۴۵/۴۵** (`PLAYWRIGHT_CHANNEL=chrome`، next.dev `:3005` + API `:3006`). token اسکوپ‌شدهٔ `--finance-muted-ink` (#6e6967، ≈۴٫۷:۱). helper session cookie mirror برای `shell:137`. **ثبت‌شده بدون تغییر اندازه:** `target-size` روی `/spaces` همچنان residual شناخته‌شده است (در این اجرا fail نشد / فقط مستند). `.dang-control` دست‌نخورده. |
 | 15 | فاصله با `origin/dev` | تصمیم push صریح مالک | push در این اجراها انجام نشد |
 | 16 | عمداً خارج | SMTP · SMS · Zarinpal/PSP خارجی | خارج از scope پایلوت |
 
 ## مورد باز (صریح)
 
 1. **`visual-baseline-capture` (Linux)** — تنها blocker برای hard gate بصری؛ باید روی GitHub اجرا و artifact لینوکس commit شود.
-2. **پیشنهاد (غیرمسدودکننده):** سخت‌کردن آستانهٔ visual پس از پایداری baseline لینوکس. در اجرای ۴، capture با standalone بدون `ERR_ABORTED` بود؛ اگر `ERR_ABORTED` فقط روی standalone دیده شد، همان را ثبت کنید (روی next.dev معمولاً به HMR/خروجی داخل `apps/web` مربوط بود و با `outputDir` بیرون از درخت وب کاهش یافت).
+2. **`target-size` روی `/spaces`** — ثبت در اجرای ۵؛ بدون تغییر اندازهٔ المان (محدودیت اجرا). رفع جداگانه در صورت نیاز به ۴۵/۴۵ کامل.
+3. **پیشنهاد (غیرمسدودکننده):** سخت‌کردن آستانهٔ visual پس از پایداری baseline لینوکس.
 
 ## یادداشت صداقت
 

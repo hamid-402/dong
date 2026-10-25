@@ -715,6 +715,7 @@ export function FinanceView({
       userName={session?.actor?.displayName ?? devDisplayName}
       persistenceLabel={chrome.persistenceLabel}
     >
+      <div className="financeAaScope">
       <WorkspacePageFrame
         title={sectionMeta.title}
         description={sectionMeta.description}
@@ -1392,6 +1393,7 @@ export function FinanceView({
         </StatusLine>
       ) : null}
       </WorkspacePageFrame>
+      </div>
     </AppShell>
   );
 }

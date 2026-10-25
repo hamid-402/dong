@@ -1,6 +1,7 @@
 .command {
   --ls-ink: var(--text);
-  --ls-muted: var(--muted);
+  /* Prefer finance-scoped AA ink when ancestor sets --finance-muted-ink. */
+  --ls-muted: var(--finance-muted-ink, var(--muted));
   --ls-line: var(--line);
   --ls-teal: var(--primary);
   --ls-amber: var(--warning);

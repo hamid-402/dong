@@ -2357,6 +2357,19 @@ html[data-scheme="light"] .sectionCard:hover{
   color: var(--muted);
 }
 
+/* Finance workspace routes — scoped AA muted (light only; dark themes untouched). */
+:root .financeAaScope,
+html[data-theme="paper"] .financeAaScope,
+html[data-theme="white"] .financeAaScope{
+  --finance-muted-ink: #6e6967; /* ≥4.5:1 on #f5f1ea / #f7f4ee (~4.7); not shared --muted */
+}
+.financeAaScope .financeContextFold__hint{
+  color: var(--finance-muted-ink, var(--muted));
+}
+.financeAaScope .moduleChrome__desc{
+  color: var(--finance-muted-ink, var(--module-chrome-desc, var(--muted)));
+}
+
 .financeContextFold > .scrollDisclosure__body{
   max-height: none;
   overflow: visible;

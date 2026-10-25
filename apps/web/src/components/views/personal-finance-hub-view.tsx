@@ -36,70 +36,72 @@ export function PersonalFinanceHubView() {
       userName={chrome.userName}
       persistenceLabel={chrome.persistenceLabel}
     >
-      <WorkspacePageFrame
-        title="مالی من"
-        description="ثبت دریافت یا پرداخت همین بالا است؛ گزارش و اهداف پایین‌تر جمع شده‌اند."
-        state="ready"
-        primaryAction={
-          <a className="dang-btn dang-btn--primary dang-btn--md" href="#txn">
-            ثبت تراکنش
-          </a>
-        }
-        secondaryActions={
-          personalSpace ? (
-            <Link href={wPath(personalSpace.slug)}>دفتر من</Link>
-          ) : undefined
-        }
-      >
-        {!chrome.ready ? (
-          <p role="status">در حال آماده‌سازی مالی من…</p>
-        ) : (
-          <>
-            <div id="resources">
-              <PersonalResourcesPanel />
-            </div>
-
-            <PersonalLifestyleCommand />
-
-            <details className="reportDetails" id="reports">
-              <summary>گزارش، اهداف و نمودار</summary>
-              <div className="reportDetails__body">
-                <nav className={styles.subnav} aria-label="بخش‌های مالی من">
-                  <Link className={styles.subnavLink} href="#overview">
-                    گروه‌ها و فضاها
-                  </Link>
-                  {goalsLive ? (
-                    <Link className={styles.subnavLink} href="#goals">
-                      اهداف
-                    </Link>
-                  ) : null}
-                  {intentsLive ? (
-                    <Link className={styles.subnavLink} href="#intents">
-                      قواعد
-                    </Link>
-                  ) : null}
-                  {chartsLive ? (
-                    <Link className={styles.subnavLink} href="#charts">
-                      نمودار
-                    </Link>
-                  ) : null}
-                </nav>
-                <ProductGrid>
-                  <div id="overview">
-                    <PersonalFinanceOverviewPanel />
-                  </div>
-                  <div id="goals">
-                    <PersonalDepthPanel goalsLive={goalsLive} />
-                  </div>
-                  <div id="charts">
-                    <PersonalChartsPanel />
-                  </div>
-                </ProductGrid>
+      <div className={styles.financeAaScope}>
+        <WorkspacePageFrame
+          title="مالی من"
+          description="ثبت دریافت یا پرداخت همین بالا است؛ گزارش و اهداف پایین‌تر جمع شده‌اند."
+          state="ready"
+          primaryAction={
+            <a className="dang-btn dang-btn--primary dang-btn--md" href="#txn">
+              ثبت تراکنش
+            </a>
+          }
+          secondaryActions={
+            personalSpace ? (
+              <Link href={wPath(personalSpace.slug)}>دفتر من</Link>
+            ) : undefined
+          }
+        >
+          {!chrome.ready ? (
+            <p role="status">در حال آماده‌سازی مالی من…</p>
+          ) : (
+            <>
+              <div id="resources">
+                <PersonalResourcesPanel />
               </div>
-            </details>
-          </>
-        )}
-      </WorkspacePageFrame>
+
+              <PersonalLifestyleCommand />
+
+              <details className="reportDetails" id="reports">
+                <summary>گزارش، اهداف و نمودار</summary>
+                <div className="reportDetails__body">
+                  <nav className={styles.subnav} aria-label="بخش‌های مالی من">
+                    <Link className={styles.subnavLink} href="#overview">
+                      گروه‌ها و فضاها
+                    </Link>
+                    {goalsLive ? (
+                      <Link className={styles.subnavLink} href="#goals">
+                        اهداف
+                      </Link>
+                    ) : null}
+                    {intentsLive ? (
+                      <Link className={styles.subnavLink} href="#intents">
+                        قواعد
+                      </Link>
+                    ) : null}
+                    {chartsLive ? (
+                      <Link className={styles.subnavLink} href="#charts">
+                        نمودار
+                      </Link>
+                    ) : null}
+                  </nav>
+                  <ProductGrid>
+                    <div id="overview">
+                      <PersonalFinanceOverviewPanel />
+                    </div>
+                    <div id="goals">
+                      <PersonalDepthPanel goalsLive={goalsLive} />
+                    </div>
+                    <div id="charts">
+                      <PersonalChartsPanel />
+                    </div>
+                  </ProductGrid>
+                </div>
+              </details>
+            </>
+          )}
+        </WorkspacePageFrame>
+      </div>
     </AppShell>
   );
 }
