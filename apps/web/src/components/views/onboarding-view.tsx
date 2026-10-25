@@ -40,6 +40,16 @@ const ONBOARDING_STEPS_TAIL = [
   "از خانه اعضا را دعوت کنید یا با ＋ اولین خرج را ثبت کنید — فهرست همهٔ فضاها در /home",
 ] as const;
 
+/** Real catalog only — never invent a fake template when the API is empty or filtered out. */
+export function filterVisibleTemplates(
+  templates: WorkspaceTemplateCatalogItem[],
+  kindFilter: "personal" | "group" | "building" | "org" | null,
+): WorkspaceTemplateCatalogItem[] {
+  return templates.filter(
+    (item) => !kindFilter || spaceKindForTemplate(item.id) === kindFilter,
+  );
+}
+
 export function OnboardingView() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -47,6 +57,8 @@ export function OnboardingView() {
   const { successMessage, error, setError, flashSuccess } = useFlashMessage();
   const [me, setMe] = useState<AuthMeResponse | null>(null);
   const [templates, setTemplates] = useState<WorkspaceTemplateCatalogItem[]>([]);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
   const kindHint = searchParams.get("kind");
@@ -75,6 +87,20 @@ export function OnboardingView() {
   const [created, setCreated] = useState<WorkspaceSummary | null>(null);
   const [pending, startTransition] = useTransition();
 
+  async function loadTemplatesCatalog(): Promise<void> {
+    setTemplatesLoading(true);
+    try {
+      const templateResponse = await api.templates();
+      setTemplates(templateResponse);
+      setTemplatesError(null);
+    } catch (err: unknown) {
+      setTemplates([]);
+      setTemplatesError(friendlyErrorMessage(err, "بارگذاری قالب‌ها ناموفق بود"));
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }
+
   useEffect(() => {
     const identity = getDevIdentity();
     setSubject(identity.subject);
@@ -82,9 +108,8 @@ export function OnboardingView() {
     let cancelled = false;
     void (async () => {
       try {
-        const templateResponse = await api.templates();
+        await loadTemplatesCatalog();
         if (cancelled) return;
-        setTemplates(templateResponse);
         setAllowDevAuth(chrome.allowDevAuth);
         if (chrome.actor) {
           setMe({
@@ -188,24 +213,11 @@ export function OnboardingView() {
     kindHint === "org"
       ? kindHint
       : null;
-  const visibleTemplates = useMemo(() => {
-    const base =
-      templates.length > 0
-        ? templates
-        : [
-            {
-              id: "friends_family" as const,
-              titleFa: "گروه دوستانه",
-              summaryFa: "",
-              defaultModules: [] as string[],
-              spaceKind: "group" as const,
-            },
-          ];
-    const matched = base.filter(
-      (item) => !kindFilter || spaceKindForTemplate(item.id) === kindFilter,
-    );
-    return matched.length > 0 ? matched : base;
-  }, [templates, kindFilter]);
+  const visibleTemplates = useMemo(
+    () => filterVisibleTemplates(templates, kindFilter),
+    [templates, kindFilter],
+  );
+  const catalogReady = visibleTemplates.length > 0;
   const createdFinanceHref = canonicalHref("record", created?.slug);
 
   useEffect(() => {
@@ -333,6 +345,29 @@ export function OnboardingView() {
             <GroupEmailVerificationNotice
               active={spaceKindForTemplate(template) === "group"}
             />
+            {templatesLoading && !catalogReady ? (
+              <EmptyHint loading>در حال بارگذاری قالب‌ها…</EmptyHint>
+            ) : !catalogReady ? (
+              <EmptyHint>
+                {templatesError
+                  ? templatesError
+                  : kindFilter
+                    ? "برای این نوع فضا قالبی از سرور نیامد."
+                    : "کاتالوگ قالب خالی است."}
+                <div style={{ marginTop: 12 }}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      void loadTemplatesCatalog();
+                    }}
+                    disabled={templatesLoading || pending}
+                  >
+                    تلاش دوباره
+                  </Button>
+                </div>
+              </EmptyHint>
+            ) : (
             <form noValidate onSubmit={onCreate}>
               <FormStack>
                 <TextField
@@ -376,7 +411,7 @@ export function OnboardingView() {
                     {selectedTemplate.summaryFa}
                   </p>
                 ) : null}
-                <Button type="submit" disabled={pending}>
+                <Button type="submit" disabled={pending || !catalogReady}>
                   {pending
                     ? "در حال ساخت…"
                     : groupTemplate
@@ -387,6 +422,7 @@ export function OnboardingView() {
                 </Button>
               </FormStack>
             </form>
+            )}
             {created ? (
               groupTemplate ||
               created.template === "friends_family" ||

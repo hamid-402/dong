@@ -20,7 +20,7 @@ import { ShellSpaceSwitcher } from "@/components/shell/shell-space-switcher";
 import { ShellKindHeaderSwitcher } from "@/components/shell/shell-kind-header-switcher";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { WorkspaceSectionTabs } from "@/components/shell/space-kind-header-tabs";
-import { bottomTabsV2 } from "@/lib/navigation-v2";
+import { bottomTabsV2, shellExpenseFabHref } from "@/lib/navigation-v2";
 import { canonicalHref, wPath } from "@/lib/workspace-paths";
 import { slugFromPathname } from "@/lib/workspace-storage";
 import { useViewportMode } from "@/lib/use-viewport";
@@ -46,7 +46,7 @@ function AppShellV2Inner({ children }: { children: ReactNode }) {
     inWorkspace ? chrome.workspaceId : "",
   );
   const tabs = bottomTabsV2(template, slug);
-  const fabHref = null;
+  const fabHref = shellExpenseFabHref(template, slug, membershipRole);
   const desktop = viewport === "desktop";
   const tablet = viewport === "tablet";
   /** Kind buttons in the header from tablet up (≥768); phone keeps the single switcher. */

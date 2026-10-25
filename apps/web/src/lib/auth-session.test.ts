@@ -16,4 +16,12 @@ describe("auth helpers", () => {
     expect(safeAppPath("/login?next=/spaces")).toBe("/home");
     expect(safeAppPath(null)).toBe("/home");
   });
+
+  it("accepts only internal paths that start with / and not //", () => {
+    expect(safeAppPath("/invite?token=abc")).toBe("/invite?token=abc");
+    expect(safeAppPath("/register")).toBe("/home");
+    expect(safeAppPath("relative")).toBe("/home");
+    expect(safeAppPath("http://evil.example/x")).toBe("/home");
+  });
 });
+

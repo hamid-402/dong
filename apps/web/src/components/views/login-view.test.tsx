@@ -6,9 +6,11 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { LoginView } from "./login-view";
 
+const searchParamsState = { value: new URLSearchParams() };
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => searchParamsState.value,
   usePathname: () => "/login",
 }));
 
@@ -51,6 +53,7 @@ vi.mock("@/components/auth-shell", () => ({
 describe("LoginView validation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    searchParamsState.value = new URLSearchParams();
   });
   afterEach(() => {
     cleanup();
@@ -85,4 +88,21 @@ describe("LoginView validation", () => {
     expect(await screen.findByText("رمز عبور را وارد کنید")).toBeTruthy();
     expect(api.login).not.toHaveBeenCalled();
   });
+
+  it("preserves safe ?next= on the register link", () => {
+    searchParamsState.value = new URLSearchParams("next=/w/demo/record");
+    render(<LoginView />);
+    const register = screen.getByRole("link", { name: "ساخت حساب" });
+    expect(register.getAttribute("href")).toBe(
+      `/register?next=${encodeURIComponent("/w/demo/record")}`,
+    );
+  });
+
+  it("drops open-redirect ?next= and links to plain /register", () => {
+    searchParamsState.value = new URLSearchParams("next=//evil.example");
+    render(<LoginView />);
+    const register = screen.getByRole("link", { name: "ساخت حساب" });
+    expect(register.getAttribute("href")).toBe("/register");
+  });
 });
+

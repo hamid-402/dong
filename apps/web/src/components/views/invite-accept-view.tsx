@@ -20,7 +20,8 @@ function readTokenFromLocation(): string {
   return new URLSearchParams(window.location.search).get("token") ?? "";
 }
 
-function inviteReturnPath(token: string): string {
+/** Deep-link back after login/register — always an internal `/invite` path. */
+export function inviteReturnPath(token: string): string {
   const q = token.trim() ? `?token=${encodeURIComponent(token.trim())}` : "";
   return `/invite${q}`;
 }

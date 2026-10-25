@@ -16,6 +16,8 @@ export function LoginView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = safeAppPath(searchParams.get("next"));
+  const registerHref =
+    nextPath !== "/home" ? `/register?next=${encodeURIComponent(nextPath)}` : "/register";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
@@ -104,7 +106,7 @@ export function LoginView() {
       description={loginDescription}
       footer={
         <AuthLinkRow>
-          <Link href="/register">{t("login.registerLink")}</Link>
+          <Link href={registerHref}>{t("login.registerLink")}</Link>
           <AuthDevLink />
         </AuthLinkRow>
       }

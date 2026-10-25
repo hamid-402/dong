@@ -47,6 +47,20 @@ function parsePhoneLines(raw: string): string[] {
     .slice(0, 100);
 }
 
+/** Invite/add CTA only when a friend is selected — never a disabled dead control. */
+export function friendsSpaceInviteCta(input: {
+  canAddMember: boolean;
+  hasWorkspaceId: boolean;
+  hasSlug: boolean;
+  hasSelectedFriend: boolean;
+}): "add-member" | "invite-link" | "hidden" {
+  if (input.canAddMember && input.hasWorkspaceId) {
+    return input.hasSelectedFriend ? "add-member" : "hidden";
+  }
+  if (input.hasSlug && input.hasSelectedFriend) return "invite-link";
+  return "hidden";
+}
+
 const rowTitleStyle = {
   display: "inline-flex",
   alignItems: "center",
@@ -113,6 +127,12 @@ export function FriendsView() {
     currentFinanceManagerCount: financeManagerCount,
     inviteRole: "member",
   }).ok;
+  const spaceInviteCta = friendsSpaceInviteCta({
+    canAddMember,
+    hasWorkspaceId: Boolean(activeWorkspaceId),
+    hasSlug: Boolean(activeSlug),
+    hasSelectedFriend: Boolean(barFriend),
+  });
 
   function refresh() {
     startTransition(() => {
@@ -642,24 +662,17 @@ export function FriendsView() {
                 idleHint="روی ردیف کلیک کنید یا مربع کنار دوست را تیک بزنید"
                 onClear={friendSel.clear}
               >
-                {canAddMember && activeWorkspaceId ? (
-                  <button
-                    type="button"
-                    disabled={!barFriend || pending}
-                    onClick={addFriendToSpace}
-                  >
+                {spaceInviteCta === "add-member" && barFriend ? (
+                  <button type="button" disabled={pending} onClick={addFriendToSpace}>
                     {needsSecondFinance ? "افزودن به‌عنوان مادرخرج" : "افزودن به فضا"}
                   </button>
-                ) : activeSlug && barFriend ? (
+                ) : null}
+                {spaceInviteCta === "invite-link" && barFriend ? (
                   <Link
                     href={`${membersHref}?inviteUser=${encodeURIComponent(barFriend.otherUser.userId)}&inviteName=${encodeURIComponent(barFriend.otherUser.displayName)}`}
                   >
                     دعوت به فضا
                   </Link>
-                ) : activeSlug ? (
-                  <button type="button" disabled>
-                    دعوت به فضا
-                  </button>
                 ) : null}
                 <button
                   type="button"

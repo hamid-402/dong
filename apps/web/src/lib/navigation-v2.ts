@@ -1,6 +1,7 @@
 import type { ProductFeatureFlags, WorkspaceTemplate } from "@dang/contracts";
 import {
   isExpenseApproverRole,
+  isReadOnlyRole,
   isWorkspaceAdminRole,
   roleAllowsNavKey,
   spaceKindForTemplate,
@@ -1369,6 +1370,16 @@ export function expenseFabHref(
   const modules = modulesForTemplate(template);
   if (!modules.has("expenses")) return null;
   return `${scoped(slug, "record", hubPathFor("/workspaces"))}`;
+}
+
+/** Mobile dock FAB: record expense when the role can mutate finance. */
+export function shellExpenseFabHref(
+  template: WorkspaceTemplate | undefined,
+  slug: string | null,
+  membershipRole: string | null | undefined,
+): string | null {
+  if (isReadOnlyRole(membershipRole)) return null;
+  return expenseFabHref(template, slug);
 }
 
 export function isNavHrefActive(pathname: string, href: string, _search = ""): boolean {
