@@ -42,9 +42,17 @@ export function friendshipPairKey(a: string, b: string): string {
   return a < b ? `${a}:${b}` : `${b}:${a}`;
 }
 
+/** Public directory flags readable across users (SECURITY DEFINER on Postgres). */
+export type PublicDirectoryFlags = {
+  findableByUsername: boolean;
+  allowFriendRequests: boolean;
+};
+
 export type SocialStore = {
   readonly persistence: "memory" | "postgres";
   getOrCreateDirectorySettings(userId: string): Promise<DirectorySettingRecord>;
+  /** Read another user's public flags without adopting their session or inserting. */
+  getPublicDirectoryFlags(userId: string): Promise<PublicDirectoryFlags>;
   updateDirectorySettings(
     userId: string,
     patch: UpdateDirectoryPrivacyRequest,

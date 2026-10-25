@@ -6,6 +6,7 @@ import {
   eq,
   friendship,
   or,
+  sql,
   userDirectorySetting,
   withTenantContext,
   type AppDatabase,
@@ -19,6 +20,7 @@ import {
   type ContactSyncRunRecord,
   type DirectorySettingRecord,
   type FriendshipRecord,
+  type PublicDirectoryFlags,
   type SocialStore,
 } from "./social.types.js";
 
@@ -83,6 +85,31 @@ export class PostgresSocialStore implements SocialStore {
         .returning();
       return mapSettings(inserted[0]!);
     });
+  }
+
+  /**
+   * Public flags for another user via social.directory_public_settings.
+   * Does not set the target's session and does not INSERT for them.
+   */
+  async getPublicDirectoryFlags(userId: string): Promise<PublicDirectoryFlags> {
+    const result = await this.db.execute(sql`
+      SELECT findable_by_username, allow_friend_requests
+      FROM social.directory_public_settings(${userId}::uuid)
+    `);
+    const list = (result as unknown as {
+      rows?: Array<{ findable_by_username?: boolean; allow_friend_requests?: boolean }>;
+    }).rows ??
+      (Array.isArray(result)
+        ? (result as Array<{
+            findable_by_username?: boolean;
+            allow_friend_requests?: boolean;
+          }>)
+        : []);
+    const row = list[0];
+    return {
+      findableByUsername: row?.findable_by_username ?? true,
+      allowFriendRequests: row?.allow_friend_requests ?? true,
+    };
   }
 
   async updateDirectorySettings(

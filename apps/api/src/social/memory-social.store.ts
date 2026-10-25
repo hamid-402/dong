@@ -38,6 +38,14 @@ export class MemorySocialStore implements SocialStore {
     return Promise.resolve(row);
   }
 
+  async getPublicDirectoryFlags(userId: string) {
+    const row = this.settings.get(userId) ?? defaultSettings(userId);
+    return {
+      findableByUsername: row.findableByUsername,
+      allowFriendRequests: row.allowFriendRequests,
+    };
+  }
+
   async updateDirectorySettings(
     userId: string,
     patch: UpdateDirectoryPrivacyRequest,

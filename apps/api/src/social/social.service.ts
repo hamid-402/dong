@@ -103,7 +103,7 @@ export class SocialService {
       if (!isValidUsername(username)) return notFound;
       const user = await this.accounts.findByUsername(username);
       if (!user || user.userId === actor.userId) return notFound;
-      const settings = await this.social.getOrCreateDirectorySettings(user.userId);
+      const settings = await this.social.getPublicDirectoryFlags(user.userId);
       if (!settings.findableByUsername) return notFound;
       return this.toDirectoryUser(user);
     }
@@ -227,7 +227,7 @@ export class SocialService {
         detail: "کاربر یافت نشد",
       });
     }
-    const targetSettings = await this.social.getOrCreateDirectorySettings(target.userId);
+    const targetSettings = await this.social.getPublicDirectoryFlags(target.userId);
     if (!targetSettings.allowFriendRequests) {
       throw new ForbiddenException({
         title: "Friend requests disabled",
