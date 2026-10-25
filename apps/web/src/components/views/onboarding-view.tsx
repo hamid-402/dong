@@ -50,6 +50,37 @@ export function filterVisibleTemplates(
   );
 }
 
+/** UI-only blank option — not a catalog row; create maps to friends_family. */
+export const BLANK_SPACE_SELECTION = "blank" as const;
+export type TemplateSelection = WorkspaceTemplate | typeof BLANK_SPACE_SELECTION;
+
+/** Resolve UI selection to the real API template (blank → friends_family). */
+export function templateForCreate(selection: TemplateSelection): WorkspaceTemplate {
+  return selection === BLANK_SPACE_SELECTION ? "friends_family" : selection;
+}
+
+/** Payload for blank-space create — uses a real template id, not a fake catalog item. */
+export function blankSpaceCreateBody(name: string): {
+  name: string;
+  template: "friends_family";
+  ownerDefaultShares: 1;
+} {
+  return {
+    name: name.trim(),
+    template: "friends_family",
+    ownerDefaultShares: 1,
+  };
+}
+
+/** Submit is not gated on catalog readiness — blank space works without templates. */
+export function isSpaceCreateSubmitEnabled(input: {
+  pending: boolean;
+  catalogReady: boolean;
+}): boolean {
+  void input.catalogReady;
+  return !input.pending;
+}
+
 export function OnboardingView() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -63,7 +94,7 @@ export function OnboardingView() {
   const [nameError, setNameError] = useState<string | null>(null);
   const kindHint = searchParams.get("kind");
   const templateHint = searchParams.get("template");
-  const defaultTemplate: WorkspaceTemplate =
+  const defaultSelection: TemplateSelection =
     templateHint === "personal" ||
     templateHint === "friends_family" ||
     templateHint === "household" ||
@@ -78,8 +109,8 @@ export function OnboardingView() {
           ? "residential_building"
           : kindHint === "org"
             ? "small_team"
-            : "friends_family";
-  const [template, setTemplate] = useState<WorkspaceTemplate>(defaultTemplate);
+            : BLANK_SPACE_SELECTION;
+  const [selection, setSelection] = useState<TemplateSelection>(defaultSelection);
   const [subject, setSubject] = useState<string>(DEV_IDENTITY_DEFAULTS.subject);
   const [displayName, setDisplayName] = useState<string>(DEV_IDENTITY_DEFAULTS.displayName);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -179,14 +210,17 @@ export function OnboardingView() {
       void (async () => {
         try {
           setDevIdentity(subject.trim() || "dev-local-user", displayName.trim() || "کاربر محلی");
+          const template = templateForCreate(selection);
           const workspace = await createWorkspaceWithUniqueSlug(
-            {
-              name: trimmedName,
-              template,
-              ...(template === "friends_family" || template === "household"
-                ? { ownerDefaultShares: 1 }
-                : {}),
-            },
+            selection === BLANK_SPACE_SELECTION
+              ? blankSpaceCreateBody(trimmedName)
+              : {
+                  name: trimmedName,
+                  template,
+                  ...(template === "friends_family" || template === "household"
+                    ? { ownerDefaultShares: 1 }
+                    : {}),
+                },
             (body) => api.createWorkspace(body, newClientId()),
           );
           setCreated(workspace);
@@ -203,7 +237,11 @@ export function OnboardingView() {
   }
 
   const pageError = error ?? chrome.error;
-  const selectedTemplate = templates.find((item) => item.id === template);
+  const template = templateForCreate(selection);
+  const selectedTemplate =
+    selection === BLANK_SPACE_SELECTION
+      ? null
+      : templates.find((item) => item.id === selection);
   const groupTemplate =
     template === "friends_family" || template === "household" ? template : null;
   const kindFilter =
@@ -218,14 +256,19 @@ export function OnboardingView() {
     [templates, kindFilter],
   );
   const catalogReady = visibleTemplates.length > 0;
+  const submitEnabled = isSpaceCreateSubmitEnabled({ pending, catalogReady });
   const createdFinanceHref = canonicalHref("record", created?.slug);
 
   useEffect(() => {
-    if (visibleTemplates.length === 0) return;
-    if (!visibleTemplates.some((t) => t.id === template)) {
-      setTemplate(visibleTemplates[0]!.id);
+    if (selection === BLANK_SPACE_SELECTION) return;
+    if (visibleTemplates.length === 0) {
+      setSelection(BLANK_SPACE_SELECTION);
+      return;
     }
-  }, [visibleTemplates, template]);
+    if (!visibleTemplates.some((t) => t.id === selection)) {
+      setSelection(visibleTemplates[0]!.id);
+    }
+  }, [visibleTemplates, selection]);
 
   const titleKind =
     kindFilter &&
@@ -346,14 +389,15 @@ export function OnboardingView() {
               active={spaceKindForTemplate(template) === "group"}
             />
             {templatesLoading && !catalogReady ? (
-              <EmptyHint loading>در حال بارگذاری قالب‌ها…</EmptyHint>
-            ) : !catalogReady ? (
+              <p className={`emptyHint ${styles.flatHint}`}>در حال بارگذاری قالب‌ها…</p>
+            ) : null}
+            {!templatesLoading && !catalogReady ? (
               <EmptyHint>
                 {templatesError
                   ? templatesError
                   : kindFilter
-                    ? "برای این نوع فضا قالبی از سرور نیامد."
-                    : "کاتالوگ قالب خالی است."}
+                    ? "برای این نوع فضا قالبی از سرور نیامد — می‌توانید فضای خالی بسازید."
+                    : "کاتالوگ قالب خالی است — می‌توانید فضای خالی بسازید."}
                 <div style={{ marginTop: 12 }}>
                   <Button
                     type="button"
@@ -367,17 +411,19 @@ export function OnboardingView() {
                   </Button>
                 </div>
               </EmptyHint>
-            ) : (
+            ) : null}
             <form noValidate onSubmit={onCreate}>
               <FormStack>
                 <TextField
                   id="create-group-name"
                   label={
-                    template === "personal"
-                      ? "نام فضای شخصی"
-                      : groupTemplate
-                        ? "نام گروه"
-                        : "نام فضا"
+                    selection === BLANK_SPACE_SELECTION
+                      ? "نام فضا"
+                      : template === "personal"
+                        ? "نام فضای شخصی"
+                        : groupTemplate
+                          ? "نام گروه"
+                          : "نام فضا"
                   }
                   value={name}
                   onChange={(event) => {
@@ -385,11 +431,13 @@ export function OnboardingView() {
                     setName(event.target.value);
                   }}
                   placeholder={
-                    template === "personal"
-                      ? "مثلاً دفتر من"
-                      : groupTemplate
-                        ? "مثلاً سفر شمال"
-                        : "مثلاً فضای کاری"
+                    selection === BLANK_SPACE_SELECTION
+                      ? "مثلاً فضای کاری"
+                      : template === "personal"
+                        ? "مثلاً دفتر من"
+                        : groupTemplate
+                          ? "مثلاً سفر شمال"
+                          : "مثلاً فضای کاری"
                   }
                   hint="شناسهٔ عمومی بعد از ساخت نشان داده می‌شود"
                   error={nameError ?? undefined}
@@ -397,32 +445,40 @@ export function OnboardingView() {
                 />
                 <SelectField
                   label="قالب"
-                  value={template}
-                  onChange={(event) => setTemplate(event.target.value as WorkspaceTemplate)}
+                  value={selection}
+                  onChange={(event) =>
+                    setSelection(event.target.value as TemplateSelection)
+                  }
                 >
+                  <option value={BLANK_SPACE_SELECTION}>فضای خالی</option>
                   {visibleTemplates.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.titleFa}
                     </option>
                   ))}
                 </SelectField>
-                {selectedTemplate?.summaryFa ? (
+                {selection === BLANK_SPACE_SELECTION ? (
+                  <p className={`emptyHint ${styles.flatHint}`}>
+                    بدون قالب از کاتالوگ — فضای گروهی ساده ساخته می‌شود.
+                  </p>
+                ) : selectedTemplate?.summaryFa ? (
                   <p className={`emptyHint ${styles.flatHint}`}>
                     {selectedTemplate.summaryFa}
                   </p>
                 ) : null}
-                <Button type="submit" disabled={pending || !catalogReady}>
+                <Button type="submit" disabled={!submitEnabled}>
                   {pending
                     ? "در حال ساخت…"
-                    : groupTemplate
-                      ? "ساخت گروه"
-                      : template === "personal"
-                        ? "ساخت فضای شخصی"
-                        : "ایجاد فضای کاری"}
+                    : selection === BLANK_SPACE_SELECTION
+                      ? "ایجاد فضای خالی"
+                      : groupTemplate
+                        ? "ساخت گروه"
+                        : template === "personal"
+                          ? "ساخت فضای شخصی"
+                          : "ایجاد فضای کاری"}
                 </Button>
               </FormStack>
             </form>
-            )}
             {created ? (
               groupTemplate ||
               created.template === "friends_family" ||

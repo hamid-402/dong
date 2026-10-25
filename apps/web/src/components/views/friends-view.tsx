@@ -47,18 +47,26 @@ function parsePhoneLines(raw: string): string[] {
     .slice(0, 100);
 }
 
-/** Invite/add CTA only when a friend is selected — never a disabled dead control. */
+export const FRIENDS_INVITE_SELECT_HINT = "اول یک دوست انتخاب کن";
+
+/**
+ * Invite CTA is always visible.
+ * Without a selected friend → invite-disabled (button shown disabled + hint).
+ */
 export function friendsSpaceInviteCta(input: {
   canAddMember: boolean;
   hasWorkspaceId: boolean;
   hasSlug: boolean;
   hasSelectedFriend: boolean;
-}): "add-member" | "invite-link" | "hidden" {
-  if (input.canAddMember && input.hasWorkspaceId) {
-    return input.hasSelectedFriend ? "add-member" : "hidden";
-  }
-  if (input.hasSlug && input.hasSelectedFriend) return "invite-link";
-  return "hidden";
+}): "add-member" | "invite-link" | "invite-disabled" {
+  if (!input.hasSelectedFriend) return "invite-disabled";
+  if (input.canAddMember && input.hasWorkspaceId) return "add-member";
+  if (input.hasSlug) return "invite-link";
+  return "invite-disabled";
+}
+
+export function friendsInviteSelectHint(hasSelectedFriend: boolean): string | null {
+  return hasSelectedFriend ? null : FRIENDS_INVITE_SELECT_HINT;
 }
 
 const rowTitleStyle = {
@@ -664,7 +672,7 @@ export function FriendsView() {
               >
                 {spaceInviteCta === "add-member" && barFriend ? (
                   <button type="button" disabled={pending} onClick={addFriendToSpace}>
-                    {needsSecondFinance ? "افزودن به‌عنوان مادرخرج" : "افزودن به فضا"}
+                    {needsSecondFinance ? "افزودن به‌عنوان مادرخرج" : "دعوت به فضا"}
                   </button>
                 ) : null}
                 {spaceInviteCta === "invite-link" && barFriend ? (
@@ -673,6 +681,14 @@ export function FriendsView() {
                   >
                     دعوت به فضا
                   </Link>
+                ) : null}
+                {spaceInviteCta === "invite-disabled" ? (
+                  <>
+                    <button type="button" disabled aria-disabled="true">
+                      دعوت به فضا
+                    </button>
+                    <span className="liveHint">{FRIENDS_INVITE_SELECT_HINT}</span>
+                  </>
                 ) : null}
                 <button
                   type="button"

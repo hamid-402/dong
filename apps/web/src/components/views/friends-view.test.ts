@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { friendsSpaceInviteCta } from "./friends-view";
+import {
+  FRIENDS_INVITE_SELECT_HINT,
+  friendsInviteSelectHint,
+  friendsSpaceInviteCta,
+} from "./friends-view";
 
 describe("friendsSpaceInviteCta", () => {
-  it("hides dead invite control until a friend is selected", () => {
+  it("keeps invite button visible but disabled when no friend is selected", () => {
     expect(
       friendsSpaceInviteCta({
         canAddMember: false,
@@ -10,10 +14,20 @@ describe("friendsSpaceInviteCta", () => {
         hasSlug: true,
         hasSelectedFriend: false,
       }),
-    ).toBe("hidden");
+    ).toBe("invite-disabled");
+    expect(
+      friendsSpaceInviteCta({
+        canAddMember: true,
+        hasWorkspaceId: true,
+        hasSlug: true,
+        hasSelectedFriend: false,
+      }),
+    ).toBe("invite-disabled");
+    expect(friendsInviteSelectHint(false)).toBe(FRIENDS_INVITE_SELECT_HINT);
+    expect(FRIENDS_INVITE_SELECT_HINT).toBe("اول یک دوست انتخاب کن");
   });
 
-  it("shows real invite link only with selected friend", () => {
+  it("enables real invite link when a friend is selected", () => {
     expect(
       friendsSpaceInviteCta({
         canAddMember: false,
@@ -22,17 +36,10 @@ describe("friendsSpaceInviteCta", () => {
         hasSelectedFriend: true,
       }),
     ).toBe("invite-link");
+    expect(friendsInviteSelectHint(true)).toBeNull();
   });
 
-  it("shows add-member for managers only when a friend is selected", () => {
-    expect(
-      friendsSpaceInviteCta({
-        canAddMember: true,
-        hasWorkspaceId: true,
-        hasSlug: true,
-        hasSelectedFriend: false,
-      }),
-    ).toBe("hidden");
+  it("enables add-member for managers when a friend is selected", () => {
     expect(
       friendsSpaceInviteCta({
         canAddMember: true,

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { WorkspaceTemplateCatalogItem } from "@dang/contracts";
-import { filterVisibleTemplates } from "./onboarding-view";
+import {
+  BLANK_SPACE_SELECTION,
+  blankSpaceCreateBody,
+  filterVisibleTemplates,
+  isSpaceCreateSubmitEnabled,
+  templateForCreate,
+} from "./onboarding-view";
 
 const catalog: WorkspaceTemplateCatalogItem[] = [
   {
@@ -41,5 +47,24 @@ describe("filterVisibleTemplates", () => {
 
   it("keeps full catalog when no kind filter", () => {
     expect(filterVisibleTemplates(catalog, null)).toHaveLength(3);
+  });
+});
+
+describe("blank space creation", () => {
+  it("builds a real friends_family payload without inventing catalog rows", () => {
+    expect(filterVisibleTemplates([], null)).toEqual([]);
+    expect(BLANK_SPACE_SELECTION).toBe("blank");
+    expect(templateForCreate(BLANK_SPACE_SELECTION)).toBe("friends_family");
+    expect(blankSpaceCreateBody("  سفر شمال  ")).toEqual({
+      name: "سفر شمال",
+      template: "friends_family",
+      ownerDefaultShares: 1,
+    });
+    expect(
+      isSpaceCreateSubmitEnabled({ pending: false, catalogReady: false }),
+    ).toBe(true);
+    expect(
+      isSpaceCreateSubmitEnabled({ pending: true, catalogReady: true }),
+    ).toBe(false);
   });
 });
