@@ -155,4 +155,73 @@ describe("payment_receipt RLS isolation", () => {
     );
     assert.equal(aSees.length, 1, "workspace A still sees its own receipt");
   });
+
+  it("حذف صندوق با dang_runtime با خطای permission رد می‌شه", async (t) => {
+    if (!databaseUrl) {
+      t.skip(
+        "DATABASE_URL not set — skip dang_runtime DELETE permission (no .env load)",
+      );
+      return;
+    }
+
+    const { pool, close } = createDatabase(databaseUrl);
+    t.after(async () => {
+      await close();
+    });
+
+    const tableProbe = await pool.query<{ exists: boolean }>(`
+      select exists (
+        select 1
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'finance' and c.relname = 'petty_cash_fund'
+      ) as exists
+    `);
+    if (!tableProbe.rows[0]?.exists) {
+      t.skip("finance.petty_cash_fund not present yet");
+      return;
+    }
+
+    const roleProbe = await pool.query<{ exists: boolean }>(`
+      select exists (
+        select 1 from pg_roles where rolname = 'dang_runtime'
+      ) as exists
+    `);
+    if (!roleProbe.rows[0]?.exists) {
+      t.skip("dang_runtime role not present");
+      return;
+    }
+
+    const fundId = crypto.randomUUID();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      try {
+        await client.query("SET LOCAL ROLE dang_runtime");
+      } catch {
+        await client.query("ROLLBACK");
+        t.skip("cannot SET ROLE dang_runtime from current connection role");
+        return;
+      }
+
+      await assert.rejects(
+        () =>
+          client.query(`DELETE FROM finance.petty_cash_fund WHERE id = $1`, [
+            fundId,
+          ]),
+        (err: unknown) => {
+          const e = err as { code?: string; message?: string };
+          assert.equal(e.code, "42501", "expected SQLSTATE 42501");
+          assert.match(
+            String(e.message ?? err),
+            /permission denied/i,
+          );
+          return true;
+        },
+      );
+    } finally {
+      await client.query("ROLLBACK").catch(() => undefined);
+      client.release();
+    }
+  });
 });
