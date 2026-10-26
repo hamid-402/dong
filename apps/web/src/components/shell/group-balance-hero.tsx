@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Amount, displayUnitLabel, formatMoneyFromIrrMinor, irrMinorToDisplayInteger } from "@dang/ui";
 import { useDisplayUnit } from "@/lib/display-unit";
 import { NAV_LABELS } from "@/lib/nav-labels";
+import { netBalancePhrase } from "@/lib/net-amount-display";
 import { netFromIrrMinor, sortPeersByAbsNet } from "@/lib/space-net-balance";
 
 type PeerLine = {
@@ -72,15 +73,13 @@ export function GroupBalanceHero({
         <h2 id="group-balance-hero-title" className={`groupBalanceHero__net is-${mine.tone}`}>
           {mine.tone === "settled"
             ? "حساب‌ها تسویه است"
-            : mine.tone === "credit"
-              ? `+${absDisplay} ${unitLabel}`
-              : `−${absDisplay} ${unitLabel}`}
+            : `${netBalancePhrase(mine.tone)} ${absDisplay} ${unitLabel}`}
         </h2>
         <p className="groupBalanceHero__hint">
           {mine.tone === "credit"
-            ? "طلبکارید — از تسویه برای دریافت سهم استفاده کنید."
+            ? "از تسویه برای دریافت سهم استفاده کنید."
             : mine.tone === "debt"
-              ? "بدهکارید — با تسویه حساب یا پیشنهاد کمینه، پرداخت را کوتاه کنید."
+              ? "با تسویه حساب یا پیشنهاد کمینه، پرداخت را کوتاه کنید."
               : `با ${NAV_LABELS.addExpense} تازه، مانده از دفتر زنده دوباره محاسبه می‌شود.`}
         </p>
         {open > 0 ? (

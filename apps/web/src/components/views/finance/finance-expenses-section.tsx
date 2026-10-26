@@ -34,6 +34,7 @@ import { api } from "@/lib/api";
 import { useDisplayUnit } from "@/lib/display-unit";
 import { moneyUnitSuffix } from "@/lib/money-labels";
 import { NAV_LABELS } from "@/lib/nav-labels";
+import { netBalancePhrase, netBalanceTone } from "@/lib/net-amount-display";
 import { membershipRoleLabel, zeroSumHint } from "@/lib/status-labels";
 import type { OfflineExpenseDraft } from "@/lib/offline-drafts";
 import { wPath } from "@/lib/workspace-paths";
@@ -300,9 +301,7 @@ export function FinanceExpensesSection(props: FinanceExpensesSectionProps) {
         <HeroBalance
           label="مانده خالص شما"
           amount={formatMoneyFromIrrMinor(Math.abs(net), unit)}
-          subtitle={
-            net >= 0 ? `${unitLabel} طلب دارید` : `${unitLabel} بدهکارید`
-          }
+          subtitle={`${netBalancePhrase(netBalanceTone(net))} · ${unitLabel}`}
           actionLabel={NAV_LABELS.settlements}
           onAction={props.onGoSettlements}
           hint={props.balances ? zeroSumHint(props.balances.zeroSum) : "…"}

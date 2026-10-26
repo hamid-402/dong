@@ -24,7 +24,7 @@ export function netFromIrrMinor(
     return {
       toman,
       irrMinor: irr,
-      label: `${formatMoneyFromIrrMinor(irr, unit)} طلب`,
+      label: `${formatMoneyFromIrrMinor(irr, unit)} طلب شما`,
       tone: "credit",
     };
   }
@@ -32,7 +32,7 @@ export function netFromIrrMinor(
     return {
       toman,
       irrMinor: irr,
-      label: `${formatMoneyFromIrrMinor(Math.abs(irr), unit)} بدهی`,
+      label: `${formatMoneyFromIrrMinor(Math.abs(irr), unit)} بدهی شما`,
       tone: "debt",
     };
   }

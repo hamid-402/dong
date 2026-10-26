@@ -79,9 +79,9 @@ export function HomeBriefingPanel({
     spaceKind === "personal"
       ? "مانده خالص شما"
       : owed
-        ? "در این فضا طلبکارید"
+        ? "طلب شما"
         : debt
-          ? "در این فضا بدهکارید"
+          ? "بدهی شما"
           : openSettlements > 0
             ? "تسویه باز دارید"
             : "حساب این فضا";
@@ -150,7 +150,7 @@ export function HomeBriefingPanel({
               ? `${openSettlements.toLocaleString("fa-IR")} تسویه در جریان`
               : balanceToman === 0
                 ? "تسویه"
-                : `${owed ? "+" : "−"}${amountLabel} ${unitLabel}`}
+                : `${amountLabel} ${unitLabel}`}
         </p>
         {metaBits.length > 0 ? (
           <p className={styles.balanceMeta}>{metaBits.join(" · ")}</p>

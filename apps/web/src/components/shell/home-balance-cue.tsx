@@ -41,9 +41,9 @@ export function HomeBalanceCue({
     spaceKind === "personal"
       ? "مانده خالص شما"
       : owed
-        ? "در این فضا طلبکارید"
+        ? "طلب شما"
         : debt
-          ? "در این فضا بدهکارید"
+          ? "بدهی شما"
           : openSettlements > 0
             ? "تسویه باز دارید"
             : "حساب این فضا";
@@ -70,7 +70,7 @@ export function HomeBalanceCue({
               ? `${openSettlements.toLocaleString("fa-IR")} تسویه در جریان`
               : balanceToman === 0
                 ? "تسویه"
-                : `${owed ? "+" : "−"}${amountLabel} ${unitLabel}`}
+                : `${amountLabel} ${unitLabel}`}
         </p>
         {subtitleBits.length > 0 ? (
           <p className="homeBalanceCue__meta">{subtitleBits.join(" · ")}</p>

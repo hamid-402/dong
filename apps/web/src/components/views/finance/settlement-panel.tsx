@@ -42,6 +42,7 @@ import { formatFaDate } from "@/lib/fa-datetime";
 import { memberStatementHref } from "@/lib/statement-links";
 import { membershipRoleLabel, paymentLinkStatusLabel, settlementStatusLabel } from "@/lib/status-labels";
 import { useOptionalAppChrome } from "@/lib/use-app-chrome";
+import { formatNetBalanceLabel } from "@/lib/net-amount-display";
 import { ConfirmSettlementDialog } from "@/components/views/finance/confirm-settlement-dialog";
 import { settleConfirmRequest, settleHumanSentence } from "@/components/views/finance/settle-sentence";
 import {
@@ -93,12 +94,6 @@ type SettlementPanelProps = {
   onCancelSettlement: (settlementId: string) => void;
   onCreatePaymentLink: (settlement: SettlementSummary) => void;
 };
-
-function absMinor(amountMinor: string | undefined): string {
-  if (!amountMinor) return "0";
-  const n = BigInt(amountMinor);
-  return (n < 0n ? -n : n).toString();
-}
 
 const INTENT_OPTIONS: Array<{ value: SettlePayIntent; label: string; hint: string }> = [
   {
@@ -560,21 +555,32 @@ export function SettlementPanel({
               <Amount irrMinor={settlePlan.giftAmountMinor} />
               {" · پیشنهاد "}
               <Amount irrMinor={settlePlan.suggestedSettleMinor} />
-              {" · مانده شما پس از تسویه ≈ "}
-              <Amount irrMinor={absMinor(settlePlan.payerNetAfterSettlementMinor)} />
+              {" · پس از تسویه ≈ "}
+              {formatNetBalanceLabel(
+                settlePlan.payerNetAfterSettlementMinor,
+                displayUnit,
+              )}
             </StatusLine>
           ) : null}
           {apiPreview && currentUserId && intent !== "fund_gift_only" ? (
             <StatusLine>
               اثر تسویه روی ledger (بدون هدیه): شما{" "}
-              <Amount irrMinor={absMinor(beforeMe?.net.amountMinor)} />
+              {formatNetBalanceLabel(beforeMe?.net.amountMinor ?? "0", displayUnit)}
               {" → "}
-              <Amount irrMinor={absMinor(afterMe?.net.amountMinor)} />
+              {formatNetBalanceLabel(afterMe?.net.amountMinor ?? "0", displayUnit)}
               {" · "}
               {memberLabel(settleToUserId)}{" "}
-              <Amount irrMinor={absMinor(beforeOther?.net.amountMinor)} />
+              {formatNetBalanceLabel(
+                beforeOther?.net.amountMinor ?? "0",
+                displayUnit,
+                "party",
+              )}
               {" → "}
-              <Amount irrMinor={absMinor(afterOther?.net.amountMinor)} />
+              {formatNetBalanceLabel(
+                afterOther?.net.amountMinor ?? "0",
+                displayUnit,
+                "party",
+              )}
               {apiPreview.zeroSumBefore && apiPreview.zeroSumAfter
                 ? " · صفرجمع قبل/بعد برقرار"
                 : " · هشدار صفرجمع"}

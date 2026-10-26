@@ -124,6 +124,10 @@ test.describe("visual shell snapshots", () => {
       context,
       request,
     }) => {
+      test.skip(
+        process.platform === "linux",
+        "baseline لینوکس با workflow جداگانه ساخته می‌شود",
+      );
       const { installDevSession, resolveWorkspaceSlug } = await import(
         "./helpers/dev-session"
       );

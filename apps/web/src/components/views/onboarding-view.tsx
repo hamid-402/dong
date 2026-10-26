@@ -73,11 +73,7 @@ export function blankSpaceCreateBody(name: string): {
 }
 
 /** Submit is not gated on catalog readiness — blank space works without templates. */
-export function isSpaceCreateSubmitEnabled(input: {
-  pending: boolean;
-  catalogReady: boolean;
-}): boolean {
-  void input.catalogReady;
+export function isSpaceCreateSubmitEnabled(input: { pending: boolean }): boolean {
   return !input.pending;
 }
 
@@ -256,7 +252,7 @@ export function OnboardingView() {
     [templates, kindFilter],
   );
   const catalogReady = visibleTemplates.length > 0;
-  const submitEnabled = isSpaceCreateSubmitEnabled({ pending, catalogReady });
+  const submitEnabled = isSpaceCreateSubmitEnabled({ pending });
   const createdFinanceHref = canonicalHref("record", created?.slug);
 
   useEffect(() => {

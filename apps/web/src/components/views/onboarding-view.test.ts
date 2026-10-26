@@ -60,11 +60,7 @@ describe("blank space creation", () => {
       template: "friends_family",
       ownerDefaultShares: 1,
     });
-    expect(
-      isSpaceCreateSubmitEnabled({ pending: false, catalogReady: false }),
-    ).toBe(true);
-    expect(
-      isSpaceCreateSubmitEnabled({ pending: true, catalogReady: true }),
-    ).toBe(false);
+    expect(isSpaceCreateSubmitEnabled({ pending: false })).toBe(true);
+    expect(isSpaceCreateSubmitEnabled({ pending: true })).toBe(false);
   });
 });

@@ -584,7 +584,7 @@ export function PeriodInvoicePanels({
                   return f === "petty_cash" || f === "personal";
                 }) ? (
                   <div className={styles.fundingHint}>
-                    بدهی/بستانکاری نسبت به تنخواه در مانده و پیشنهاد تسویه دیده
+                    طلب شما / بدهی شما نسبت به تنخواه در مانده و پیشنهاد تسویه دیده
                     می‌شود؛ شرح کامل در صورتحساب سهم‌محور (چاپ و Excel).
                   </div>
                 ) : null}

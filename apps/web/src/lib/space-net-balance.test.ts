@@ -13,13 +13,13 @@ describe("netFromIrrMinor", () => {
     expect(n.tone).toBe("credit");
     expect(n.toman).toBe(1000);
     expect(n.irrMinor).toBe(10_000);
-    expect(n.label).toContain("طلب");
+    expect(n.label).toContain("طلب شما");
   });
 
   it("marks negative as debt", () => {
     const n = netFromIrrMinor("-5000", "rial");
     expect(n.tone).toBe("debt");
-    expect(n.label).toContain("بدهی");
+    expect(n.label).toContain("بدهی شما");
   });
 
   it("marks zero as settled", () => {

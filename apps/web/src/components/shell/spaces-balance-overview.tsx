@@ -61,14 +61,14 @@ function KindBalanceCard({
       </div>
       <dl className="spacesBalanceOverview__grid">
         <div className="is-credit">
-          <dt>طلب دارید</dt>
+          <dt>طلب شما</dt>
           <dd>
             <span className="spacesBalanceOverview__amount">{owedDisplay}</span>
             <span>{unitLabel}</span>
           </dd>
         </div>
         <div className="is-debt">
-          <dt>بدهکارید</dt>
+          <dt>بدهی شما</dt>
           <dd>
             <span className="spacesBalanceOverview__amount">{debtDisplay}</span>
             <span>{unitLabel}</span>

@@ -19,6 +19,7 @@ import { useDisplayUnit } from "@/lib/display-unit";
 import { irrMinorToDisplayInput } from "@/lib/irr-money";
 import { moneyUnitSuffix } from "@/lib/money-labels";
 import { NAV_LABELS } from "@/lib/nav-labels";
+import { netBalancePhrase, netBalanceTone } from "@/lib/net-amount-display";
 import { zeroSumHint } from "@/lib/status-labels";
 
 export function FinanceSettlementsSection(props: {
@@ -70,9 +71,7 @@ export function FinanceSettlementsSection(props: {
         <HeroBalance
           label="مانده خالص شما"
           amount={formatMoneyFromIrrMinor(Math.abs(net), unit)}
-          subtitle={
-            net >= 0 ? `${unitLabel} طلب دارید` : `${unitLabel} بدهکارید`
-          }
+          subtitle={`${netBalancePhrase(netBalanceTone(net))} · ${unitLabel}`}
           actionLabel={NAV_LABELS.expenses}
           onAction={props.onGoExpenses}
           hint={props.balances ? zeroSumHint(props.balances.zeroSum) : "…"}

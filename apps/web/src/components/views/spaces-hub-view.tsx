@@ -84,11 +84,11 @@ function KindOverviewSummary({
       {showMoney ? (
         <dl className="kindOverview__facts">
           <div className="is-credit">
-            <dt>طلب دارید</dt>
+            <dt>طلب شما</dt>
             <dd>{formatMoneyFromIrrMinor(agg.youAreOwedToman * 10, unit)}</dd>
           </div>
           <div className="is-debt">
-            <dt>بدهکارید</dt>
+            <dt>بدهی شما</dt>
             <dd>{formatMoneyFromIrrMinor(agg.youOweToman * 10, unit)}</dd>
           </div>
           <div>

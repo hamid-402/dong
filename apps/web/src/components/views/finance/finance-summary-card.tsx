@@ -7,13 +7,11 @@ import { Amount, Button } from "@dang/ui";
 import { DataList, DataRow, EmptyHint, SectionCard } from "@/components/ui-blocks";
 import { memberStatementHref } from "@/lib/statement-links";
 import { NAV_LABELS } from "@/lib/nav-labels";
-
-function balancePhrase(amountMinor: string) {
-  const value = BigInt(amountMinor);
-  if (value > 0n) return "طلبکار";
-  if (value < 0n) return "بدهکار";
-  return "تسویه";
-}
+import {
+  absIrrMinor,
+  netBalancePhrase,
+  netBalanceTone,
+} from "@/lib/net-amount-display";
 
 function partyTitle(
   userId: string,
@@ -76,8 +74,8 @@ export function FinanceSummaryCard({
     >
       {equalDebtorHint ? <p className="liveHint">{equalDebtorHint}</p> : null}
       <p className="liveHint">
-        ماندهٔ مثبت = طلب از دیگران/صندوق؛ منفی = بدهی. وقتی خرج از تنخواه باشد بدهی به
-        صندوق است؛ جبران خرج شخصی هم از مسیر صندوق دیده می‌شود.
+        «طلب شما» یعنی از دیگران/صندوق طلب دارید؛ «بدهی شما» یعنی بدهکارید. وقتی خرج از
+        تنخواه باشد بدهی به صندوق است؛ جبران خرج شخصی هم از مسیر صندوق دیده می‌شود.
       </p>
       <DataList>
         {!balances || balances.lines.length === 0 ? (
@@ -88,6 +86,8 @@ export function FinanceSummaryCard({
             const isDebtor = net < 0n;
             const isFund = isFundPartyId(line.userId);
             const debtAbs = isDebtor ? (-net).toString() : "0";
+            const tone = netBalanceTone(line.net.amountMinor);
+            const isSelf = Boolean(currentUserId && line.userId === currentUserId);
             const showSettleLink =
               !isFund &&
               paymentsLive &&
@@ -104,17 +104,9 @@ export function FinanceSummaryCard({
                     ? net > 0n
                       ? "طلب صندوق از اعضا"
                       : "بدهی صندوق به اعضا (جبران)"
-                    : balancePhrase(line.net.amountMinor)
+                    : netBalancePhrase(tone, isSelf ? "you" : "party")
                 }
-                trailing={
-                  <Amount
-                    irrMinor={
-                      line.net.amountMinor.startsWith("-")
-                        ? line.net.amountMinor.slice(1)
-                        : line.net.amountMinor
-                    }
-                  />
-                }
+                trailing={<Amount irrMinor={absIrrMinor(line.net.amountMinor)} />}
                 actions={
                   !isFund && (showSettleLink || slug) ? (
                     <>
