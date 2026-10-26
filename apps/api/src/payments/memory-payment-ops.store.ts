@@ -267,6 +267,23 @@ export class MemoryPaymentOpsStore implements PaymentOpsStore {
     return Promise.resolve(next);
   }
 
+  async deleteFund(workspaceId: string, fundId: string): Promise<void> {
+    const row = this.funds.get(fundId);
+    if (!row || row.workspaceId !== workspaceId) {
+      throw new Error("PETTY_CASH_FUND_NOT_FOUND");
+    }
+    const hasReceipt = [...this.receipts.values()].some(
+      (r) => r.workspaceId === workspaceId && r.payeeFundId === fundId,
+    );
+    if (hasReceipt) {
+      throw new Error("PETTY_CASH_FUND_HAS_RECEIPTS");
+    }
+    for (const [id, mov] of this.movements) {
+      if (mov.fundId === fundId) this.movements.delete(id);
+    }
+    this.funds.delete(fundId);
+  }
+
   listMovements(
     workspaceId: string,
     fundId: string,

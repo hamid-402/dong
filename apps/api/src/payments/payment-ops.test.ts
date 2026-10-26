@@ -1595,3 +1595,41 @@ test("run13b third member cannot approve or reject receipt", async () => {
     },
   );
 });
+
+test("run13c: delete fund with receipt is rejected (memory store / service)", async () => {
+  const { service, ops } = buildService();
+  const fund = await service.createPettyCashFund(finance, workspaceId, {
+    name: "صندوق محدودیت حذف",
+    openingBalanceMinor: "0",
+    idempotencyKey: "run13c-fund-restrict",
+  });
+  await service.createReceipt(payer, workspaceId, {
+    payeeFundId: fund.id,
+    method: "cash",
+    amountMinor: "25000",
+    paidAt: new Date().toISOString(),
+    idempotencyKey: "run13c-fund-rcpt",
+  });
+
+  await assert.rejects(
+    () => ops.deleteFund(workspaceId, fund.id),
+    (err: unknown) => {
+      assert.ok(err instanceof Error);
+      assert.equal(err.message, "PETTY_CASH_FUND_HAS_RECEIPTS");
+      return true;
+    },
+  );
+
+  await assert.rejects(
+    () => service.deletePettyCashFund(finance, workspaceId, fund.id),
+    (err: unknown) => {
+      assert.ok(err instanceof ConflictException);
+      const body = err.getResponse() as { code?: string };
+      assert.equal(body.code, "PETTY_CASH_FUND_HAS_RECEIPTS");
+      return true;
+    },
+  );
+
+  const stillThere = await ops.getFund(workspaceId, fund.id);
+  assert.ok(stillThere);
+});

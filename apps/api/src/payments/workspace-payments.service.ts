@@ -766,7 +766,41 @@ export class WorkspacePaymentsService {
   }
 
   /**
-   * Soft-close petty cash â€” ledger retained; no further topup/spend until reopen.
+   * Hard-delete petty cash fund. Rejected when any payment receipt references it
+   * (DB: payment_receipt_payee_fund_workspace_fk ON DELETE RESTRICT).
+   */
+  async deletePettyCashFund(
+    actor: AuthActor,
+    workspaceId: string,
+    fundId: string,
+  ): Promise<void> {
+    await this.access.requireFinanceManager(workspaceId, actor.userId);
+    if (this.mfa) await this.mfa.assertMfaEnrolledForFinanceAction(actor.userId);
+    const fund = await this.ops.getFund(workspaceId, fundId);
+    if (!fund) {
+      throw new NotFoundException({
+        type: "https://dang.local/problems/not-found",
+        title: "صندوق تنخواه یافت نشد",
+        status: 404,
+      });
+    }
+    try {
+      await this.ops.deleteFund(workspaceId, fundId);
+    } catch (err) {
+      if (err instanceof Error && err.message === "PETTY_CASH_FUND_HAS_RECEIPTS") {
+        throw new ConflictException({
+          type: "https://dang.local/problems/conflict",
+          title: "صندوق دارای رسید پرداخت است و قابل حذف نیست",
+          status: 409,
+          code: "PETTY_CASH_FUND_HAS_RECEIPTS",
+        });
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Soft-close petty cash — ledger retained; no further topup/spend until reopen.
    */
   async closePettyCashFund(
     actor: AuthActor,

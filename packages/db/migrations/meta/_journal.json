@@ -673,6 +673,13 @@
       "when": 1789006600000,
       "tag": "0096_payment_receipt_payee_exactly_one",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1789006700000,
+      "tag": "0097_payment_receipt_payee_fund_fk_restrict",
+      "breakpoints": true
     }
   ]
 }

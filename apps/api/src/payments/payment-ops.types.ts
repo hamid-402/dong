@@ -138,12 +138,17 @@ export type PaymentOpsStore = {
     createdByUserId: string,
     input: CreatePettyCashFundRequest & { custodianUserId: string },
   ): Promise<StoredPettyCashFund>;
-  /** Soft-close / reopen — never hard-delete; ledger history stays. */
+  /** Soft-close / reopen — preferred over hard-delete; ledger history stays. */
   setFundActive(
     workspaceId: string,
     fundId: string,
     active: boolean,
   ): Promise<StoredPettyCashFund>;
+  /**
+   * Hard-delete fund. Rejected when any payment_receipt references the fund
+   * (mirrors DB FK payment_receipt_payee_fund_workspace_fk ON DELETE RESTRICT).
+   */
+  deleteFund(workspaceId: string, fundId: string): Promise<void>;
   /** Requires workspaceId so Postgres RLS (FORCE) can see fund-scoped rows. */
   listMovements(
     workspaceId: string,

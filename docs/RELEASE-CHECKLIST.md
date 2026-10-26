@@ -34,6 +34,7 @@
 - ایمیل = غیر SMTP مگر پیکربندی واقعی.
 - آمادگی انتشار سقف طرح: ≈۶٫۵ بدون سبز کردن جعلی stubها.
 - **prod / migration `0093`:** نقش `dang_runtime` باید **قبل از** اجرای `0093_directory_public_settings` وجود داشته باشد؛ در غیر این صورت `GRANT EXECUTE` داخل بلوک `IF EXISTS (pg_roles…)` بی‌صدا انجام نمی‌شود و runtime به تابع دسترسی نخواهد داشت.
+- **قبل از prod (رسید / صندوق — `0096`/`0097`):** ردیف‌های قدیمی `payment_receipt` بدون گیرنده (`payee_user_id` و `payee_fund_id` هر دو NULL) را backfill کنید؛ سپس `VALIDATE CONSTRAINT` برای `payment_receipt_payee_exactly_one_chk` و `payment_receipt_payee_fund_workspace_fk` اجرا شود.
 
 ## مراجع
 

@@ -11,6 +11,7 @@ import {
   eq,
   membership,
   paymentReceipt,
+  pettyCashFund,
   userAccount,
   withTenantContext,
   workspace,
@@ -154,5 +155,120 @@ describe("payment_receipt RLS isolation", () => {
         tx.select().from(paymentReceipt).where(eq(paymentReceipt.id, receiptId)),
     );
     assert.equal(aSees.length, 1, "workspace A still sees its own receipt");
+  });
+
+  it("rejects DELETE of petty_cash_fund referenced by payment_receipt (RESTRICT)", async (t) => {
+    if (!databaseUrl) {
+      t.skip(
+        "DATABASE_URL not set — skip payee_fund FK RESTRICT (no .env load)",
+      );
+      return;
+    }
+
+    const { db, pool, close } = createDatabase(databaseUrl);
+    t.after(async () => {
+      await close();
+    });
+
+    const roleProbe = await pool.query<{
+      current_user: string;
+      rolsuper: boolean;
+      rolbypassrls: boolean;
+    }>(`
+      select current_user, r.rolsuper, r.rolbypassrls
+      from pg_roles r where r.rolname = current_user
+    `);
+    const probe = roleProbe.rows[0];
+    if (!probe || probe.rolsuper || probe.rolbypassrls) {
+      assert.fail(
+        `fund RESTRICT test must run as NOBYPASSRLS (got ${probe?.current_user ?? "?"}); use dang_runtime`,
+      );
+    }
+
+    const fkProbe = await pool.query<{ confdeltype: string }>(`
+      select c.confdeltype
+      from pg_constraint c
+      join pg_namespace n on n.oid = c.connamespace
+      where n.nspname = 'finance'
+        and c.conname = 'payment_receipt_payee_fund_workspace_fk'
+        and c.contype = 'f'
+    `);
+    if (!fkProbe.rows[0]) {
+      t.skip("payment_receipt_payee_fund_workspace_fk (0096/0097) not applied yet");
+      return;
+    }
+    assert.equal(
+      fkProbe.rows[0].confdeltype,
+      "r",
+      "payee_fund workspace FK must be ON DELETE RESTRICT (0097)",
+    );
+
+    const userId = crypto.randomUUID();
+    const workspaceId = crypto.randomUUID();
+    const fundId = crypto.randomUUID();
+    const receiptId = crypto.randomUUID();
+
+    await db.insert(userAccount).values({
+      id: userId,
+      externalSubject: `rcpt-fund-del-${userId}`,
+      displayName: "Fund delete",
+    });
+
+    await withTenantContext(db, { workspaceId, userId }, async (tx) => {
+      await tx.insert(workspace).values({
+        id: workspaceId,
+        slug: `rcpt-fd-${workspaceId.slice(0, 8)}`,
+        name: "Fund delete WS",
+        template: "friends_family",
+        createdBy: userId,
+      });
+      await tx.insert(membership).values({
+        workspaceId,
+        userId,
+        role: "owner",
+      });
+      await tx.insert(pettyCashFund).values({
+        id: fundId,
+        workspaceId,
+        name: "صندوق با رسید",
+        custodianUserId: userId,
+        openingBalanceMinor: 0n,
+        createdByUserId: userId,
+        idempotencyKey: `fund-del-${fundId}`,
+      });
+      await tx.insert(paymentReceipt).values({
+        id: receiptId,
+        workspaceId,
+        payerUserId: userId,
+        payeeFundId: fundId,
+        method: "cash",
+        amountMinor: 5000n,
+        paidAt: new Date(),
+        idempotencyKey: `rcpt-fund-del-${receiptId}`,
+      });
+    });
+
+    await assert.rejects(
+      () =>
+        withTenantContext(db, { workspaceId, userId }, async (tx) =>
+          tx.delete(pettyCashFund).where(eq(pettyCashFund.id, fundId)),
+        ),
+      (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        assert.match(
+          msg,
+          /payment_receipt_payee_fund_workspace_fk|violates foreign key|restrict/i,
+        );
+        return true;
+      },
+    );
+
+    const still = await withTenantContext(
+      db,
+      { workspaceId, userId },
+      async (tx) =>
+        tx.select().from(pettyCashFund).where(eq(pettyCashFund.id, fundId)),
+    );
+    assert.equal(still.length, 1, "fund must remain after RESTRICT");
   });
 });

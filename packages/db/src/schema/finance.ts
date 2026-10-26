@@ -1214,7 +1214,7 @@ export const paymentReceipt = finance.table(
       name: "payment_receipt_payee_fund_workspace_fk",
       columns: [table.workspaceId, table.payeeFundId],
       foreignColumns: [pettyCashFund.workspaceId, pettyCashFund.id],
-    }).onDelete("set null"),
+    }).onDelete("restrict"),
   ],
 );
 

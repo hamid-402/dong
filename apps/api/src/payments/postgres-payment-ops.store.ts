@@ -539,6 +539,36 @@ export class PostgresPaymentOpsStore implements PaymentOpsStore {
     );
   }
 
+  deleteFund(workspaceId: string, fundId: string): Promise<void> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const receiptRows = await tx
+        .select({ id: paymentReceipt.id })
+        .from(paymentReceipt)
+        .where(
+          and(
+            eq(paymentReceipt.workspaceId, workspaceId),
+            eq(paymentReceipt.payeeFundId, fundId),
+          ),
+        )
+        .limit(1);
+      if (receiptRows[0]) {
+        throw new Error("PETTY_CASH_FUND_HAS_RECEIPTS");
+      }
+      const deleted = await tx
+        .delete(pettyCashFund)
+        .where(
+          and(
+            eq(pettyCashFund.workspaceId, workspaceId),
+            eq(pettyCashFund.id, fundId),
+          ),
+        )
+        .returning({ id: pettyCashFund.id });
+      if (!deleted[0]) {
+        throw new Error("PETTY_CASH_FUND_NOT_FOUND");
+      }
+    });
+  }
+
   listMovements(
     workspaceId: string,
     fundId: string,
