@@ -6,18 +6,18 @@
   border: none;
   box-shadow: none;
   line-height: 0;
-  filter: drop-shadow(0 2px 5px color-mix(in srgb, var(--primary, #0d6b63) 14%, transparent));
+  filter: drop-shadow(0 2px 5px color-mix(in srgb, var(--primary) 14%, transparent));
 }
 
 .badge[data-kind="personal"] {
-  filter: drop-shadow(0 2px 6px color-mix(in srgb, #2bb89a 22%, transparent));
+  filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--kind-mood-personal) 22%, transparent));
 }
 .badge[data-kind="group"] {
-  filter: drop-shadow(0 2px 6px color-mix(in srgb, #a78bfa 22%, transparent));
+  filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--kind-mood-group) 22%, transparent));
 }
 .badge[data-kind="building"] {
-  filter: drop-shadow(0 2px 6px color-mix(in srgb, #4b8fe8 22%, transparent));
+  filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--kind-mood-building) 22%, transparent));
 }
 .badge[data-kind="org"] {
-  filter: drop-shadow(0 2px 6px color-mix(in srgb, #8f78e6 22%, transparent));
+  filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--kind-mood-org) 22%, transparent));
 }

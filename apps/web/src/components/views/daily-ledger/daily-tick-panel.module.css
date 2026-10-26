@@ -89,7 +89,7 @@
   appearance: none;
   border: 0;
   background: transparent;
-  color: color-mix(in srgb, var(--danger, #b91c1c) 85%, var(--fg));
+  color: color-mix(in srgb, var(--danger) 85%, var(--fg));
   font: inherit;
   font-size:0.875rem;
   cursor: pointer;
@@ -100,7 +100,7 @@
 
 .removeBtn:hover:not(:disabled) {
   opacity: 1;
-  background: color-mix(in srgb, var(--danger, #b91c1c) 12%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
 .removeBtn:disabled {
@@ -220,7 +220,7 @@
   padding: 6px 8px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
-  background: var(--surface, #fff);
+  background: var(--surface);
   color: inherit;
 }
 

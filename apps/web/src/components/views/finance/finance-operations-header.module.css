@@ -32,7 +32,7 @@
     linear-gradient(135deg, color-mix(in srgb, var(--primary) 6%, transparent), transparent 55%),
     var(--surface);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--chip-highlight) 6%, transparent),
     var(--elev-1);
 }
 
@@ -351,11 +351,11 @@
 
 /* Positive tone is a calm text accent only — never a green hero/button fill. */
 .metrics .tone_positive strong {
-  color: color-mix(in srgb, var(--success, #198754) 55%, var(--text));
+  color: color-mix(in srgb, var(--success) 55%, var(--text));
 }
 
 .metrics .tone_attention strong {
-  color: var(--warning, #9b6800);
+  color: var(--warning);
 }
 
 @media (max-width: 920px) {

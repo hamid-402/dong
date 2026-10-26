@@ -63,6 +63,74 @@
   --elev-1: var(--dang-elev-1);
   --elev-2: var(--dang-elev-2);
   --control-h: var(--dang-control-h, 48px);
+
+  /* Component theme tokens (اجرای ۱۲) — light/paper values match prior hardcoded hex. */
+  --shadow-ink: #000000;
+  --chip-highlight: #ffffff;
+  --mosaic-attention: #fbbf24;
+  --mosaic-fact-shade: #0f0f12;
+  --mosaic-pin-ink: #e4e4e7;
+  --mosaic-ink: #0f172a;
+  --mosaic-edge-ink: #000000;
+  --selection-danger: #b42318;
+  --bar-primary-deep: #1a3d34;
+  --bar-secondary-wash: #c4b59a;
+  --ledger-shadow-ink: #020617;
+  --audience-private: #b54708;
+  --treasury-personal-cta-bg: #b45309;
+  --treasury-personal-cta-fg: #fffbeb;
+  --kind-mood-personal: #2bb89a;
+  --kind-mood-group: #a78bfa;
+  --kind-mood-building: #4b8fe8;
+  --kind-mood-org: #8f78e6;
+  --persona-banner-border: #c9c2b8;
+  --chart-rule: #c8c2b8;
+}
+
+/* Dark theme overrides for اجرای ۱۲ component tokens (black + midnight/navy). WCAG AA on dark surfaces. */
+html[data-theme="black"]{
+  --shadow-ink: #000000;
+  --chip-highlight: #e4e4e4;
+  --mosaic-attention: #fbbf24;
+  --mosaic-fact-shade: #0f0f12;
+  --mosaic-pin-ink: #e4e4e7;
+  --mosaic-ink: #e4e4e4;
+  --mosaic-edge-ink: #000000;
+  --selection-danger: #e4c4be;
+  --bar-primary-deep: #a8d4b8;
+  --bar-secondary-wash: #5a5248;
+  --ledger-shadow-ink: #000000;
+  --audience-private: #d8c6a6;
+  --treasury-personal-cta-bg: #d8c6a6;
+  --treasury-personal-cta-fg: #0a0a0a;
+  --kind-mood-personal: #5eead4;
+  --kind-mood-group: #c8c0e4;
+  --kind-mood-building: #8ca8d9;
+  --kind-mood-org: #c8c0e4;
+  --persona-banner-border: #8f8f8f;
+  --chart-rule: #8f8f8f;
+}
+html[data-theme="midnight"]{
+  --shadow-ink: #000000;
+  --chip-highlight: #e6e9f2;
+  --mosaic-attention: #f0c15a;
+  --mosaic-fact-shade: #0f0f12;
+  --mosaic-pin-ink: #e6e9f2;
+  --mosaic-ink: #e6e9f2;
+  --mosaic-edge-ink: #000000;
+  --selection-danger: #ff8f80;
+  --bar-primary-deep: #5ee09a;
+  --bar-secondary-wash: #4a453c;
+  --ledger-shadow-ink: #000000;
+  --audience-private: #f0c15a;
+  --treasury-personal-cta-bg: #f0c15a;
+  --treasury-personal-cta-fg: #0a1730;
+  --kind-mood-personal: #5ee09a;
+  --kind-mood-group: #b794ff;
+  --kind-mood-building: #7aa5ff;
+  --kind-mood-org: #b794ff;
+  --persona-banner-border: #9aa6be;
+  --chart-rule: #9aa6be;
 }
 
 *{ box-sizing: border-box; }

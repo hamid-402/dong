@@ -150,11 +150,11 @@
 }
 
 .rowAudiencePrivate {
-  color: color-mix(in srgb, #b54708 78%, var(--text));
+  color: color-mix(in srgb, var(--audience-private) 78%, var(--text));
 }
 
 .rowAudienceCompany {
-  color: color-mix(in srgb, var(--gold, #a67c00) 80%, var(--text));
+  color: color-mix(in srgb, var(--gold) 80%, var(--text));
 }
 
 .inspectorAudience {

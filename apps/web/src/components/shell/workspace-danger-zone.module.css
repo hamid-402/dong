@@ -1,8 +1,8 @@
 .zone {
-  --dz-danger: var(--dang-danger, #a11612);
-  --dz-warn: var(--dang-warning, #8a4804);
-  --dz-leave: var(--dang-primary, #123ece);
-  --dz-ok: var(--dang-success, #0c6a34);
+  --dz-danger: var(--dang-danger);
+  --dz-warn: var(--dang-warning);
+  --dz-leave: var(--dang-primary);
+  --dz-ok: var(--dang-success);
   --dz-line: color-mix(in srgb, var(--line) 88%, transparent);
   margin-top: 10px;
   padding: 22px 20px 20px;
@@ -162,7 +162,7 @@
   width: 1.35rem;
   height: 1.35rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--ink, #0b1220) 8%, transparent);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
   font-size:0.875rem;
 }
 
@@ -208,7 +208,7 @@
 
 .card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 28px -22px color-mix(in srgb, #000 55%, transparent);
+  box-shadow: 0 12px 28px -22px color-mix(in srgb, var(--shadow-ink) 55%, transparent);
 }
 
 .stepBadge {
@@ -219,7 +219,7 @@
   border-radius: 9px;
   font-size:0.875rem;
   font-weight: 800;
-  background: color-mix(in srgb, var(--ink, #0b1220) 7%, transparent);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
   color: var(--text-muted);
 }
 
@@ -317,7 +317,7 @@
   font-size:0.875rem;
   padding: 1px 6px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--ink, #0b1220) 8%, transparent);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 

@@ -87,7 +87,7 @@
 }
 
 .moreAbove .table thead {
-  box-shadow: 0 10px 16px color-mix(in srgb, #020617 28%, transparent);
+  box-shadow: 0 10px 16px color-mix(in srgb, var(--ledger-shadow-ink) 28%, transparent);
 }
 
 .table tbody tr:last-child td {
@@ -137,7 +137,7 @@
 }
 
 .moreBelow {
-  box-shadow: inset 0 -14px 16px -12px color-mix(in srgb, #020617 55%, transparent);
+  box-shadow: inset 0 -14px 16px -12px color-mix(in srgb, var(--ledger-shadow-ink) 55%, transparent);
 }
 
 .num {

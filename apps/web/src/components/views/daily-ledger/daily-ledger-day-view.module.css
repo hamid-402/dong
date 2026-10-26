@@ -51,7 +51,7 @@
   border-radius: clamp(10px, 1.5vw, 14px);
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   backdrop-filter: blur(8px);
-  box-shadow: 0 8px 24px color-mix(in srgb, #000 8%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--shadow-ink) 8%, transparent);
 }
 
 .barTop {
@@ -138,7 +138,7 @@
   border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
   border-radius: 10px;
   background: var(--panel, var(--surface));
-  box-shadow: 0 12px 28px color-mix(in srgb, #000 16%, transparent);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--shadow-ink) 16%, transparent);
 }
 
 .memberMenuItem {
@@ -378,8 +378,8 @@
 }
 
 .shareFold[open] .shareChevron {
-  background: color-mix(in srgb, var(--accent, #2a6f97) 16%, transparent);
-  color: var(--accent, #2a6f97);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
 }
 
 .shareFold[open] .shareChevron svg {
@@ -675,7 +675,7 @@ a.relatedLink:hover {
 }
 
 .rowSelected {
-  background: color-mix(in srgb, var(--accent, #2a6f97) 7%, transparent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 
 .rowActions {
@@ -701,7 +701,7 @@ a.relatedLink:hover {
 }
 
 .linkBtn.danger {
-  color: color-mix(in srgb, var(--danger, #b91c1c) 80%, var(--text));
+  color: color-mix(in srgb, var(--danger) 80%, var(--text));
 }
 
 .muted {
@@ -742,8 +742,8 @@ a.relatedLink:hover {
 }
 
 .lineCard.rowSelected {
-  border-color: color-mix(in srgb, var(--accent, #2a6f97) 40%, var(--line));
-  background: color-mix(in srgb, var(--accent, #2a6f97) 6%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
 }
 
 .lineCardTop {
@@ -832,7 +832,7 @@ a.relatedLink:hover {
   .stickyBar {
     top: calc(env(safe-area-inset-top, 0px) + var(--shell-chrome-offset, 56px));
     border-radius: 10px;
-    box-shadow: 0 4px 16px color-mix(in srgb, #000 10%, transparent);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--shadow-ink) 10%, transparent);
   }
 
   .barTop {

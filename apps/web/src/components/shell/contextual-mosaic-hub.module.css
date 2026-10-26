@@ -215,7 +215,7 @@
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.45;
-  color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 88%, transparent);
+  color: color-mix(in srgb, var(--mosaic-ink) 88%, transparent);
 }
 
 .body .intent{
@@ -243,23 +243,23 @@
   height: 22px;
   padding: 0 7px;
   border-radius: 999px;
-  background: color-mix(in srgb, #fff 72%, transparent);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  background: color-mix(in srgb, var(--chip-highlight) 72%, transparent);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--shadow-ink) 12%, transparent);
 }
 
 .tile .fact b{
   font-size:0.875rem;
   font-weight: 800;
-  color: var(--tile-gem-ink, #0f172a);
+  color: var(--mosaic-ink);
 }
 
 .tile .fact small{
   font-size:0.875rem;
-  color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 70%, transparent);
+  color: color-mix(in srgb, var(--mosaic-ink) 70%, transparent);
 }
 
 .tile .fact_attention{
-  background: color-mix(in srgb, #fbbf24 55%, #fff);
+  background: color-mix(in srgb, var(--mosaic-attention) 55%, var(--chip-highlight));
 }
 
 /* Decorative facet rings. Fill stays on the token surface. */
@@ -330,8 +330,8 @@
   place-items: center;
   border: none;
   border-radius: 999px;
-  background: color-mix(in srgb, #fff 55%, transparent);
-  color: color-mix(in srgb, var(--tile-gem-ink, #0f172a) 70%, transparent);
+  background: color-mix(in srgb, var(--chip-highlight) 55%, transparent);
+  color: color-mix(in srgb, var(--mosaic-ink) 70%, transparent);
   cursor: pointer;
   font-size:0.875rem;
   opacity: 0.85;
@@ -340,8 +340,8 @@
 .pin:hover,
 .pinActive{
   opacity: 1;
-  background: #fff;
-  color: var(--gold, #b45309);
+  background: var(--chip-highlight);
+  color: var(--gold);
 }
 
 .compact{
@@ -461,7 +461,7 @@
 
 
 :global(html[data-scheme="dark"]) .tile .fact{
-  background: color-mix(in srgb, #0f0f12 70%, var(--tile-gem-edge, #000) 12%);
+  background: color-mix(in srgb, var(--mosaic-fact-shade) 70%, var(--tile-gem-edge, var(--mosaic-edge-ink)) 12%);
   border: 1px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 35%, transparent);
 }
 
@@ -472,7 +472,7 @@
 
 :global(html[data-scheme="dark"]) .pin{
   background: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 28%, transparent);
-  color: #e4e4e7;
+  color: var(--mosaic-pin-ink);
   border-color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 40%, transparent);
 }
 

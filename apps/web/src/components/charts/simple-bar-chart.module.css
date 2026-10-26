@@ -2,7 +2,7 @@
   display: grid;
   gap: 0.65rem;
   padding: 0.85rem 0;
-  border-block-end: 1px solid color-mix(in srgb, var(--border, #c8c2b8) 70%, transparent);
+  border-block-end: 1px solid color-mix(in srgb, var(--chart-rule) 70%, transparent);
 }
 
 .wrap:last-child {
@@ -35,11 +35,11 @@
 }
 
 .barPrimary {
-  fill: color-mix(in srgb, var(--accent, #2f6f5e) 85%, #1a3d34);
+  fill: color-mix(in srgb, var(--accent) 85%, var(--bar-primary-deep));
 }
 
 .barSecondary {
-  fill: color-mix(in srgb, var(--accent, #2f6f5e) 35%, #c4b59a);
+  fill: color-mix(in srgb, var(--accent) 35%, var(--bar-secondary-wash));
 }
 
 .table {
@@ -52,7 +52,7 @@
 .table td {
   text-align: start;
   padding: 0.35rem 0.4rem;
-  border-block-end: 1px solid color-mix(in srgb, var(--border, #c8c2b8) 55%, transparent);
+  border-block-end: 1px solid color-mix(in srgb, var(--chart-rule) 55%, transparent);
 }
 
 .caption {

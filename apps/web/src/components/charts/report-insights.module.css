@@ -49,19 +49,19 @@
 }
 
 .tone_up .value {
-  color: color-mix(in srgb, var(--danger, #c44b4b) 88%, var(--text));
+  color: color-mix(in srgb, var(--danger) 88%, var(--text));
 }
 
 .tone_down .value {
-  color: color-mix(in srgb, var(--success, #3d9a6a) 88%, var(--text));
+  color: color-mix(in srgb, var(--success) 88%, var(--text));
 }
 
 .tone_attention {
-  border-color: color-mix(in srgb, var(--gold, #c9a227) 40%, var(--line));
+  border-color: color-mix(in srgb, var(--gold) 40%, var(--line));
   background:
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--gold, #c9a227) 10%, transparent),
+      color-mix(in srgb, var(--gold) 10%, transparent),
       transparent 55%
     ),
     color-mix(in srgb, var(--surface) 94%, transparent);
