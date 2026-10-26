@@ -4,6 +4,7 @@ import {
   formatNetBalanceLabel,
   netBalancePhrase,
   netBalanceTone,
+  netDisplayAmountInteger,
 } from "./net-amount-display";
 
 describe("net-amount-display (IRR minor → wording)", () => {
@@ -37,5 +38,33 @@ describe("net-amount-display (IRR minor → wording)", () => {
   it("absIrrMinor strips sign for display Amount inputs", () => {
     expect(absIrrMinor("-2500")).toBe("2500");
     expect(absIrrMinor(2500n)).toBe("2500");
+  });
+
+  it("abs then truncate: 12345 rial → طلب شما ۱٬۲۳۴ تومان", () => {
+    expect(netBalanceTone(12_345)).toBe("credit");
+    expect(netDisplayAmountInteger(12_345, "toman")).toBe(1234n);
+    expect(formatNetBalanceLabel(12_345, "toman")).toBe("طلب شما ۱٬۲۳۴ تومان");
+  });
+
+  it("abs then truncate: -12345 rial → بدهی شما ۱٬۲۳۴ تومان (sign only for label)", () => {
+    expect(netBalanceTone(-12_345)).toBe("debt");
+    expect(netDisplayAmountInteger(-12_345, "toman")).toBe(1234n);
+    expect(absIrrMinor(-12_345)).toBe("12345");
+    const label = formatNetBalanceLabel(-12_345, "toman");
+    expect(label).toBe("بدهی شما ۱٬۲۳۴ تومان");
+    expect(label).not.toMatch(/[+\-−]/);
+  });
+
+  it("0 is تسویه (no amount)", () => {
+    expect(netBalanceTone(0)).toBe("settled");
+    expect(netDisplayAmountInteger(0, "toman")).toBe(0n);
+    expect(formatNetBalanceLabel(0, "toman")).toBe("تسویه");
+    expect(formatNetBalanceLabel(0, "rial")).toBe("تسویه");
+  });
+
+  it("9 rial truncates to 0 تومان but remains طلب شما", () => {
+    expect(netBalanceTone(9)).toBe("credit");
+    expect(netDisplayAmountInteger(9, "toman")).toBe(0n);
+    expect(formatNetBalanceLabel(9, "toman")).toBe("طلب شما ۰ تومان");
   });
 });
