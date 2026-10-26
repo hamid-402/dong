@@ -184,26 +184,27 @@ export class BillingService {
           (i.status === "draft" || i.status === "pending_approval"),
       );
       if (!invoice) continue;
-      const key = `adj:credit:${credit.id}:${invoice.id}`;
-      try {
-        await this.billing.createAdjustment({
-          workspaceId,
-          periodId,
-          invoiceId: invoice.id,
-          memberUserId: credit.payerUserId,
-          deltaMinor: (-excess).toString(),
-          reason: `receipt.overpay:${credit.id}`,
-          idempotencyKey: key,
-          actorUserId,
-        });
-      } catch {
-        continue;
-      }
-      await this.paymentOps.markExcessCreditApplied(
+      const key = `adj:credit:${credit.id}`;
+      const claimed = await this.paymentOps.runExcessCreditApply(
         workspaceId,
         credit.id,
         invoice.id,
+        actorUserId,
+        async (_receipt, tx) => {
+          await this.billing.createAdjustment!({
+            workspaceId,
+            periodId,
+            invoiceId: invoice.id,
+            memberUserId: credit.payerUserId,
+            deltaMinor: (-excess).toString(),
+            reason: `receipt.overpay:${credit.id}`,
+            idempotencyKey: key,
+            actorUserId,
+            tx: tx ?? undefined,
+          });
+        },
       );
+      if (!claimed) continue;
       applied += 1;
       await this.audit.append({
         workspaceId,

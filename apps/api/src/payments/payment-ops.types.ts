@@ -103,11 +103,30 @@ export type PaymentOpsStore = {
   listUnappliedExcessCredits(
     workspaceId: string,
   ): Promise<StoredPaymentReceipt[]>;
+  /**
+   * Claim excess credit with UPDATE … WHERE applied_to_invoice_id IS NULL RETURNING.
+   * Returns null when already applied (or race lost).
+   */
   markExcessCreditApplied(
     workspaceId: string,
     receiptId: string,
     invoiceId: string,
-  ): Promise<StoredPaymentReceipt>;
+    options?: PaymentOpsWriteOptions,
+  ): Promise<StoredPaymentReceipt | null>;
+  /**
+   * SELECT … FOR UPDATE on receipt, run work (e.g. createAdjustment), then mark
+   * applied in the same transaction. Returns false if credit was already claimed.
+   */
+  runExcessCreditApply(
+    workspaceId: string,
+    receiptId: string,
+    invoiceId: string,
+    actorUserId: string,
+    work: (
+      receipt: StoredPaymentReceipt,
+      tx: AppDatabase | null,
+    ) => Promise<void>,
+  ): Promise<boolean>;
 
   listFunds(workspaceId: string): Promise<StoredPettyCashFund[]>;
   getFund(

@@ -50,12 +50,9 @@ export const createPaymentReceiptRequestSchema = z
         path: ["payeeFundId"],
       });
     }
-    if (
-      !data.settlementId &&
-      !data.memberInvoiceId &&
-      !data.payeeUserId &&
-      !data.payeeFundId
-    ) {
+    // Exactly one payee (person|fund), or settlement (API fills payee from toUserId).
+    // memberInvoiceId alone is not a payee.
+    if (!data.payeeUserId && !data.payeeFundId && !data.settlementId) {
       ctx.addIssue({
         code: "custom",
         message: "PAYEE_REQUIRED",

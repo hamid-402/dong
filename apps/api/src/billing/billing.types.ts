@@ -132,6 +132,8 @@ export type BillingStore = {
     reason: string;
     idempotencyKey: string;
     actorUserId: string;
+    /** Join an outer tenant transaction (e.g. receipt credit claim). */
+    tx?: AppDatabase;
   }): Promise<MemberInvoiceAdjustmentSummary>;
   closePeriod(
     workspaceId: string,

@@ -1,7 +1,9 @@
 import {
   bigint,
   boolean,
+  check,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -1083,6 +1085,49 @@ export const personalAddonCharge = finance.table(
   ],
 );
 
+export const pettyCashMovementKind = finance.enum("petty_cash_movement_kind", [
+  "topup",
+  "spend",
+  "return",
+  "adjust",
+  "gift",
+]);
+
+export const pettyCashFund = finance.table(
+  "petty_cash_fund",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    custodianUserId: uuid("custodian_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    openingBalanceMinor: bigint("opening_balance_minor", { mode: "bigint" })
+      .default(0n)
+      .notNull(),
+    currency: text("currency").default("IRR").notNull(),
+    active: boolean("active").default(true).notNull(),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("petty_cash_fund_idempotency_uq").on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+    /** Supports composite FK from payment_receipt(workspace_id, payee_fund_id). */
+    uniqueIndex("petty_cash_fund_workspace_id_uq").on(table.workspaceId, table.id),
+    index("petty_cash_fund_workspace_idx").on(table.workspaceId, table.active),
+  ],
+);
+
 /** S11-09 — manual payment receipts (card-to-card etc.). */
 export const paymentReceiptMethod = finance.enum("payment_receipt_method", [
   "card_to_card",
@@ -1114,11 +1159,11 @@ export const paymentReceipt = finance.table(
     payerUserId: uuid("payer_user_id")
       .notNull()
       .references(() => userAccount.id),
-    /** Person payee — XOR with payeeFundId. */
+    /** Person payee — exactly one of payeeUserId / payeeFundId. */
     payeeUserId: uuid("payee_user_id").references(() => userAccount.id, {
       onDelete: "set null",
     }),
-    /** Collective fund payee (تنخواه/صندوق) — XOR with payeeUserId. */
+    /** Collective fund payee (تنخواه/صندوق) — same workspace as receipt. */
     payeeFundId: uuid("payee_fund_id"),
     method: paymentReceiptMethod("method").notNull(),
     amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
@@ -1161,47 +1206,15 @@ export const paymentReceipt = finance.table(
       table.status,
       table.createdAt,
     ),
-  ],
-);
-
-export const pettyCashMovementKind = finance.enum("petty_cash_movement_kind", [
-  "topup",
-  "spend",
-  "return",
-  "adjust",
-  "gift",
-]);
-
-export const pettyCashFund = finance.table(
-  "petty_cash_fund",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspace.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    custodianUserId: uuid("custodian_user_id")
-      .notNull()
-      .references(() => userAccount.id),
-    openingBalanceMinor: bigint("opening_balance_minor", { mode: "bigint" })
-      .default(0n)
-      .notNull(),
-    currency: text("currency").default("IRR").notNull(),
-    active: boolean("active").default(true).notNull(),
-    createdByUserId: uuid("created_by_user_id")
-      .notNull()
-      .references(() => userAccount.id),
-    idempotencyKey: text("idempotency_key").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => [
-    uniqueIndex("petty_cash_fund_idempotency_uq").on(
-      table.workspaceId,
-      table.idempotencyKey,
+    check(
+      "payment_receipt_payee_exactly_one_chk",
+      sql`num_nonnulls(${table.payeeUserId}, ${table.payeeFundId}) = 1`,
     ),
-    index("petty_cash_fund_workspace_idx").on(table.workspaceId, table.active),
+    foreignKey({
+      name: "payment_receipt_payee_fund_workspace_fk",
+      columns: [table.workspaceId, table.payeeFundId],
+      foreignColumns: [pettyCashFund.workspaceId, pettyCashFund.id],
+    }).onDelete("set null"),
   ],
 );
 

@@ -5,6 +5,7 @@ import {
   creditPurchasePayment,
   desc,
   eq,
+  isNull,
   paymentOnBehalf,
   paymentReceipt,
   pettyCashFund,
@@ -369,8 +370,21 @@ export class PostgresPaymentOpsStore implements PaymentOpsStore {
     workspaceId: string,
     receiptId: string,
     invoiceId: string,
-  ): Promise<StoredPaymentReceipt> {
-    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+    options?: PaymentOpsWriteOptions,
+  ): Promise<StoredPaymentReceipt | null> {
+    const work = async (tx: AppDatabase) => {
+      const updated = await tx
+        .update(paymentReceipt)
+        .set({ appliedToInvoiceId: invoiceId })
+        .where(
+          and(
+            eq(paymentReceipt.workspaceId, workspaceId),
+            eq(paymentReceipt.id, receiptId),
+            isNull(paymentReceipt.appliedToInvoiceId),
+          ),
+        )
+        .returning();
+      if (updated[0]) return mapReceipt(updated[0]);
       const rows = await tx
         .select()
         .from(paymentReceipt)
@@ -381,16 +395,53 @@ export class PostgresPaymentOpsStore implements PaymentOpsStore {
           ),
         )
         .limit(1);
-      const row = rows[0];
-      if (!row) throw new Error("RECEIPT_NOT_FOUND");
-      if (row.appliedToInvoiceId) return mapReceipt(row);
-      const updated = await tx
-        .update(paymentReceipt)
-        .set({ appliedToInvoiceId: invoiceId })
-        .where(eq(paymentReceipt.id, receiptId))
-        .returning();
-      return mapReceipt(updated[0]!);
-    });
+      if (!rows[0]) throw new Error("RECEIPT_NOT_FOUND");
+      return null;
+    };
+    if (options?.tx) return work(options.tx);
+    return withTenantContext(this.db, { workspaceId }, work);
+  }
+
+  runExcessCreditApply(
+    workspaceId: string,
+    receiptId: string,
+    invoiceId: string,
+    actorUserId: string,
+    work: (
+      receipt: StoredPaymentReceipt,
+      tx: AppDatabase | null,
+    ) => Promise<void>,
+  ): Promise<boolean> {
+    return withTenantContext(
+      this.db,
+      { workspaceId, userId: actorUserId },
+      async (tx) => {
+        const locked = await tx
+          .select()
+          .from(paymentReceipt)
+          .where(
+            and(
+              eq(paymentReceipt.workspaceId, workspaceId),
+              eq(paymentReceipt.id, receiptId),
+            ),
+          )
+          .for("update")
+          .limit(1);
+        const row = locked[0];
+        if (!row) throw new Error("RECEIPT_NOT_FOUND");
+        if (row.appliedToInvoiceId) return false;
+        if (BigInt(row.excessCreditMinor ?? 0n) <= 0n) return false;
+        const receipt = mapReceipt(row);
+        await work(receipt, tx);
+        const marked = await this.markExcessCreditApplied(
+          workspaceId,
+          receiptId,
+          invoiceId,
+          { tx },
+        );
+        return marked !== null;
+      },
+    );
   }
 
   listFunds(workspaceId: string): Promise<StoredPettyCashFund[]> {

@@ -160,13 +160,15 @@ export class MemoryPaymentOpsStore implements PaymentOpsStore {
     workspaceId: string,
     receiptId: string,
     invoiceId: string,
-  ): Promise<StoredPaymentReceipt> {
+    _options?: { tx?: unknown },
+  ): Promise<StoredPaymentReceipt | null> {
+    void _options;
     const row = this.receipts.get(receiptId);
     if (!row || row.workspaceId !== workspaceId) {
       throw new Error("RECEIPT_NOT_FOUND");
     }
     if (row.appliedToInvoiceId) {
-      return Promise.resolve(row);
+      return Promise.resolve(null);
     }
     const next: StoredPaymentReceipt = {
       ...row,
@@ -174,6 +176,38 @@ export class MemoryPaymentOpsStore implements PaymentOpsStore {
     };
     this.receipts.set(receiptId, next);
     return Promise.resolve(next);
+  }
+
+  async runExcessCreditApply(
+    workspaceId: string,
+    receiptId: string,
+    invoiceId: string,
+    _actorUserId: string,
+    work: (
+      receipt: StoredPaymentReceipt,
+      tx: null,
+    ) => Promise<void>,
+  ): Promise<boolean> {
+    void _actorUserId;
+    const claimed = await this.markExcessCreditApplied(
+      workspaceId,
+      receiptId,
+      invoiceId,
+    );
+    if (!claimed) return false;
+    try {
+      await work(claimed, null);
+      return true;
+    } catch (error) {
+      const row = this.receipts.get(receiptId);
+      if (row && row.appliedToInvoiceId === invoiceId) {
+        this.receipts.set(receiptId, {
+          ...row,
+          appliedToInvoiceId: undefined,
+        });
+      }
+      throw error;
+    }
   }
 
   listFunds(workspaceId: string): Promise<StoredPettyCashFund[]> {

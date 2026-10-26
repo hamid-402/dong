@@ -422,8 +422,10 @@ export class MemoryBillingStore implements BillingStore {
     reason: string;
     idempotencyKey: string;
     actorUserId: string;
+    tx?: unknown;
   }): Promise<MemberInvoiceAdjustmentSummary> {
     void input.actorUserId;
+    void input.tx;
     const existing = [...this.adjustments.values()].find(
       (row) =>
         row.workspaceId === input.workspaceId &&

@@ -666,6 +666,13 @@
       "when": 1789006500000,
       "tag": "0095_payment_receipt_card_two_step",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1789006600000,
+      "tag": "0096_payment_receipt_payee_exactly_one",
+      "breakpoints": true
     }
   ]
 }

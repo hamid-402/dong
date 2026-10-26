@@ -104,6 +104,18 @@ test("createPaymentReceiptRequestSchema requires a reference for card_to_card", 
   );
 });
 
+test("createPaymentReceiptRequestSchema rejects memberInvoiceId without payee", () => {
+  const bad = createPaymentReceiptRequestSchema.safeParse({
+    memberInvoiceId: "11111111-1111-4111-8111-111111111111",
+    method: "cash",
+    amountMinor: "1000",
+    paidAt: "2026-03-01T10:00:00+03:30",
+    idempotencyKey: "k-invoice-only",
+  });
+  assert.equal(bad.success, false);
+  assert.ok(issues(bad).includes("PAYEE_REQUIRED"));
+});
+
 test("reject schemas need a non-empty note", () => {
   assert.ok(rejectPaymentReceiptRequestSchema.safeParse({ note: "bad" }).success);
   assertRejection(rejectPaymentReceiptRequestSchema.safeParse({ note: "   " }), { path: ["note"] });

@@ -42,6 +42,12 @@ const creditor = {
   displayName: "Creditor",
   authMode: "password" as const,
 };
+const bystander = {
+  userId: "55555555-5555-4555-8555-555555555555",
+  externalSubject: "bystander",
+  displayName: "Bystander",
+  authMode: "password" as const,
+};
 
 function mockAccess(roleByUser: Record<string, string>): WorkspaceAccessService {
   return {
@@ -1494,7 +1500,7 @@ test("run13 double apply credit idempotent", async () => {
   );
   assert.equal(first, 1);
   assert.equal(adjustmentKeys.length, 1);
-  assert.match(adjustmentKeys[0]!, /^adj:credit:/);
+  assert.equal(adjustmentKeys[0], `adj:credit:${approved.id}`);
 
   const second = await service.applyOverpayCreditsToPeriod(
     workspaceId,
@@ -1504,4 +1510,88 @@ test("run13 double apply credit idempotent", async () => {
   );
   assert.equal(second, 0);
   assert.equal(adjustmentKeys.length, 1);
+});
+
+test("run13b payee required even with memberInvoiceId", async () => {
+  const { service } = buildService();
+  const invoiceId = crypto.randomUUID();
+  await assert.rejects(
+    () =>
+      service.createReceipt(payer, workspaceId, {
+        memberInvoiceId: invoiceId,
+        method: "cash",
+        amountMinor: "10000",
+        paidAt: new Date().toISOString(),
+        idempotencyKey: "run13b-no-payee-invoice",
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BadRequestException);
+      const body = err.getResponse() as { code?: string };
+      assert.equal(body.code, "PAYEE_REQUIRED");
+      return true;
+    },
+  );
+});
+
+test("run13b third member cannot approve or reject receipt", async () => {
+  const ops = new MemoryPaymentOpsStore();
+  const ledger = new MemoryLedgerStore();
+  const settlementStore = new MemorySettlementStore();
+  const access = mockAccess({
+    [payer.userId]: "member",
+    [finance.userId]: "finance",
+    [creditor.userId]: "member",
+    [bystander.userId]: "member",
+  });
+  const service = new WorkspacePaymentsService(
+    ops,
+    access,
+    iamStub(),
+    expensesStub(),
+    settlementStore,
+    settlementsServiceStub(settlementStore),
+    ledger,
+    billingStub(),
+    new InvoiceEventsService(new MemoryOutboxStore()),
+  );
+  const claim = await settlementStore.createClaim(creditor.userId, {
+    workspaceId,
+    fromUserId: payer.userId,
+    toUserId: creditor.userId,
+    amount: { amountMinor: "33000", currency: "IRR" },
+    idempotencyKey: "run13b-third-set",
+  });
+  const receipt = await service.createReceipt(payer, workspaceId, {
+    settlementId: claim.id,
+    method: "card_to_card",
+    amountMinor: "33000",
+    paidAt: new Date().toISOString(),
+    destLast4: "3344",
+    referenceNo: "RUN13B-THIRD",
+    attachmentId: crypto.randomUUID(),
+    idempotencyKey: "run13b-third-rcpt",
+  });
+
+  await assert.rejects(
+    () => service.approveReceipt(bystander, workspaceId, receipt.id),
+    (err: unknown) => {
+      assert.ok(err instanceof ForbiddenException);
+      const body = err.getResponse() as { code?: string };
+      assert.equal(body.code, "RECEIPT_REVIEW_UNAUTHORIZED");
+      return true;
+    },
+  );
+
+  await assert.rejects(
+    () =>
+      service.rejectReceipt(bystander, workspaceId, receipt.id, {
+        note: "نباید اجازه داشته باشم",
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof ForbiddenException);
+      const body = err.getResponse() as { code?: string };
+      assert.equal(body.code, "RECEIPT_REVIEW_UNAUTHORIZED");
+      return true;
+    },
+  );
 });

@@ -223,7 +223,9 @@ export class WorkspacePaymentsService {
       }
     }
 
-    if (!payeeUserId && !payeeFundId && !body.memberInvoiceId) {
+    // Product (Hamid): every receipt has exactly one payee (person XOR fund).
+    // memberInvoiceId alone is not a payee fallback.
+    if (!payeeUserId && !payeeFundId) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
         title: "گیرنده رسید الزامی است",
@@ -487,22 +489,27 @@ export class WorkspacePaymentsService {
       );
       if (!invoice) continue;
       if (!this.billing.createAdjustment) continue;
-      const key = `adj:credit:${credit.id}:${invoice.id}`;
-      try {
-        await this.billing.createAdjustment({
-          workspaceId,
-          periodId,
-          invoiceId: invoice.id,
-          memberUserId: credit.payerUserId,
-          deltaMinor: (-excess).toString(),
-          reason: `receipt.overpay:${credit.id}`,
-          idempotencyKey: key,
-          actorUserId,
-        });
-      } catch {
-        continue;
-      }
-      await this.ops.markExcessCreditApplied(workspaceId, credit.id, invoice.id);
+      const key = `adj:credit:${credit.id}`;
+      const claimed = await this.ops.runExcessCreditApply(
+        workspaceId,
+        credit.id,
+        invoice.id,
+        actorUserId,
+        async (_receipt, tx) => {
+          await this.billing.createAdjustment!({
+            workspaceId,
+            periodId,
+            invoiceId: invoice.id,
+            memberUserId: credit.payerUserId,
+            deltaMinor: (-excess).toString(),
+            reason: `receipt.overpay:${credit.id}`,
+            idempotencyKey: key,
+            actorUserId,
+            tx: tx ?? undefined,
+          });
+        },
+      );
+      if (!claimed) continue;
       applied += 1;
       await this.audit?.append({
         workspaceId,
@@ -2338,7 +2345,12 @@ export class WorkspacePaymentsService {
         return { kind: "member", userId: settlement.toUserId };
       }
     }
-    return { kind: "member", userId: reviewerUserId };
+    throw new BadRequestException({
+      type: "https://dang.local/problems/validation",
+      title: "گیرنده رسید الزامی است",
+      status: 400,
+      code: "PAYEE_REQUIRED",
+    });
   }
 
   private async finalizeReceiptApproval(
