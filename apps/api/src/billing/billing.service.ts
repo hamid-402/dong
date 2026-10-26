@@ -21,6 +21,10 @@ import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
 import { IdempotencyService } from "../common/idempotency.service.js";
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
+import {
+  PAYMENT_OPS_STORE,
+  type PaymentOpsStore,
+} from "../payments/payment-ops.types.js";
 import { BillingMaintenanceService } from "./billing-maintenance.service.js";
 import { BILLING_STORE, type BillingStore } from "./billing.types.js";
 import { InvoiceEventsService } from "./invoice-events.service.js";
@@ -39,6 +43,10 @@ export class BillingService {
     @Optional()
     @Inject(BillingMaintenanceService)
     private readonly maintenance?: BillingMaintenanceService,
+    /** Optional — avoids Billing↔Payments module cycle; Global PAYMENT_OPS when present. */
+    @Optional()
+    @Inject(PAYMENT_OPS_STORE)
+    private readonly paymentOps?: PaymentOpsStore,
   ) {}
 
   async createPeriod(
@@ -128,6 +136,12 @@ export class BillingService {
         actor.userId,
         body ?? {},
       );
+      const creditsApplied = await this.applyOverpayCreditsToPeriod(
+        workspaceId,
+        periodId,
+        actor.userId,
+        invoices,
+      );
       await this.audit.append({
         workspaceId,
         actorUserId: actor.userId,
@@ -138,12 +152,74 @@ export class BillingService {
         metadata: {
           count: invoices.length,
           sendForApproval: Boolean(body?.sendForApproval),
+          creditsApplied,
         },
       });
       return invoices;
     } catch (error: unknown) {
       this.rethrow(error);
     }
+  }
+
+  /**
+   * Apply unapplied receipt overpay credits onto draft/pending invoices.
+   * Uses PAYMENT_OPS_STORE directly to avoid a Billing↔WorkspacePayments cycle.
+   */
+  private async applyOverpayCreditsToPeriod(
+    workspaceId: string,
+    periodId: string,
+    actorUserId: string,
+    invoices: Array<{ id: string; memberUserId: string; status: string }>,
+  ): Promise<number> {
+    if (!this.paymentOps || !this.billing.createAdjustment) return 0;
+    const credits = await this.paymentOps.listUnappliedExcessCredits(workspaceId);
+    if (credits.length === 0) return 0;
+    let applied = 0;
+    for (const credit of credits) {
+      const excess = BigInt(credit.excessCreditMinor ?? "0");
+      if (excess <= 0n) continue;
+      const invoice = invoices.find(
+        (i) =>
+          i.memberUserId === credit.payerUserId &&
+          (i.status === "draft" || i.status === "pending_approval"),
+      );
+      if (!invoice) continue;
+      const key = `adj:credit:${credit.id}:${invoice.id}`;
+      try {
+        await this.billing.createAdjustment({
+          workspaceId,
+          periodId,
+          invoiceId: invoice.id,
+          memberUserId: credit.payerUserId,
+          deltaMinor: (-excess).toString(),
+          reason: `receipt.overpay:${credit.id}`,
+          idempotencyKey: key,
+          actorUserId,
+        });
+      } catch {
+        continue;
+      }
+      await this.paymentOps.markExcessCreditApplied(
+        workspaceId,
+        credit.id,
+        invoice.id,
+      );
+      applied += 1;
+      await this.audit.append({
+        workspaceId,
+        actorUserId,
+        action: "payment_receipt.credit_apply",
+        targetType: "payment_receipt",
+        targetId: credit.id,
+        result: "success",
+        metadata: {
+          invoiceId: invoice.id,
+          periodId,
+          excessCreditMinor: excess.toString(),
+        },
+      });
+    }
+    return applied;
   }
 
   /**

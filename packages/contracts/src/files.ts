@@ -135,12 +135,80 @@ export const allowedUploadMimeTypes = [
   "application/pdf",
 ] as const;
 
+/** Payment-receipt evidence: JPG/PNG/PDF only (no webp). */
+export const paymentReceiptUploadMimeTypes = [
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+] as const;
+
 export type AllowedUploadMimeType = (typeof allowedUploadMimeTypes)[number];
+export type PaymentReceiptUploadMimeType =
+  (typeof paymentReceiptUploadMimeTypes)[number];
 
 export function assertAllowedUploadMime(mimeType: string): void {
   if (!(allowedUploadMimeTypes as readonly string[]).includes(mimeType.trim())) {
     throw new Error("ATTACHMENT_MIME");
   }
+}
+
+export function assertPaymentReceiptUploadMime(mimeType: string): void {
+  if (
+    !(paymentReceiptUploadMimeTypes as readonly string[]).includes(mimeType.trim())
+  ) {
+    throw new Error("ATTACHMENT_MIME");
+  }
+}
+
+/**
+ * Detect MIME from file content (magic bytes). Returns null when unrecognized.
+ * Used so clients cannot spoof type via Content-Type / extension alone.
+ */
+export function sniffUploadMime(
+  bytes: Uint8Array | ArrayBuffer,
+): AllowedUploadMimeType | null {
+  const buf =
+    bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes;
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    buf.length >= 8 &&
+    buf[0] === 0x89 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x4e &&
+    buf[3] === 0x47 &&
+    buf[4] === 0x0d &&
+    buf[5] === 0x0a &&
+    buf[6] === 0x1a &&
+    buf[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+  if (
+    buf.length >= 12 &&
+    buf[0] === 0x52 &&
+    buf[1] === 0x49 &&
+    buf[2] === 0x46 &&
+    buf[3] === 0x46 &&
+    buf[8] === 0x57 &&
+    buf[9] === 0x45 &&
+    buf[10] === 0x42 &&
+    buf[11] === 0x50
+  ) {
+    return "image/webp";
+  }
+  if (
+    buf.length >= 5 &&
+    buf[0] === 0x25 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x44 &&
+    buf[3] === 0x46 &&
+    buf[4] === 0x2d
+  ) {
+    return "application/pdf";
+  }
+  return null;
 }
 
 /** Stub AV: block double-extension and executable mime masquerades. */

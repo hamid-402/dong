@@ -614,7 +614,10 @@ export function PeriodInvoicePanels({
                   {selectedAdjustments.map((adjustment) => (
                     <li key={adjustment.id}>
                       <Amount irrMinor={adjustment.delta.amountMinor} /> ·{" "}
-                      {formatFaDate(adjustment.createdAt)} · {adjustment.reason}
+                      {formatFaDate(adjustment.createdAt)} ·{" "}
+                      {adjustment.reason.startsWith("receipt.overpay:")
+                        ? "اعتبار اضافه‌پرداخت رسید"
+                        : adjustment.reason}
                     </li>
                   ))}
                 </ul>

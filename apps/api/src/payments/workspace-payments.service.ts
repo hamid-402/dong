@@ -11,8 +11,11 @@ import {
 import {
   allocateExpenseSplit,
   assertNoCustodyPayload,
+  fundPartyId,
   isFinanceManagerRole,
   meetsMakerCheckerThreshold,
+  PAYMENT_RECEIPT_MAX_BYTES,
+  paymentReceiptUploadMimeTypes,
   pettyCashAllowedForKind,
   signedPettyCashDelta,
   spaceKindForTemplate,
@@ -27,7 +30,6 @@ import {
   type CreditPurchaseStatus,
   type CreditPurchaseSummary,
   type ExpenseSplitLine,
-  type MembershipRole,
   type OnBehalfPaymentStatus,
   type OnBehalfPaymentSummary,
   type PaymentReceiptStatus,
@@ -67,6 +69,10 @@ import { MfaService } from "../auth/mfa.service.js";
 import { OutboxRelay } from "../outbox/outbox.relay.js";
 import { OUTBOX_STORE, type OutboxStore } from "../outbox/outbox.types.js";
 import { AUDIT_STORE, type AuditStore } from "../audit/audit.types.js";
+import {
+  ATTACHMENT_STORE,
+  type AttachmentStore,
+} from "../attachments/attachment.store.js";
 import { SettlementsService } from "../settlements/settlements.service.js";
 import {
   SETTLEMENT_STORE,
@@ -109,6 +115,9 @@ export class WorkspacePaymentsService {
     @Optional() @Inject(OutboxRelay) private readonly outboxRelay?: OutboxRelay,
     @Optional() @Inject(MfaService) private readonly mfa?: MfaService,
     @Optional() @Inject(AUDIT_STORE) private readonly audit?: AuditStore,
+    @Optional()
+    @Inject(ATTACHMENT_STORE)
+    private readonly attachments?: AttachmentStore,
   ) {}
 
   persistence(): "memory" | "postgres" {
@@ -138,6 +147,7 @@ export class WorkspacePaymentsService {
       .filter(
         (r) =>
           r.payerUserId === actor.userId ||
+          r.payeeUserId === actor.userId ||
           (r.settlementId != null && creditorSettlementIds.has(r.settlementId)),
       )
       .map(toReceiptSummary);
@@ -158,11 +168,30 @@ export class WorkspacePaymentsService {
     if (body.method === "card_to_card" && !body.referenceNo?.trim()) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
-        title: "Ú©Ø¯ Ù¾ÛŒÚ¯ÛŒØ±ÛŒ Ú©Ø§Ø±Øªâ€ŒØ¨Ù‡â€ŒÚ©Ø§Ø±Øª Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª",
+        title: "کد پیگیری کارت‌به‌کارت الزامی است",
         status: 400,
         code: "CARD_TRANSFER_REF_REQUIRED",
       });
     }
+    if (body.method === "card_to_card" && !body.attachmentId) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "فایل رسید کارت‌به‌کارت الزامی است",
+        status: 400,
+        code: "CARD_TRANSFER_ATTACHMENT_REQUIRED",
+      });
+    }
+    if (body.payeeUserId && body.payeeFundId) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "گیرنده یا شخص است یا حساب جمعی",
+        status: 400,
+        code: "PAYEE_XOR",
+      });
+    }
+
+    let payeeUserId = body.payeeUserId;
+    const payeeFundId = body.payeeFundId;
 
     if (body.settlementId) {
       const settlement = await this.settlements.get(
@@ -173,13 +202,86 @@ export class WorkspacePaymentsService {
       if (!settlement) {
         throw new NotFoundException({
           type: "https://dang.local/problems/not-found",
-          title: "ØªØ³ÙˆÛŒÙ‡ ÛŒØ§ÙØª Ù†Ø´Ø¯",
+          title: "تسویه یافت نشد",
           status: 404,
+        });
+      }
+      if (!payeeFundId && !payeeUserId) {
+        payeeUserId = settlement.toUserId;
+      }
+    }
+
+    if (payeeFundId) {
+      const fund = await this.ops.getFund(workspaceId, payeeFundId);
+      if (!fund || !fund.active) {
+        throw new NotFoundException({
+          type: "https://dang.local/problems/not-found",
+          title: "صندوق تنخواه یافت نشد",
+          status: 404,
+          code: "PAYEE_FUND_NOT_FOUND",
         });
       }
     }
 
-    const row = await this.ops.createReceipt(workspaceId, actor.userId, body);
+    if (!payeeUserId && !payeeFundId && !body.memberInvoiceId) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "گیرنده رسید الزامی است",
+        status: 400,
+        code: "PAYEE_REQUIRED",
+      });
+    }
+
+    if (body.attachmentId && this.attachments) {
+      const att = await this.attachments.getById(workspaceId, body.attachmentId);
+      if (!att) {
+        throw new NotFoundException({
+          type: "https://dang.local/problems/not-found",
+          title: "پیوست یافت نشد",
+          status: 404,
+          code: "ATTACHMENT_NOT_FOUND",
+        });
+      }
+      if (att.sizeBytes > PAYMENT_RECEIPT_MAX_BYTES) {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/validation",
+          title: "حجم فایل رسید حداکثر ۵ مگابایت است",
+          status: 400,
+          code: "RECEIPT_FILE_TOO_LARGE",
+        });
+      }
+      if (
+        !(paymentReceiptUploadMimeTypes as readonly string[]).includes(att.mimeType)
+      ) {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/validation",
+          title: "نوع فایل رسید باید JPG، PNG یا PDF باشد",
+          status: 400,
+          code: "RECEIPT_FILE_MIME",
+        });
+      }
+    }
+
+    const row = await this.ops.createReceipt(workspaceId, actor.userId, {
+      ...body,
+      payeeUserId,
+      payeeFundId,
+    });
+    await this.audit?.append({
+      workspaceId,
+      actorUserId: actor.userId,
+      action: "payment_receipt.submit",
+      targetType: "payment_receipt",
+      targetId: row.id,
+      result: "success",
+      metadata: {
+        method: row.method,
+        amountMinor: row.amount.amountMinor,
+        payeeUserId: row.payeeUserId ?? null,
+        payeeFundId: row.payeeFundId ?? null,
+        settlementId: row.settlementId ?? null,
+      },
+    });
     return toReceiptSummary(row);
   }
 
@@ -193,15 +295,15 @@ export class WorkspacePaymentsService {
     if (!existing) {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
-        title: "Ø±Ø³ÛŒØ¯ ÛŒØ§ÙØª Ù†Ø´Ø¯",
+        title: "رسید یافت نشد",
         status: 404,
         code: "RECEIPT_NOT_FOUND",
       });
     }
-    if (existing.status !== "submitted") {
+    if (existing.status !== "submitted" && existing.status !== "creditor_approved") {
       throw new ConflictException({
         type: "https://dang.local/problems/conflict",
-        title: "Ø±Ø³ÛŒØ¯ Ù‚Ø¨Ù„Ø§Ù‹ Ø¨Ø±Ø±Ø³ÛŒ Ø´Ø¯Ù‡",
+        title: "رسید قبلاً بررسی شده",
         status: 409,
         code: "RECEIPT_ALREADY_REVIEWED",
       });
@@ -209,98 +311,88 @@ export class WorkspacePaymentsService {
     if (existing.payerUserId === actor.userId) {
       throw new ForbiddenException({
         type: "https://dang.local/problems/forbidden",
-        title: "Ø¨Ø±Ø±Ø³ÛŒ Ø±Ø³ÛŒØ¯ ØªÙˆØ³Ø· Ø®ÙˆØ¯ Ù¾Ø±Ø¯Ø§Ø®Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡ Ù…Ø¬Ø§Ø² Ù†ÛŒØ³Øª",
+        title: "بررسی رسید توسط خود پرداخت‌کننده مجاز نیست",
         status: 403,
         code: "RECEIPT_SELF_REVIEW",
       });
     }
 
-    await this.assertCanReviewReceipt(actor.userId, role, workspaceId, existing);
+    const payee = await this.resolveReceiptPayee(workspaceId, existing, actor.userId);
+    const isManager = isFinanceManagerRole(role);
+    const isCreditor =
+      payee.kind === "member" && payee.userId === actor.userId;
+    const fundPayee = payee.kind === "fund";
 
-    let journalEntryId: string | undefined;
-
-    if (existing.settlementId) {
-      const settlement = await this.settlements.get(
-        workspaceId,
-        existing.settlementId,
-        actor.userId,
-      );
-      if (!settlement) {
-        throw new NotFoundException({
-          type: "https://dang.local/problems/not-found",
-          title: "ØªØ³ÙˆÛŒÙ‡Ù” Ù…ØªØµÙ„ ÛŒØ§ÙØª Ù†Ø´Ø¯",
-          status: 404,
+    if (existing.status === "submitted") {
+      if (fundPayee) {
+        if (!isManager) {
+          throw new ForbiddenException({
+            type: "https://dang.local/problems/forbidden",
+            title: "فقط مدیر فضا می‌تواند پرداخت به حساب جمعی را تأیید کند",
+            status: 403,
+            code: "RECEIPT_REVIEW_UNAUTHORIZED",
+          });
+        }
+        return this.finalizeReceiptApproval(actor, workspaceId, existing, {
+          creditorApprovedByUserId: actor.userId,
         });
       }
-      if (settlement.status === "claimed") {
-        const confirmed = await this.settlements.confirm(
-          workspaceId,
-          settlement.id,
-          actor.userId,
-        );
-        const journal = await this.ledger.postSettlement(
-          actor.userId,
-          toSettlementSummary(confirmed),
-        );
-        journalEntryId = journal.id;
-      } else if (settlement.status === "confirmed") {
-        const journal = await this.ledger.postSettlement(
-          actor.userId,
-          toSettlementSummary(settlement),
-        );
-        journalEntryId = journal.id;
-      } else {
-        throw new BadRequestException({
-          type: "https://dang.local/problems/validation",
-          title: "ØªØ³ÙˆÛŒÙ‡Ù” Ù„ÛŒÙ†Ú©â€ŒØ´Ø¯Ù‡ Ù‚Ø§Ø¨Ù„ ØªØ£ÛŒÛŒØ¯ Ù†ÛŒØ³Øª",
-          status: 400,
+      // Person-to-person: creditor first (or one-step if manager is creditor).
+      if (isCreditor && isManager) {
+        return this.finalizeReceiptApproval(actor, workspaceId, existing, {
+          creditorApprovedByUserId: actor.userId,
         });
       }
-    } else {
-      const counterpartyUserId = await this.resolveCounterparty(
-        workspaceId,
-        existing.memberInvoiceId,
-        actor.userId,
-      );
-      const journal = await this.ledger.postPaymentReceipt(actor.userId, {
-        workspaceId,
-        receiptId: existing.id,
-        payerUserId: existing.payerUserId,
-        counterpartyUserId,
-        amount: existing.amount,
+      if (isCreditor) {
+        try {
+          const mid = await this.ops.reviewReceipt(workspaceId, receiptId, {
+            status: "creditor_approved",
+            reviewedByUserId: actor.userId,
+            creditorApprovedByUserId: actor.userId,
+            fromStatuses: ["submitted"],
+          });
+          await this.audit?.append({
+            workspaceId,
+            actorUserId: actor.userId,
+            action: "payment_receipt.creditor_approve",
+            targetType: "payment_receipt",
+            targetId: mid.id,
+            result: "success",
+            metadata: {},
+          });
+          return toReceiptSummary(mid);
+        } catch (error: unknown) {
+          this.rethrowReceiptReview(error);
+        }
+      }
+      if (isManager) {
+        throw new ForbiddenException({
+          type: "https://dang.local/problems/forbidden",
+          title: "ابتدا طلبکار باید رسید را تأیید کند",
+          status: 403,
+          code: "RECEIPT_AWAIT_CREDITOR",
+        });
+      }
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "فقط طلبکار می‌تواند در این مرحله تأیید کند",
+        status: 403,
+        code: "RECEIPT_REVIEW_UNAUTHORIZED",
       });
-      journalEntryId = journal.id;
     }
 
-    if (existing.memberInvoiceId) {
-      try {
-        const paid = await this.billing.markInvoicePaid(
-          workspaceId,
-          existing.memberInvoiceId,
-          actor.userId,
-        );
-        await this.invoiceEvents.announce({
-          workspaceId,
-          periodId: paid.periodId,
-          memberUserIds: [paid.memberUserId],
-          reason: "invoice.paid.receipt",
-        });
-      } catch (error: unknown) {
-        const detail = error instanceof Error ? error.message : String(error);
-        if (detail !== "INVOICE_STATUS") throw error;
-      }
-    }
-
-    try {
-      const approved = await this.ops.reviewReceipt(workspaceId, receiptId, {
-        status: "approved",
-        reviewedByUserId: actor.userId,
-        journalEntryId,
+    // creditor_approved → manager finalizes
+    if (!isManager) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "فقط مدیر فضا می‌تواند تأیید نهایی را بدهد",
+        status: 403,
+        code: "RECEIPT_REVIEW_UNAUTHORIZED",
       });
-      return toReceiptSummary(approved);
-    } catch (error: unknown) {
-      this.rethrowReceiptReview(error);
     }
+    return this.finalizeReceiptApproval(actor, workspaceId, existing, {
+      fromStatuses: ["creditor_approved"],
+    });
   }
 
   async rejectReceipt(
@@ -314,30 +406,119 @@ export class WorkspacePaymentsService {
     if (!existing) {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
-        title: "Ø±Ø³ÛŒØ¯ ÛŒØ§ÙØª Ù†Ø´Ø¯",
+        title: "رسید یافت نشد",
         status: 404,
         code: "RECEIPT_NOT_FOUND",
+      });
+    }
+    if (existing.status !== "submitted" && existing.status !== "creditor_approved") {
+      throw new ConflictException({
+        type: "https://dang.local/problems/conflict",
+        title: "رسید قبلاً بررسی شده",
+        status: 409,
+        code: "RECEIPT_ALREADY_REVIEWED",
       });
     }
     if (existing.payerUserId === actor.userId) {
       throw new ForbiddenException({
         type: "https://dang.local/problems/forbidden",
-        title: "Ø¨Ø±Ø±Ø³ÛŒ Ø±Ø³ÛŒØ¯ ØªÙˆØ³Ø· Ø®ÙˆØ¯ Ù¾Ø±Ø¯Ø§Ø®Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡ Ù…Ø¬Ø§Ø² Ù†ÛŒØ³Øª",
+        title: "بررسی رسید توسط خود پرداخت‌کننده مجاز نیست",
         status: 403,
         code: "RECEIPT_SELF_REVIEW",
       });
     }
-    await this.assertCanReviewReceipt(actor.userId, role, workspaceId, existing);
+    const payee = await this.resolveReceiptPayee(workspaceId, existing, actor.userId);
+    const isManager = isFinanceManagerRole(role);
+    const isCreditor =
+      payee.kind === "member" && payee.userId === actor.userId;
+    const canReject =
+      (existing.status === "submitted" && (isCreditor || (payee.kind === "fund" && isManager))) ||
+      (existing.status === "creditor_approved" && isManager);
+    if (!canReject) {
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "اجازه رد این رسید را ندارید",
+        status: 403,
+        code: "RECEIPT_REVIEW_UNAUTHORIZED",
+      });
+    }
     try {
       const rejected = await this.ops.reviewReceipt(workspaceId, receiptId, {
         status: "rejected",
         reviewedByUserId: actor.userId,
         reviewNote: body.note,
+        fromStatuses: [existing.status],
+      });
+      await this.audit?.append({
+        workspaceId,
+        actorUserId: actor.userId,
+        action: "payment_receipt.reject",
+        targetType: "payment_receipt",
+        targetId: rejected.id,
+        result: "success",
+        metadata: { note: body.note.slice(0, 200) },
       });
       return toReceiptSummary(rejected);
     } catch (error: unknown) {
       this.rethrowReceiptReview(error);
     }
+  }
+
+  /**
+   * Apply unapplied overpay credits onto draft invoices of a period (idempotent).
+   * Called after invoice generate — negative adjustment = credit for the payer.
+   */
+  async applyOverpayCreditsToPeriod(
+    workspaceId: string,
+    periodId: string,
+    actorUserId: string,
+    invoices: Array<{ id: string; memberUserId: string; status: string }>,
+  ): Promise<number> {
+    const credits = await this.ops.listUnappliedExcessCredits(workspaceId);
+    if (credits.length === 0) return 0;
+    let applied = 0;
+    for (const credit of credits) {
+      const excess = BigInt(credit.excessCreditMinor ?? "0");
+      if (excess <= 0n) continue;
+      const invoice = invoices.find(
+        (i) =>
+          i.memberUserId === credit.payerUserId &&
+          (i.status === "draft" || i.status === "pending_approval"),
+      );
+      if (!invoice) continue;
+      if (!this.billing.createAdjustment) continue;
+      const key = `adj:credit:${credit.id}:${invoice.id}`;
+      try {
+        await this.billing.createAdjustment({
+          workspaceId,
+          periodId,
+          invoiceId: invoice.id,
+          memberUserId: credit.payerUserId,
+          deltaMinor: (-excess).toString(),
+          reason: `receipt.overpay:${credit.id}`,
+          idempotencyKey: key,
+          actorUserId,
+        });
+      } catch {
+        continue;
+      }
+      await this.ops.markExcessCreditApplied(workspaceId, credit.id, invoice.id);
+      applied += 1;
+      await this.audit?.append({
+        workspaceId,
+        actorUserId,
+        action: "payment_receipt.credit_apply",
+        targetType: "payment_receipt",
+        targetId: credit.id,
+        result: "success",
+        metadata: {
+          invoiceId: invoice.id,
+          periodId,
+          excessCreditMinor: excess.toString(),
+        },
+      });
+    }
+    return applied;
   }
 
   async listPettyCash(
@@ -2133,46 +2314,161 @@ export class WorkspacePaymentsService {
     }
   }
 
-  /**
-   * Two-sided card/receipt review: finance manager OR settlement creditor (toUserId).
-   * Receipts without settlement stay finance-only.
-   */
-  private async assertCanReviewReceipt(
-    actorUserId: string,
-    role: MembershipRole,
+  private async resolveReceiptPayee(
     workspaceId: string,
     receipt: StoredPaymentReceipt,
-  ): Promise<void> {
-    if (isFinanceManagerRole(role)) return;
-
+    reviewerUserId: string,
+  ): Promise<
+    | { kind: "fund"; fundId: string }
+    | { kind: "member"; userId: string }
+  > {
+    if (receipt.payeeFundId) {
+      return { kind: "fund", fundId: receipt.payeeFundId };
+    }
+    if (receipt.payeeUserId) {
+      return { kind: "member", userId: receipt.payeeUserId };
+    }
     if (receipt.settlementId) {
       const settlement = await this.settlements.get(
         workspaceId,
         receipt.settlementId,
-        actorUserId,
+        reviewerUserId,
       );
-      if (settlement && settlement.toUserId === actorUserId) return;
+      if (settlement) {
+        return { kind: "member", userId: settlement.toUserId };
+      }
     }
-
-    throw new ForbiddenException({
-      type: "https://dang.local/problems/forbidden",
-      title: "ÙÙ‚Ø· Ù…Ø¯ÛŒØ± Ù…Ø§Ù„ÛŒ ÛŒØ§ Ø·Ù„Ø¨Ú©Ø§Ø± ØªØ³ÙˆÛŒÙ‡ Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ ÙÛŒØ´ Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ú©Ù†Ø¯",
-      status: 403,
-      code: "RECEIPT_REVIEW_UNAUTHORIZED",
-    });
+    return { kind: "member", userId: reviewerUserId };
   }
 
-  private async resolveCounterparty(
+  private async finalizeReceiptApproval(
+    actor: AuthActor,
     workspaceId: string,
-    memberInvoiceId: string | undefined,
-    reviewerUserId: string,
-  ): Promise<string> {
-    if (memberInvoiceId) {
-      // Invoice paid reduces member debt vs finance reviewer as counterparty.
-      return reviewerUserId;
+    existing: StoredPaymentReceipt,
+    opts?: {
+      creditorApprovedByUserId?: string;
+      fromStatuses?: PaymentReceiptStatus[];
+    },
+  ): Promise<PaymentReceiptSummary> {
+    let journalEntryId: string | undefined;
+    let excessCreditMinor = "0";
+    const paid = BigInt(existing.amount.amountMinor);
+    const payee = await this.resolveReceiptPayee(
+      workspaceId,
+      existing,
+      actor.userId,
+    );
+    const counterpartyUserId =
+      payee.kind === "fund" ? fundPartyId(payee.fundId) : payee.userId;
+
+    if (existing.settlementId) {
+      const settlement = await this.settlements.get(
+        workspaceId,
+        existing.settlementId,
+        actor.userId,
+      );
+      if (!settlement) {
+        throw new NotFoundException({
+          type: "https://dang.local/problems/not-found",
+          title: "تسویهٔ متصل یافت نشد",
+          status: 404,
+        });
+      }
+      const owed = BigInt(settlement.amount.amountMinor);
+      const excess = paid > owed ? paid - owed : 0n;
+      excessCreditMinor = excess.toString();
+
+      if (settlement.status === "claimed") {
+        const confirmed = await this.settlements.confirm(
+          workspaceId,
+          settlement.id,
+          actor.userId,
+        );
+        const journal = await this.ledger.postSettlement(
+          actor.userId,
+          toSettlementSummary(confirmed),
+        );
+        journalEntryId = journal.id;
+      } else if (settlement.status === "confirmed") {
+        const journal = await this.ledger.postSettlement(
+          actor.userId,
+          toSettlementSummary(settlement),
+        );
+        journalEntryId = journal.id;
+      } else {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/validation",
+          title: "تسویهٔ لینک‌شده قابل تأیید نیست",
+          status: 400,
+        });
+      }
+
+      if (excess > 0n) {
+        await this.ledger.postPaymentReceipt(actor.userId, {
+          workspaceId,
+          receiptId: existing.id,
+          payerUserId: existing.payerUserId,
+          counterpartyUserId,
+          amount: { amountMinor: excess.toString(), currency: "IRR" },
+        });
+      }
+    } else {
+      const journal = await this.ledger.postPaymentReceipt(actor.userId, {
+        workspaceId,
+        receiptId: existing.id,
+        payerUserId: existing.payerUserId,
+        counterpartyUserId,
+        amount: existing.amount,
+      });
+      journalEntryId = journal.id;
+      excessCreditMinor = "0";
     }
-    void workspaceId;
-    return reviewerUserId;
+
+    if (existing.memberInvoiceId) {
+      try {
+        const paidInvoice = await this.billing.markInvoicePaid(
+          workspaceId,
+          existing.memberInvoiceId,
+          actor.userId,
+        );
+        await this.invoiceEvents.announce({
+          workspaceId,
+          periodId: paidInvoice.periodId,
+          memberUserIds: [paidInvoice.memberUserId],
+          reason: "invoice.paid.receipt",
+        });
+      } catch (error: unknown) {
+        const detail = error instanceof Error ? error.message : String(error);
+        if (detail !== "INVOICE_STATUS") throw error;
+      }
+    }
+
+    try {
+      const approved = await this.ops.reviewReceipt(workspaceId, existing.id, {
+        status: "approved",
+        reviewedByUserId: actor.userId,
+        journalEntryId,
+        excessCreditMinor,
+        creditorApprovedByUserId:
+          opts?.creditorApprovedByUserId ?? existing.creditorApprovedByUserId,
+        fromStatuses: opts?.fromStatuses ?? ["submitted"],
+      });
+      await this.audit?.append({
+        workspaceId,
+        actorUserId: actor.userId,
+        action: "payment_receipt.approve",
+        targetType: "payment_receipt",
+        targetId: approved.id,
+        result: "success",
+        metadata: {
+          journalEntryId: journalEntryId ?? null,
+          excessCreditMinor,
+        },
+      });
+      return toReceiptSummary(approved);
+    } catch (error: unknown) {
+      this.rethrowReceiptReview(error);
+    }
   }
 
   private rethrowReceiptReview(error: unknown): never {
@@ -2180,7 +2476,7 @@ export class WorkspacePaymentsService {
     if (detail === "RECEIPT_ALREADY_REVIEWED") {
       throw new ConflictException({
         type: "https://dang.local/problems/conflict",
-        title: "Ø±Ø³ÛŒØ¯ Ù‚Ø¨Ù„Ø§Ù‹ Ø¨Ø±Ø±Ø³ÛŒ Ø´Ø¯Ù‡",
+        title: "رسید قبلاً بررسی شده",
         status: 409,
         code: "RECEIPT_ALREADY_REVIEWED",
       });
@@ -2188,7 +2484,7 @@ export class WorkspacePaymentsService {
     if (detail === "RECEIPT_NOT_FOUND") {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
-        title: "Ø±Ø³ÛŒØ¯ ÛŒØ§ÙØª Ù†Ø´Ø¯",
+        title: "رسید یافت نشد",
         status: 404,
         code: "RECEIPT_NOT_FOUND",
       });

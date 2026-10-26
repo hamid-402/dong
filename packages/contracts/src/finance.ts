@@ -1272,13 +1272,24 @@ export function buildSettlementJournalLines(
 /** Approved payment receipt without settlement confirm: credit payer, debit counterparty. */
 export function buildPaymentReceiptJournalLines(input: {
   payerUserId: string;
+  /** Member user id or `fund:{uuid}` collective party. */
   counterpartyUserId: string;
   amount: Money;
 }): JournalLine[] {
+  const fundId = parseFundIdFromParty(input.counterpartyUserId);
+  const counterparty = fundId
+    ? {
+        accountCode: fundAccountCode(fundId),
+        userId: fundPartyId(fundId),
+      }
+    : {
+        accountCode: memberAccountCode(input.counterpartyUserId),
+        userId: input.counterpartyUserId,
+      };
   const lines: JournalLine[] = [
     {
-      accountCode: memberAccountCode(input.counterpartyUserId),
-      userId: input.counterpartyUserId,
+      accountCode: counterparty.accountCode,
+      userId: counterparty.userId,
       side: "debit",
       amount: input.amount,
     },

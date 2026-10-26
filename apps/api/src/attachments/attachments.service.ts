@@ -249,6 +249,16 @@ export class AttachmentsService {
         status: 400,
       });
     }
+    const { sniffUploadMime } = await import("@dang/contracts");
+    const sniffed = sniffUploadMime(new Uint8Array(buffer));
+    if (!sniffed || sniffed !== attachment.mimeType.trim()) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "Uploaded content does not match declared mimeType",
+        status: 400,
+        code: "ATTACHMENT_CONTENT_MIME",
+      });
+    }
     // When ClamAV is enabled, scan before marking the blob servable.
     if (isClamavEnabled()) {
       const evaluated = await scanAttachmentContent({

@@ -1093,6 +1093,7 @@ export const paymentReceiptMethod = finance.enum("payment_receipt_method", [
 
 export const paymentReceiptStatus = finance.enum("payment_receipt_status", [
   "submitted",
+  "creditor_approved",
   "approved",
   "rejected",
 ]);
@@ -1113,6 +1114,12 @@ export const paymentReceipt = finance.table(
     payerUserId: uuid("payer_user_id")
       .notNull()
       .references(() => userAccount.id),
+    /** Person payee — XOR with payeeFundId. */
+    payeeUserId: uuid("payee_user_id").references(() => userAccount.id, {
+      onDelete: "set null",
+    }),
+    /** Collective fund payee (تنخواه/صندوق) — XOR with payeeUserId. */
+    payeeFundId: uuid("payee_fund_id"),
     method: paymentReceiptMethod("method").notNull(),
     amountMinor: bigint("amount_minor", { mode: "bigint" }).notNull(),
     currency: text("currency").default("IRR").notNull(),
@@ -1122,10 +1129,23 @@ export const paymentReceipt = finance.table(
     destLast4: text("dest_last4"),
     attachmentId: uuid("attachment_id"),
     status: paymentReceiptStatus("status").default("submitted").notNull(),
+    creditorApprovedByUserId: uuid("creditor_approved_by_user_id").references(
+      () => userAccount.id,
+      { onDelete: "set null" },
+    ),
+    creditorApprovedAt: timestamp("creditor_approved_at", { withTimezone: true }),
     reviewedByUserId: uuid("reviewed_by_user_id").references(() => userAccount.id),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     reviewNote: text("review_note"),
     journalEntryId: uuid("journal_entry_id"),
+    /** Overpay beyond owed debt — applied once to a later member invoice. */
+    excessCreditMinor: bigint("excess_credit_minor", { mode: "bigint" })
+      .default(0n)
+      .notNull(),
+    appliedToInvoiceId: uuid("applied_to_invoice_id").references(
+      () => memberInvoice.id,
+      { onDelete: "set null" },
+    ),
     idempotencyKey: text("idempotency_key").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

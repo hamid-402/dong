@@ -659,6 +659,13 @@
       "when": 1789006400000,
       "tag": "0094_directory_public_settings_volatile",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1789006500000,
+      "tag": "0095_payment_receipt_card_two_step",
+      "breakpoints": true
     }
   ]
 }

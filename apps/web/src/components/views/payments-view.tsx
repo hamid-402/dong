@@ -46,7 +46,7 @@ import { t } from "@/lib/i18n";
 import styles from "./payments-view.module.css";
 import type { DisplayUnit } from "@dang/ui";
 
-const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
+const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
 
 function invalidMoneyMessage(
   raw: string,
@@ -58,9 +58,22 @@ function invalidMoneyMessage(
 }
 
 function receiptStatusLabel(status: PaymentReceiptSummary["status"]): string {
-  if (status === "submitted") return "در انتظار تأیید";
+  if (status === "submitted") return "در انتظار";
+  if (status === "creditor_approved") return "تأیید طلبکار — منتظر مدیر";
   if (status === "approved") return "تأیید شده";
   return "رد شده";
+}
+
+function receiptStoredFileName(mimeType: string): string {
+  const ext =
+    mimeType === "image/jpeg"
+      ? "jpg"
+      : mimeType === "image/png"
+        ? "png"
+        : mimeType === "application/pdf"
+          ? "pdf"
+          : "bin";
+  return `receipt-${crypto.randomUUID()}.${ext}`;
 }
 
 export function PaymentsView() {
@@ -101,6 +114,9 @@ export function PaymentsView() {
     "card_to_card",
   );
   const [settlementId, setSettlementId] = useState("");
+  const [payeeKind, setPayeeKind] = useState<"person" | "fund">("person");
+  const [payeeUserId, setPayeeUserId] = useState("");
+  const [payeeFundId, setPayeeFundId] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptFileError, setReceiptFileError] = useState<string | null>(null);
   const [referenceTouched, setReferenceTouched] = useState(false);
@@ -352,6 +368,50 @@ export function PaymentsView() {
             value={settlementId}
             onChange={(e) => setSettlementId(e.target.value)}
           />
+          <SelectField
+            label="گیرنده"
+            value={payeeKind}
+            onChange={(e) => {
+              const next = e.target.value as "person" | "fund";
+              setPayeeKind(next);
+              if (next === "person") setPayeeFundId("");
+              else setPayeeUserId("");
+            }}
+          >
+            <option value="person">شخص (عضو)</option>
+            <option value="fund">صندوق / تنخواه</option>
+          </SelectField>
+          {payeeKind === "person" ? (
+            <SelectField
+              label="عضو گیرنده"
+              value={payeeUserId}
+              onChange={(e) => setPayeeUserId(e.target.value)}
+            >
+              <option value="">انتخاب عضو…</option>
+              {members
+                .filter((m) => m.userId !== actorId)
+                .map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.displayName || m.userId.slice(0, 8)}
+                  </option>
+                ))}
+            </SelectField>
+          ) : (
+            <SelectField
+              label="صندوق گیرنده"
+              value={payeeFundId}
+              onChange={(e) => setPayeeFundId(e.target.value)}
+            >
+              <option value="">انتخاب صندوق…</option>
+              {funds
+                .filter((f) => f.active)
+                .map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+            </SelectField>
+          )}
           <TextField
             label="نام صاحب حساب مقصد"
             value={destHolderName}
@@ -396,17 +456,17 @@ export function PaymentsView() {
               برای کارت‌به‌کارت کد پیگیری الزامی است — طرف مقابل با همین کد تأیید می‌کند.
             </p>
           ) : null}
-          {attachmentsLive ? (
+          {attachmentsLive || method === "card_to_card" ? (
             <label className="receiptUpload__label">
               <input
                 type="file"
-                accept="image/jpeg,image/png,image/webp,application/pdf"
+                accept="image/jpeg,image/png,application/pdf"
                 disabled={pending}
                 onChange={(e) => {
                   const file = e.target.files?.[0] ?? null;
                   e.target.value = "";
                   if (file && file.size > MAX_RECEIPT_BYTES) {
-                    setReceiptFileError("حجم فایل بیش از ۱۰ مگابایت است");
+                    setReceiptFileError("حجم فایل بیش از ۵ مگابایت است");
                     setReceiptFile(null);
                     return;
                   }
@@ -416,7 +476,9 @@ export function PaymentsView() {
               />
               {receiptFile
                 ? `پیوست: ${receiptFile.name}`
-                : "پیوست تصویر فیش (اختیاری)"}
+                : method === "card_to_card"
+                  ? "پیوست تصویر فیش (الزامی — JPG، PNG یا PDF)"
+                  : "پیوست تصویر فیش (اختیاری)"}
             </label>
           ) : null}
           {receiptFileError ? (
@@ -428,7 +490,12 @@ export function PaymentsView() {
             disabled={
               pending ||
               !amountMinor.trim() ||
-              (method === "card_to_card" && !referenceNo.trim())
+              (method === "card_to_card" && !referenceNo.trim()) ||
+              (method === "card_to_card" && !receiptFile) ||
+              (payeeKind === "person" &&
+                !settlementId.trim() &&
+                !payeeUserId) ||
+              (payeeKind === "fund" && !payeeFundId)
             }
             onClick={() => {
               if (!workspaceId) return;
@@ -436,11 +503,19 @@ export function PaymentsView() {
                 setReferenceTouched(true);
                 return;
               }
+              if (method === "card_to_card" && !receiptFile) {
+                setReceiptFileError("برای کارت‌به‌کارت پیوست فیش الزامی است");
+                return;
+              }
               startTransition(() => {
                 void (async () => {
                   try {
                     let attachmentId: string | undefined;
-                    if (attachmentsLive && receiptFile) {
+                    if (receiptFile) {
+                      if (!attachmentsLive) {
+                        setError("آپلود پیوست در این محیط فعال نیست");
+                        return;
+                      }
                       const mimeType = resolveUploadMimeType(receiptFile);
                       const contentHash = await sha256HexFromFile(receiptFile);
                       const settlement = settlementId.trim();
@@ -453,7 +528,7 @@ export function PaymentsView() {
                         targetType,
                         targetId,
                         kind: "receipt",
-                        fileName: receiptFile.name,
+                        fileName: receiptStoredFileName(mimeType),
                         mimeType,
                         sizeBytes: receiptFile.size,
                         contentHash,
@@ -476,6 +551,14 @@ export function PaymentsView() {
                       })(),
                       paidAt: new Date().toISOString(),
                       settlementId: settlementId.trim() || undefined,
+                      payeeUserId:
+                        payeeKind === "person" && payeeUserId
+                          ? payeeUserId
+                          : undefined,
+                      payeeFundId:
+                        payeeKind === "fund" && payeeFundId
+                          ? payeeFundId
+                          : undefined,
                       destHolderName: destHolderName.trim() || undefined,
                       destLast4: destLast4.trim() || undefined,
                       referenceNo: referenceNo.trim() || undefined,
@@ -483,14 +566,18 @@ export function PaymentsView() {
                       idempotencyKey: crypto.randomUUID(),
                     });
                     flashSuccess(
-                      method === "card_to_card"
-                        ? "فیش ثبت شد — منتظر تأیید طرف مقابل"
-                        : "فیش ثبت شد — هنوز روی بدهی اثر ندارد",
+                      payeeKind === "fund"
+                        ? "فیش ثبت شد — منتظر تأیید مدیر"
+                        : method === "card_to_card"
+                          ? "فیش ثبت شد — منتظر تأیید طلبکار"
+                          : "فیش ثبت شد — هنوز روی بدهی اثر ندارد",
                     );
                     setAmountMinor("");
                     setDestLast4("");
                     setReferenceNo("");
                     setReceiptFile(null);
+                    setPayeeUserId("");
+                    setPayeeFundId("");
                     reload();
                   } catch (err) {
                     setError(
@@ -538,7 +625,37 @@ export function PaymentsView() {
           />
         ) : (
           <DataList>
-            {receipts.map((r) => (
+            {receipts.map((r) => {
+              const isPayee =
+                Boolean(actorId) &&
+                (r.payeeUserId === actorId);
+              const fundPayee = Boolean(r.payeeFundId);
+              const canCreditorAct =
+                r.status === "submitted" &&
+                !fundPayee &&
+                isPayee &&
+                r.payerUserId !== actorId &&
+                !readOnly;
+              const canManagerFund =
+                r.status === "submitted" &&
+                fundPayee &&
+                canReview &&
+                r.payerUserId !== actorId &&
+                !readOnly;
+              const canManagerFinal =
+                r.status === "creditor_approved" &&
+                canReview &&
+                r.payerUserId !== actorId &&
+                !readOnly;
+              const showReviewActions =
+                canCreditorAct || canManagerFund || canManagerFinal;
+              const excess =
+                r.status === "approved" &&
+                r.excessCreditMinor &&
+                BigInt(r.excessCreditMinor) > 0n
+                  ? r.excessCreditMinor
+                  : null;
+              return (
               <DataRow
                 key={r.id}
                 title={<Amount irrMinor={r.amount.amountMinor} />}
@@ -550,7 +667,9 @@ export function PaymentsView() {
                           ? "ok"
                           : r.status === "rejected"
                             ? "warn"
-                            : "neutral"
+                            : r.status === "creditor_approved"
+                              ? "neutral"
+                              : "neutral"
                       }
                     >
                       {receiptStatusLabel(r.status)}
@@ -559,18 +678,21 @@ export function PaymentsView() {
                     {r.referenceNo ? ` · پیگیری ${r.referenceNo}` : null}
                     {r.destLast4 ? ` · ****${r.destLast4}` : null}
                     {r.attachmentId ? " · پیوست دارد" : null}
-                    {r.status === "submitted" &&
-                    r.payerUserId !== actorId &&
-                    !canReview &&
-                    !readOnly
-                      ? " · منتظر تأیید شما"
+                    {r.payeeFundId ? " · به صندوق" : null}
+                    {excess ? (
+                      <>
+                        {" · اعتبار اضافه "}
+                        <Amount irrMinor={excess} />
+                      </>
+                    ) : null}
+                    {canCreditorAct ? " · منتظر تأیید شما" : null}
+                    {r.status === "creditor_approved" && canReview
+                      ? " · منتظر تأیید نهایی شما"
                       : null}
                   </>
                 }
                 actions={
-                  !readOnly &&
-                  r.status === "submitted" &&
-                  r.payerUserId !== actorId ? (
+                  showReviewActions ? (
                     <div className={styles.rowActions}>
                       <Button
                         disabled={pending}
@@ -578,12 +700,17 @@ export function PaymentsView() {
                           startTransition(() => {
                             void (async () => {
                               try {
-                                await api.approveReceipt(workspaceId, r.id);
-                                flashSuccess(
-                                  canReview
-                                    ? "فیش تأیید و ژورنال ثبت شد"
-                                    : "دریافت تأیید شد — تسویه بسته شد",
+                                const result = await api.approveReceipt(
+                                  workspaceId,
+                                  r.id,
                                 );
+                                if (result.status === "creditor_approved") {
+                                  flashSuccess(
+                                    "تأیید طلبکار ثبت شد — منتظر تأیید مدیر",
+                                  );
+                                } else {
+                                  flashSuccess("فیش تأیید و ژورنال ثبت شد");
+                                }
                                 reload();
                               } catch (err) {
                                 setError(friendlyErrorMessage(err, "خطای ناشناخته"));
@@ -628,7 +755,8 @@ export function PaymentsView() {
                   ) : undefined
                 }
               />
-            ))}
+              );
+            })}
           </DataList>
         )}
       </SectionCard>

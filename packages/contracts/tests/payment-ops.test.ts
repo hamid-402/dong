@@ -34,32 +34,72 @@ test("signedPettyCashDelta signs by movement kind", () => {
 });
 
 test("createPaymentReceiptRequestSchema requires a reference for card_to_card", () => {
+  const payee = { payeeUserId: "11111111-1111-4111-8111-111111111111" };
+  const attachmentId = "22222222-2222-4222-8222-222222222222";
   const base = {
     method: "card_to_card" as const,
     amountMinor: "1000",
     paidAt: "2026-03-01T10:00:00+03:30",
     idempotencyKey: "k1",
+    ...payee,
   };
   const bad = createPaymentReceiptRequestSchema.safeParse(base);
   assert.equal(bad.success, false);
-  assert.deepEqual(issues(bad), ["CARD_TRANSFER_REF_REQUIRED"]);
+  assert.ok(issues(bad).includes("CARD_TRANSFER_REF_REQUIRED"));
 
-  assert.ok(createPaymentReceiptRequestSchema.safeParse({ ...base, referenceNo: "R1", destLast4: "1234" }).success);
-  assert.ok(createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash" }).success);
+  assert.equal(
+    createPaymentReceiptRequestSchema.safeParse({
+      ...base,
+      referenceNo: "R1",
+      destLast4: "1234",
+    }).success,
+    false,
+  );
+  assert.ok(
+    createPaymentReceiptRequestSchema.safeParse({
+      ...base,
+      referenceNo: "R1",
+      destLast4: "1234",
+      attachmentId,
+    }).success,
+  );
+  assert.ok(
+    createPaymentReceiptRequestSchema.safeParse({
+      ...base,
+      method: "cash",
+      ...payee,
+    }).success,
+  );
   assertRejection(
-    createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash", destLast4: "12345" }),
+    createPaymentReceiptRequestSchema.safeParse({
+      ...base,
+      method: "cash",
+      destLast4: "12345",
+    }),
     { path: ["destLast4"] },
   );
   assertRejection(
-    createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash", amountMinor: "0" }),
+    createPaymentReceiptRequestSchema.safeParse({
+      ...base,
+      method: "cash",
+      amountMinor: "0",
+    }),
     { path: ["amountMinor"] },
   );
   assertRejection(
-    createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash", paidAt: "yesterday" }),
+    createPaymentReceiptRequestSchema.safeParse({
+      ...base,
+      method: "cash",
+      paidAt: "yesterday",
+    }),
     { path: ["paidAt"] },
   );
   assertRejection(
-    createPaymentReceiptRequestSchema.safeParse({ ...base, method: "cash", pan: "4111111111111111" }),
+    createPaymentReceiptRequestSchema.safeParse({
+      ...base,
+      method: "cash",
+      pan: "4111111111111111",
+    }),
     { code: "unrecognized_keys" },
   );
 });

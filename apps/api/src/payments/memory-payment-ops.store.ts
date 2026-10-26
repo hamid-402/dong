@@ -72,6 +72,8 @@ export class MemoryPaymentOpsStore implements PaymentOpsStore {
       settlementId: input.settlementId,
       memberInvoiceId: input.memberInvoiceId,
       payerUserId,
+      payeeUserId: input.payeeUserId,
+      payeeFundId: input.payeeFundId,
       method: input.method,
       amount: { amountMinor: input.amountMinor, currency: "IRR" },
       paidAt: input.paidAt,
@@ -80,6 +82,7 @@ export class MemoryPaymentOpsStore implements PaymentOpsStore {
       destLast4: input.destLast4,
       attachmentId: input.attachmentId,
       status: "submitted",
+      excessCreditMinor: "0",
       idempotencyKey: input.idempotencyKey.trim(),
       createdAt: now,
     };
@@ -91,26 +94,83 @@ export class MemoryPaymentOpsStore implements PaymentOpsStore {
     workspaceId: string,
     receiptId: string,
     update: {
-      status: "approved" | "rejected";
+      status: "creditor_approved" | "approved" | "rejected";
       reviewedByUserId: string;
       reviewNote?: string;
       journalEntryId?: string;
+      creditorApprovedByUserId?: string;
+      excessCreditMinor?: string;
+      appliedToInvoiceId?: string | null;
+      fromStatuses?: PaymentReceiptStatus[];
     },
   ): Promise<StoredPaymentReceipt> {
     const row = this.receipts.get(receiptId);
     if (!row || row.workspaceId !== workspaceId) {
       throw new Error("RECEIPT_NOT_FOUND");
     }
-    if (row.status !== "submitted") {
+    const allowed = update.fromStatuses ?? ["submitted"];
+    if (!allowed.includes(row.status)) {
       throw new Error("RECEIPT_ALREADY_REVIEWED");
     }
+    const now = new Date().toISOString();
     const next: StoredPaymentReceipt = {
       ...row,
       status: update.status,
-      reviewedByUserId: update.reviewedByUserId,
-      reviewedAt: new Date().toISOString(),
-      reviewNote: update.reviewNote,
-      journalEntryId: update.journalEntryId,
+      reviewedByUserId:
+        update.status === "creditor_approved"
+          ? row.reviewedByUserId
+          : update.reviewedByUserId,
+      reviewedAt: update.status === "creditor_approved" ? row.reviewedAt : now,
+      reviewNote: update.reviewNote ?? row.reviewNote,
+      journalEntryId: update.journalEntryId ?? row.journalEntryId,
+      creditorApprovedByUserId:
+        update.creditorApprovedByUserId ??
+        (update.status === "creditor_approved"
+          ? update.reviewedByUserId
+          : row.creditorApprovedByUserId),
+      creditorApprovedAt:
+        update.status === "creditor_approved"
+          ? now
+          : row.creditorApprovedAt,
+      excessCreditMinor: update.excessCreditMinor ?? row.excessCreditMinor,
+      appliedToInvoiceId:
+        update.appliedToInvoiceId === null
+          ? undefined
+          : (update.appliedToInvoiceId ?? row.appliedToInvoiceId),
+    };
+    this.receipts.set(receiptId, next);
+    return Promise.resolve(next);
+  }
+
+  listUnappliedExcessCredits(
+    workspaceId: string,
+  ): Promise<StoredPaymentReceipt[]> {
+    return Promise.resolve(
+      [...this.receipts.values()].filter(
+        (r) =>
+          r.workspaceId === workspaceId &&
+          r.status === "approved" &&
+          BigInt(r.excessCreditMinor ?? "0") > 0n &&
+          !r.appliedToInvoiceId,
+      ),
+    );
+  }
+
+  markExcessCreditApplied(
+    workspaceId: string,
+    receiptId: string,
+    invoiceId: string,
+  ): Promise<StoredPaymentReceipt> {
+    const row = this.receipts.get(receiptId);
+    if (!row || row.workspaceId !== workspaceId) {
+      throw new Error("RECEIPT_NOT_FOUND");
+    }
+    if (row.appliedToInvoiceId) {
+      return Promise.resolve(row);
+    }
+    const next: StoredPaymentReceipt = {
+      ...row,
+      appliedToInvoiceId: invoiceId,
     };
     this.receipts.set(receiptId, next);
     return Promise.resolve(next);

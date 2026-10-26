@@ -617,6 +617,61 @@ export class PostgresBillingStore implements BillingStore {
     });
   }
 
+  async createAdjustment(input: {
+    workspaceId: string;
+    periodId: string;
+    invoiceId: string;
+    memberUserId: string;
+    deltaMinor: string;
+    reason: string;
+    idempotencyKey: string;
+    actorUserId: string;
+  }): Promise<MemberInvoiceAdjustmentSummary> {
+    return withTenantContext(
+      this.db,
+      { workspaceId: input.workspaceId, userId: input.actorUserId },
+      async (tx) => {
+        const inserted = await tx
+          .insert(memberInvoiceAdjustment)
+          .values({
+            workspaceId: input.workspaceId,
+            invoiceId: input.invoiceId,
+            periodId: input.periodId,
+            memberUserId: input.memberUserId,
+            deltaMinor: BigInt(input.deltaMinor),
+            reason: input.reason,
+            idempotencyKey: input.idempotencyKey,
+          })
+          .onConflictDoNothing({
+            target: [
+              memberInvoiceAdjustment.workspaceId,
+              memberInvoiceAdjustment.idempotencyKey,
+            ],
+          })
+          .returning();
+        const row =
+          inserted[0] ??
+          (
+            await tx
+              .select()
+              .from(memberInvoiceAdjustment)
+              .where(
+                and(
+                  eq(memberInvoiceAdjustment.workspaceId, input.workspaceId),
+                  eq(
+                    memberInvoiceAdjustment.idempotencyKey,
+                    input.idempotencyKey,
+                  ),
+                ),
+              )
+              .limit(1)
+          )[0];
+        if (!row) throw new Error("ADJUSTMENT_WRITE_FAILED");
+        return mapAdjustment(row);
+      },
+    );
+  }
+
   async markInvoicePaid(
     workspaceId: string,
     invoiceId: string,

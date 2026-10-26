@@ -87,12 +87,26 @@ export type PaymentOpsStore = {
     workspaceId: string,
     receiptId: string,
     update: {
-      status: "approved" | "rejected";
+      status: "creditor_approved" | "approved" | "rejected";
       reviewedByUserId: string;
       reviewNote?: string;
       journalEntryId?: string;
+      creditorApprovedByUserId?: string;
+      excessCreditMinor?: string;
+      appliedToInvoiceId?: string | null;
+      /** Prior statuses allowed for this transition (default: submitted). */
+      fromStatuses?: PaymentReceiptStatus[];
     },
     options?: PaymentOpsWriteOptions,
+  ): Promise<StoredPaymentReceipt>;
+  /** Approved receipts with unused overpay credit (for next-period invoices). */
+  listUnappliedExcessCredits(
+    workspaceId: string,
+  ): Promise<StoredPaymentReceipt[]>;
+  markExcessCreditApplied(
+    workspaceId: string,
+    receiptId: string,
+    invoiceId: string,
   ): Promise<StoredPaymentReceipt>;
 
   listFunds(workspaceId: string): Promise<StoredPettyCashFund[]>;
@@ -185,6 +199,8 @@ export function toReceiptSummary(row: StoredPaymentReceipt): PaymentReceiptSumma
     settlementId: row.settlementId,
     memberInvoiceId: row.memberInvoiceId,
     payerUserId: row.payerUserId,
+    payeeUserId: row.payeeUserId,
+    payeeFundId: row.payeeFundId,
     method: row.method,
     amount: row.amount,
     paidAt: row.paidAt,
@@ -193,10 +209,14 @@ export function toReceiptSummary(row: StoredPaymentReceipt): PaymentReceiptSumma
     destLast4: row.destLast4,
     attachmentId: row.attachmentId,
     status: row.status,
+    creditorApprovedByUserId: row.creditorApprovedByUserId,
+    creditorApprovedAt: row.creditorApprovedAt,
     reviewedByUserId: row.reviewedByUserId,
     reviewedAt: row.reviewedAt,
     reviewNote: row.reviewNote,
     journalEntryId: row.journalEntryId,
+    excessCreditMinor: row.excessCreditMinor,
+    appliedToInvoiceId: row.appliedToInvoiceId,
     createdAt: row.createdAt,
   };
 }

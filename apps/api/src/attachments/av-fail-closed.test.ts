@@ -235,7 +235,11 @@ test("5) getContent clean succeeds with ClamAV down; scanner not invoked", async
 test("CLAMAV on + FOUND → uploadContent 400 quarantine-blocked; blob not stored", async () => {
   const store = new MemoryAttachmentStore();
   let wrote = false;
-  const payload = Buffer.from("eicar-upload-bytes");
+  // JPEG SOI so sniffUploadMime accepts mime before ClamAV path runs.
+  const payload = Buffer.concat([
+    Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+    Buffer.from("eicar-upload-bytes"),
+  ]);
   const contentHash = sha256(payload);
   const blobs = {
     mode: () => "local" as const,
@@ -328,7 +332,10 @@ test("CLAMAV on + FOUND → uploadContent 400 quarantine-blocked; blob not store
 test("2) CLAMAV on + down → uploadContent 503 av-unavailable; not servable", async () => {
   const store = new MemoryAttachmentStore();
   let wrote = false;
-  const payload = Buffer.from("upload-bytes-xx");
+  const payload = Buffer.concat([
+    Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+    Buffer.from("upload-bytes-xx"),
+  ]);
   const contentHash = sha256(payload);
   const blobs = {
     mode: () => "local" as const,

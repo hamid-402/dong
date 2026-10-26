@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
 } from "@nestjs/common";
 import type { IamStore } from "../iam/iam.types.js";
@@ -209,8 +210,21 @@ test("S11-09 approve receipt creates journal and confirms settlement", async () 
     paidAt: new Date().toISOString(),
     destLast4: "9876",
     referenceNo: "TRACK-250000",
+    attachmentId: crypto.randomUUID(),
     idempotencyKey: "rcpt-2",
   });
+  await assert.rejects(
+    () => service.approveReceipt(finance, workspaceId, receipt.id),
+    (err: unknown) => {
+      assert.ok(err instanceof ForbiddenException);
+      const body = err.getResponse() as { code?: string };
+      assert.equal(body.code, "RECEIPT_AWAIT_CREDITOR");
+      return true;
+    },
+  );
+  const mid = await service.approveReceipt(creditor, workspaceId, receipt.id);
+  assert.equal(mid.status, "creditor_approved");
+  assert.equal(mid.journalEntryId, undefined);
   const approved = await service.approveReceipt(finance, workspaceId, receipt.id);
   assert.equal(approved.status, "approved");
   assert.ok(approved.journalEntryId);
@@ -265,11 +279,23 @@ test("creditor can approve card_to_card receipt (two-sided)", async () => {
     paidAt: new Date().toISOString(),
     destLast4: "4321",
     referenceNo: "IR-TRACK-88",
+    attachmentId: crypto.randomUUID(),
     idempotencyKey: "rcpt-two-sided",
   });
   const listed = await service.listReceipts(creditor, workspaceId);
   assert.ok(listed.some((r) => r.id === receipt.id));
-  const approved = await service.approveReceipt(creditor, workspaceId, receipt.id);
+  const mid = await service.approveReceipt(creditor, workspaceId, receipt.id);
+  assert.equal(mid.status, "creditor_approved");
+  assert.equal(mid.journalEntryId, undefined);
+  const entriesAfterCreditor = await ledger.listForWorkspace(
+    workspaceId,
+    finance.userId,
+  );
+  assert.equal(entriesAfterCreditor.length, 0);
+  const claimed = await settlementStore.get(workspaceId, claim.id, creditor.userId);
+  assert.equal(claimed?.status, "claimed");
+
+  const approved = await service.approveReceipt(finance, workspaceId, receipt.id);
   assert.equal(approved.status, "approved");
   assert.ok(approved.journalEntryId);
   const settled = await settlementStore.get(workspaceId, claim.id, creditor.userId);
@@ -1225,4 +1251,257 @@ test("S12 settlePay preview + settle_and_fund_gift splits overpay", async () => 
   assert.equal(applied.settlement?.amount.amountMinor, "100000");
   assert.ok(applied.gift);
   assert.equal(applied.gift?.balanceMinor, "50000");
+});
+
+test("run13 two-step: creditor then manager reduces debt", async () => {
+  const { service, ledger, settlementStore } = buildService();
+  const claim = await settlementStore.createClaim(creditor.userId, {
+    workspaceId,
+    fromUserId: payer.userId,
+    toUserId: creditor.userId,
+    amount: { amountMinor: "120000", currency: "IRR" },
+    idempotencyKey: "run13-two-step-set",
+  });
+  const receipt = await service.createReceipt(payer, workspaceId, {
+    settlementId: claim.id,
+    method: "card_to_card",
+    amountMinor: "120000",
+    paidAt: new Date().toISOString(),
+    destLast4: "5566",
+    referenceNo: "RUN13-120",
+    attachmentId: crypto.randomUUID(),
+    idempotencyKey: "run13-two-step-rcpt",
+  });
+  assert.equal(receipt.status, "submitted");
+  assert.equal(receipt.payeeUserId, creditor.userId);
+
+  const mid = await service.approveReceipt(creditor, workspaceId, receipt.id);
+  assert.equal(mid.status, "creditor_approved");
+  assert.equal(mid.journalEntryId, undefined);
+  assert.equal(
+    (await ledger.listForWorkspace(workspaceId, finance.userId)).length,
+    0,
+  );
+  assert.equal(
+    (await settlementStore.get(workspaceId, claim.id, finance.userId))?.status,
+    "claimed",
+  );
+
+  const approved = await service.approveReceipt(finance, workspaceId, receipt.id);
+  assert.equal(approved.status, "approved");
+  assert.ok(approved.journalEntryId);
+  assert.equal(
+    (await settlementStore.get(workspaceId, claim.id, finance.userId))?.status,
+    "confirmed",
+  );
+  const entries = await ledger.listForWorkspace(workspaceId, finance.userId);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0]?.sourceType, "settlement");
+});
+
+test("run13 manager cannot skip creditor", async () => {
+  const { service, settlementStore } = buildService();
+  const claim = await settlementStore.createClaim(creditor.userId, {
+    workspaceId,
+    fromUserId: payer.userId,
+    toUserId: creditor.userId,
+    amount: { amountMinor: "45000", currency: "IRR" },
+    idempotencyKey: "run13-skip-set",
+  });
+  const receipt = await service.createReceipt(payer, workspaceId, {
+    settlementId: claim.id,
+    method: "card_to_card",
+    amountMinor: "45000",
+    paidAt: new Date().toISOString(),
+    destLast4: "7788",
+    referenceNo: "RUN13-SKIP",
+    attachmentId: crypto.randomUUID(),
+    idempotencyKey: "run13-skip-rcpt",
+  });
+  await assert.rejects(
+    () => service.approveReceipt(finance, workspaceId, receipt.id),
+    (err: unknown) => {
+      assert.ok(err instanceof ForbiddenException);
+      const body = err.getResponse() as { code?: string };
+      assert.equal(body.code, "RECEIPT_AWAIT_CREDITOR");
+      return true;
+    },
+  );
+});
+
+test("run13 fund payee: manager only", async () => {
+  const { service, ledger } = buildService();
+  const fund = await service.createPettyCashFund(finance, workspaceId, {
+    name: "صندوق رسید",
+    openingBalanceMinor: "0",
+    idempotencyKey: "run13-fund-payee",
+  });
+  const receipt = await service.createReceipt(payer, workspaceId, {
+    payeeFundId: fund.id,
+    method: "cash",
+    amountMinor: "70000",
+    paidAt: new Date().toISOString(),
+    idempotencyKey: "run13-fund-rcpt",
+  });
+  assert.equal(receipt.status, "submitted");
+  assert.equal(receipt.payeeFundId, fund.id);
+
+  await assert.rejects(
+    () => service.approveReceipt(creditor, workspaceId, receipt.id),
+    (err: unknown) => {
+      assert.ok(err instanceof ForbiddenException);
+      const body = err.getResponse() as { code?: string };
+      assert.equal(body.code, "RECEIPT_REVIEW_UNAUTHORIZED");
+      return true;
+    },
+  );
+
+  const approved = await service.approveReceipt(finance, workspaceId, receipt.id);
+  assert.equal(approved.status, "approved");
+  assert.ok(approved.journalEntryId);
+  const entries = await ledger.listForWorkspace(workspaceId, finance.userId);
+  assert.equal(entries.length, 1);
+});
+
+test("run13 overpay stores excessCreditMinor", async () => {
+  const { service, settlementStore } = buildService();
+  const claim = await settlementStore.createClaim(creditor.userId, {
+    workspaceId,
+    fromUserId: payer.userId,
+    toUserId: creditor.userId,
+    amount: { amountMinor: "100000", currency: "IRR" },
+    idempotencyKey: "run13-overpay-set",
+  });
+  const receipt = await service.createReceipt(payer, workspaceId, {
+    settlementId: claim.id,
+    method: "card_to_card",
+    amountMinor: "150000",
+    paidAt: new Date().toISOString(),
+    destLast4: "9900",
+    referenceNo: "RUN13-OVER",
+    attachmentId: crypto.randomUUID(),
+    idempotencyKey: "run13-overpay-rcpt",
+  });
+  await service.approveReceipt(creditor, workspaceId, receipt.id);
+  const approved = await service.approveReceipt(finance, workspaceId, receipt.id);
+  assert.equal(approved.status, "approved");
+  assert.equal(approved.excessCreditMinor, "50000");
+
+  await assert.rejects(
+    () => service.approveReceipt(finance, workspaceId, receipt.id),
+    (err: unknown) => {
+      assert.ok(err instanceof ConflictException);
+      const body = err.getResponse() as { code?: string };
+      assert.equal(body.code, "RECEIPT_ALREADY_REVIEWED");
+      return true;
+    },
+  );
+});
+
+test("run13 double apply credit idempotent", async () => {
+  const ops = new MemoryPaymentOpsStore();
+  const ledger = new MemoryLedgerStore();
+  const settlementStore = new MemorySettlementStore();
+  const access = mockAccess({
+    [payer.userId]: "member",
+    [finance.userId]: "finance",
+    [creditor.userId]: "member",
+  });
+  const adjustmentKeys: string[] = [];
+  const billing = {
+    persistence: "memory",
+    markInvoicePaid: async () => {
+      throw new Error("INVOICE_STATUS");
+    },
+    createAdjustment: async (input: {
+      idempotencyKey: string;
+      deltaMinor: string;
+      reason: string;
+      invoiceId: string;
+      memberUserId: string;
+    }) => {
+      const existing = adjustmentKeys.find((k) => k === input.idempotencyKey);
+      if (existing) {
+        return {
+          id: input.idempotencyKey,
+          workspaceId,
+          periodId: "period-1",
+          invoiceId: input.invoiceId,
+          memberUserId: input.memberUserId,
+          delta: { amountMinor: input.deltaMinor, currency: "IRR" as const },
+          reason: input.reason,
+          createdAt: new Date().toISOString(),
+        };
+      }
+      adjustmentKeys.push(input.idempotencyKey);
+      return {
+        id: input.idempotencyKey,
+        workspaceId,
+        periodId: "period-1",
+        invoiceId: input.invoiceId,
+        memberUserId: input.memberUserId,
+        delta: { amountMinor: input.deltaMinor, currency: "IRR" as const },
+        reason: input.reason,
+        createdAt: new Date().toISOString(),
+      };
+    },
+  } as unknown as BillingStore;
+  const service = new WorkspacePaymentsService(
+    ops,
+    access,
+    iamStub(),
+    expensesStub(),
+    settlementStore,
+    settlementsServiceStub(settlementStore),
+    ledger,
+    billing,
+    new InvoiceEventsService(new MemoryOutboxStore()),
+  );
+  const claim = await settlementStore.createClaim(creditor.userId, {
+    workspaceId,
+    fromUserId: payer.userId,
+    toUserId: creditor.userId,
+    amount: { amountMinor: "80000", currency: "IRR" },
+    idempotencyKey: "run13-credit-set",
+  });
+  const receipt = await service.createReceipt(payer, workspaceId, {
+    settlementId: claim.id,
+    method: "card_to_card",
+    amountMinor: "100000",
+    paidAt: new Date().toISOString(),
+    destLast4: "1122",
+    referenceNo: "RUN13-CREDIT",
+    attachmentId: crypto.randomUUID(),
+    idempotencyKey: "run13-credit-rcpt",
+  });
+  await service.approveReceipt(creditor, workspaceId, receipt.id);
+  const approved = await service.approveReceipt(finance, workspaceId, receipt.id);
+  assert.equal(approved.excessCreditMinor, "20000");
+
+  const invoiceId = crypto.randomUUID();
+  const invoices = [
+    {
+      id: invoiceId,
+      memberUserId: payer.userId,
+      status: "draft",
+    },
+  ];
+  const first = await service.applyOverpayCreditsToPeriod(
+    workspaceId,
+    "period-1",
+    finance.userId,
+    invoices,
+  );
+  assert.equal(first, 1);
+  assert.equal(adjustmentKeys.length, 1);
+  assert.match(adjustmentKeys[0]!, /^adj:credit:/);
+
+  const second = await service.applyOverpayCreditsToPeriod(
+    workspaceId,
+    "period-1",
+    finance.userId,
+    invoices,
+  );
+  assert.equal(second, 0);
+  assert.equal(adjustmentKeys.length, 1);
 });

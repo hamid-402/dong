@@ -16,6 +16,8 @@ export const createPaymentReceiptRequestSchema = z
   .object({
     settlementId: entityIdSchema.optional(),
     memberInvoiceId: entityIdSchema.optional(),
+    payeeUserId: entityIdSchema.optional(),
+    payeeFundId: entityIdSchema.optional(),
     method: z.enum(["card_to_card", "cash", "bank_transfer", "gateway"]),
     amountMinor: amountMinorPositive,
     paidAt: z.string().trim().datetime({ offset: true }),
@@ -32,6 +34,32 @@ export const createPaymentReceiptRequestSchema = z
         code: "custom",
         message: "CARD_TRANSFER_REF_REQUIRED",
         path: ["referenceNo"],
+      });
+    }
+    if (data.method === "card_to_card" && !data.attachmentId) {
+      ctx.addIssue({
+        code: "custom",
+        message: "CARD_TRANSFER_ATTACHMENT_REQUIRED",
+        path: ["attachmentId"],
+      });
+    }
+    if (data.payeeUserId && data.payeeFundId) {
+      ctx.addIssue({
+        code: "custom",
+        message: "PAYEE_XOR",
+        path: ["payeeFundId"],
+      });
+    }
+    if (
+      !data.settlementId &&
+      !data.memberInvoiceId &&
+      !data.payeeUserId &&
+      !data.payeeFundId
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "PAYEE_REQUIRED",
+        path: ["payeeUserId"],
       });
     }
   });

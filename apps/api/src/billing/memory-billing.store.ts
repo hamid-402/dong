@@ -413,6 +413,47 @@ export class MemoryBillingStore implements BillingStore {
     return Promise.resolve(updated);
   }
 
+  createAdjustment(input: {
+    workspaceId: string;
+    periodId: string;
+    invoiceId: string;
+    memberUserId: string;
+    deltaMinor: string;
+    reason: string;
+    idempotencyKey: string;
+    actorUserId: string;
+  }): Promise<MemberInvoiceAdjustmentSummary> {
+    void input.actorUserId;
+    const existing = [...this.adjustments.values()].find(
+      (row) =>
+        row.workspaceId === input.workspaceId &&
+        row.id === input.idempotencyKey,
+    );
+    if (existing) return Promise.resolve(existing);
+
+    const invoice = this.invoices.get(input.invoiceId);
+    if (
+      !invoice ||
+      invoice.workspaceId !== input.workspaceId ||
+      invoice.periodId !== input.periodId
+    ) {
+      return Promise.reject(new Error("INVOICE_NOT_FOUND"));
+    }
+
+    const adjustment: MemberInvoiceAdjustmentSummary = {
+      id: input.idempotencyKey,
+      workspaceId: input.workspaceId,
+      periodId: input.periodId,
+      invoiceId: input.invoiceId,
+      memberUserId: input.memberUserId,
+      delta: irr(input.deltaMinor),
+      reason: input.reason,
+      createdAt: new Date().toISOString(),
+    };
+    this.adjustments.set(adjustment.id, adjustment);
+    return Promise.resolve(adjustment);
+  }
+
   markInvoicePaid(
     workspaceId: string,
     invoiceId: string,

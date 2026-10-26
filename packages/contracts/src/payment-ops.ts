@@ -13,7 +13,11 @@ export type PaymentReceiptMethod =
   | "bank_transfer"
   | "gateway";
 
-export type PaymentReceiptStatus = "submitted" | "approved" | "rejected";
+export type PaymentReceiptStatus =
+  | "submitted"
+  | "creditor_approved"
+  | "approved"
+  | "rejected";
 
 export type PaymentReceiptSummary = {
   id: string;
@@ -21,6 +25,10 @@ export type PaymentReceiptSummary = {
   settlementId?: string;
   memberInvoiceId?: string;
   payerUserId: string;
+  /** Person recipient (XOR with payeeFundId). */
+  payeeUserId?: string;
+  /** Collective fund recipient — تنخواه/صندوق (XOR with payeeUserId). */
+  payeeFundId?: string;
   method: PaymentReceiptMethod;
   amount: Money;
   paidAt: string;
@@ -30,16 +38,25 @@ export type PaymentReceiptSummary = {
   destLast4?: string;
   attachmentId?: string;
   status: PaymentReceiptStatus;
+  creditorApprovedByUserId?: string;
+  creditorApprovedAt?: string;
   reviewedByUserId?: string;
   reviewedAt?: string;
   reviewNote?: string;
   journalEntryId?: string;
+  /** Overpay beyond owed — credit for payer, applied once to a later invoice. */
+  excessCreditMinor?: string;
+  appliedToInvoiceId?: string;
   createdAt: string;
 };
 
 export type CreatePaymentReceiptRequest = {
   settlementId?: string;
   memberInvoiceId?: string;
+  /** Person payee; inferred from settlement.toUserId when settlementId set. */
+  payeeUserId?: string;
+  /** Pay to workspace collective fund (تنخواه). */
+  payeeFundId?: string;
   method: PaymentReceiptMethod;
   amountMinor: string;
   paidAt: string;
@@ -49,6 +66,9 @@ export type CreatePaymentReceiptRequest = {
   attachmentId?: string;
   idempotencyKey: string;
 };
+
+/** Max evidence file size for payment receipts (JPG/PNG/PDF). */
+export const PAYMENT_RECEIPT_MAX_BYTES = 5 * 1024 * 1024;
 
 export type RejectPaymentReceiptRequest = {
   note: string;

@@ -41,6 +41,8 @@ function mapReceipt(row: typeof paymentReceipt.$inferSelect): StoredPaymentRecei
     settlementId: row.settlementId ?? undefined,
     memberInvoiceId: row.memberInvoiceId ?? undefined,
     payerUserId: row.payerUserId,
+    payeeUserId: row.payeeUserId ?? undefined,
+    payeeFundId: row.payeeFundId ?? undefined,
     method: row.method,
     amount: {
       amountMinor: row.amountMinor.toString(),
@@ -52,10 +54,14 @@ function mapReceipt(row: typeof paymentReceipt.$inferSelect): StoredPaymentRecei
     destLast4: row.destLast4 ?? undefined,
     attachmentId: row.attachmentId ?? undefined,
     status: row.status,
+    creditorApprovedByUserId: row.creditorApprovedByUserId ?? undefined,
+    creditorApprovedAt: row.creditorApprovedAt?.toISOString(),
     reviewedByUserId: row.reviewedByUserId ?? undefined,
     reviewedAt: row.reviewedAt?.toISOString(),
     reviewNote: row.reviewNote ?? undefined,
     journalEntryId: row.journalEntryId ?? undefined,
+    excessCreditMinor: row.excessCreditMinor?.toString() ?? "0",
+    appliedToInvoiceId: row.appliedToInvoiceId ?? undefined,
     idempotencyKey: row.idempotencyKey,
     createdAt: row.createdAt.toISOString(),
   };
@@ -236,6 +242,8 @@ export class PostgresPaymentOpsStore implements PaymentOpsStore {
           settlementId: input.settlementId ?? null,
           memberInvoiceId: input.memberInvoiceId ?? null,
           payerUserId,
+          payeeUserId: input.payeeUserId ?? null,
+          payeeFundId: input.payeeFundId ?? null,
           method: input.method,
           amountMinor: BigInt(input.amountMinor),
           currency: "IRR",
@@ -245,6 +253,7 @@ export class PostgresPaymentOpsStore implements PaymentOpsStore {
           destLast4: input.destLast4 ?? null,
           attachmentId: input.attachmentId ?? null,
           status: "submitted",
+          excessCreditMinor: 0n,
           idempotencyKey: input.idempotencyKey.trim(),
         })
         .returning();
@@ -256,10 +265,14 @@ export class PostgresPaymentOpsStore implements PaymentOpsStore {
     workspaceId: string,
     receiptId: string,
     update: {
-      status: "approved" | "rejected";
+      status: "creditor_approved" | "approved" | "rejected";
       reviewedByUserId: string;
       reviewNote?: string;
       journalEntryId?: string;
+      creditorApprovedByUserId?: string;
+      excessCreditMinor?: string;
+      appliedToInvoiceId?: string | null;
+      fromStatuses?: PaymentReceiptStatus[];
     },
     options?: PaymentOpsWriteOptions,
   ): Promise<StoredPaymentReceipt> {
@@ -276,17 +289,47 @@ export class PostgresPaymentOpsStore implements PaymentOpsStore {
         .limit(1);
       const row = rows[0];
       if (!row) throw new Error("RECEIPT_NOT_FOUND");
-      if (row.status !== "submitted") throw new Error("RECEIPT_ALREADY_REVIEWED");
+      const allowed = update.fromStatuses ?? ["submitted"];
+      if (!allowed.includes(row.status)) {
+        throw new Error("RECEIPT_ALREADY_REVIEWED");
+      }
+
+      const now = new Date();
+      const patch: Partial<typeof paymentReceipt.$inferInsert> = {
+        status: update.status,
+      };
+      if (update.status === "creditor_approved") {
+        patch.creditorApprovedByUserId =
+          update.creditorApprovedByUserId ?? update.reviewedByUserId;
+        patch.creditorApprovedAt = now;
+      } else {
+        patch.reviewedByUserId = update.reviewedByUserId;
+        patch.reviewedAt = now;
+        if (update.reviewNote !== undefined) {
+          patch.reviewNote = update.reviewNote ?? null;
+        }
+        if (update.journalEntryId !== undefined) {
+          patch.journalEntryId = update.journalEntryId ?? null;
+        }
+        if (update.excessCreditMinor !== undefined) {
+          patch.excessCreditMinor = BigInt(update.excessCreditMinor);
+        }
+        if (update.appliedToInvoiceId !== undefined) {
+          patch.appliedToInvoiceId = update.appliedToInvoiceId;
+        }
+        if (
+          update.status === "approved" &&
+          update.creditorApprovedByUserId &&
+          !row.creditorApprovedByUserId
+        ) {
+          patch.creditorApprovedByUserId = update.creditorApprovedByUserId;
+          patch.creditorApprovedAt = now;
+        }
+      }
 
       const updated = await tx
         .update(paymentReceipt)
-        .set({
-          status: update.status,
-          reviewedByUserId: update.reviewedByUserId,
-          reviewedAt: new Date(),
-          reviewNote: update.reviewNote ?? null,
-          journalEntryId: update.journalEntryId ?? null,
-        })
+        .set(patch)
         .where(eq(paymentReceipt.id, receiptId))
         .returning();
       return mapReceipt(updated[0]!);
@@ -298,6 +341,56 @@ export class PostgresPaymentOpsStore implements PaymentOpsStore {
       { workspaceId, userId: update.reviewedByUserId },
       work,
     );
+  }
+
+  listUnappliedExcessCredits(
+    workspaceId: string,
+  ): Promise<StoredPaymentReceipt[]> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(paymentReceipt)
+        .where(
+          and(
+            eq(paymentReceipt.workspaceId, workspaceId),
+            eq(paymentReceipt.status, "approved"),
+          ),
+        );
+      return rows
+        .map(mapReceipt)
+        .filter(
+          (r) =>
+            BigInt(r.excessCreditMinor ?? "0") > 0n && !r.appliedToInvoiceId,
+        );
+    });
+  }
+
+  markExcessCreditApplied(
+    workspaceId: string,
+    receiptId: string,
+    invoiceId: string,
+  ): Promise<StoredPaymentReceipt> {
+    return withTenantContext(this.db, { workspaceId }, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(paymentReceipt)
+        .where(
+          and(
+            eq(paymentReceipt.workspaceId, workspaceId),
+            eq(paymentReceipt.id, receiptId),
+          ),
+        )
+        .limit(1);
+      const row = rows[0];
+      if (!row) throw new Error("RECEIPT_NOT_FOUND");
+      if (row.appliedToInvoiceId) return mapReceipt(row);
+      const updated = await tx
+        .update(paymentReceipt)
+        .set({ appliedToInvoiceId: invoiceId })
+        .where(eq(paymentReceipt.id, receiptId))
+        .returning();
+      return mapReceipt(updated[0]!);
+    });
   }
 
   listFunds(workspaceId: string): Promise<StoredPettyCashFund[]> {

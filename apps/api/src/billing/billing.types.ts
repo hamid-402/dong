@@ -119,6 +119,20 @@ export type BillingStore = {
     invoiceId: string,
     actorUserId: string,
   ): Promise<MemberInvoiceSummary>;
+  /**
+   * Explicit credit/debit notice (e.g. receipt overpay applied to next period).
+   * Idempotent on (workspaceId, idempotencyKey).
+   */
+  createAdjustment?(input: {
+    workspaceId: string;
+    periodId: string;
+    invoiceId: string;
+    memberUserId: string;
+    deltaMinor: string;
+    reason: string;
+    idempotencyKey: string;
+    actorUserId: string;
+  }): Promise<MemberInvoiceAdjustmentSummary>;
   closePeriod(
     workspaceId: string,
     periodId: string,
