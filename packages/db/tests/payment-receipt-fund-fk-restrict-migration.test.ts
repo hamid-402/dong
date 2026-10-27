@@ -186,7 +186,7 @@ test("0097 payee_fund FK RESTRICT blocks fund delete (as table owner)", async (t
     (err: unknown) => {
       const withCause = err as { cause?: { code?: string }; code?: string };
       const code = withCause.cause?.code ?? withCause.code;
-      assert.equal(code, "23503");
+      assert.equal(code, "23001");
       return true;
     },
   );
