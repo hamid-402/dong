@@ -184,11 +184,9 @@ test("0097 payee_fund FK RESTRICT blocks fund delete (as table owner)", async (t
         tx.delete(pettyCashFund).where(eq(pettyCashFund.id, fundId)),
       ),
     (err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      assert.match(
-        msg,
-        /payment_receipt_payee_fund_workspace_fk|violates foreign key|restrict/i,
-      );
+      const withCause = err as { cause?: { code?: string }; code?: string };
+      const code = withCause.cause?.code ?? withCause.code;
+      assert.equal(code, "23503");
       return true;
     },
   );
