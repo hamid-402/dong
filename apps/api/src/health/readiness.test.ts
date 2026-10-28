@@ -20,6 +20,8 @@ test("evaluateReadiness is ready when nothing required and deps unset", async ()
     assert.equal(snap.checks.database, "skip");
     assert.equal(snap.checks.redis, "skip");
     assert.equal(snap.checks.requirePostgres, false);
+    assert.equal(snap.checks.dbRole, "skip");
+    assert.equal(snap.checks.dbRoleStrict, false);
   } finally {
     if (prevPg === undefined) delete process.env.DANG_REQUIRE_POSTGRES;
     else process.env.DANG_REQUIRE_POSTGRES = prevPg;

@@ -62,16 +62,39 @@ export function isExplicitDevAuthMode(): boolean {
   return window.localStorage.getItem(AUTH_MODE_KEY) === "dev";
 }
 
+/** UX-hint cookie attrs; Secure when the document is a secure context (HTTPS). */
+export function webSessionCookieSuffix(options: {
+  maxAge: number;
+  secureContext: boolean;
+}): string {
+  const base = `path=/; max-age=${options.maxAge}; SameSite=Lax`;
+  return options.secureContext ? `${base}; Secure` : base;
+}
+
+function clientSecureContext(): boolean {
+  if (typeof window === "undefined") return false;
+  if (typeof window.isSecureContext === "boolean") return window.isSecureContext;
+  return window.location?.protocol === "https:";
+}
+
 export function markClientSession(mode: AuthClientMode = "password") {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(AUTH_MODE_KEY, mode);
-  document.cookie = `${WEB_SESSION_COOKIE}=${WEB_SESSION_COOKIE_VALUE}; path=/; max-age=${WEB_SESSION_MAX_AGE_SEC}; SameSite=Lax`;
+  const attrs = webSessionCookieSuffix({
+    maxAge: WEB_SESSION_MAX_AGE_SEC,
+    secureContext: clientSecureContext(),
+  });
+  document.cookie = `${WEB_SESSION_COOKIE}=${WEB_SESSION_COOKIE_VALUE}; ${attrs}`;
 }
 
 export function clearClientSession() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(AUTH_MODE_KEY);
-  document.cookie = `${WEB_SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+  const attrs = webSessionCookieSuffix({
+    maxAge: 0,
+    secureContext: clientSecureContext(),
+  });
+  document.cookie = `${WEB_SESSION_COOKIE}=; ${attrs}`;
 }
 
 function readBrowserCookie(name: string): string | undefined {

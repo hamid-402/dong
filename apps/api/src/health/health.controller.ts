@@ -21,6 +21,8 @@ type ReadinessResponse = {
     database: "ok" | "skip" | "fail";
     redisConfigured: boolean;
     redis: "ok" | "skip" | "fail";
+    dbRole: "ok" | "warn" | "fail" | "skip";
+    dbRoleStrict: boolean;
   };
 };
 
@@ -73,10 +75,13 @@ export class HealthController {
       const ready = await this.buildReadiness();
       const requirePg = process.env.DANG_REQUIRE_POSTGRES === "1";
       const requireRedis = process.env.DANG_REQUIRE_REDIS === "1";
+      const roleStrictFail =
+        ready.checks.dbRoleStrict && ready.checks.dbRole === "fail";
       const hardFail =
         (requirePg && ready.checks.database !== "ok") ||
         (requirePg && ready.checks.iam === "memory") ||
-        (requireRedis && ready.checks.redis !== "ok");
+        (requireRedis && ready.checks.redis !== "ok") ||
+        roleStrictFail;
       if (hardFail || (ready.status === "degraded" && requirePg)) {
         throw new ServiceUnavailableException({
           type: "https://dang.local/problems/not-ready",

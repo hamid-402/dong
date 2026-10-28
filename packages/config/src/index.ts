@@ -76,6 +76,11 @@ export type AppEnv = {
   zarinpalMerchantId?: string;
   /** Override Zarinpal browser return endpoint (defaults from API_BASE_URL). */
   zarinpalCallbackUrl?: string;
+  /**
+   * Session/CSRF/reauth cookie Secure flag (COOKIE_SECURE).
+   * Production always forces true even if COOKIE_SECURE=0.
+   */
+  cookieSecure: boolean;
 };
 
 function requireString(name: string, fallback?: string): string {
@@ -93,9 +98,33 @@ function readEnv(): EnvBag {
   return processLike.process?.env ?? {};
 }
 
-function parseBoolean(value: string | undefined, fallback: boolean): boolean {
+export function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined || value === "") return fallback;
   return value === "1" || value.toLowerCase() === "true";
+}
+
+/**
+ * Env-driven Secure cookie flag (COOKIE_SECURE).
+ * Unset → true only in production. Explicit true enables Secure outside production.
+ * Explicit false is honored outside production; in production Secure stays forced
+ * on and `forcedInProduction` is set so callers can warn.
+ */
+export function resolveCookieSecure(
+  nodeEnv: AppEnv["nodeEnv"],
+  cookieSecureRaw: string | undefined = readEnv().COOKIE_SECURE,
+): { secure: boolean; forcedInProduction: boolean } {
+  const productionDefault = nodeEnv === "production";
+  if (cookieSecureRaw === undefined || cookieSecureRaw === "") {
+    return { secure: productionDefault, forcedInProduction: false };
+  }
+  const requested = parseBoolean(cookieSecureRaw, productionDefault);
+  if (requested) {
+    return { secure: true, forcedInProduction: false };
+  }
+  if (nodeEnv === "production") {
+    return { secure: true, forcedInProduction: true };
+  }
+  return { secure: false, forcedInProduction: false };
 }
 
 export function loadAppEnv(partial: EnvBag = readEnv()): AppEnv {
@@ -104,6 +133,8 @@ export function loadAppEnv(partial: EnvBag = readEnv()): AppEnv {
     rawNodeEnv === "production" || rawNodeEnv === "test" || rawNodeEnv === "development"
       ? rawNodeEnv
       : "development";
+
+  const cookie = resolveCookieSecure(nodeEnv, partial.COOKIE_SECURE);
 
   return {
     nodeEnv,
@@ -134,6 +165,7 @@ export function loadAppEnv(partial: EnvBag = readEnv()): AppEnv {
     smtpFrom: partial.SMTP_FROM || undefined,
     zarinpalMerchantId: partial.ZARINPAL_MERCHANT_ID || undefined,
     zarinpalCallbackUrl: partial.ZARINPAL_CALLBACK_URL || undefined,
+    cookieSecure: cookie.secure,
   };
 }
 

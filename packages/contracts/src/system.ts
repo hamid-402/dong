@@ -373,5 +373,8 @@ export type HealthReadyResponse = {
     redisConfigured?: boolean;
     redis?: string;
     requirePostgres?: boolean;
+    /** dang_runtime / NOBYPASSRLS probe — warn by default; fail only with DB_ROLE_STRICT. */
+    dbRole?: "ok" | "warn" | "fail" | "skip";
+    dbRoleStrict?: boolean;
   };
 };

@@ -69,7 +69,11 @@ import {
   applyRateLimitHeaders,
   rateLimitProblemFields,
 } from "./rate-limit.js";
-import { clearSessionCookies, issueSessionCookie } from "./session-cookie.js";
+import {
+  clearSessionCookies,
+  issueSessionCookie,
+  sessionCookieSecure,
+} from "./session-cookie.js";
 import { SecurityEventsService } from "../security-events/security-events.service.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
 
@@ -241,7 +245,7 @@ export class AccountService {
     reply.setCookie(REAUTH_COOKIE, raw, {
       path: "/",
       sameSite: "lax",
-      secure: env.nodeEnv === "production",
+      secure: sessionCookieSecure(env),
       httpOnly: true,
       maxAge: Math.floor(REAUTH_TTL_MS / 1000),
     });

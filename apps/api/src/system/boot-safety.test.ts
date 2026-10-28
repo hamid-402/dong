@@ -16,6 +16,7 @@ function baseEnv(over: Partial<AppEnv> = {}): AppEnv {
     requireMfa: false,
     requireEmailVerification: false,
     sessionSecret: "dev-only-session-secret-change-me",
+    cookieSecure: false,
     ...over,
   };
 }
