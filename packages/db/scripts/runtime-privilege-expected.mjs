@@ -11,10 +11,18 @@ import pg from "pg";
 
 /** @type {Record<string, Priv>} */
 export const EXPECTED_RUNTIME_TABLE_PRIVS = {
-  // personal lifestyle (0102) — column UPDATE still reports as table UPDATE=true
+  // personal lifestyle (0102) — column UPDATE: has_table_privilege UPDATE=false
   "personal.money_intent": { select: true, insert: true, update: false, delete: false }, // table UPDATE false; column UPDATE granted
   "personal.allocation_plan": { select: true, insert: true, update: false, delete: false }, // table UPDATE false; column UPDATE granted
   "personal.paycheck": { select: true, insert: true, update: false, delete: false },
+
+  // catalog (0103) — column UPDATE where noted; no DELETE on item/category/price
+  "catalog.unit": { select: true, insert: true, update: false, delete: false },
+  "catalog.catalog_category": { select: true, insert: true, update: false, delete: false }, // column UPDATE
+  "catalog.catalog_item": { select: true, insert: true, update: false, delete: false }, // column UPDATE; no owner_* cols
+  "catalog.catalog_item_price": { select: true, insert: true, update: false, delete: false },
+  "catalog.catalog_item_usage": { select: true, insert: true, update: false, delete: false }, // column UPDATE
+  "catalog.catalog_item_pin": { select: true, insert: true, update: false, delete: true },
 
   // append-only / insert-log — missing UPDATE is OK (SIU heuristic was wrong)
   "audit.event": { select: true, insert: true, update: false, delete: false },
@@ -38,7 +46,7 @@ export const EXPECTED_RUNTIME_TABLE_PRIVS = {
 export const EXPECTED_SCHEMA_USAGE = {
   personal: true,
   // catalog = 0103; drizzle never for runtime
-  catalog: false,
+  catalog: true,
   drizzle: false,
 };
 

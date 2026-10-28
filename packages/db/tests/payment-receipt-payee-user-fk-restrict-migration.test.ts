@@ -62,6 +62,14 @@ test("0100 payee_user FK RESTRICT blocks user delete (23001)", async (t) => {
     await close();
   });
 
+  const roleProbe = await pool.query<{ u: string }>("select current_user as u");
+  if (roleProbe.rows[0]?.u === "dang_runtime") {
+    t.skip(
+      "payee_user RESTRICT delete must run as table owner, not dang_runtime",
+    );
+    return;
+  }
+
   const fkProbe = await pool.query<{ confdeltype: string }>(`
     select c.confdeltype
     from pg_constraint c

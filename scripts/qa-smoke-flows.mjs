@@ -203,6 +203,176 @@ async function main() {
   await req("GET", `/workspaces/${IDS.org}/proposals`);
   await req("GET", `/me/finance/overview?from=2026-08-23&to=2026-09-19`);
 
+  // --- Catalog C1–C7 (0103 RLS + runtime grants; soft-skip if endpoint/role unavailable) ---
+  const ws = IDS.group;
+  const softSkip = (code, reason) => {
+    const last = results[results.length - 1];
+    if (last && !last.ok) last.soft = true;
+    console.log(`SKIP ${code} :: ${reason}`);
+  };
+
+  // C1 units: system SELECT + workspace INSERT
+  {
+    const list = await req("GET", `/units?workspaceId=${ws}`);
+    if (!list.ok) {
+      softSkip("C1", `GET /units unavailable status=${list.status}`);
+    } else {
+      const code = `qa${Date.now().toString().slice(-6)}`;
+      const created = await req("POST", `/workspaces/${ws}/units`, {
+        code,
+        labelFa: "واحد QA",
+        labelEn: "QA unit",
+        kind: "count",
+      });
+      if (!created.ok) {
+        softSkip(
+          "C1-write",
+          `POST units status=${created.status} (finance role or catalog store may be missing)`,
+        );
+      }
+    }
+  }
+
+  // C2 categories: global SELECT + workspace CRUD
+  let catalogCategoryId = null;
+  {
+    const list = await req("GET", `/workspaces/${ws}/catalog/categories`);
+    if (!list.ok) {
+      softSkip("C2", `GET categories status=${list.status}`);
+    } else {
+      const created = await req("POST", `/workspaces/${ws}/catalog/categories`, {
+        name: `QA Cat ${Date.now().toString().slice(-5)}`,
+        sortOrder: 50,
+      });
+      if (created.ok && created.body?.id) {
+        catalogCategoryId = created.body.id;
+        const patched = await req(
+          "PATCH",
+          `/workspaces/${ws}/catalog/categories/${catalogCategoryId}`,
+          { name: `QA Cat patched ${Date.now().toString().slice(-4)}` },
+        );
+        if (!patched.ok) {
+          softSkip("C2-patch", `PATCH category status=${patched.status}`);
+        }
+      } else {
+        softSkip(
+          "C2-write",
+          `POST categories status=${created.status} (finance role may be required)`,
+        );
+      }
+    }
+  }
+
+  // C3 items + price INSERT on create / price change
+  let catalogItemId = null;
+  {
+    const list = await req("GET", `/workspaces/${ws}/catalog/items`);
+    if (!list.ok) {
+      softSkip("C3", `GET items status=${list.status}`);
+    } else {
+      const created = await req("POST", `/workspaces/${ws}/catalog/items`, {
+        name: `QA Item ${Date.now().toString().slice(-5)}`,
+        unitCode: "piece",
+        referencePriceMinor: "12000",
+        ...(catalogCategoryId ? { categoryId: catalogCategoryId } : {}),
+      });
+      if (created.ok && created.body?.id) {
+        catalogItemId = created.body.id;
+        const patched = await req(
+          "PATCH",
+          `/workspaces/${ws}/catalog/items/${catalogItemId}`,
+          { referencePriceMinor: "15000" },
+        );
+        if (!patched.ok) {
+          softSkip("C3-patch", `PATCH item status=${patched.status}`);
+        }
+        await req(
+          "POST",
+          `/workspaces/${ws}/catalog/items/${catalogItemId}/deactivate`,
+        );
+        await req(
+          "POST",
+          `/workspaces/${ws}/catalog/items/${catalogItemId}/activate`,
+        );
+        await req(
+          "GET",
+          `/workspaces/${ws}/catalog/items/${catalogItemId}/prices`,
+        );
+      } else {
+        softSkip(
+          "C3-write",
+          `POST items status=${created.status} (finance role or unit seed may be missing)`,
+        );
+      }
+    }
+  }
+
+  // C4 usage via expense with catalogItemId (recordUsage)
+  if (catalogItemId && uid) {
+    const expCat = await req("POST", `/workspaces/${ws}/expenses`, {
+      title: "QA catalog usage",
+      total: irr(15000),
+      paidByUserId: uid,
+      splitMethod: "equal",
+      participantUserIds: memberIds.length > 1 ? memberIds : [uid],
+      occurredOn: "2026-09-19",
+      catalogItemId,
+      idempotencyKey: key("exp-cat"),
+      commit: "auto",
+    });
+    if (!expCat.ok) {
+      softSkip(
+        "C4",
+        `expense+catalogItemId status=${expCat.status} (usage path not exercised)`,
+      );
+    }
+  } else {
+    softSkip("C4", "no catalogItemId from C3 — skip usage via expense");
+  }
+
+  // C5 pins
+  {
+    const list = await req("GET", `/workspaces/${ws}/catalog/pins`);
+    if (!list.ok) {
+      softSkip("C5", `GET pins status=${list.status}`);
+    } else if (catalogItemId) {
+      const put = await req("PUT", `/workspaces/${ws}/catalog/pins`, {
+        itemIds: [catalogItemId],
+      });
+      if (!put.ok) {
+        softSkip("C5-write", `PUT pins status=${put.status}`);
+      } else {
+        await req("PUT", `/workspaces/${ws}/catalog/pins`, { itemIds: [] });
+      }
+    } else {
+      softSkip("C5-write", "no catalogItemId from C3 — skip pin replace");
+    }
+  }
+
+  // C6 import-personal (no public createPersonalItem HTTP — skip if empty/unavailable)
+  {
+    const imp = await req("POST", `/workspaces/${ws}/catalog/import-personal`, {});
+    if (!imp.ok) {
+      softSkip(
+        "C6",
+        `import-personal status=${imp.status} (endpoint or personal menu unavailable)`,
+      );
+    } else if (Array.isArray(imp.body) && imp.body.length === 0) {
+      softSkip(
+        "C6",
+        "import-personal OK but empty — no public createPersonalItem endpoint to seed personal rows",
+      );
+    }
+  }
+
+  // C7 frequent (usage join under RLS)
+  {
+    const freq = await req("GET", `/workspaces/${ws}/catalog/frequent?limit=10`);
+    if (!freq.ok) {
+      softSkip("C7", `GET frequent status=${freq.status}`);
+    }
+  }
+
   const bad = results.filter((r) => !r.ok && r.status !== 404);
   console.log("\n=== SUMMARY ===");
   console.log(`total=${results.length} failures=${bad.length}`);

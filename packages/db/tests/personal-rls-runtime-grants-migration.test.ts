@@ -110,7 +110,7 @@ describe("0102 personal RLS runtime grants file checks", () => {
     assert.equal(EXPECTED_RUNTIME_TABLE_PRIVS["ops.vault_access_log"].update, false);
     assert.equal(EXPECTED_RUNTIME_TABLE_PRIVS["personal.money_intent"].update, false); // column UPDATE only
     assert.equal(EXPECTED_RUNTIME_TABLE_PRIVS["personal.allocation_plan"].update, false); // column UPDATE only
-    assert.equal(EXPECTED_SCHEMA_USAGE.catalog, false);
+    assert.equal(EXPECTED_SCHEMA_USAGE.catalog, true); // 0103 grants schema USAGE
     assert.equal(EXPECTED_SCHEMA_USAGE.drizzle, false);
     assert.equal(EXPECTED_SCHEMA_USAGE.personal, true);
   });
