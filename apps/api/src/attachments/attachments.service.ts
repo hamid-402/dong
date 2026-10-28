@@ -7,6 +7,9 @@ import {
 } from "@nestjs/common";
 import { isClamavEnabled } from "@dang/config";
 import {
+  isPaymentEvidenceAttachment,
+  PAYMENT_RECEIPT_MAX_BYTES,
+  stripJpegExif,
   type AttachmentSummary,
   type AuthActor,
   type CreateAttachmentRequest,
@@ -90,19 +93,48 @@ export class AttachmentsService {
       return current;
     } catch (error: unknown) {
       if (error instanceof Error) {
-        const map: Record<string, string> = {
-          ATTACHMENT_META: "fileName and mimeType required",
-          ATTACHMENT_SIZE: "sizeBytes must be 1..10MB",
-          ATTACHMENT_HASH: "contentHash must be SHA-256 hex",
-          ATTACHMENT_MIME: "mimeType not on allow-list",
+        const paymentEvidence = isPaymentEvidenceAttachment(body);
+        const map: Record<string, { title: string; detail: string; code?: string }> = {
+          ATTACHMENT_META: {
+            title: "پیوست نامعتبر",
+            detail: "نام فایل و نوع MIME الزامی است",
+          },
+          ATTACHMENT_SIZE: {
+            title: paymentEvidence
+              ? "حجم فایل رسید حداکثر ۵ مگابایت است"
+              : "حجم فایل بیش از حد مجاز است",
+            detail: paymentEvidence
+              ? "حجم فایل رسید حداکثر ۵ مگابایت است"
+              : "sizeBytes must be within the allowed ingest limit",
+            code: "RECEIPT_FILE_TOO_LARGE",
+          },
+          ATTACHMENT_HASH: {
+            title: "پیوست نامعتبر",
+            detail: "contentHash must be SHA-256 hex",
+          },
+          ATTACHMENT_MIME: {
+            title: paymentEvidence
+              ? "نوع فایل رسید باید JPG، PNG یا PDF باشد"
+              : "نوع فایل مجاز نیست",
+            detail: paymentEvidence
+              ? "نوع فایل رسید باید JPG، PNG یا PDF باشد"
+              : "mimeType not on allow-list",
+            code: "RECEIPT_FILE_MIME",
+          },
+          ATTACHMENT_PATH: {
+            title: "مسیر فایل نامعتبر است",
+            detail: "نام فایل نباید شامل .. یا جداکننده مسیر باشد",
+            code: "RECEIPT_FILE_PATH",
+          },
         };
-        const detail = map[error.message];
-        if (detail) {
+        const mapped = map[error.message];
+        if (mapped) {
           throw new BadRequestException({
             type: "https://dang.local/problems/validation",
-            title: "Invalid attachment",
+            title: mapped.title,
             status: 400,
-            detail,
+            detail: mapped.detail,
+            code: mapped.code,
           });
         }
       }
@@ -224,6 +256,23 @@ export class AttachmentsService {
         status: 400,
       });
     }
+    const paymentEvidence = isPaymentEvidenceAttachment(attachment);
+    // Reject oversize payment evidence before decode/write when base64 length implies >5MB.
+    if (paymentEvidence) {
+      const approxBytes = Math.floor((encoded.length * 3) / 4);
+      if (
+        attachment.sizeBytes > PAYMENT_RECEIPT_MAX_BYTES ||
+        approxBytes > PAYMENT_RECEIPT_MAX_BYTES
+      ) {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/validation",
+          title: "حجم فایل رسید حداکثر ۵ مگابایت است",
+          status: 400,
+          detail: "حجم فایل رسید حداکثر ۵ مگابایت است",
+          code: "RECEIPT_FILE_TOO_LARGE",
+        });
+      }
+    }
     let buffer: Buffer;
     try {
       buffer = Buffer.from(encoded, "base64");
@@ -232,6 +281,15 @@ export class AttachmentsService {
         type: "https://dang.local/problems/validation",
         title: "Invalid base64 payload",
         status: 400,
+      });
+    }
+    if (paymentEvidence && buffer.length > PAYMENT_RECEIPT_MAX_BYTES) {
+      throw new BadRequestException({
+        type: "https://dang.local/problems/validation",
+        title: "حجم فایل رسید حداکثر ۵ مگابایت است",
+        status: 400,
+        detail: "حجم فایل رسید حداکثر ۵ مگابایت است",
+        code: "RECEIPT_FILE_TOO_LARGE",
       });
     }
     if (buffer.length !== attachment.sizeBytes) {
@@ -286,7 +344,29 @@ export class AttachmentsService {
         throw quarantineBlockedException("blocked");
       }
     }
-    const storagePath = await this.blobs.write(workspaceId, attachmentId, buffer);
+    // Images: strip JPEG EXIF (APP1) before disk write. PDF stored as-is (never render/OCR here).
+    let toStore = buffer;
+    if (attachment.mimeType.trim() === "image/jpeg") {
+      const stripped = stripJpegExif(new Uint8Array(buffer));
+      if (stripped.byteLength !== buffer.length || stripped !== buffer) {
+        toStore = Buffer.from(stripped);
+      }
+    }
+    let storagePath: string;
+    try {
+      storagePath = await this.blobs.write(workspaceId, attachmentId, toStore);
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message.startsWith("ATTACHMENT_PATH")) {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/validation",
+          title: "مسیر فایل نامعتبر است",
+          status: 400,
+          detail: "مسیر ذخیره‌سازی پیوست نامعتبر است",
+          code: "RECEIPT_FILE_PATH",
+        });
+      }
+      throw error;
+    }
     return this.attachments.markBlobStored(workspaceId, attachmentId, storagePath);
   }
 

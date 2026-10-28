@@ -18,10 +18,12 @@ import {
 import type { SettlementsService } from "../settlements/settlements.service.js";
 import { InvoiceEventsService } from "../billing/invoice-events.service.js";
 import { MemoryOutboxStore } from "../outbox/memory-outbox.store.js";
+import { MemoryAttachmentStore } from "../attachments/attachment.store.js";
 import { MemoryPaymentOpsStore } from "./memory-payment-ops.store.js";
 import { WorkspacePaymentsService } from "./workspace-payments.service.js";
 import { confirmSettlementFromGateway } from "./gateway-settlement-confirm.js";
 import { MemoryPaymentStore } from "./payment.store.js";
+import type { AttachmentStore } from "../attachments/attachment.store.js";
 
 const workspaceId = "11111111-1111-4111-8111-111111111111";
 const payer = {
@@ -149,7 +151,10 @@ function settlementsServiceStub(store: SettlementStore): SettlementsService {
   } as unknown as SettlementsService;
 }
 
-function buildService(settlements?: SettlementStore) {
+function buildService(
+  settlements?: SettlementStore,
+  attachments?: AttachmentStore,
+) {
   const ops = new MemoryPaymentOpsStore();
   const ledger = new MemoryLedgerStore();
   const settlementStore = settlements ?? new MemorySettlementStore();
@@ -168,8 +173,14 @@ function buildService(settlements?: SettlementStore) {
     ledger,
     billingStub(),
     new InvoiceEventsService(new MemoryOutboxStore()),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    attachments,
   );
-  return { service, ops, ledger, settlementStore };
+  return { service, ops, ledger, settlementStore, attachments };
 }
 
 test("S11-09 unapproved receipt creates no journal", async () => {
@@ -1632,4 +1643,195 @@ test("run13c: delete fund with receipt is rejected (memory store / service)", as
 
   const stillThere = await ops.getFund(workspaceId, fund.id);
   assert.ok(stillThere);
+});
+
+test("card_to_card requires attachment when paymentReceiptRequired flag ON", async () => {
+  const prev = process.env.ENABLE_PAYMENT_RECEIPT_REQUIRED;
+  process.env.ENABLE_PAYMENT_RECEIPT_REQUIRED = "1";
+  try {
+    const { service, settlementStore } = buildService();
+    const claim = await settlementStore.createClaim(creditor.userId, {
+      workspaceId,
+      fromUserId: payer.userId,
+      toUserId: creditor.userId,
+      amount: { amountMinor: "10000", currency: "IRR" },
+      idempotencyKey: "set-flag-on-req",
+    });
+    await assert.rejects(
+      () =>
+        service.createReceipt(payer, workspaceId, {
+          settlementId: claim.id,
+          method: "card_to_card",
+          amountMinor: "10000",
+          paidAt: new Date().toISOString(),
+          referenceNo: "TRACK-FLAG-ON",
+          destLast4: "1111",
+          idempotencyKey: "rcpt-flag-on-no-att",
+        }),
+      (err: unknown) => {
+        assert.ok(err instanceof BadRequestException);
+        const body = err.getResponse() as { code?: string };
+        assert.equal(body.code, "CARD_TRANSFER_ATTACHMENT_REQUIRED");
+        return true;
+      },
+    );
+  } finally {
+    if (prev === undefined) delete process.env.ENABLE_PAYMENT_RECEIPT_REQUIRED;
+    else process.env.ENABLE_PAYMENT_RECEIPT_REQUIRED = prev;
+  }
+});
+
+test("card_to_card may omit attachment when paymentReceiptRequired flag OFF", async () => {
+  const prev = process.env.ENABLE_PAYMENT_RECEIPT_REQUIRED;
+  process.env.ENABLE_PAYMENT_RECEIPT_REQUIRED = "0";
+  try {
+    const { service, settlementStore } = buildService();
+    const claim = await settlementStore.createClaim(creditor.userId, {
+      workspaceId,
+      fromUserId: payer.userId,
+      toUserId: creditor.userId,
+      amount: { amountMinor: "11000", currency: "IRR" },
+      idempotencyKey: "set-flag-off",
+    });
+    const receipt = await service.createReceipt(payer, workspaceId, {
+      settlementId: claim.id,
+      method: "card_to_card",
+      amountMinor: "11000",
+      paidAt: new Date().toISOString(),
+      referenceNo: "TRACK-FLAG-OFF",
+      destLast4: "2222",
+      idempotencyKey: "rcpt-flag-off-legacy",
+    });
+    assert.equal(receipt.attachmentId, undefined);
+    const listed = await service.listReceipts(payer, workspaceId);
+    assert.ok(listed.some((r) => r.id === receipt.id));
+    const mid = await service.approveReceipt(creditor, workspaceId, receipt.id);
+    assert.equal(mid.status, "creditor_approved");
+  } finally {
+    if (prev === undefined) delete process.env.ENABLE_PAYMENT_RECEIPT_REQUIRED;
+    else process.env.ENABLE_PAYMENT_RECEIPT_REQUIRED = prev;
+  }
+});
+
+test("createReceipt gates attachment hasBlob + mime + 5MB", async () => {
+  const store = new MemoryAttachmentStore();
+  const { service, settlementStore } = buildService(undefined, store);
+  const claim = await settlementStore.createClaim(creditor.userId, {
+    workspaceId,
+    fromUserId: payer.userId,
+    toUserId: creditor.userId,
+    amount: { amountMinor: "12000", currency: "IRR" },
+    idempotencyKey: "set-blob-gate",
+  });
+
+  const noBlob = await store.create(payer.userId, {
+    workspaceId,
+    targetType: "payment_receipt",
+    targetId: crypto.randomUUID(),
+    kind: "receipt",
+    fileName: "r.jpg",
+    mimeType: "image/jpeg",
+    sizeBytes: 12,
+    contentHash: "a".repeat(64),
+    idempotencyKey: "att-no-blob",
+  });
+  await assert.rejects(
+    () =>
+      service.createReceipt(payer, workspaceId, {
+        settlementId: claim.id,
+        method: "card_to_card",
+        amountMinor: "12000",
+        paidAt: new Date().toISOString(),
+        referenceNo: "TRACK-NO-BLOB",
+        attachmentId: noBlob.id,
+        destLast4: "3333",
+        idempotencyKey: "rcpt-no-blob",
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BadRequestException);
+      const body = err.getResponse() as { code?: string };
+      assert.equal(body.code, "RECEIPT_ATTACHMENT_NO_BLOB");
+      return true;
+    },
+  );
+
+  await assert.rejects(
+    () =>
+      store.create(payer.userId, {
+        workspaceId,
+        targetType: "payment_receipt",
+        targetId: crypto.randomUUID(),
+        kind: "receipt",
+        fileName: "../escape.jpg",
+        mimeType: "image/jpeg",
+        sizeBytes: 12,
+        contentHash: "b".repeat(64),
+        idempotencyKey: "att-traversal",
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof Error);
+      assert.equal(err.message, "ATTACHMENT_PATH");
+      return true;
+    },
+  );
+
+  await assert.rejects(
+    () =>
+      store.create(payer.userId, {
+        workspaceId,
+        targetType: "payment_receipt",
+        targetId: crypto.randomUUID(),
+        kind: "receipt",
+        fileName: "big.jpg",
+        mimeType: "image/jpeg",
+        sizeBytes: 5 * 1024 * 1024 + 1,
+        contentHash: "c".repeat(64),
+        idempotencyKey: "att-too-big",
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof Error);
+      assert.equal(err.message, "ATTACHMENT_SIZE");
+      return true;
+    },
+  );
+
+  // Expense path still allows 10MB-ish (just under 10MB).
+  const expenseOk = await store.create(payer.userId, {
+    workspaceId,
+    targetType: "expense",
+    targetId: crypto.randomUUID(),
+    kind: "receipt",
+    fileName: "expense.jpg",
+    mimeType: "image/jpeg",
+    sizeBytes: 6 * 1024 * 1024,
+    contentHash: "d".repeat(64),
+    idempotencyKey: "att-expense-6mb",
+  });
+  assert.equal(expenseOk.sizeBytes, 6 * 1024 * 1024);
+  assert.ok(expenseOk.ocrJobId);
+
+  const paymentAtt = await store.create(payer.userId, {
+    workspaceId,
+    targetType: "payment_receipt",
+    targetId: crypto.randomUUID(),
+    kind: "receipt",
+    fileName: "ok.jpg",
+    mimeType: "image/jpeg",
+    sizeBytes: 12,
+    contentHash: "e".repeat(64),
+    idempotencyKey: "att-with-blob",
+  });
+  assert.equal(paymentAtt.ocrJobId, undefined);
+  await store.markBlobStored(workspaceId, paymentAtt.id, "/tmp/ok");
+  const receipt = await service.createReceipt(payer, workspaceId, {
+    settlementId: claim.id,
+    method: "card_to_card",
+    amountMinor: "12000",
+    paidAt: new Date().toISOString(),
+    referenceNo: "TRACK-WITH-BLOB",
+    attachmentId: paymentAtt.id,
+    destLast4: "4444",
+    idempotencyKey: "rcpt-with-blob",
+  });
+  assert.equal(receipt.attachmentId, paymentAtt.id);
 });

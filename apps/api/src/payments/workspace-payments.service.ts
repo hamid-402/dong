@@ -17,6 +17,7 @@ import {
   PAYMENT_RECEIPT_MAX_BYTES,
   paymentReceiptUploadMimeTypes,
   pettyCashAllowedForKind,
+  readProductFeatureFlags,
   signedPettyCashDelta,
   spaceKindForTemplate,
   treasuryLabelsForKind,
@@ -173,11 +174,18 @@ export class WorkspacePaymentsService {
         code: "CARD_TRANSFER_REF_REQUIRED",
       });
     }
-    if (body.method === "card_to_card" && !body.attachmentId) {
+    const paymentReceiptRequired =
+      readProductFeatureFlags(process.env).paymentReceiptRequired;
+    if (
+      body.method === "card_to_card" &&
+      paymentReceiptRequired &&
+      !body.attachmentId
+    ) {
       throw new BadRequestException({
         type: "https://dang.local/problems/validation",
         title: "فایل رسید کارت‌به‌کارت الزامی است",
         status: 400,
+        detail: "برای کارت‌به‌کارت پیوست فیش الزامی است",
         code: "CARD_TRANSFER_ATTACHMENT_REQUIRED",
       });
     }
@@ -244,11 +252,21 @@ export class WorkspacePaymentsService {
           code: "ATTACHMENT_NOT_FOUND",
         });
       }
+      if ("hasBlob" in att && att.hasBlob !== true) {
+        throw new BadRequestException({
+          type: "https://dang.local/problems/validation",
+          title: "محتوای پیوست فیش هنوز آپلود نشده است",
+          status: 400,
+          detail: "محتوای پیوست فیش هنوز آپلود نشده است",
+          code: "RECEIPT_ATTACHMENT_NO_BLOB",
+        });
+      }
       if (att.sizeBytes > PAYMENT_RECEIPT_MAX_BYTES) {
         throw new BadRequestException({
           type: "https://dang.local/problems/validation",
           title: "حجم فایل رسید حداکثر ۵ مگابایت است",
           status: 400,
+          detail: "حجم فایل رسید حداکثر ۵ مگابایت است",
           code: "RECEIPT_FILE_TOO_LARGE",
         });
       }
@@ -259,6 +277,7 @@ export class WorkspacePaymentsService {
           type: "https://dang.local/problems/validation",
           title: "نوع فایل رسید باید JPG، PNG یا PDF باشد",
           status: 400,
+          detail: "نوع فایل رسید باید JPG، PNG یا PDF باشد",
           code: "RECEIPT_FILE_MIME",
         });
       }

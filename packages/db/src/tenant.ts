@@ -7,7 +7,8 @@ import { tenantContextQuery } from "./client.js";
 export type AppDatabase = NodePgDatabase<typeof schema>;
 
 /**
- * Runs work inside a transaction after setting PostgreSQL session GUCs used by RLS.
+ * Runs work inside a transaction after setting PostgreSQL transaction-local GUCs
+ * used by RLS (`set_config(..., true)` — not session-wide).
  * Prefer this for every tenant-scoped query path.
  */
 export async function withTenantContext<T>(

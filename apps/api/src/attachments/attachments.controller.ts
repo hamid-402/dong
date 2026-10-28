@@ -99,7 +99,11 @@ export class AttachmentsController {
   ): Promise<Buffer> {
     const file = await this.attachments.getContent(actor, workspaceId, attachmentId);
     reply.header("Content-Type", file.mimeType);
-    reply.header("Content-Disposition", `inline; filename="${encodeURIComponent(file.fileName)}"`);
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(file.fileName)}"`,
+    );
     return file.buffer;
   }
 }

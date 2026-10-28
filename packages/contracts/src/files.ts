@@ -160,6 +160,98 @@ export function assertPaymentReceiptUploadMime(mimeType: string): void {
   }
 }
 
+/** General attachment ingest cap (expense / documents). */
+export const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Payment-receipt evidence targets (card_to_card / payments UI).
+ * Expense receipts use targetType `expense` and keep the 10MB path.
+ */
+export function isPaymentEvidenceAttachment(input: {
+  kind: string;
+  targetType: string;
+}): boolean {
+  if (input.targetType === "payment_receipt") return true;
+  return input.kind === "receipt" && input.targetType === "settlement";
+}
+
+/**
+ * Strip JPEG APP1 (EXIF) segments with pure JS — no deps.
+ * PNG/PDF returned unchanged. Invalid/non-JPEG input returned as-is.
+ */
+export function stripJpegExif(input: Uint8Array): Uint8Array {
+  if (input.length < 4 || input[0] !== 0xff || input[1] !== 0xd8) {
+    return input;
+  }
+  const chunks: Uint8Array[] = [input.subarray(0, 2)];
+  let i = 2;
+  let changed = false;
+  while (i < input.length) {
+    if (input[i] !== 0xff) {
+      chunks.push(input.subarray(i));
+      break;
+    }
+    while (i < input.length && input[i] === 0xff) i += 1;
+    if (i >= input.length) break;
+    const marker = input[i]!;
+    i += 1;
+    if (marker === 0xd9) {
+      chunks.push(new Uint8Array([0xff, 0xd9]));
+      break;
+    }
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      chunks.push(new Uint8Array([0xff, marker]));
+      continue;
+    }
+    if (i + 1 >= input.length) {
+      chunks.push(input.subarray(i - 2));
+      break;
+    }
+    const len = (input[i]! << 8) | input[i + 1]!;
+    if (len < 2 || i + len > input.length) {
+      chunks.push(input.subarray(i - 2));
+      break;
+    }
+    if (marker === 0xda) {
+      chunks.push(new Uint8Array([0xff, marker]));
+      chunks.push(input.subarray(i));
+      break;
+    }
+    if (marker === 0xe1) {
+      changed = true;
+      i += len;
+      continue;
+    }
+    chunks.push(new Uint8Array([0xff, marker]));
+    chunks.push(input.subarray(i, i + len));
+    i += len;
+  }
+  if (!changed) return input;
+  let total = 0;
+  for (const c of chunks) total += c.length;
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const c of chunks) {
+    out.set(c, o);
+    o += c.length;
+  }
+  return out;
+}
+
+/** Reject path-traversal / separator patterns in uploaded file names. */
+export function assertSafeAttachmentFileName(fileName: string): void {
+  const name = fileName.trim();
+  if (
+    !name ||
+    name.includes("..") ||
+    name.includes("/") ||
+    name.includes("\\") ||
+    name.includes("\0")
+  ) {
+    throw new Error("ATTACHMENT_PATH");
+  }
+}
+
 /**
  * Detect MIME from file content (magic bytes). Returns null when unrecognized.
  * Used so clients cannot spoof type via Content-Type / extension alone.

@@ -14,10 +14,16 @@ import type {
   OcrReceiptResult,
   QuarantineScanResult,
 } from "@dang/contracts";
-import { assertAllowedUploadMime, evaluateQuarantine } from "@dang/contracts";
+import {
+  assertAllowedUploadMime,
+  assertPaymentReceiptUploadMime,
+  assertSafeAttachmentFileName,
+  ATTACHMENT_MAX_BYTES,
+  evaluateQuarantine,
+  isPaymentEvidenceAttachment,
+  PAYMENT_RECEIPT_MAX_BYTES,
+} from "@dang/contracts";
 import type { AttachmentStore } from "./attachment.store.js";
-
-const MAX_BYTES = 10 * 1024 * 1024;
 
 function mapAttachment(row: typeof attachment.$inferSelect): AttachmentSummary {
   const ocr = row.ocrResult;
@@ -66,14 +72,22 @@ export class PostgresAttachmentStore implements AttachmentStore {
     if (!input.fileName?.trim() || !input.mimeType?.trim()) {
       return Promise.reject(new Error("ATTACHMENT_META"));
     }
-    if (input.sizeBytes <= 0 || input.sizeBytes > MAX_BYTES) {
+    try {
+      assertSafeAttachmentFileName(input.fileName);
+    } catch {
+      return Promise.reject(new Error("ATTACHMENT_PATH"));
+    }
+    const paymentEvidence = isPaymentEvidenceAttachment(input);
+    const maxBytes = paymentEvidence ? PAYMENT_RECEIPT_MAX_BYTES : ATTACHMENT_MAX_BYTES;
+    if (input.sizeBytes <= 0 || input.sizeBytes > maxBytes) {
       return Promise.reject(new Error("ATTACHMENT_SIZE"));
     }
     if (!/^[a-f0-9]{64}$/i.test(input.contentHash)) {
       return Promise.reject(new Error("ATTACHMENT_HASH"));
     }
     try {
-      assertAllowedUploadMime(input.mimeType);
+      if (paymentEvidence) assertPaymentReceiptUploadMime(input.mimeType);
+      else assertAllowedUploadMime(input.mimeType);
     } catch {
       return Promise.reject(new Error("ATTACHMENT_MIME"));
     }
@@ -84,8 +98,13 @@ export class PostgresAttachmentStore implements AttachmentStore {
       contentHash: input.contentHash.toLowerCase(),
     });
     const quarantineStatus = scan.status === "blocked" ? "blocked" : "pending";
+    // Payment evidence: store only — never kick OCR on this path.
     const ocrJobId =
-      input.kind === "receipt" && scan.status !== "blocked" ? crypto.randomUUID() : null;
+      input.kind === "receipt" &&
+      !paymentEvidence &&
+      scan.status !== "blocked"
+        ? crypto.randomUUID()
+        : null;
 
     return withTenantContext(
       this.db,

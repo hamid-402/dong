@@ -38,6 +38,11 @@ export type ProductFeatureFlags = {
   buildingSpaces: boolean;
   /** Org templates and the سازمان entry points. */
   orgSpaces: boolean;
+  /**
+   * Require attachment evidence on new card_to_card payment receipts.
+   * Default ON (unset → true even in production). Explicit `0`/`false` restores optional attachment.
+   */
+  paymentReceiptRequired: boolean;
 };
 
 export const PRODUCT_FLAG_ENV = {
@@ -62,6 +67,7 @@ export const PRODUCT_FLAG_ENV = {
   fundAsSettlementParty: "ENABLE_FUND_AS_SETTLEMENT_PARTY",
   buildingSpaces: "ENABLE_BUILDING_SPACES",
   orgSpaces: "ENABLE_ORG_SPACES",
+  paymentReceiptRequired: "ENABLE_PAYMENT_RECEIPT_REQUIRED",
 } as const;
 
 function parseTriState(
@@ -153,6 +159,11 @@ export function readProductFeatureFlags(
       unsetDefault,
     ),
     orgSpaces: parseTriState(env[PRODUCT_FLAG_ENV.orgSpaces], unsetDefault),
+    paymentReceiptRequired: parseTriState(
+      // Preserve mandatory card_to_card receipt unless explicitly disabled (roadmap lock 7).
+      env[PRODUCT_FLAG_ENV.paymentReceiptRequired],
+      true,
+    ),
   };
 }
 

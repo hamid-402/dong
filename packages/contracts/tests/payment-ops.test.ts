@@ -47,13 +47,13 @@ test("createPaymentReceiptRequestSchema requires a reference for card_to_card", 
   assert.equal(bad.success, false);
   assert.ok(issues(bad).includes("CARD_TRANSFER_REF_REQUIRED"));
 
-  assert.equal(
+  // Attachment is flag-aware in the API service — schema allows omit (legacy / flag off).
+  assert.ok(
     createPaymentReceiptRequestSchema.safeParse({
       ...base,
       referenceNo: "R1",
       destLast4: "1234",
     }).success,
-    false,
   );
   assert.ok(
     createPaymentReceiptRequestSchema.safeParse({

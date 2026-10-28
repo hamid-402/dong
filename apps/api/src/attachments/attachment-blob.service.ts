@@ -1,10 +1,25 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { loadAppEnv } from "@dang/config";
 
 export type AttachmentBlobMode = "local" | "none";
+
+/** UUID / opaque id segment — reject path escape attempts. */
+function assertSafeBlobSegment(value: string, label: string): void {
+  const v = value.trim();
+  if (
+    !v ||
+    v.includes("..") ||
+    v.includes("/") ||
+    v.includes("\\") ||
+    v.includes("\0") ||
+    v.includes(sep)
+  ) {
+    throw new Error(`ATTACHMENT_PATH:${label}`);
+  }
+}
 
 @Injectable()
 export class AttachmentBlobService {
@@ -26,7 +41,14 @@ export class AttachmentBlobService {
   }
 
   objectPath(workspaceId: string, attachmentId: string): string {
-    return join(this.rootDir, workspaceId, attachmentId);
+    assertSafeBlobSegment(workspaceId, "workspaceId");
+    assertSafeBlobSegment(attachmentId, "attachmentId");
+    const path = resolve(join(this.rootDir, workspaceId, attachmentId));
+    const root = this.rootDir.endsWith(sep) ? this.rootDir : `${this.rootDir}${sep}`;
+    if (path !== this.rootDir && !path.startsWith(root)) {
+      throw new Error("ATTACHMENT_PATH:escape");
+    }
+    return path;
   }
 
   hashBuffer(buffer: Buffer): string {
@@ -43,7 +65,10 @@ export class AttachmentBlobService {
   async read(workspaceId: string, attachmentId: string): Promise<Buffer | null> {
     try {
       return await readFile(this.objectPath(workspaceId, attachmentId));
-    } catch {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message.startsWith("ATTACHMENT_PATH")) {
+        throw error;
+      }
       return null;
     }
   }

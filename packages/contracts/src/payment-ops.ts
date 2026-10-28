@@ -70,6 +70,11 @@ export type CreatePaymentReceiptRequest = {
 /** Max evidence file size for payment receipts (JPG/PNG/PDF). */
 export const PAYMENT_RECEIPT_MAX_BYTES = 5 * 1024 * 1024;
 
+/** Ingest / createAttachment max for payment evidence (same as product cap). */
+export function paymentEvidenceMaxBytes(): number {
+  return PAYMENT_RECEIPT_MAX_BYTES;
+}
+
 export type RejectPaymentReceiptRequest = {
   note: string;
 };

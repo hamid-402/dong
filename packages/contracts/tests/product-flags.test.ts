@@ -16,9 +16,11 @@ test("development/test default turns product flags on, except settlementEvidence
   assert.ok(Object.keys(readProductFeatureFlags()).every((k) => k in PRODUCT_FLAG_ENV));
 });
 
-test("production defaults every flag off until opted in", () => {
+test("production defaults every flag off until opted in, except paymentReceiptRequired", () => {
   const f = readProductFeatureFlags({ NODE_ENV: "production" });
-  assert.ok(Object.values(f).every((v) => v === false));
+  const { paymentReceiptRequired, ...rest } = f;
+  assert.equal(paymentReceiptRequired, true);
+  assert.ok(Object.values(rest).every((v) => v === false));
   const on = readProductFeatureFlags({
     NODE_ENV: "production",
     [PRODUCT_FLAG_ENV.addonAck]: "1",
@@ -29,6 +31,25 @@ test("production defaults every flag off until opted in", () => {
   assert.equal(on.makerChecker, true);
   assert.equal(on.settlementEvidence, true);
   assert.equal(on.recurrenceWorker, false);
+  assert.equal(on.paymentReceiptRequired, true);
+});
+
+test("paymentReceiptRequired defaults ON; explicit 0 restores optional attachment", () => {
+  assert.equal(
+    readProductFeatureFlags({ NODE_ENV: "production" }).paymentReceiptRequired,
+    true,
+  );
+  assert.equal(
+    readProductFeatureFlags({
+      NODE_ENV: "production",
+      [PRODUCT_FLAG_ENV.paymentReceiptRequired]: "0",
+    }).paymentReceiptRequired,
+    false,
+  );
+  assert.equal(
+    PRODUCT_FLAG_ENV.paymentReceiptRequired,
+    "ENABLE_PAYMENT_RECEIPT_REQUIRED",
+  );
 });
 
 test("explicit 0/false forces a flag off even in development", () => {
@@ -49,8 +70,11 @@ test("DANG_PRODUCT_FLAGS_DEFAULT overrides the unset default for all flags", () 
   assert.equal(on.expensePolicy, true);
   assert.equal(on.orgSpaces, true);
   assert.equal(on.settlementEvidence, false);
+  assert.equal(on.paymentReceiptRequired, true);
   const off = readProductFeatureFlags({ NODE_ENV: "development", DANG_PRODUCT_FLAGS_DEFAULT: "0" });
-  assert.ok(Object.values(off).every((v) => v === false));
+  const { paymentReceiptRequired, ...rest } = off;
+  assert.equal(paymentReceiptRequired, true);
+  assert.ok(Object.values(rest).every((v) => v === false));
 });
 
 test("every flag reads from its documented env var", () => {

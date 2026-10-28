@@ -10,10 +10,16 @@ import {
 } from "../src/payments.js";
 import {
   assertAllowedUploadMime,
+  assertPaymentReceiptUploadMime,
+  assertSafeAttachmentFileName,
   evaluateQuarantine,
+  isPaymentEvidenceAttachment,
+  paymentReceiptUploadMimeTypes,
   runStubOcr,
   sniffUploadMime,
+  stripJpegExif,
 } from "../src/files.js";
+import { PAYMENT_RECEIPT_MAX_BYTES } from "../src/payment-ops.js";
 
 test("forbidden payment fields include card material", () => {
   assert.ok(forbiddenPaymentFields.includes("pan"));
@@ -137,4 +143,71 @@ test("stub OCR completes for png", () => {
   assert.equal(ocr.taxMinor, undefined);
   assert.equal(ocr.occurredOn, undefined);
   assert.match(ocr.rawTextPreview ?? "", /^stub-ocr:/);
+});
+
+test("payment receipt mime helpers reject webp and spoofed types", () => {
+  assert.deepEqual([...paymentReceiptUploadMimeTypes], [
+    "image/jpeg",
+    "image/png",
+    "application/pdf",
+  ]);
+  assert.doesNotThrow(() => assertPaymentReceiptUploadMime("image/jpeg"));
+  assert.throws(() => assertPaymentReceiptUploadMime("image/webp"), /ATTACHMENT_MIME/);
+  assert.throws(
+    () => assertPaymentReceiptUploadMime("application/octet-stream"),
+    /ATTACHMENT_MIME/,
+  );
+  assert.equal(PAYMENT_RECEIPT_MAX_BYTES, 5 * 1024 * 1024);
+});
+
+test("isPaymentEvidenceAttachment distinguishes expense vs payment targets", () => {
+  assert.equal(
+    isPaymentEvidenceAttachment({ kind: "receipt", targetType: "payment_receipt" }),
+    true,
+  );
+  assert.equal(
+    isPaymentEvidenceAttachment({ kind: "receipt", targetType: "settlement" }),
+    true,
+  );
+  assert.equal(
+    isPaymentEvidenceAttachment({ kind: "receipt", targetType: "expense" }),
+    false,
+  );
+});
+
+test("assertSafeAttachmentFileName blocks path traversal", () => {
+  assert.doesNotThrow(() => assertSafeAttachmentFileName("receipt-abc.jpg"));
+  assert.throws(() => assertSafeAttachmentFileName("../etc/passwd"), /ATTACHMENT_PATH/);
+  assert.throws(() => assertSafeAttachmentFileName("a/../../b.pdf"), /ATTACHMENT_PATH/);
+  assert.throws(() => assertSafeAttachmentFileName("foo\\bar.png"), /ATTACHMENT_PATH/);
+});
+
+test("stripJpegExif removes APP1 and leaves PNG/PDF unchanged", () => {
+  // Minimal JPEG: SOI + APP1(EXIF) + APP0 + SOS + EOI
+  const app1 = new Uint8Array([
+    0xff, 0xe1, 0x00, 0x08, 0x45, 0x78, 0x69, 0x66, 0x00, 0x00,
+  ]);
+  const app0 = new Uint8Array([0xff, 0xe0, 0x00, 0x04, 0x00, 0x00]);
+  const sos = new Uint8Array([0xff, 0xda, 0x00, 0x02, 0xff, 0xd9]);
+  const jpeg = new Uint8Array(2 + app1.length + app0.length + sos.length);
+  jpeg[0] = 0xff;
+  jpeg[1] = 0xd8;
+  jpeg.set(app1, 2);
+  jpeg.set(app0, 2 + app1.length);
+  jpeg.set(sos, 2 + app1.length + app0.length);
+  const stripped = stripJpegExif(jpeg);
+  assert.ok(stripped.byteLength < jpeg.byteLength);
+  assert.equal(stripped[0], 0xff);
+  assert.equal(stripped[1], 0xd8);
+  // No APP1 marker after strip
+  let foundApp1 = false;
+  for (let i = 0; i < stripped.length - 1; i++) {
+    if (stripped[i] === 0xff && stripped[i + 1] === 0xe1) foundApp1 = true;
+  }
+  assert.equal(foundApp1, false);
+
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  assert.equal(stripJpegExif(png), png);
+  const pdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
+  assert.equal(stripJpegExif(pdf), pdf);
 });

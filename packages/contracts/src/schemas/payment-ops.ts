@@ -36,13 +36,7 @@ export const createPaymentReceiptRequestSchema = z
         path: ["referenceNo"],
       });
     }
-    if (data.method === "card_to_card" && !data.attachmentId) {
-      ctx.addIssue({
-        code: "custom",
-        message: "CARD_TRANSFER_ATTACHMENT_REQUIRED",
-        path: ["attachmentId"],
-      });
-    }
+    // Attachment requirement is flag-aware (paymentReceiptRequired) — enforced in API service.
     if (data.payeeUserId && data.payeeFundId) {
       ctx.addIssue({
         code: "custom",

@@ -34,7 +34,11 @@ import { useWorkspaceScope } from "@/components/shell/workspace-scope";
 import { api } from "@/lib/api";
 import { friendlyErrorMessage, uploadErrorMessage } from "@/lib/api-errors";
 import { todayIsoLocal } from "@/lib/fa-datetime";
-import { readFileAsBase64, resolveUploadMimeType, sha256HexFromFile } from "@/lib/file-hash";
+import {
+  readFileAsBase64,
+  resolvePaymentReceiptMimeType,
+  sha256HexFromFile,
+} from "@/lib/file-hash";
 import { displayInputToIrrMinor, irrMinorToDisplayInput } from "@/lib/irr-money";
 import { useDisplayUnit } from "@/lib/display-unit";
 import { moneyFieldLabel, moneyUnitSuffix } from "@/lib/money-labels";
@@ -156,6 +160,9 @@ export function PaymentsView() {
 
   const receiptsLive =
     chrome.capabilities?.providers?.paymentReceipts === "manual_review_v1";
+  /** Default ON when unset (matches ENABLE_PAYMENT_RECEIPT_REQUIRED). */
+  const paymentReceiptRequired =
+    chrome.capabilities?.productFlags?.paymentReceiptRequired !== false;
   const pettyLive = chrome.capabilities?.providers?.pettyCash === "fund_v1";
   const onBehalfLive =
     chrome.capabilities?.providers?.paymentOnBehalf === "on_behalf_v1";
@@ -466,9 +473,22 @@ export function PaymentsView() {
                   const file = e.target.files?.[0] ?? null;
                   e.target.value = "";
                   if (file && file.size > MAX_RECEIPT_BYTES) {
-                    setReceiptFileError("حجم فایل بیش از ۵ مگابایت است");
+                    setReceiptFileError("حجم فایل رسید حداکثر ۵ مگابایت است");
                     setReceiptFile(null);
                     return;
+                  }
+                  if (file) {
+                    try {
+                      resolvePaymentReceiptMimeType(file);
+                    } catch (err) {
+                      setReceiptFileError(
+                        err instanceof Error
+                          ? err.message
+                          : "نوع فایل رسید باید JPG، PNG یا PDF باشد",
+                      );
+                      setReceiptFile(null);
+                      return;
+                    }
                   }
                   setReceiptFileError(null);
                   setReceiptFile(file);
@@ -476,9 +496,9 @@ export function PaymentsView() {
               />
               {receiptFile
                 ? `پیوست: ${receiptFile.name}`
-                : method === "card_to_card"
+                : method === "card_to_card" && paymentReceiptRequired
                   ? "پیوست تصویر فیش (الزامی — JPG، PNG یا PDF)"
-                  : "پیوست تصویر فیش (اختیاری)"}
+                  : "پیوست تصویر فیش (اختیاری — JPG، PNG یا PDF)"}
             </label>
           ) : null}
           {receiptFileError ? (
@@ -491,7 +511,9 @@ export function PaymentsView() {
               pending ||
               !amountMinor.trim() ||
               (method === "card_to_card" && !referenceNo.trim()) ||
-              (method === "card_to_card" && !receiptFile) ||
+              (method === "card_to_card" &&
+                paymentReceiptRequired &&
+                !receiptFile) ||
               (payeeKind === "person" &&
                 !settlementId.trim() &&
                 !payeeUserId) ||
@@ -503,7 +525,11 @@ export function PaymentsView() {
                 setReferenceTouched(true);
                 return;
               }
-              if (method === "card_to_card" && !receiptFile) {
+              if (
+                method === "card_to_card" &&
+                paymentReceiptRequired &&
+                !receiptFile
+              ) {
                 setReceiptFileError("برای کارت‌به‌کارت پیوست فیش الزامی است");
                 return;
               }
@@ -516,7 +542,7 @@ export function PaymentsView() {
                         setError("آپلود پیوست در این محیط فعال نیست");
                         return;
                       }
-                      const mimeType = resolveUploadMimeType(receiptFile);
+                      const mimeType = resolvePaymentReceiptMimeType(receiptFile);
                       const contentHash = await sha256HexFromFile(receiptFile);
                       const settlement = settlementId.trim();
                       const targetType = settlement

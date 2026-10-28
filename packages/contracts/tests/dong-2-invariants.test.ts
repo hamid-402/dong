@@ -126,6 +126,7 @@ test("product flags: production unset → off; development unset → on", () => 
     fundAsSettlementParty: false,
     buildingSpaces: false,
     orgSpaces: false,
+    paymentReceiptRequired: true,
   };
   assert.deepEqual(readProductFeatureFlags({ NODE_ENV: "production" }), allOff);
   const allOn = Object.fromEntries(

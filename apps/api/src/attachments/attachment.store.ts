@@ -5,7 +5,15 @@ import type {
   OcrReceiptResult,
   QuarantineScanResult,
 } from "@dang/contracts";
-import { assertAllowedUploadMime, evaluateQuarantine } from "@dang/contracts";
+import {
+  assertAllowedUploadMime,
+  assertPaymentReceiptUploadMime,
+  assertSafeAttachmentFileName,
+  ATTACHMENT_MAX_BYTES,
+  evaluateQuarantine,
+  isPaymentEvidenceAttachment,
+  PAYMENT_RECEIPT_MAX_BYTES,
+} from "@dang/contracts";
 
 export type AttachmentStore = {
   readonly persistence: "memory" | "postgres";
@@ -42,8 +50,6 @@ export type AttachmentStore = {
 
 export const ATTACHMENT_STORE = Symbol("ATTACHMENT_STORE");
 
-const MAX_BYTES = 10 * 1024 * 1024;
-
 export class MemoryAttachmentStore implements AttachmentStore {
   readonly persistence = "memory" as const;
   private readonly attachments = new Map<string, AttachmentSummary>();
@@ -53,14 +59,22 @@ export class MemoryAttachmentStore implements AttachmentStore {
     if (!input.fileName?.trim() || !input.mimeType?.trim()) {
       return Promise.reject(new Error("ATTACHMENT_META"));
     }
-    if (input.sizeBytes <= 0 || input.sizeBytes > MAX_BYTES) {
+    try {
+      assertSafeAttachmentFileName(input.fileName);
+    } catch {
+      return Promise.reject(new Error("ATTACHMENT_PATH"));
+    }
+    const paymentEvidence = isPaymentEvidenceAttachment(input);
+    const maxBytes = paymentEvidence ? PAYMENT_RECEIPT_MAX_BYTES : ATTACHMENT_MAX_BYTES;
+    if (input.sizeBytes <= 0 || input.sizeBytes > maxBytes) {
       return Promise.reject(new Error("ATTACHMENT_SIZE"));
     }
     if (!/^[a-f0-9]{64}$/i.test(input.contentHash)) {
       return Promise.reject(new Error("ATTACHMENT_HASH"));
     }
     try {
-      assertAllowedUploadMime(input.mimeType);
+      if (paymentEvidence) assertPaymentReceiptUploadMime(input.mimeType);
+      else assertAllowedUploadMime(input.mimeType);
     } catch {
       return Promise.reject(new Error("ATTACHMENT_MIME"));
     }
@@ -78,6 +92,12 @@ export class MemoryAttachmentStore implements AttachmentStore {
       contentHash: input.contentHash.toLowerCase(),
     });
 
+    // Payment evidence: store only — never kick OCR on this path.
+    const wantOcr =
+      input.kind === "receipt" &&
+      !paymentEvidence &&
+      scan.status !== "blocked";
+
     const attachment: AttachmentSummary = {
       id: crypto.randomUUID(),
       workspaceId: input.workspaceId,
@@ -91,10 +111,7 @@ export class MemoryAttachmentStore implements AttachmentStore {
       uploadedByUserId: actorUserId,
       createdAt: new Date().toISOString(),
       quarantineStatus: scan.status === "blocked" ? "blocked" : "pending",
-      ocrJobId:
-        input.kind === "receipt" && scan.status !== "blocked"
-          ? crypto.randomUUID()
-          : undefined,
+      ocrJobId: wantOcr ? crypto.randomUUID() : undefined,
       hasBlob: false,
     };
     this.attachments.set(attachment.id, attachment);

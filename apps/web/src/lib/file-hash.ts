@@ -6,6 +6,12 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   ".pdf": "application/pdf",
 };
 
+const PAYMENT_RECEIPT_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+]);
+
 /** Resolve MIME for API allow-list; rejects unsupported types. */
 export function resolveUploadMimeType(file: File): string {
   const fromBrowser = file.type?.trim().toLowerCase();
@@ -21,6 +27,15 @@ export function resolveUploadMimeType(file: File): string {
   const fromExt = MIME_BY_EXTENSION[ext];
   if (fromExt) return fromExt;
   throw new Error("فرمت فایل پشتیبانی نمی‌شود (JPEG، PNG، WebP، PDF)");
+}
+
+/** Payment receipt evidence: JPG/PNG/PDF only (no webp). */
+export function resolvePaymentReceiptMimeType(file: File): string {
+  const mime = resolveUploadMimeType(file);
+  if (!PAYMENT_RECEIPT_MIME.has(mime)) {
+    throw new Error("نوع فایل رسید باید JPG، PNG یا PDF باشد");
+  }
+  return mime;
 }
 
 export async function sha256HexFromFile(file: File): Promise<string> {  const buffer = await file.arrayBuffer();

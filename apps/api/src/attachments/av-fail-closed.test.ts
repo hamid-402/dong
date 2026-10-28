@@ -4,6 +4,7 @@ import { createServer, type AddressInfo } from "node:net";
 import test from "node:test";
 import {
   BadRequestException,
+  NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import type { AuthActor } from "@dang/contracts";
@@ -500,6 +501,121 @@ test("CLAMAV off + pending with blob → getContent succeeds", async () => {
     if (prevEnabled === undefined) delete process.env.CLAMAV_ENABLED;
     else process.env.CLAMAV_ENABLED = prevEnabled;
   }
+});
+
+test("path traversal: fileName with .. rejected at create", async () => {
+  const store = new MemoryAttachmentStore();
+  await assert.rejects(
+    () =>
+      store.create("u1", {
+        workspaceId: "w1",
+        targetType: "payment_receipt",
+        targetId: "t1",
+        kind: "receipt",
+        fileName: "../../etc/passwd.jpg",
+        mimeType: "image/jpeg",
+        sizeBytes: 8,
+        contentHash: HASH_A,
+        idempotencyKey: "trav-name",
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof Error);
+      assert.equal(err.message, "ATTACHMENT_PATH");
+      return true;
+    },
+  );
+});
+
+test("blob objectPath rejects workspace/attachment escape segments", () => {
+  const blobs = new AttachmentBlobService();
+  assert.throws(
+    () => blobs.objectPath("w1/../other", "att1"),
+    /ATTACHMENT_PATH/,
+  );
+  assert.throws(
+    () => blobs.objectPath("w1", "../att1"),
+    /ATTACHMENT_PATH/,
+  );
+  assert.throws(
+    () => blobs.objectPath("w1", "att1/../../escape"),
+    /ATTACHMENT_PATH/,
+  );
+  const safe = blobs.objectPath("w1", "att1");
+  assert.ok(safe.includes("w1"));
+  assert.ok(safe.endsWith("att1") || safe.includes(`${"att1"}`));
+});
+
+test("workspace isolation: other workspace cannot fetch attachment content", async () => {
+  const store = new MemoryAttachmentStore();
+  const payload = Buffer.from("secret-bytes");
+  const blobs = {
+    mode: () => "local" as const,
+    hashBuffer: (b: Buffer) => sha256(b),
+    write: async () => "/tmp/x",
+    read: async () => payload,
+  } as unknown as AttachmentBlobService;
+  const created = await store.create("u1", {
+    workspaceId: "w1",
+    targetType: "payment_receipt",
+    targetId: "t1",
+    kind: "receipt",
+    fileName: "r.jpg",
+    mimeType: "image/jpeg",
+    sizeBytes: payload.length,
+    contentHash: HASH_A,
+    idempotencyKey: "iso-1",
+  });
+  await store.applyQuarantine("w1", created.id, {
+    attachmentId: created.id,
+    workspaceId: "w1",
+    scannedAt: new Date().toISOString(),
+    status: "clean",
+    engine: "stub-av",
+    contentHash: HASH_A,
+  });
+  await store.markBlobStored("w1", created.id, "/tmp/x");
+  const service = buildService(store, blobs);
+  await assert.rejects(
+    () => service.getContent(actor, "w2-other", created.id),
+    (err: unknown) => {
+      assert.ok(err instanceof NotFoundException);
+      assert.equal(err.getStatus(), 404);
+      return true;
+    },
+  );
+  const ok = await service.getContent(actor, "w1", created.id);
+  assert.equal(ok.buffer.toString(), "secret-bytes");
+});
+
+test("payment evidence create caps at 5MB; expense keeps 10MB", async () => {
+  const store = new MemoryAttachmentStore();
+  await assert.rejects(
+    () =>
+      store.create("u1", {
+        workspaceId: "w1",
+        targetType: "payment_receipt",
+        targetId: "t1",
+        kind: "receipt",
+        fileName: "big.jpg",
+        mimeType: "image/jpeg",
+        sizeBytes: 5 * 1024 * 1024 + 1,
+        contentHash: HASH_A,
+        idempotencyKey: "pay-5mb",
+      }),
+    /ATTACHMENT_SIZE/,
+  );
+  const expense = await store.create("u1", {
+    workspaceId: "w1",
+    targetType: "expense",
+    targetId: "e1",
+    kind: "receipt",
+    fileName: "e.jpg",
+    mimeType: "image/jpeg",
+    sizeBytes: 6 * 1024 * 1024,
+    contentHash: HASH_A,
+    idempotencyKey: "exp-6mb",
+  });
+  assert.equal(expense.sizeBytes, 6 * 1024 * 1024);
 });
 
 test("CLAMAV on + clean with ClamAV down → getContent succeeds without rescan", async () => {
