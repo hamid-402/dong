@@ -11,6 +11,7 @@ import {
   normalizeCatalogName,
   slugifyCategoryName,
   type CatalogStore,
+  type CatalogTenantContext,
   type CategoryRecord,
   type ItemRecord,
   type ListItemsFilter,
@@ -41,7 +42,7 @@ export class MemoryCatalogStore implements CatalogStore {
     return Promise.resolve(rows.map((u) => ({ ...u })));
   }
 
-  getUnit(code: string): Promise<UnitRecord | null> {
+  getUnit(code: string, _context?: CatalogTenantContext): Promise<UnitRecord | null> {
     const row = this.units.get(code);
     return Promise.resolve(row ? { ...row } : null);
   }
@@ -149,7 +150,7 @@ export class MemoryCatalogStore implements CatalogStore {
     return { items: page.map((r) => ({ ...r })), nextCursor };
   }
 
-  getItem(itemId: string): Promise<ItemRecord | null> {
+  getItem(itemId: string, _context?: CatalogTenantContext): Promise<ItemRecord | null> {
     const row = this.items.get(itemId);
     return Promise.resolve(row ? { ...row } : null);
   }
@@ -232,6 +233,7 @@ export class MemoryCatalogStore implements CatalogStore {
     itemId: string,
     actorUserId: string,
     patch: UpdateCatalogItemRequest,
+    _context?: CatalogTenantContext,
   ): Promise<ItemRecord> {
     const row = this.items.get(itemId);
     if (!row) throw new Error("CATALOG_ITEM_NOT_FOUND");
@@ -281,7 +283,11 @@ export class MemoryCatalogStore implements CatalogStore {
     return { ...row };
   }
 
-  setItemActive(itemId: string, active: boolean): Promise<ItemRecord> {
+  setItemActive(
+    itemId: string,
+    active: boolean,
+    _context?: CatalogTenantContext,
+  ): Promise<ItemRecord> {
     const row = this.items.get(itemId);
     if (!row) throw new Error("CATALOG_ITEM_NOT_FOUND");
     row.active = active;
@@ -291,12 +297,15 @@ export class MemoryCatalogStore implements CatalogStore {
     return Promise.resolve({ ...row });
   }
 
-  listPrices(itemId: string): Promise<PriceRecord[]> {
+  listPrices(itemId: string, _context?: CatalogTenantContext): Promise<PriceRecord[]> {
     const list = this.prices.get(itemId) ?? [];
     return Promise.resolve(list.map((p) => ({ ...p })));
   }
 
-  getPriceById(priceId: string): Promise<(PriceRecord & { itemId: string }) | null> {
+  getPriceById(
+    priceId: string,
+    _context?: CatalogTenantContext,
+  ): Promise<(PriceRecord & { itemId: string }) | null> {
     for (const [itemId, list] of this.prices.entries()) {
       const hit = list.find((p) => p.id === priceId);
       if (hit) return Promise.resolve({ ...hit, itemId });

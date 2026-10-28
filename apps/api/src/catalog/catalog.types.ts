@@ -90,6 +90,12 @@ export type ListItemsFilter = {
   limit?: number;
 };
 
+/** Optional tenant GUCs for methods that otherwise lack workspace/user in the signature. */
+export type CatalogTenantContext = {
+  workspaceId?: string;
+  userId?: string;
+};
+
 export type CatalogStore = {
   readonly persistence: "memory" | "postgres";
   listUnits(workspaceId?: string | null): Promise<UnitRecord[]>;
@@ -97,7 +103,7 @@ export type CatalogStore = {
     workspaceId: string,
     input: CreateCatalogUnitRequest,
   ): Promise<UnitRecord>;
-  getUnit(code: string): Promise<UnitRecord | null>;
+  getUnit(code: string, context?: CatalogTenantContext): Promise<UnitRecord | null>;
   listCategories(workspaceId: string): Promise<CategoryRecord[]>;
   createCategory(
     workspaceId: string,
@@ -113,7 +119,7 @@ export type CatalogStore = {
     scope: { ownerKind: "workspace"; workspaceId: string } | { ownerKind: "user"; ownerUserId: string },
     filter?: ListItemsFilter,
   ): Promise<{ items: ItemRecord[]; nextCursor?: string }>;
-  getItem(itemId: string): Promise<ItemRecord | null>;
+  getItem(itemId: string, context?: CatalogTenantContext): Promise<ItemRecord | null>;
   createItem(input: {
     ownerKind: CatalogOwnerKind;
     workspaceId?: string | null;
@@ -125,10 +131,18 @@ export type CatalogStore = {
     itemId: string,
     actorUserId: string,
     patch: UpdateCatalogItemRequest,
+    context?: CatalogTenantContext,
   ): Promise<ItemRecord>;
-  setItemActive(itemId: string, active: boolean): Promise<ItemRecord>;
-  listPrices(itemId: string): Promise<PriceRecord[]>;
-  getPriceById(priceId: string): Promise<(PriceRecord & { itemId: string }) | null>;
+  setItemActive(
+    itemId: string,
+    active: boolean,
+    context?: CatalogTenantContext,
+  ): Promise<ItemRecord>;
+  listPrices(itemId: string, context?: CatalogTenantContext): Promise<PriceRecord[]>;
+  getPriceById(
+    priceId: string,
+    context?: CatalogTenantContext,
+  ): Promise<(PriceRecord & { itemId: string }) | null>;
   listFrequent(workspaceId: string, limit?: number): Promise<Array<ItemRecord & UsageRecord>>;
   recordUsage(workspaceId: string, itemId: string, delta?: number): Promise<UsageRecord>;
   listPins(workspaceId: string): Promise<PinRecord[]>;

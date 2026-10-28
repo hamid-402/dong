@@ -23,10 +23,13 @@ const key = (p) => `${p}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}
 const results = [];
 
 async function req(method, path, body) {
+  const headers = { ...H };
+  const hasBody = body !== undefined;
+  if (!hasBody) delete headers["Content-Type"];
   const r = await fetch(`${API}${path}`, {
     method,
-    headers: H,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    headers,
+    body: hasBody ? JSON.stringify(body) : undefined,
   });
   const text = await r.text();
   let json;

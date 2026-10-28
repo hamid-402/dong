@@ -165,9 +165,14 @@ export class CatalogService {
     body: UpdateCatalogItemRequest,
   ): Promise<CatalogItem> {
     await this.access.requireMember(workspaceId, actor.userId);
-    await this.requireWorkspaceItem(workspaceId, itemId);
+    await this.requireWorkspaceItem(workspaceId, itemId, actor.userId);
     try {
-      return toItemDto(await this.store.updateItem(itemId, actor.userId, body));
+      return toItemDto(
+        await this.store.updateItem(itemId, actor.userId, body, {
+          workspaceId,
+          userId: actor.userId,
+        }),
+      );
     } catch (error: unknown) {
       this.rethrow(error);
     }
@@ -179,9 +184,14 @@ export class CatalogService {
     itemId: string,
   ): Promise<CatalogItem> {
     await this.access.requireMember(workspaceId, actor.userId);
-    await this.requireWorkspaceItem(workspaceId, itemId);
+    await this.requireWorkspaceItem(workspaceId, itemId, actor.userId);
     try {
-      return toItemDto(await this.store.setItemActive(itemId, false));
+      return toItemDto(
+        await this.store.setItemActive(itemId, false, {
+          workspaceId,
+          userId: actor.userId,
+        }),
+      );
     } catch (error: unknown) {
       this.rethrow(error);
     }
@@ -193,9 +203,14 @@ export class CatalogService {
     itemId: string,
   ): Promise<CatalogItem> {
     await this.access.requireMember(workspaceId, actor.userId);
-    await this.requireWorkspaceItem(workspaceId, itemId);
+    await this.requireWorkspaceItem(workspaceId, itemId, actor.userId);
     try {
-      return toItemDto(await this.store.setItemActive(itemId, true));
+      return toItemDto(
+        await this.store.setItemActive(itemId, true, {
+          workspaceId,
+          userId: actor.userId,
+        }),
+      );
     } catch (error: unknown) {
       this.rethrow(error);
     }
@@ -207,8 +222,13 @@ export class CatalogService {
     itemId: string,
   ): Promise<CatalogItemPrice[]> {
     await this.access.requireMember(workspaceId, actor.userId);
-    await this.requireWorkspaceItem(workspaceId, itemId);
-    return (await this.store.listPrices(itemId)).map(toPriceDto);
+    await this.requireWorkspaceItem(workspaceId, itemId, actor.userId);
+    return (
+      await this.store.listPrices(itemId, {
+        workspaceId,
+        userId: actor.userId,
+      })
+    ).map(toPriceDto);
   }
 
   async listFrequent(
@@ -232,10 +252,11 @@ export class CatalogService {
 
   async listPins(actor: AuthActor, workspaceId: string): Promise<CatalogPin[]> {
     await this.access.requireMember(workspaceId, actor.userId);
+    const tenant = { workspaceId, userId: actor.userId };
     const pins = await this.store.listPins(workspaceId);
     const out: CatalogPin[] = [];
     for (const pin of pins) {
-      const item = await this.store.getItem(pin.itemId);
+      const item = await this.store.getItem(pin.itemId, tenant);
       out.push(toPinDto(pin, item ? toItemDto(item) : undefined));
     }
     return out;
@@ -248,10 +269,11 @@ export class CatalogService {
   ): Promise<CatalogPin[]> {
     await this.access.requireFinanceManager(workspaceId, actor.userId);
     try {
+      const tenant = { workspaceId, userId: actor.userId };
       const pins = await this.store.replacePins(workspaceId, actor.userId, body.itemIds);
       const out: CatalogPin[] = [];
       for (const pin of pins) {
-        const item = await this.store.getItem(pin.itemId);
+        const item = await this.store.getItem(pin.itemId, tenant);
         out.push(toPinDto(pin, item ? toItemDto(item) : undefined));
       }
       return out;
@@ -315,8 +337,12 @@ export class CatalogService {
     return roots;
   }
 
-  private async requireWorkspaceItem(workspaceId: string, itemId: string) {
-    const item = await this.store.getItem(itemId);
+  private async requireWorkspaceItem(
+    workspaceId: string,
+    itemId: string,
+    userId?: string,
+  ) {
+    const item = await this.store.getItem(itemId, { workspaceId, userId });
     if (!item || item.ownerKind !== "workspace" || item.workspaceId !== workspaceId) {
       throw new NotFoundException({
         type: "https://dang.local/problems/not-found",
