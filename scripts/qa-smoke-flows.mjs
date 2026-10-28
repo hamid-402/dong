@@ -151,6 +151,30 @@ async function main() {
     idempotencyKey: key("intent"),
   });
 
+  // Allocation plan (personal.allocation_plan upsert — needs UPDATE grant)
+  await req("GET", `/me/finance/allocation-plan`);
+  await req("PUT", `/me/finance/allocation-plan`, {
+    percents: { solo: 40, group: 15, building: 10, org: 5, savings: 30 },
+  });
+
+  // Paycheck (personal.paycheck SELECT+INSERT; same Jalali month may soft-fail)
+  {
+    const pc = await req("POST", `/me/finance/paychecks`, {
+      amountMinor: "12000000",
+      occurredOn: "2026-09-19",
+      note: "QA paycheck",
+      idempotencyKey: key("paycheck"),
+    });
+    if (!pc.ok && pc.status === 400) {
+      const last = results[results.length - 1];
+      if (last) last.soft = true;
+      console.log(
+        `SOFT ${pc.status} paycheck month conflict :: ${String(pc.body?.detail ?? "").slice(0, 80)}`,
+      );
+    }
+  }
+  await req("GET", `/me/finance/paychecks`);
+
   // Vendor for org
   await req("POST", `/workspaces/${IDS.org}/vendors`, {
     workspaceId: IDS.org,
@@ -185,7 +209,11 @@ async function main() {
   for (const b of bad) {
     console.log(`FAIL ${b.status} ${b.method} ${b.path} :: ${b.detail}`);
   }
-  const hard = bad.filter((b) => !(b.path.includes("/invites") && String(b.detail).includes("آنتی")));
+  const hard = bad.filter(
+    (b) =>
+      !b.soft &&
+      !(b.path.includes("/invites") && String(b.detail).includes("آنتی")),
+  );
   console.log(`hardFailures=${hard.length}`);
   process.exit(hard.length ? 1 : 0);
 }
