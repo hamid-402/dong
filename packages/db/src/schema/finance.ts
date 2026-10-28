@@ -1161,7 +1161,7 @@ export const paymentReceipt = finance.table(
       .references(() => userAccount.id),
     /** Person payee — exactly one of payeeUserId / payeeFundId. */
     payeeUserId: uuid("payee_user_id").references(() => userAccount.id, {
-      onDelete: "set null",
+      onDelete: "restrict",
     }),
     /** Collective fund payee (تنخواه/صندوق) — same workspace as receipt. */
     payeeFundId: uuid("payee_fund_id"),

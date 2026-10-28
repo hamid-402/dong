@@ -694,6 +694,20 @@
       "when": 1789006900000,
       "tag": "0099_pending_psp_migrator_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1789007000000,
+      "tag": "0100_payment_receipt_payee_user_fk_restrict",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1789007100000,
+      "tag": "0101_force_rls_g03_g04_g10",
+      "breakpoints": true
     }
   ]
 }

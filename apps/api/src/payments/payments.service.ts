@@ -137,22 +137,18 @@ export class PaymentsService {
         },
       });
 
-      const link = await this.store.create(
-        "zarinpal",
+      const link = await this.store.createWithPendingZarinpal(
         { ...body, workspaceId },
         {
           checkoutUrl: requested.checkoutUrl,
           providerRef: requested.authority,
         },
+        {
+          authority: requested.authority,
+          amountMinor: body.amount.amountMinor,
+          returnUrl: body.returnUrl.trim(),
+        },
       );
-
-      await this.store.savePendingZarinpal({
-        authority: requested.authority,
-        amountMinor: body.amount.amountMinor,
-        workspaceId,
-        paymentLinkId: link.id,
-        returnUrl: body.returnUrl.trim(),
-      });
 
       return link;
     } catch (error: unknown) {

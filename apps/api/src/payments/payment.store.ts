@@ -105,6 +105,36 @@ export class MemoryPaymentStore implements PaymentStore {
     );
   }
 
+  async createWithPendingZarinpal(
+    input: CreatePaymentLinkRequest,
+    options: { checkoutUrl: string; providerRef: string },
+    pending: {
+      authority: string;
+      amountMinor: string;
+      returnUrl?: string;
+    },
+  ): Promise<PaymentLinkSummary> {
+    const hadExisting = [...this.links.values()].some(
+      (l) =>
+        l.workspaceId === input.workspaceId &&
+        l.idempotencyKey === input.idempotencyKey.trim(),
+    );
+    const link = await this.create("zarinpal", input, options);
+    try {
+      await this.savePendingZarinpal({
+        authority: pending.authority,
+        amountMinor: pending.amountMinor,
+        workspaceId: input.workspaceId,
+        paymentLinkId: link.id,
+        returnUrl: pending.returnUrl,
+      });
+    } catch (err) {
+      if (!hadExisting) this.links.delete(link.id);
+      throw err;
+    }
+    return link;
+  }
+
   async savePendingZarinpal(input: {
     authority: string;
     amountMinor: string;
@@ -141,6 +171,42 @@ export class MemoryPaymentStore implements PaymentStore {
     };
     this.pendingZarinpal.set(authority.trim(), next);
     return next;
+  }
+
+  async createWithPendingLocalPsp(
+    input: CreatePaymentLinkRequest,
+    options: { checkoutUrl: string; providerRef: string },
+    pending: {
+      intentId: string;
+      amountMinor: string;
+      currency?: string;
+      description: string;
+      returnUrl: string;
+      expiresAt: string;
+    },
+  ): Promise<PaymentLinkSummary> {
+    const hadExisting = [...this.links.values()].some(
+      (l) =>
+        l.workspaceId === input.workspaceId &&
+        l.idempotencyKey === input.idempotencyKey.trim(),
+    );
+    const link = await this.create("local_psp", input, options);
+    try {
+      await this.savePendingLocalPsp({
+        intentId: pending.intentId,
+        amountMinor: pending.amountMinor,
+        currency: pending.currency,
+        description: pending.description,
+        returnUrl: pending.returnUrl,
+        workspaceId: input.workspaceId,
+        paymentLinkId: link.id,
+        expiresAt: pending.expiresAt,
+      });
+    } catch (err) {
+      if (!hadExisting) this.links.delete(link.id);
+      throw err;
+    }
+    return link;
   }
 
   async savePendingLocalPsp(input: {
@@ -217,6 +283,27 @@ export type PaymentStore = {
     provider: PaymentProviderId,
     input: CreatePaymentLinkRequest,
     options?: { checkoutUrl?: string; providerRef?: string },
+  ): Promise<PaymentLinkSummary>;
+  createWithPendingLocalPsp(
+    input: CreatePaymentLinkRequest,
+    options: { checkoutUrl: string; providerRef: string },
+    pending: {
+      intentId: string;
+      amountMinor: string;
+      currency?: string;
+      description: string;
+      returnUrl: string;
+      expiresAt: string;
+    },
+  ): Promise<PaymentLinkSummary>;
+  createWithPendingZarinpal(
+    input: CreatePaymentLinkRequest,
+    options: { checkoutUrl: string; providerRef: string },
+    pending: {
+      authority: string;
+      amountMinor: string;
+      returnUrl?: string;
+    },
   ): Promise<PaymentLinkSummary>;
   list(workspaceId: string): Promise<PaymentLinkSummary[]>;
   getLink(workspaceId: string, paymentLinkId: string): Promise<PaymentLinkSummary | null>;

@@ -89,49 +89,120 @@ export class PostgresPaymentStore implements PaymentStore {
     input: CreatePaymentLinkRequest,
     options?: { checkoutUrl?: string; providerRef?: string },
   ): Promise<PaymentLinkSummary> {
+    return withTenantContext(this.db, { workspaceId: input.workspaceId }, async (tx) =>
+      this.insertPaymentLink(tx, provider, input, options),
+    );
+  }
+
+  createWithPendingLocalPsp(
+    input: CreatePaymentLinkRequest,
+    options: { checkoutUrl: string; providerRef: string },
+    pending: {
+      intentId: string;
+      amountMinor: string;
+      currency?: string;
+      description: string;
+      returnUrl: string;
+      expiresAt: string;
+    },
+  ): Promise<PaymentLinkSummary> {
     return withTenantContext(this.db, { workspaceId: input.workspaceId }, async (tx) => {
-      const existing = await tx
-        .select()
-        .from(paymentLink)
-        .where(
-          and(
-            eq(paymentLink.workspaceId, input.workspaceId),
-            eq(paymentLink.idempotencyKey, input.idempotencyKey.trim()),
-          ),
-        )
-        .limit(1);
-      if (existing[0]) return mapPaymentLink(existing[0]);
-
-      const id = crypto.randomUUID();
-      const providerRef = options?.providerRef ?? `stub_${id.slice(0, 8)}`;
-      const createdAt = new Date();
-      const expiresAt = new Date(createdAt.getTime() + 30 * 60 * 1000);
-      const checkoutUrl =
-        options?.checkoutUrl ?? buildStubCheckoutUrl(id, input.returnUrl);
-
-      const inserted = await tx
-        .insert(paymentLink)
+      const link = await this.insertPaymentLink(tx, "local_psp", input, options);
+      const intentId = pending.intentId.trim();
+      if (!intentId) throw new Error("LOCAL_PSP_INTENT");
+      await tx
+        .insert(pendingLocalPspPayment)
         .values({
-          id,
+          intentId,
+          amountMinor: BigInt(pending.amountMinor),
+          currency: pending.currency ?? "IRR",
+          description: pending.description.trim(),
+          returnUrl: pending.returnUrl.trim(),
           workspaceId: input.workspaceId,
-          settlementId: input.settlementId ?? null,
-          invoiceId: input.invoiceId ?? null,
-          provider,
-          amountMinor: BigInt(input.amount.amountMinor),
-          currency: input.amount.currency,
-          description: input.description.trim(),
-          checkoutUrl,
-          status: "created",
-          providerRef,
-          returnUrl: input.returnUrl.trim(),
-          idempotencyKey: input.idempotencyKey.trim(),
-          expiresAt,
+          paymentLinkId: link.id,
+          status: "pending",
+          expiresAt: new Date(pending.expiresAt),
         })
-        .returning();
-      const row = inserted[0];
-      if (!row) throw new Error("PAYMENT_LINK_INSERT_FAILED");
-      return mapPaymentLink(row);
+        .onConflictDoNothing();
+      return link;
     });
+  }
+
+  createWithPendingZarinpal(
+    input: CreatePaymentLinkRequest,
+    options: { checkoutUrl: string; providerRef: string },
+    pending: {
+      authority: string;
+      amountMinor: string;
+      returnUrl?: string;
+    },
+  ): Promise<PaymentLinkSummary> {
+    return withTenantContext(this.db, { workspaceId: input.workspaceId }, async (tx) => {
+      const link = await this.insertPaymentLink(tx, "zarinpal", input, options);
+      const authority = pending.authority.trim();
+      if (!authority) throw new Error("ZARINPAL_AUTHORITY");
+      await tx
+        .insert(pendingZarinpalPayment)
+        .values({
+          authority,
+          amountMinor: BigInt(pending.amountMinor),
+          workspaceId: input.workspaceId,
+          paymentLinkId: link.id,
+          returnUrl: pending.returnUrl?.trim() || null,
+          status: "pending",
+        })
+        .onConflictDoNothing();
+      return link;
+    });
+  }
+
+  private async insertPaymentLink(
+    tx: AppDatabase,
+    provider: PaymentProviderId,
+    input: CreatePaymentLinkRequest,
+    options?: { checkoutUrl?: string; providerRef?: string },
+  ): Promise<PaymentLinkSummary> {
+    const existing = await tx
+      .select()
+      .from(paymentLink)
+      .where(
+        and(
+          eq(paymentLink.workspaceId, input.workspaceId),
+          eq(paymentLink.idempotencyKey, input.idempotencyKey.trim()),
+        ),
+      )
+      .limit(1);
+    if (existing[0]) return mapPaymentLink(existing[0]);
+
+    const id = crypto.randomUUID();
+    const providerRef = options?.providerRef ?? `stub_${id.slice(0, 8)}`;
+    const createdAt = new Date();
+    const expiresAt = new Date(createdAt.getTime() + 30 * 60 * 1000);
+    const checkoutUrl =
+      options?.checkoutUrl ?? buildStubCheckoutUrl(id, input.returnUrl);
+
+    const inserted = await tx
+      .insert(paymentLink)
+      .values({
+        id,
+        workspaceId: input.workspaceId,
+        settlementId: input.settlementId ?? null,
+        invoiceId: input.invoiceId ?? null,
+        provider,
+        amountMinor: BigInt(input.amount.amountMinor),
+        currency: input.amount.currency,
+        description: input.description.trim(),
+        checkoutUrl,
+        status: "created",
+        providerRef,
+        returnUrl: input.returnUrl.trim(),
+        idempotencyKey: input.idempotencyKey.trim(),
+        expiresAt,
+      })
+      .returning();
+    const row = inserted[0];
+    if (!row) throw new Error("PAYMENT_LINK_INSERT_FAILED");
+    return mapPaymentLink(row);
   }
 
   list(workspaceId: string): Promise<PaymentLinkSummary[]> {

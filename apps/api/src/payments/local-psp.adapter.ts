@@ -92,21 +92,18 @@ export class LocalPspAdapter {
       sig,
     });
 
-    const link = await this.store.create("local_psp", input, {
-      checkoutUrl,
-      providerRef: intentId,
-    });
-
-    await this.store.savePendingLocalPsp({
-      intentId,
-      amountMinor: input.amount.amountMinor,
-      currency: input.amount.currency,
-      description: input.description.trim(),
-      returnUrl: input.returnUrl.trim(),
-      workspaceId: input.workspaceId,
-      paymentLinkId: link.id,
-      expiresAt: expiresAtIso,
-    });
+    const link = await this.store.createWithPendingLocalPsp(
+      input,
+      { checkoutUrl, providerRef: intentId },
+      {
+        intentId,
+        amountMinor: input.amount.amountMinor,
+        currency: input.amount.currency,
+        description: input.description.trim(),
+        returnUrl: input.returnUrl.trim(),
+        expiresAt: expiresAtIso,
+      },
+    );
 
     const intent = await this.store.findPendingLocalPsp(intentId);
     if (!intent) throw new Error("LOCAL_PSP_INTENT_CREATE_FAILED");

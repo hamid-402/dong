@@ -18,6 +18,8 @@ import { PaymentsService } from "./payments.service.js";
  * Public LocalPSP checkout API — intentId + HMAC sig are the capability token
  * (same trust model as Zarinpal authority callback, with explicit signature).
  * Route stays public for all environments (primary path when Zarinpal is not live).
+ * POST verify is CSRF-exempt only when HMAC is valid (see CsrfGuard); invalid
+ * HMAC falls through to double-submit CSRF (401/403 with a session cookie).
  */
 @ApiTags("payments")
 @Controller("payments/local")
