@@ -687,6 +687,13 @@
       "when": 1789006800000,
       "tag": "0098_pending_psp_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1789006900000,
+      "tag": "0099_pending_psp_migrator_policies",
+      "breakpoints": true
     }
   ]
 }
