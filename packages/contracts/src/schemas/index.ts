@@ -219,12 +219,19 @@ export {
   commentTargetTypeSchema,
   attachmentKindSchema,
   allowedUploadMimeTypeSchema,
+  paymentReceiptAttachmentTargetTypeSchema,
+  paymentReceiptUploadMimeTypeSchema,
+  PAYMENT_RECEIPT_CONTENT_BASE64_MAX,
   createCommentRequestSchema,
   createAttachmentRequestSchema,
   uploadAttachmentContentRequestSchema,
+  createPaymentReceiptAttachmentRequestSchema,
+  uploadPaymentReceiptContentRequestSchema,
   type CreateCommentRequestInput,
   type CreateAttachmentRequestInput,
   type UploadAttachmentContentRequestInput,
+  type CreatePaymentReceiptAttachmentRequestInput,
+  type UploadPaymentReceiptContentRequestInput,
 } from "./collaboration.js";
 
 export {

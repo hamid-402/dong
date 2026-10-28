@@ -11,6 +11,7 @@ import { loadAppEnv, loadEnvFile, assertProductionBootSafety } from "@dang/confi
 import { resolveTracingMode, startOtlpSpanExporter } from "@dang/observability";
 import { createLogger } from "@dang/observability";
 import { AppModule } from "./app.module.js";
+import { bridgeNestRouteConfigBodyLimit } from "./attachments/attachments.controller.js";
 import { allowCorsOrigin } from "./common/cors-origin.js";
 import { ProblemDetailsFilter } from "./common/problem-details.filter.js";
 
@@ -32,13 +33,13 @@ async function bootstrap() {
   }
   assertProductionBootSafety(env);
 
-  const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
-    new FastifyAdapter({
-      trustProxy: true,
-      bodyLimit: 12 * 1024 * 1024,
-    }),
-  );
+  const adapter = new FastifyAdapter({
+    trustProxy: true,
+    bodyLimit: 12 * 1024 * 1024,
+  });
+  // Nest RouteConfig bodyLimit lands under config.*; promote before registerRouter.
+  bridgeNestRouteConfigBodyLimit(adapter.getInstance());
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter);
 
   await app.register(helmet);
   await app.register(cookie, {

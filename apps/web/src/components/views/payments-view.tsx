@@ -549,19 +549,22 @@ export function PaymentsView() {
                         ? ("settlement" as const)
                         : ("payment_receipt" as const);
                       const targetId = settlement || crypto.randomUUID();
-                      const attachment = await api.createAttachment(workspaceId, {
+                      const attachment = await api.createPaymentReceiptAttachment(
                         workspaceId,
-                        targetType,
-                        targetId,
-                        kind: "receipt",
-                        fileName: receiptStoredFileName(mimeType),
-                        mimeType,
-                        sizeBytes: receiptFile.size,
-                        contentHash,
-                        idempotencyKey: `payment-receipt:${contentHash.slice(0, 16)}`,
-                      });
+                        {
+                          workspaceId,
+                          targetType,
+                          targetId,
+                          kind: "receipt",
+                          fileName: receiptStoredFileName(mimeType),
+                          mimeType,
+                          sizeBytes: receiptFile.size,
+                          contentHash,
+                          idempotencyKey: `payment-receipt:${contentHash.slice(0, 16)}`,
+                        },
+                      );
                       const contentBase64 = await readFileAsBase64(receiptFile);
-                      const stored = await api.uploadAttachmentContent(
+                      const stored = await api.uploadPaymentReceiptContent(
                         workspaceId,
                         attachment.id,
                         { contentBase64 },

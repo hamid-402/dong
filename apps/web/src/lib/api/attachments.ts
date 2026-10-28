@@ -32,6 +32,17 @@ export const attachmentsApi = {
       idempotencyKey: body.idempotencyKey,
       label: body.fileName?.trim() || "پیوست",
     }),
+  /** Payment-receipt evidence metadata (5MB Zod); expense keeps createAttachment. */
+  createPaymentReceiptAttachment: (
+    workspaceId: string,
+    body: CreateAttachmentRequest,
+  ) =>
+    postWithOfflineQueue<AttachmentSummary>({
+      path: `/workspaces/${workspaceId}/attachments/payment-receipt`,
+      body: JSON.stringify(body),
+      idempotencyKey: body.idempotencyKey,
+      label: body.fileName?.trim() || "فیش پرداخت",
+    }),
   listAttachments: (
     workspaceId: string,
     targetType: CreateAttachmentRequest["targetType"],
@@ -47,6 +58,16 @@ export const attachmentsApi = {
   ) =>
     apiFetch<AttachmentSummary>(
       `/workspaces/${workspaceId}/attachments/${attachmentId}/content`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  /** Payment-receipt bytes (Fastify bodyLimit 5MB → 413). */
+  uploadPaymentReceiptContent: (
+    workspaceId: string,
+    attachmentId: string,
+    body: { contentBase64: string },
+  ) =>
+    apiFetch<AttachmentSummary>(
+      `/workspaces/${workspaceId}/attachments/${attachmentId}/payment-receipt-content`,
       { method: "POST", body: JSON.stringify(body) },
     ),
   attachmentContentUrl: (workspaceId: string, attachmentId: string) =>

@@ -20,6 +20,13 @@ import {
   stripJpegExif,
 } from "../src/files.js";
 import { PAYMENT_RECEIPT_MAX_BYTES } from "../src/payment-ops.js";
+import {
+  createAttachmentRequestSchema,
+  createPaymentReceiptAttachmentRequestSchema,
+  PAYMENT_RECEIPT_CONTENT_BASE64_MAX,
+  uploadAttachmentContentRequestSchema,
+  uploadPaymentReceiptContentRequestSchema,
+} from "../src/schemas/collaboration.js";
 
 test("forbidden payment fields include card material", () => {
   assert.ok(forbiddenPaymentFields.includes("pan"));
@@ -172,6 +179,51 @@ test("isPaymentEvidenceAttachment distinguishes expense vs payment targets", () 
   assert.equal(
     isPaymentEvidenceAttachment({ kind: "receipt", targetType: "expense" }),
     false,
+  );
+});
+
+test("payment-receipt Zod caps at 5MB; general attachment schemas stay higher", () => {
+  assert.equal(PAYMENT_RECEIPT_MAX_BYTES, 5 * 1024 * 1024);
+  assert.ok(PAYMENT_RECEIPT_CONTENT_BASE64_MAX < 14_000_000);
+  assert.equal(
+    createPaymentReceiptAttachmentRequestSchema.safeParse({
+      workspaceId: "11111111-1111-4111-8111-111111111111",
+      targetType: "payment_receipt",
+      targetId: "22222222-2222-4222-8222-222222222222",
+      kind: "receipt",
+      fileName: "r.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: PAYMENT_RECEIPT_MAX_BYTES + 1,
+      contentHash: "a".repeat(64),
+      idempotencyKey: "pay-zod-over",
+    }).success,
+    false,
+  );
+  assert.equal(
+    createAttachmentRequestSchema.safeParse({
+      workspaceId: "11111111-1111-4111-8111-111111111111",
+      targetType: "expense",
+      targetId: "22222222-2222-4222-8222-222222222222",
+      kind: "receipt",
+      fileName: "e.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 6 * 1024 * 1024,
+      contentHash: "a".repeat(64),
+      idempotencyKey: "exp-zod-6mb",
+    }).success,
+    true,
+  );
+  assert.equal(
+    uploadPaymentReceiptContentRequestSchema.safeParse({
+      contentBase64: "a".repeat(PAYMENT_RECEIPT_CONTENT_BASE64_MAX + 1),
+    }).success,
+    false,
+  );
+  assert.equal(
+    uploadAttachmentContentRequestSchema.safeParse({
+      contentBase64: "a".repeat(8_000_000),
+    }).success,
+    true,
   );
 });
 

@@ -1,21 +1,49 @@
 import { Body, Controller, Get, Inject, Param, Post, Query, Res, UseGuards } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import { RouteConfig } from "@nestjs/platform-fastify";
 import type {
   AttachmentSummary,
   AuthActor,
   CreateAttachmentRequest,
+  CreatePaymentReceiptAttachmentRequestInput,
   OcrReceiptResult,
   QuarantineScanResult,
   UploadAttachmentContentRequest,
+  UploadPaymentReceiptContentRequestInput,
 } from "@dang/contracts";
 import {
   createAttachmentRequestSchema,
+  createPaymentReceiptAttachmentRequestSchema,
+  PAYMENT_RECEIPT_MAX_BYTES,
   uploadAttachmentContentRequestSchema,
+  uploadPaymentReceiptContentRequestSchema,
 } from "@dang/contracts";
 import type { FastifyReply } from "fastify";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { AttachmentsService } from "./attachments.service.js";
+
+/**
+ * Nest `@RouteConfig({ bodyLimit })` lands in Fastify `config`, not route `bodyLimit`.
+ * Bridge copies `config.bodyLimit` → top-level `bodyLimit` so Fastify returns 413.
+ * Must be registered on the Fastify instance BEFORE Nest registerRouter (e.g. in main.ts).
+ */
+export function bridgeNestRouteConfigBodyLimit(fastify: {
+  addHook: (
+    name: "onRoute",
+    handler: (opts: {
+      config?: { bodyLimit?: number };
+      bodyLimit?: number;
+    }) => void,
+  ) => void;
+}): void {
+  fastify.addHook("onRoute", (opts) => {
+    const limit = opts.config?.bodyLimit;
+    if (typeof limit === "number" && opts.bodyLimit === undefined) {
+      opts.bodyLimit = limit;
+    }
+  });
+}
 
 @ApiTags("attachments")
 @Controller("workspaces/:workspaceId/attachments")
@@ -29,6 +57,21 @@ export class AttachmentsController {
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
     @Body(new ZodValidationPipe(createAttachmentRequestSchema)) body: CreateAttachmentRequest,
+  ): Promise<AttachmentSummary> {
+    return this.attachments.create(actor, workspaceId, body);
+  }
+
+  @Post("payment-receipt")
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Register payment-receipt evidence metadata (Zod sizeBytes ≤ 5MB; expense uses POST /attachments)",
+  })
+  createPaymentReceipt(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Body(new ZodValidationPipe(createPaymentReceiptAttachmentRequestSchema))
+    body: CreatePaymentReceiptAttachmentRequestInput,
   ): Promise<AttachmentSummary> {
     return this.attachments.create(actor, workspaceId, body);
   }
@@ -67,6 +110,23 @@ export class AttachmentsController {
     @Param("attachmentId") attachmentId: string,
   ): Promise<OcrReceiptResult> {
     return this.attachments.runOcr(actor, workspaceId, attachmentId);
+  }
+
+  @Post(":attachmentId/payment-receipt-content")
+  @RouteConfig({ bodyLimit: PAYMENT_RECEIPT_MAX_BYTES })
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      "Upload payment-receipt bytes (base64); Fastify bodyLimit 5MB → HTTP 413 when exceeded",
+  })
+  uploadPaymentReceiptContent(
+    @CurrentActor() actor: AuthActor,
+    @Param("workspaceId") workspaceId: string,
+    @Param("attachmentId") attachmentId: string,
+    @Body(new ZodValidationPipe(uploadPaymentReceiptContentRequestSchema))
+    body: UploadPaymentReceiptContentRequestInput,
+  ): Promise<AttachmentSummary> {
+    return this.attachments.uploadContent(actor, workspaceId, attachmentId, body);
   }
 
   @Post(":attachmentId/content")
