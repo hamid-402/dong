@@ -126,6 +126,7 @@ test("CSRF auth exemption allows when Origin and Referer are both absent", async
 
 test("CSRF auth exemption allows localhost Origin from app CORS config", async () => {
   const env = loadAppEnv();
+  assert.notEqual(env.nodeEnv, "production");
   assert.equal(
     await run(
       "POST",
@@ -153,6 +154,72 @@ test("CSRF auth exemption allows localhost Origin from app CORS config", async (
     ),
     true,
   );
+  assert.equal(
+    await run(
+      "POST",
+      {},
+      { origin: "http://192.168.1.20:3005" },
+      { url: "/api/v1/auth/login" },
+    ),
+    true,
+  );
+});
+
+test("CSRF auth exemption rejects localhost and LAN Origin in production", async () => {
+  const prevNode = process.env.NODE_ENV;
+  const prevWeb = process.env.WEB_ORIGIN;
+  const prevExtra = process.env.WEB_EXTRA_ORIGINS;
+  process.env.NODE_ENV = "production";
+  process.env.WEB_ORIGIN = "https://app.example.com";
+  delete process.env.WEB_EXTRA_ORIGINS;
+  try {
+    await assert.rejects(
+      () =>
+        run(
+          "POST",
+          {},
+          { origin: "http://localhost:3005" },
+          { url: "/api/v1/auth/login" },
+        ),
+      ForbiddenException,
+    );
+    await assert.rejects(
+      () =>
+        run(
+          "POST",
+          {},
+          { origin: "http://127.0.0.1:3005" },
+          { url: "/api/v1/auth/login" },
+        ),
+      ForbiddenException,
+    );
+    await assert.rejects(
+      () =>
+        run(
+          "POST",
+          {},
+          { origin: "http://192.168.1.20:3005" },
+          { url: "/api/v1/auth/login" },
+        ),
+      ForbiddenException,
+    );
+    assert.equal(
+      await run(
+        "POST",
+        {},
+        { origin: "https://app.example.com" },
+        { url: "/api/v1/auth/login" },
+      ),
+      true,
+    );
+  } finally {
+    if (prevNode === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = prevNode;
+    if (prevWeb === undefined) delete process.env.WEB_ORIGIN;
+    else process.env.WEB_ORIGIN = prevWeb;
+    if (prevExtra === undefined) delete process.env.WEB_EXTRA_ORIGINS;
+    else process.env.WEB_EXTRA_ORIGINS = prevExtra;
+  }
 });
 
 test("CSRF auth exemption rejects foreign Origin", async () => {

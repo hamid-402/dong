@@ -1,6 +1,12 @@
 /**
- * CORS helpers — LAN private origins only for non-production local DX.
+ * CORS helpers — localhost / 127.0.0.1 / private LAN only for non-production DX,
+ * unless the same origin is explicitly webOrigin or extraOrigins.
  */
+
+const LOCAL_DEV_ORIGINS = [
+  "http://127.0.0.1:3005",
+  "http://localhost:3005",
+] as const;
 
 export function isPrivateLanHttpOrigin(origin: string): boolean {
   try {
@@ -30,12 +36,10 @@ export function allowCorsOrigin(input: {
 }): boolean {
   const { origin, webOrigin, extraOrigins, nodeEnv } = input;
   if (!origin) return true;
-  const allowed = new Set([
-    webOrigin,
-    "http://127.0.0.1:3005",
-    "http://localhost:3005",
-    ...extraOrigins,
-  ]);
+  const allowed = new Set([webOrigin, ...extraOrigins]);
+  if (nodeEnv !== "production") {
+    for (const local of LOCAL_DEV_ORIGINS) allowed.add(local);
+  }
   if (allowed.has(origin)) return true;
   if (nodeEnv !== "production" && isPrivateLanHttpOrigin(origin)) return true;
   return false;
