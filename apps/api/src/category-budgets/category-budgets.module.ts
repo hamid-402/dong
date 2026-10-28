@@ -1,4 +1,5 @@
 import { Body, Controller, ForbiddenException, Get, Inject, Injectable, Module, Param, Post, UseGuards } from "@nestjs/common";
+import { loadAppEnv } from "@dang/config";
 import { and, categoryBudget, createDatabase, eq, expense, gte, lt, withTenantContext, type AppDatabase } from "@dang/db";
 import { createCategoryBudgetSchema, readProductFeatureFlags, type AuthActor, type CategoryBudgetUsage, type CreateCategoryBudgetRequest } from "@dang/contracts";
 import { AuthModule } from "../auth/auth.module.js";
@@ -55,6 +56,6 @@ class CategoryBudgetsController {
 @Module({
   imports:[AuthModule,IamModule,WaveFSettingsModule],
   controllers:[CategoryBudgetsController],
-  providers:[Service,{provide:STORE,useFactory:():Store=>process.env.DATABASE_URL?new PostgresStore(createDatabase(process.env.DATABASE_URL).db):new MemoryStore()}],
+  providers:[Service,{provide:STORE,useFactory:():Store=>{const url=loadAppEnv().databaseUrl;return url?new PostgresStore(createDatabase(url).db):new MemoryStore();}}],
 })
 export class CategoryBudgetsModule {}

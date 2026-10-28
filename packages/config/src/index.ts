@@ -127,6 +127,19 @@ export function resolveCookieSecure(
   return { secure: false, forcedInProduction: false };
 }
 
+/**
+ * App runtime DB URL: prefer DATABASE_RUNTIME_URL (dang_runtime / NOBYPASSRLS)
+ * when set and non-empty after trim; otherwise DATABASE_URL (prod-safe fallback).
+ * Migrate/seed tooling must keep reading DATABASE_URL (dang_migrator) directly.
+ */
+export function resolveRuntimeDatabaseUrl(
+  partial: EnvBag = readEnv(),
+): string | undefined {
+  const runtime = partial.DATABASE_RUNTIME_URL?.trim();
+  if (runtime) return runtime;
+  return partial.DATABASE_URL;
+}
+
 export function loadAppEnv(partial: EnvBag = readEnv()): AppEnv {
   const rawNodeEnv = partial.NODE_ENV ?? "development";
   const nodeEnv =
@@ -141,7 +154,7 @@ export function loadAppEnv(partial: EnvBag = readEnv()): AppEnv {
     webOrigin: partial.WEB_ORIGIN ?? "http://localhost:3005",
     apiPort: Number(partial.API_PORT ?? "3006"),
     apiBaseUrl: partial.API_BASE_URL ?? "http://localhost:3006/api/v1",
-    databaseUrl: partial.DATABASE_URL,
+    databaseUrl: resolveRuntimeDatabaseUrl(partial),
     redisUrl: partial.REDIS_URL,
     oidcIssuerUrl: partial.OIDC_ISSUER_URL || undefined,
     oidcClientId: partial.OIDC_CLIENT_ID || undefined,

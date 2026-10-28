@@ -1,4 +1,5 @@
 import { Injectable, Module } from "@nestjs/common";
+import { loadAppEnv } from "@dang/config";
 import { and, approvalWorkflowStep, createDatabase, eq, withTenantContext, type AppDatabase } from "@dang/db";
 import { readProductFeatureFlags, type ApprovalWorkflowStepSummary } from "@dang/contracts";
 import { IamModule } from "../iam/iam.module.js";
@@ -9,7 +10,7 @@ const map=(r:typeof approvalWorkflowStep.$inferSelect):ApprovalWorkflowStepSumma
 @Injectable()
 export class ApprovalStepsService{
   private db?:AppDatabase;private rows:ApprovalWorkflowStepSummary[]=[];
-  constructor(@Inject(IAM_STORE)private iam:IamStore){if(process.env.DATABASE_URL)this.db=createDatabase(process.env.DATABASE_URL).db;}
+  constructor(@Inject(IAM_STORE)private iam:IamStore){const url=loadAppEnv().databaseUrl;if(url)this.db=createDatabase(url).db;}
   async createFirst(workspaceId:string,expenseId:string,actorUserId:string){
     if(!readProductFeatureFlags(process.env).approvalSteps)return null;
     const members=await this.iam.listMembers(workspaceId,actorUserId)??[];

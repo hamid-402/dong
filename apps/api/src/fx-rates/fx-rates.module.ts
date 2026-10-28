@@ -10,6 +10,7 @@ import {
   Post,
   UseGuards,
 } from "@nestjs/common";
+import { loadAppEnv } from "@dang/config";
 import { createDatabase, desc, fxRate, type AppDatabase } from "@dang/db";
 import {
   createFxRateSchema,
@@ -124,7 +125,8 @@ export function pickFxRateForPreview(
 export class FxRatesService {
   private readonly db?: AppDatabase;
   constructor() {
-    if (process.env.DATABASE_URL) this.db = createDatabase(process.env.DATABASE_URL).db;
+    const url = loadAppEnv().databaseUrl;
+    if (url) this.db = createDatabase(url).db;
   }
 
   async list() {

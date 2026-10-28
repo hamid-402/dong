@@ -14,7 +14,7 @@ export type JobRunWriteBackInput = {
 };
 
 /**
- * Best-effort write-back to ops.job_run when DATABASE_URL is set.
+ * Best-effort write-back to ops.job_run when resolved runtime databaseUrl is set.
  * Skips silently when unset or on any failure (enqueue-time row remains).
  */
 export async function writeBackJobRun(input: JobRunWriteBackInput): Promise<void> {

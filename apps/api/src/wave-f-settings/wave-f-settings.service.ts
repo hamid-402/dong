@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
 } from "@nestjs/common";
+import { loadAppEnv } from "@dang/config";
 import {
   createDatabase,
   eq,
@@ -84,8 +85,9 @@ export class WaveFSettingsService {
     @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService,
     @Inject(MailerService) private readonly mailer: MailerService,
   ) {
-    if (process.env.DATABASE_URL) {
-      this.db = createDatabase(process.env.DATABASE_URL).db;
+    const url = loadAppEnv().databaseUrl;
+    if (url) {
+      this.db = createDatabase(url).db;
     }
   }
 

@@ -1,3 +1,4 @@
+import { loadAppEnv } from "@dang/config";
 import {
   and,
   createDatabase,
@@ -890,9 +891,10 @@ function isoWeekKey(isoDate: string): string {
 
 export function createReportsStore(expenseReader?: MemoryReportsStore["expenseReader"]): ReportsStore {
   const logger = createLogger("dang-api-reports");
+  const env = loadAppEnv();
   return createPersistenceStore<ReportsStore>({
     name: "reports store",
-    databaseUrl: process.env.DATABASE_URL,
+    databaseUrl: env.databaseUrl,
     logger,
     createPostgres: (url) => PostgresReportsStore.fromConnectionString(url),
     createMemory: () => {

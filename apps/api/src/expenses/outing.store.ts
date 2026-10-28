@@ -1,3 +1,4 @@
+import { loadAppEnv } from "@dang/config";
 import {
   and,
   createDatabase,
@@ -216,9 +217,10 @@ export class PostgresOutingStore implements OutingStore {
 
 export function createOutingStore(): OutingStore {
   const logger = createLogger("dang-api-outings");
+  const env = loadAppEnv();
   return createPersistenceStore<OutingStore>({
     name: "outing store",
-    databaseUrl: process.env.DATABASE_URL,
+    databaseUrl: env.databaseUrl,
     logger,
     createPostgres: (url) => PostgresOutingStore.fromConnectionString(url),
     createMemory: () => new MemoryOutingStore(),
