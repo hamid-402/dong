@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   NotFoundException,
@@ -20,6 +22,8 @@ import {
 } from "@dang/contracts";
 import { isZarinpalLive, loadAppEnv, resolveZarinpalCallbackUrl, zarinpalCallbackMisconfig } from "@dang/config";
 import { createLogger } from "@dang/observability";
+import { createAdaptiveRateLimit } from "../auth/rate-limit.factory.js";
+import { rateLimitProblemFields } from "../auth/rate-limit.js";
 import { BILLING_STORE, type BillingStore } from "../billing/billing.types.js";
 import { InvoiceEventsService } from "../billing/invoice-events.service.js";
 import { WorkspaceAccessService } from "../iam/workspace-access.service.js";
@@ -40,6 +44,7 @@ import { SaasBillingService } from "../saas-billing/saas-billing.service.js";
 import { LocalPspAdapter } from "./local-psp.adapter.js";
 
 const logger = createLogger("dang-api-payments");
+const localPspVerifyRate = createAdaptiveRateLimit(30, 15 * 60_000);
 
 @Injectable()
 export class PaymentsService {
@@ -192,7 +197,10 @@ export class PaymentsService {
     );
   }
 
-  async getLocalPspIntent(intentId: string): Promise<LocalPspIntentSummary> {
+  async getLocalPspIntent(
+    intentId: string,
+    sig?: string,
+  ): Promise<LocalPspIntentSummary> {
     const pending = await this.store.findPendingLocalPsp(intentId.trim());
     if (!pending) {
       throw new NotFoundException({
@@ -201,21 +209,94 @@ export class PaymentsService {
         status: 404,
       });
     }
+    this.assertLocalPspCapability(pending, sig, "read");
     return this.localPsp.toPublicSummary(pending);
   }
 
   /**
-   * Checkout confirm → verify (idempotent) → settlement/invoice/SaaS follow-on.
+   * Checkout confirm → HMAC + ownership → verify (idempotent) → follow-on.
    * Client amount is ignored; server-owned intent amount is authoritative.
+   * Public route stays enabled in every environment (primary when Zarinpal is off).
    */
-  async verifyLocalPsp(intentId: string): Promise<LocalPspVerifyResponse> {
-    const { pending, response } = await this.localPsp.verify(intentId);
-    if (!response.ok || !pending) return response;
+  async verifyLocalPsp(
+    intentId: string,
+    sig: string,
+  ): Promise<LocalPspVerifyResponse> {
+    const rate = await localPspVerifyRate.consume(
+      `local-psp-verify:${intentId.trim() || "missing"}`,
+    );
+    if (!rate.allowed) {
+      logger.warn("local_psp.verify.rate_limited", {
+        intentId: intentId.trim().slice(0, 8),
+      });
+      throw new HttpException(
+        {
+          type: "https://dang.local/problems/rate-limited",
+          title: "Too many LocalPSP verify attempts",
+          status: 429,
+          detail: "تعداد تلاش تأیید پرداخت زیاد است؛ کمی بعد دوباره امتحان کنید",
+          ...rateLimitProblemFields(rate),
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const pending = await this.store.findPendingLocalPsp(intentId.trim());
+    if (!pending) {
+      return {
+        ok: false,
+        status: "unknown",
+        intentId: intentId.trim(),
+        amount: { amountMinor: "0", currency: "IRR" },
+        returnUrl: "",
+      };
+    }
+    this.assertLocalPspCapability(pending, sig, "verify");
+    const owned = await this.localPsp.assertLinkOwnership(pending);
+    if (!owned) {
+      logger.warn("local_psp.verify.ownership_denied", {
+        workspaceId: pending.workspaceId,
+        intentId: pending.intentId.slice(0, 8),
+      });
+      throw new ForbiddenException({
+        type: "https://dang.local/problems/forbidden",
+        title: "LocalPSP intent ownership check failed",
+        status: 403,
+      });
+    }
+
+    const { pending: verified, response } = await this.localPsp.verify(
+      intentId,
+    );
+    if (!response.ok || !verified) return response;
+    logger.info("local_psp.verify.ok", {
+      workspaceId: verified.workspaceId,
+      intentId: verified.intentId.slice(0, 8),
+      status: response.status,
+    });
     await this.applyVerifiedPaymentFollowOn({
-      workspaceId: pending.workspaceId,
-      paymentLinkId: pending.paymentLinkId,
+      workspaceId: verified.workspaceId,
+      paymentLinkId: verified.paymentLinkId,
     });
     return response;
+  }
+
+  private assertLocalPspCapability(
+    pending: PendingLocalPspPayment,
+    sig: string | undefined,
+    action: "read" | "verify",
+  ): void {
+    if (this.localPsp.checkSignature(pending, sig)) return;
+    logger.warn("local_psp.sig_denied", {
+      action,
+      workspaceId: pending.workspaceId,
+      intentId: pending.intentId.slice(0, 8),
+    });
+    throw new ForbiddenException({
+      type: "https://dang.local/problems/forbidden",
+      title: "LocalPSP signature invalid",
+      status: 403,
+    });
   }
 
   /**

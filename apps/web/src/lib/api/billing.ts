@@ -114,9 +114,16 @@ export const billingApi = {
     }),
   listPaymentLinks: (workspaceId: string) =>
     apiFetch<PaymentLinkSummary[]>(`/workspaces/${workspaceId}/payment-links`),
-  getLocalPspIntent: (intentId: string) =>
-    apiFetch<LocalPspIntentSummary>(`/payments/local/intents/${encodeURIComponent(intentId)}`),
-  verifyLocalPsp: (intentId: string, body: { amountMinor?: string } = {}) =>
+  getLocalPspIntent: (intentId: string, sig: string) => {
+    const q = new URLSearchParams({ sig });
+    return apiFetch<LocalPspIntentSummary>(
+      `/payments/local/intents/${encodeURIComponent(intentId)}?${q}`,
+    );
+  },
+  verifyLocalPsp: (
+    intentId: string,
+    body: { sig: string; amountMinor?: string },
+  ) =>
     apiFetch<LocalPspVerifyResponse>(
       `/payments/local/intents/${encodeURIComponent(intentId)}/verify`,
       { method: "POST", body: JSON.stringify(body) },

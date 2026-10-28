@@ -5,6 +5,8 @@ import {
   buildLocalPspCheckoutUrl,
   buildStubCheckoutUrl,
   forbiddenPaymentFields,
+  signLocalPspIntent,
+  verifyLocalPspIntentSignature,
 } from "../src/payments.js";
 import {
   assertAllowedUploadMime,
@@ -44,6 +46,40 @@ test("local PSP checkout URL points at web checkout with intentId", () => {
   const url = buildLocalPspCheckoutUrl("intent-9", "http://localhost:3005");
   assert.match(url, /^http:\/\/localhost:3005\/payments\/local\/checkout/);
   assert.match(url, /intentId=intent-9/);
+});
+
+test("local PSP checkout URL includes HMAC sig when provided", () => {
+  const url = buildLocalPspCheckoutUrl("intent-9", "http://localhost:3005", {
+    sig: "abc123",
+  });
+  assert.match(url, /intentId=intent-9/);
+  assert.match(url, /sig=abc123/);
+});
+
+test("LocalPSP intent HMAC is deterministic and rejects tampering", () => {
+  const base = {
+    secret: "test-session-secret-for-local-psp",
+    intentId: "11111111-1111-4111-8111-111111111111",
+    workspaceId: "22222222-2222-4222-8222-222222222222",
+    amountMinor: "250000",
+    expiresAt: "2030-01-01T00:00:00.000Z",
+  };
+  const sig = signLocalPspIntent(base);
+  assert.match(sig, /^[0-9a-f]{64}$/);
+  assert.equal(sig, signLocalPspIntent(base));
+  assert.equal(verifyLocalPspIntentSignature({ ...base, signature: sig }), true);
+  assert.equal(
+    verifyLocalPspIntentSignature({ ...base, signature: `  ${sig}\n` }),
+    true,
+  );
+  assert.equal(
+    verifyLocalPspIntentSignature({ ...base, amountMinor: "1", signature: sig }),
+    false,
+  );
+  assert.equal(
+    verifyLocalPspIntentSignature({ ...base, signature: "0".repeat(64) }),
+    false,
+  );
 });
 
 test("quarantine blocks executable filenames", () => {

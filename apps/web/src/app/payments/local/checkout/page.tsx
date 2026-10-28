@@ -19,6 +19,7 @@ function formatIrrMinor(minor: string): string {
 function LocalCheckoutInner() {
   const search = useSearchParams();
   const intentId = search.get("intentId")?.trim() ?? "";
+  const sig = search.get("sig")?.trim() ?? "";
   const [intent, setIntent] = useState<LocalPspIntentSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<LocalPspVerifyResponse | null>(null);
@@ -29,9 +30,13 @@ function LocalCheckoutInner() {
       setError("شناسهٔ پرداخت در نشانی نیست.");
       return;
     }
+    if (!sig) {
+      setError("امضای پرداخت در نشانی نیست؛ لینک را دوباره از برنامه باز کنید.");
+      return;
+    }
     let cancelled = false;
     void api
-      .getLocalPspIntent(intentId)
+      .getLocalPspIntent(intentId, sig)
       .then((row) => {
         if (!cancelled) {
           setIntent(row);
@@ -56,13 +61,13 @@ function LocalCheckoutInner() {
     return () => {
       cancelled = true;
     };
-  }, [intentId]);
+  }, [intentId, sig]);
 
   function confirmPay() {
-    if (!intentId) return;
+    if (!intentId || !sig) return;
     startTransition(() => {
       void api
-        .verifyLocalPsp(intentId)
+        .verifyLocalPsp(intentId, { sig })
         .then((res) => {
           setDone(res);
           setError(null);

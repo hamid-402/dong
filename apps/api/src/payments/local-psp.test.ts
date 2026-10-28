@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { verifyLocalPspIntentSignature } from "@dang/contracts";
+import { loadAppEnv } from "@dang/config";
 import { MemoryLedgerStore } from "../ledger/memory-ledger.store.js";
 import { MemorySettlementStore } from "../settlements/memory-settlement.store.js";
 import { MemoryPaymentStore } from "./payment.store.js";
@@ -14,7 +16,14 @@ const creditor = {
   userId: "44444444-4444-4444-8444-444444444444",
 };
 
-test("LocalPSP createPaymentIntent returns checkout with intentId", async () => {
+function checkoutSig(url: string): string {
+  const u = new URL(url);
+  const sig = u.searchParams.get("sig");
+  assert.ok(sig, "checkout URL must include sig");
+  return sig;
+}
+
+test("LocalPSP createPaymentIntent returns checkout with intentId and HMAC sig", async () => {
   const store = new MemoryPaymentStore();
   const adapter = new LocalPspAdapter(store);
   const { link, intent } = await adapter.createPaymentIntent({
@@ -29,8 +38,58 @@ test("LocalPSP createPaymentIntent returns checkout with intentId", async () => 
   assert.equal(link.providerRef, intent.intentId);
   assert.match(link.checkoutUrl, /\/payments\/local\/checkout\?intentId=/);
   assert.ok(link.checkoutUrl.includes(intent.intentId));
+  const sig = checkoutSig(link.checkoutUrl);
+  assert.equal(
+    verifyLocalPspIntentSignature({
+      secret: loadAppEnv().sessionSecret,
+      intentId: intent.intentId,
+      workspaceId: intent.workspaceId,
+      amountMinor: intent.amountMinor,
+      expiresAt: intent.expiresAt,
+      signature: sig,
+    }),
+    true,
+  );
   assert.equal(intent.amountMinor, "250000");
   assert.equal(intent.status, "pending");
+});
+
+test("LocalPSP signature and payment-link ownership gates", async () => {
+  const store = new MemoryPaymentStore();
+  const adapter = new LocalPspAdapter(store);
+  const { link, intent } = await adapter.createPaymentIntent({
+    workspaceId,
+    amount: { amountMinor: "55000", currency: "IRR" },
+    description: "sig ownership",
+    returnUrl: "https://dang.local/return",
+    idempotencyKey: "idem-sig-own",
+  });
+  const sig = checkoutSig(link.checkoutUrl);
+
+  assert.equal(adapter.checkSignature(intent, sig), true);
+  assert.equal(adapter.checkSignature(intent, undefined), false);
+  assert.equal(adapter.checkSignature(intent, "0".repeat(64)), false);
+  assert.equal(await adapter.assertLinkOwnership(intent), true);
+
+  await store.savePendingLocalPsp({
+    intentId: "orphan-intent",
+    amountMinor: "1000",
+    description: "orphan",
+    returnUrl: "https://dang.local/r",
+    workspaceId,
+    paymentLinkId: "99999999-9999-4999-8999-999999999999",
+    expiresAt: new Date(Date.now() + 60_000).toISOString(),
+  });
+  const orphan = await store.findPendingLocalPsp("orphan-intent");
+  assert.ok(orphan);
+  assert.equal(await adapter.assertLinkOwnership(orphan), false);
+
+  // Valid sig + ownership → verify path still idempotent at adapter
+  assert.equal(await adapter.assertLinkOwnership(intent), true);
+  const verified = await adapter.verify(intent.intentId);
+  assert.equal(verified.response.ok, true);
+  assert.equal(verified.response.amount.amountMinor, "55000");
+  void sig;
 });
 
 test("LocalPSP double verify is idempotent and amount stays server-owned", async () => {

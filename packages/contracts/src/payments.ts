@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Money } from "./money.js";
 
 /**
@@ -102,11 +103,44 @@ export function buildStubCheckoutUrl(linkId: string, returnUrl: string): string 
 export function buildLocalPspCheckoutUrl(
   intentId: string,
   webOrigin = "http://localhost:3005",
+  options?: { sig?: string },
 ): string {
   const base = webOrigin.replace(/\/$/, "");
   const u = new URL(`${base}/payments/local/checkout`);
   u.searchParams.set("intentId", intentId);
+  const sig = options?.sig?.trim();
+  if (sig) u.searchParams.set("sig", sig);
   return u.toString();
+}
+
+/** HMAC over server-owned LocalPSP intent fields (checkout URL capability). */
+export function signLocalPspIntent(input: {
+  secret: string;
+  intentId: string;
+  workspaceId: string;
+  amountMinor: string;
+  expiresAt: string;
+}): string {
+  return createHmac("sha256", input.secret)
+    .update(
+      `${input.intentId.trim()}\n${input.workspaceId.trim()}\n${input.amountMinor.trim()}\n${input.expiresAt.trim()}`,
+    )
+    .digest("hex");
+}
+
+export function verifyLocalPspIntentSignature(input: {
+  secret: string;
+  intentId: string;
+  workspaceId: string;
+  amountMinor: string;
+  expiresAt: string;
+  signature: string;
+}): boolean {
+  const expected = signLocalPspIntent(input);
+  const a = Buffer.from(expected);
+  const b = Buffer.from(input.signature.trim());
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 export const paymentHardeningNotes = [
@@ -116,4 +150,6 @@ export const paymentHardeningNotes = [
   "https_return_url_production",
   "local_psp_primary",
   "amount_server_owned",
+  "local_psp_intent_hmac",
+  "local_psp_link_ownership",
 ] as const;

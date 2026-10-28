@@ -17,9 +17,11 @@ export type CreatePaymentLinkRequestInput = z.infer<
   typeof createPaymentLinkRequestSchema
 >;
 
-/** Body optional — verify never trusts client amount. */
+/** Body — verify never trusts client amount; `sig` is required HMAC. */
 export const localPspVerifyRequestSchema = z
   .object({
+    /** HMAC of server-owned intent fields (from checkout URL). */
+    sig: z.string().trim().min(1).max(128),
     /** Ignored if present; amount is server-owned. */
     amountMinor: z.string().optional(),
   })

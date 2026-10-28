@@ -6,6 +6,7 @@ import {
   paymentLink,
   pendingLocalPspPayment,
   pendingZarinpalPayment,
+  sql,
   withTenantContext,
   type AppDatabase,
 } from "@dang/db";
@@ -153,48 +154,71 @@ export class PostgresPaymentStore implements PaymentStore {
   }): Promise<void> {
     const authority = input.authority.trim();
     if (!authority) throw new Error("ZARINPAL_AUTHORITY");
-    await this.db
-      .insert(pendingZarinpalPayment)
-      .values({
-        authority,
-        amountMinor: BigInt(input.amountMinor),
-        workspaceId: input.workspaceId,
-        paymentLinkId: input.paymentLinkId ?? null,
-        returnUrl: input.returnUrl?.trim() || null,
-        status: "pending",
-      })
-      .onConflictDoNothing();
+    await withTenantContext(
+      this.db,
+      { workspaceId: input.workspaceId },
+      async (tx) => {
+        await tx
+          .insert(pendingZarinpalPayment)
+          .values({
+            authority,
+            amountMinor: BigInt(input.amountMinor),
+            workspaceId: input.workspaceId,
+            paymentLinkId: input.paymentLinkId ?? null,
+            returnUrl: input.returnUrl?.trim() || null,
+            status: "pending",
+          })
+          .onConflictDoNothing();
+      },
+    );
   }
 
-  async findPendingZarinpal(authority: string): Promise<PendingZarinpalPayment | null> {
-    const rows = await this.db
-      .select()
-      .from(pendingZarinpalPayment)
-      .where(eq(pendingZarinpalPayment.authority, authority.trim()))
-      .limit(1);
-    return rows[0] ? mapPending(rows[0]) : null;
+  findPendingZarinpal(authority: string): Promise<PendingZarinpalPayment | null> {
+    const key = authority.trim();
+    return this.db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select set_config('app.zarinpal_authority', ${key}, true)`,
+      );
+      const rows = await tx
+        .select()
+        .from(pendingZarinpalPayment)
+        .where(eq(pendingZarinpalPayment.authority, key))
+        .limit(1);
+      return rows[0] ? mapPending(rows[0]) : null;
+    });
   }
 
   async markZarinpalVerified(
     authority: string,
     refId: string,
   ): Promise<PendingZarinpalPayment> {
-    const existing = await this.findPendingZarinpal(authority);
-    if (!existing) throw new Error("ZARINPAL_UNKNOWN_AUTHORITY");
-    if (existing.status === "verified") return existing;
+    const key = authority.trim();
+    return this.db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select set_config('app.zarinpal_authority', ${key}, true)`,
+      );
+      const existing = await tx
+        .select()
+        .from(pendingZarinpalPayment)
+        .where(eq(pendingZarinpalPayment.authority, key))
+        .limit(1);
+      const current = existing[0];
+      if (!current) throw new Error("ZARINPAL_UNKNOWN_AUTHORITY");
+      if (current.status === "verified") return mapPending(current);
 
-    const updated = await this.db
-      .update(pendingZarinpalPayment)
-      .set({
-        status: "verified",
-        refId,
-        verifiedAt: new Date(),
-      })
-      .where(eq(pendingZarinpalPayment.authority, authority.trim()))
-      .returning();
-    const row = updated[0];
-    if (!row) throw new Error("ZARINPAL_UNKNOWN_AUTHORITY");
-    return mapPending(row);
+      const updated = await tx
+        .update(pendingZarinpalPayment)
+        .set({
+          status: "verified",
+          refId,
+          verifiedAt: new Date(),
+        })
+        .where(eq(pendingZarinpalPayment.authority, key))
+        .returning();
+      const row = updated[0];
+      if (!row) throw new Error("ZARINPAL_UNKNOWN_AUTHORITY");
+      return mapPending(row);
+    });
   }
 
   async savePendingLocalPsp(input: {
@@ -209,51 +233,74 @@ export class PostgresPaymentStore implements PaymentStore {
   }): Promise<void> {
     const intentId = input.intentId.trim();
     if (!intentId) throw new Error("LOCAL_PSP_INTENT");
-    await this.db
-      .insert(pendingLocalPspPayment)
-      .values({
-        intentId,
-        amountMinor: BigInt(input.amountMinor),
-        currency: input.currency ?? "IRR",
-        description: input.description.trim(),
-        returnUrl: input.returnUrl.trim(),
-        workspaceId: input.workspaceId,
-        paymentLinkId: input.paymentLinkId ?? null,
-        status: "pending",
-        expiresAt: new Date(input.expiresAt),
-      })
-      .onConflictDoNothing();
+    await withTenantContext(
+      this.db,
+      { workspaceId: input.workspaceId },
+      async (tx) => {
+        await tx
+          .insert(pendingLocalPspPayment)
+          .values({
+            intentId,
+            amountMinor: BigInt(input.amountMinor),
+            currency: input.currency ?? "IRR",
+            description: input.description.trim(),
+            returnUrl: input.returnUrl.trim(),
+            workspaceId: input.workspaceId,
+            paymentLinkId: input.paymentLinkId ?? null,
+            status: "pending",
+            expiresAt: new Date(input.expiresAt),
+          })
+          .onConflictDoNothing();
+      },
+    );
   }
 
-  async findPendingLocalPsp(intentId: string): Promise<PendingLocalPspPayment | null> {
-    const rows = await this.db
-      .select()
-      .from(pendingLocalPspPayment)
-      .where(eq(pendingLocalPspPayment.intentId, intentId.trim()))
-      .limit(1);
-    return rows[0] ? mapLocalPsp(rows[0]) : null;
+  findPendingLocalPsp(intentId: string): Promise<PendingLocalPspPayment | null> {
+    const key = intentId.trim();
+    return this.db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select set_config('app.local_psp_intent_id', ${key}, true)`,
+      );
+      const rows = await tx
+        .select()
+        .from(pendingLocalPspPayment)
+        .where(eq(pendingLocalPspPayment.intentId, key))
+        .limit(1);
+      return rows[0] ? mapLocalPsp(rows[0]) : null;
+    });
   }
 
   async markLocalPspVerified(
     intentId: string,
     refId: string,
   ): Promise<PendingLocalPspPayment> {
-    const existing = await this.findPendingLocalPsp(intentId);
-    if (!existing) throw new Error("LOCAL_PSP_UNKNOWN_INTENT");
-    if (existing.status === "verified") return existing;
+    const key = intentId.trim();
+    return this.db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select set_config('app.local_psp_intent_id', ${key}, true)`,
+      );
+      const existing = await tx
+        .select()
+        .from(pendingLocalPspPayment)
+        .where(eq(pendingLocalPspPayment.intentId, key))
+        .limit(1);
+      const current = existing[0];
+      if (!current) throw new Error("LOCAL_PSP_UNKNOWN_INTENT");
+      if (current.status === "verified") return mapLocalPsp(current);
 
-    const updated = await this.db
-      .update(pendingLocalPspPayment)
-      .set({
-        status: "verified",
-        refId,
-        verifiedAt: new Date(),
-      })
-      .where(eq(pendingLocalPspPayment.intentId, intentId.trim()))
-      .returning();
-    const row = updated[0];
-    if (!row) throw new Error("LOCAL_PSP_UNKNOWN_INTENT");
-    return mapLocalPsp(row);
+      const updated = await tx
+        .update(pendingLocalPspPayment)
+        .set({
+          status: "verified",
+          refId,
+          verifiedAt: new Date(),
+        })
+        .where(eq(pendingLocalPspPayment.intentId, key))
+        .returning();
+      const row = updated[0];
+      if (!row) throw new Error("LOCAL_PSP_UNKNOWN_INTENT");
+      return mapLocalPsp(row);
+    });
   }
 
   getLink(
