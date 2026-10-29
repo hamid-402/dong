@@ -18,9 +18,20 @@ export type MoneyInputProps = Omit<
   error?: string;
 };
 
+const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
+
+/** Latin digit string → Persian glyphs for the live input field only. */
+export function persianDigitGlyphs(latinDigitString: string): string {
+  return latinDigitString.replace(/\d/g, (digit) => PERSIAN_DIGITS[Number(digit)] ?? digit);
+}
+
 /**
  * Amount entry in the active display unit. Callers convert to IRR minor via
  * displayIntegerToIrrMinor before sending to the API.
+ *
+ * The visible field shows Persian digits; `onValueChange` always receives a
+ * Latin digit string. Persian / Arabic-Indic typed or pasted input is normalized
+ * via `latinDigits` before emit.
  */
 export function MoneyInput({
   value,
@@ -36,7 +47,12 @@ export function MoneyInput({
   const contextUnit = useDisplayUnit();
   const displayUnit = displayUnitProp ?? contextUnit;
   const fieldId = id ?? "money-input";
-  const { className, ...inputRest } = rest;
+  const { className, placeholder, ...inputRest } = rest;
+  const displayValue = persianDigitGlyphs(value);
+  const displayPlaceholder =
+    typeof placeholder === "string"
+      ? placeholder.replace(/[0-9۰-۹٠-٩]/g, (ch) => persianDigitGlyphs(latinDigits(ch)))
+      : placeholder;
   const formatted =
     value.trim() !== "" ? `${formatMoney(value, displayUnit)} ${displayUnitLabel(displayUnit)}` : "";
   return (
@@ -54,7 +70,8 @@ export function MoneyInput({
           inputMode="numeric"
           dir="ltr"
           disabled={disabled}
-          value={value}
+          value={displayValue}
+          placeholder={displayPlaceholder}
           aria-invalid={error ? true : undefined}
           onChange={(event) => {
             const digits = latinDigits(event.target.value).replace(/[^\d]/g, "");

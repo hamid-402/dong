@@ -1,3 +1,58 @@
+/* run29: AA contrast for ledger chrome (tokens only; avoid --muted). */
+:global(.moduleChrome__desc) {
+  color: var(--text);
+}
+
+:global(.moduleChrome__actions .uxSecondaryActions a),
+:global(.moduleChrome__actions .uxSecondaryActions button),
+:global(.productHeaderActions .uxSecondaryActions a),
+:global(.productHeaderActions .uxSecondaryActions button) {
+  color: var(--text);
+  min-height: 44px;
+  min-width: 44px;
+  padding-block: 10px;
+  padding-inline: 0.9rem;
+  box-sizing: border-box;
+}
+
+/* run29: primary «ثبت قلم» stays heavy; secondary chrome links stay lighter. */
+:global(.moduleChrome__actions > :first-child:not(.uxSecondaryActions)),
+:global(.productHeaderActions > :first-child:not(.uxSecondaryActions)) {
+  font-weight: 750;
+  min-height: 44px;
+}
+
+:global(.moduleChrome__actions .uxSecondaryActions a),
+:global(.productHeaderActions .uxSecondaryActions a) {
+  font-weight: 500;
+  background: transparent;
+  border-style: dashed;
+}
+
+/*
+ * run29 (V5): mobile add-expense modal — max-height from dvh minus dock + safe-area.
+ * panelClassName is not passed from the view; override shared .dang-modal via :global.
+ */
+@media (max-width: 720px) {
+  :global(.dang-modal) {
+    place-items: end center;
+    align-items: end;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    padding-top: max(var(--dang-space-4, 1rem), env(safe-area-inset-top, 0px));
+  }
+
+  :global(.dang-modal__panel.dang-modal__panel) {
+    width: min(100%, 28rem);
+    max-height: calc(
+      100dvh - 76px - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px) -
+        24px
+    );
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 0;
+  }
+}
+
 .overviewStack {
   display: grid;
   gap: 12px;
@@ -27,6 +82,27 @@
   width: 100%;
   min-width: 0;
   max-width: 100%;
+}
+
+/* run29 (V4): sticky «بازگشت به خلاصه بازه» — token surface (no #fff fallback), ≥44px tap. */
+.dayShell > :global(div[style*="sticky"]),
+.dayShell > :global(div[style*="Sticky"]) {
+  background: var(--surface) !important;
+  color: var(--text);
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.dayShell > :global(div[style*="sticky"]) :global(button.dang-btn),
+.dayShell > :global(div[style*="Sticky"]) :global(button.dang-btn) {
+  min-height: 44px;
+  min-width: 44px;
+  padding-block: 10px;
+  padding-inline: 14px;
+  color: var(--text);
+  background: var(--panel, var(--surface));
+  border-color: var(--line);
+  box-sizing: border-box;
 }
 
 .dayModeCard :global(.sectionCardHead) {

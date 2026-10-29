@@ -217,22 +217,25 @@
 
 .statusBtn {
   margin: 0;
-  padding: 4px 8px;
-  min-height: 36px;
+  padding: 8px 12px;
+  min-height: 44px;
+  min-width: 44px;
   border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
   border-radius: 8px;
   background: none;
-  color: var(--muted);
+  color: var(--text);
   font: inherit;
   font-size:0.875rem;
   font-weight: 600;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .detailBtn {
   margin: 0;
   padding: 8px 12px;
-  min-height: 36px;
+  min-height: 44px;
+  min-width: 44px;
   border: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
   border-radius: 8px;
   background: transparent;
@@ -242,6 +245,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: border-color 140ms ease, background 140ms ease;
+  box-sizing: border-box;
 }
 
 .detailBtn:hover {
@@ -437,16 +441,17 @@ button.dayCardMain:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
   justify-content: flex-start;
   gap: 6px 10px;
   width: 100%;
-  min-width: 0;
-  min-height: 0;
+  min-width: 44px;
+  min-height: 44px;
   margin: 0;
-  padding: 0;
+  padding: 8px 4px;
   border: 0;
   background: none;
   color: inherit;
   font: inherit;
   font-weight: inherit;
   text-align: start;
+  box-sizing: border-box;
 }
 
 button.dayCardMain:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
@@ -462,21 +467,22 @@ button.dayCardMain:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:dis
 
 button.statusBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm),
 button.detailBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
-  min-width: 0;
-  min-height: 36px;
+  min-width: 44px;
+  min-height: 44px;
   margin: 0;
   font: inherit;
   font-size: 0.875rem;
   font-weight: 600;
   justify-content: flex-start;
+  box-sizing: border-box;
 }
 
 button.statusBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
-  padding: 4px 8px;
+  padding: 8px 12px;
   border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
   border-radius: 8px;
   background: none;
-  color: var(--muted);
+  color: var(--text);
 }
 
 button.detailBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {

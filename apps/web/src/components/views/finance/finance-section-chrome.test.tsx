@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildFinanceSectionChrome } from "@/components/views/finance/finance-section-chrome";
+import {
+  buildFinanceSectionChrome,
+  FINANCE_CHROME_SECONDARY_LINK_STYLE,
+} from "@/components/views/finance/finance-section-chrome";
 
 describe("buildFinanceSectionChrome role awareness", () => {
   it("guest/read-only primary is settlements not add-expense", () => {
@@ -49,5 +52,23 @@ describe("buildFinanceSectionChrome role awareness", () => {
     // React element tree — ensure membersHrefSafe used (no #member-add when !canManage)
     expect(chrome.secondary).toBeTruthy();
     void html;
+  });
+
+  it("run29-contrast-token secondary links use --text and ≥44px tap style", () => {
+    expect(FINANCE_CHROME_SECONDARY_LINK_STYLE.color).toBe("var(--text)");
+    expect(FINANCE_CHROME_SECONDARY_LINK_STYLE.minHeight).toBe(44);
+    const chrome = buildFinanceSectionChrome({
+      section: "expenses",
+      spaceKind: "group",
+      slug: "g1",
+      expensesHref: "/w/g1/expenses",
+      settlementsHref: "/w/g1/settlements",
+      membersHref: "/w/g1/members",
+      canManageFinance: true,
+      readOnlyFinance: false,
+      membershipRole: "owner",
+    });
+    expect(chrome.description.length).toBeGreaterThan(0);
+    expect(chrome.secondary).toBeTruthy();
   });
 });

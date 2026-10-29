@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { SpaceKind } from "@dang/contracts";
 import { resolveUiPersona } from "@dang/contracts";
 import type { FinanceSection } from "@/components/views/finance/use-finance-data";
@@ -11,6 +11,16 @@ export type FinanceSectionChrome = {
   description: string;
   primary: ReactNode;
   secondary?: ReactNode;
+};
+
+/** run29-contrast-token: secondary chrome links use ink token (≥ AA vs --muted). */
+export const FINANCE_CHROME_SECONDARY_LINK_STYLE: CSSProperties = {
+  color: "var(--text)",
+  minHeight: 44,
+  minWidth: 44,
+  display: "inline-flex",
+  alignItems: "center",
+  boxSizing: "border-box",
 };
 
 /**
@@ -49,6 +59,7 @@ export function buildFinanceSectionChrome(input: {
       ? `${membersListHref}#member-add-panel`
       : membersListHref;
   const approvalsHref = slug ? wPath(slug, "approvals") : null;
+  const secondaryLinkStyle = FINANCE_CHROME_SECONDARY_LINK_STYLE;
 
   if (section === "settlements") {
     return {
@@ -59,8 +70,12 @@ export function buildFinanceSectionChrome(input: {
       primary: <Link href={expensesHref}>{NAV_LABELS.expenses}</Link>,
       secondary: slug ? (
         <>
-          <Link href={membersHrefSafe}>{NAV_LABELS.members}</Link>
-          <Link href={wPath(slug)}>{NAV_LABELS.spaceGroup}</Link>
+          <Link href={membersHrefSafe} style={secondaryLinkStyle}>
+            {NAV_LABELS.members}
+          </Link>
+          <Link href={wPath(slug)} style={secondaryLinkStyle}>
+            {NAV_LABELS.spaceGroup}
+          </Link>
         </>
       ) : undefined,
     };
@@ -78,8 +93,12 @@ export function buildFinanceSectionChrome(input: {
       ),
       secondary: slug ? (
         <>
-          <Link href={settlementsHref}>{NAV_LABELS.settlements}</Link>
-          <Link href={membersHrefSafe}>{NAV_LABELS.members}</Link>
+          <Link href={settlementsHref} style={secondaryLinkStyle}>
+            {NAV_LABELS.settlements}
+          </Link>
+          <Link href={membersHrefSafe} style={secondaryLinkStyle}>
+            {NAV_LABELS.members}
+          </Link>
         </>
       ) : undefined,
     };
@@ -92,8 +111,12 @@ export function buildFinanceSectionChrome(input: {
       primary: <a href="#reports-panel">محاسبه گزارش</a>,
       secondary: slug ? (
         <>
-          <Link href={expensesHref}>{NAV_LABELS.expenses}</Link>
-          <Link href={settlementsHref}>{NAV_LABELS.settlements}</Link>
+          <Link href={expensesHref} style={secondaryLinkStyle}>
+            {NAV_LABELS.expenses}
+          </Link>
+          <Link href={settlementsHref} style={secondaryLinkStyle}>
+            {NAV_LABELS.settlements}
+          </Link>
         </>
       ) : undefined,
     };
@@ -124,18 +147,30 @@ export function buildFinanceSectionChrome(input: {
     ),
     secondary: slug ? (
       <>
-        <a href="#expense-list">فهرست خرج‌ها</a>
+        <a href="#expense-list" style={secondaryLinkStyle}>
+          فهرست خرج‌ها
+        </a>
         {ledgerHref && persona !== "guest" ? (
-          <Link href={ledgerHref}>{NAV_LABELS.dailyEntry}</Link>
+          <Link href={ledgerHref} style={secondaryLinkStyle}>
+            {NAV_LABELS.dailyEntry}
+          </Link>
         ) : null}
-        <Link href={settlementsHref}>{NAV_LABELS.settlements}</Link>
+        <Link href={settlementsHref} style={secondaryLinkStyle}>
+          {NAV_LABELS.settlements}
+        </Link>
         {canApproveCompany && approvalsHref && persona !== "member" ? (
-          <Link href={approvalsHref}>{NAV_LABELS.approvals}</Link>
+          <Link href={approvalsHref} style={secondaryLinkStyle}>
+            {NAV_LABELS.approvals}
+          </Link>
         ) : null}
-        <Link href={membersHrefSafe}>{NAV_LABELS.members}</Link>
+        <Link href={membersHrefSafe} style={secondaryLinkStyle}>
+          {NAV_LABELS.members}
+        </Link>
       </>
     ) : (
-      <a href="#expense-list">فهرست خرج‌ها</a>
+      <a href="#expense-list" style={secondaryLinkStyle}>
+        فهرست خرج‌ها
+      </a>
     ),
   };
 }

@@ -33,7 +33,8 @@
 .headMeta {
   margin: 0;
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--text);
+  opacity: 0.88;
   line-height: 1.4;
 }
 
