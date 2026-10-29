@@ -185,10 +185,12 @@ vi.mock("@/components/views/daily-ledger/daily-ledger-day-view", () => ({
     day,
     onBack,
     onOpenDraft,
+    dateOutsidePeriod,
   }: {
     day: DailyLedgerDayRow;
     onBack: () => void;
     onOpenDraft: (target: { kind: "shared"; date: string }) => void;
+    dateOutsidePeriod?: boolean;
   }) => (
     <div data-testid="day-view">
       <span data-testid="day-date">{day.date}</span>
@@ -196,6 +198,11 @@ vi.mock("@/components/views/daily-ledger/daily-ledger-day-view", () => ({
         {day.shared.items.map((i) => i.title).join(",")}
       </span>
       <span data-testid="shared-count">{day.shared.items.length}</span>
+      {dateOutsidePeriod ? (
+        <div data-testid="outside-period-empty" role="status">
+          این روز خارج از بازهٔ انتخاب‌شده است
+        </div>
+      ) : null}
       <button type="button" onClick={onBack} aria-label="day-view-back">
         day-back
       </button>
@@ -388,5 +395,55 @@ describe("DailyLedgerView run27 bugs", () => {
     expect(routerReplace).toHaveBeenCalled();
     const replaceArg = String(routerReplace.mock.calls.at(-1)?.[0] ?? "");
     expect(replaceArg).not.toContain("date=");
+  });
+
+  it("run28-outside-range-empty-day: ?date= outside from..to keeps day shell, does not clear query", async () => {
+    navState.searchParams = new URLSearchParams("date=2026-12-15");
+
+    render(
+      <ConfirmProvider>
+        <DailyLedgerView />
+      </ConfirmProvider>,
+    );
+
+    expect(await screen.findByTestId("day-view")).toBeTruthy();
+    expect(screen.getByTestId("day-date")).toHaveTextContent("2026-12-15");
+    expect(screen.getByTestId("outside-period-empty")).toBeTruthy();
+    expect(screen.queryByTestId("toolbar")).toBeNull();
+
+    await waitFor(() => {
+      expect(api.dailyLedger).toHaveBeenCalled();
+    });
+
+    expect(routerReplace).not.toHaveBeenCalledWith(
+      "/daily-ledger",
+      expect.anything(),
+    );
+    expect(routerPush).not.toHaveBeenCalledWith("/daily-ledger", expect.anything());
+    expect(navState.searchParams.get("date")).toBe("2026-12-15");
+  });
+
+  it("run28-persian-digits: money placeholders use Persian glyphs; typed value stays Latin", async () => {
+    navState.searchParams = new URLSearchParams("date=2026-10-29");
+
+    render(
+      <ConfirmProvider>
+        <DailyLedgerView />
+      </ConfirmProvider>,
+    );
+
+    expect(await screen.findByTestId("day-view")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "+ مشترک" }));
+
+    const unit = await screen.findByLabelText("مبلغ واحد");
+    expect(unit.getAttribute("placeholder")).toBe("۶۰۰۰۰");
+    expect(unit.getAttribute("placeholder") ?? "").toMatch(/[۰-۹]/);
+
+    fireEvent.change(unit, { target: { value: "123" } });
+    expect((unit as HTMLInputElement).value).toBe("123");
+    expect((unit as HTMLInputElement).value).not.toMatch(/[۰-۹]/);
+
+    const qty = screen.getByLabelText("تعداد");
+    expect(qty.getAttribute("placeholder")).toBe("۱");
   });
 });

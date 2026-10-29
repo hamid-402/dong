@@ -136,7 +136,7 @@ export function DailyLedgerSharePanel({
         </div>
       </header>
 
-      <ul className={styles.list} role="listbox" aria-label="اعضا برای سهم مصرف">
+      <ul className={styles.list} aria-label="اعضا برای سهم مصرف">
         {rows.map((row) => {
           const barPct = Math.max(
             4,
@@ -148,8 +148,7 @@ export function DailyLedgerSharePanel({
             <li key={row.userId} className={styles.listItem}>
               <Button
                 type="button"
-                role="option"
-                aria-selected={selectedRow}
+                aria-pressed={selectedRow}
                 className={
                   selectedRow ? `${styles.rowBtn} ${styles.rowBtnSelected}` : styles.rowBtn
                 }
@@ -207,13 +206,15 @@ export function DailyLedgerSharePanel({
             </div>
           </header>
 
-          <dl className={styles.formula} aria-label="فرمول سهم">
-            <div className={styles.formulaRow}>
-              <dt>مصرف</dt>
-              <dd>
-                <Money irrMinor={selected.share.consumption} />
-              </dd>
-            </div>
+          <div className={styles.formula} aria-label="فرمول سهم">
+            <dl>
+              <div className={styles.formulaRow}>
+                <dt>مصرف</dt>
+                <dd>
+                  <Money irrMinor={selected.share.consumption} />
+                </dd>
+              </div>
+            </dl>
             <details
               key={`dep-${selected.userId}`}
               className={styles.depositDisclosure}
@@ -274,13 +275,15 @@ export function DailyLedgerSharePanel({
                 )}
               </div>
             </details>
-            <div className={`${styles.formulaRow} ${styles.formulaResult}`}>
-              <dt>سهم نهایی</dt>
-              <dd>
-                <Money irrMinor={selected.share.total} />
-              </dd>
-            </div>
-          </dl>
+            <dl>
+              <div className={`${styles.formulaRow} ${styles.formulaResult}`}>
+                <dt>سهم نهایی</dt>
+                <dd>
+                  <Money irrMinor={selected.share.total} />
+                </dd>
+              </div>
+            </dl>
+          </div>
 
           <div className={styles.statGrid}>
             <div className={styles.stat}>

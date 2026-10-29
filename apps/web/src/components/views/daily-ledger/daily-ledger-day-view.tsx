@@ -52,6 +52,8 @@ type DailyLedgerDayViewProps = {
   pending?: boolean;
   canDeposit?: boolean;
   rangeLabel?: string;
+  /** True when ?date= is outside ledger.from..ledger.to (synthesized empty day). */
+  dateOutsidePeriod?: boolean;
   preferMemberUserId?: string | null;
   lastMemberUserId?: string | null;
   prevDay?: DayNeighborMeta;
@@ -136,6 +138,7 @@ export function DailyLedgerDayView({
   pending = false,
   canDeposit = false,
   rangeLabel,
+  dateOutsidePeriod = false,
   preferMemberUserId = null,
   lastMemberUserId = null,
   prevDay = null,
@@ -463,6 +466,30 @@ export function DailyLedgerDayView({
 
       <div className={styles.workspace}>
         <main className={styles.main}>
+          {dateOutsidePeriod ? (
+            <div
+              className={styles.emptyBlock}
+              data-testid="outside-period-empty"
+              role="status"
+            >
+              <EmptyHint>
+                این روز خارج از بازهٔ انتخاب‌شده
+                {rangeLabel?.trim() ? ` (${rangeLabel.trim()})` : ""} است. دادهٔ
+                این تاریخ در خلاصهٔ بازه نیست — می‌توانید به خلاصه برگردید یا
+                بازه را عوض کنید.
+              </EmptyHint>
+              <div className={styles.emptyActions}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onBack}
+                  aria-label="بازگشت به خلاصه بازه از روز خارج از بازه"
+                >
+                  بازگشت به خلاصه بازه
+                </Button>
+              </div>
+            </div>
+          ) : null}
           <div className={styles.panelHead}>
             <h3 className={styles.panelTitle}>اقلام مصرف</h3>
             {canMutateRows && lines.length > 0 ? (
@@ -472,10 +499,12 @@ export function DailyLedgerDayView({
           {lines.length === 0 ? (
             <div className={styles.emptyBlock}>
               <EmptyHint>
-                {(day.relatedExpenses ?? []).length > 0
-                  ? `هنوز تیک ${NAV_LABELS.dailyEntry} نیست — ${NAV_LABELS.fullExpense} همین روز را در نوار کناری ببینید.`
-                  : "قلمی نیست."}
-                {!readOnly && !closed
+                {dateOutsidePeriod
+                  ? "قلمی برای این تاریخ در بازهٔ فعلی نیست."
+                  : (day.relatedExpenses ?? []).length > 0
+                    ? `هنوز تیک ${NAV_LABELS.dailyEntry} نیست — ${NAV_LABELS.fullExpense} همین روز را در نوار کناری ببینید.`
+                    : "قلمی نیست."}
+                {!dateOutsidePeriod && !readOnly && !closed
                   ? " از «+ مشترک» / «+ فردی» یا ثبت سریع استفاده کنید."
                   : null}
               </EmptyHint>

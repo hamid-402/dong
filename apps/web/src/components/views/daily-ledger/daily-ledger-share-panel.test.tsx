@@ -68,7 +68,7 @@ describe("DailyLedgerSharePanel", () => {
   it("keeps the member list compact and shows detail for the selected person", () => {
     render(<DailyLedgerSharePanel day={day} members={members} />);
 
-    expect(screen.getByRole("option", { name: /مهدی/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /مهدی/ })).toBeTruthy();
     expect(screen.getByLabelText("جزئیات سهم مهدی")).toBeTruthy();
     expect(screen.getByText("سهم نهایی")).toBeTruthy();
 
@@ -86,6 +86,61 @@ describe("DailyLedgerSharePanel", () => {
     fireEvent.click(screen.getByText("اقلام فردی"));
     expect(itemsFold?.open).toBe(true);
     expect(screen.getByText("بیسکویت")).toBeTruthy();
+  });
+
+  it("run28-a11y-listbox: member picker uses list/button semantics, not listbox/option", () => {
+    const { container } = render(
+      <DailyLedgerSharePanel day={day} members={members} />,
+    );
+
+    expect(container.querySelector('[role="listbox"]')).toBeNull();
+    expect(container.querySelector('[role="option"]')).toBeNull();
+
+    const list = screen.getByRole("list", { name: "اعضا برای سهم مصرف" });
+    expect(list.tagName).toBe("UL");
+    expect(list.querySelectorAll(":scope > li").length).toBe(2);
+
+    const mehdi = screen.getByRole("button", { name: /مهدی/ });
+    expect(mehdi.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: /داوود/ }));
+    expect(screen.getByLabelText("جزئیات سهم داوود")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /داوود/ }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /مهدی/ }).getAttribute("aria-pressed")).toBe(
+      "false",
+    );
+  });
+
+  it("run28-formula-dl: formula has no dl>details child; deposit fold stays readable", () => {
+    const { container } = render(
+      <DailyLedgerSharePanel day={day} members={members} />,
+    );
+
+    const formula = screen.getByLabelText("فرمول سهم");
+    expect(formula.querySelector(":scope > details")).toBeTruthy();
+    for (const dl of formula.querySelectorAll("dl")) {
+      expect(dl.querySelector(":scope > details")).toBeNull();
+    }
+    expect(screen.getByText("مصرف")).toBeTruthy();
+    expect(screen.getByText("سهم نهایی")).toBeTruthy();
+    expect(
+      screen.getByLabelText("باز و بسته کردن جزئیات واریز"),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("باز و بسته کردن جزئیات واریز"));
+    expect(screen.getByText("تنخواه اصلی گروه")).toBeTruthy();
+    expect(container.querySelector('[aria-label="فرمول سهم"]')).toBeTruthy();
+  });
+
+  it("run28-persian-digits: displayed amounts use Persian digits (stored minor stays Latin)", () => {
+    render(<DailyLedgerSharePanel day={day} members={members} />);
+
+    const hero = screen.getByLabelText("جزئیات سهم مهدی");
+    // 50_000 personal + 1_000_000/2 shared − 450_000 deposit → Latin minor in data
+    expect(hero.textContent ?? "").toMatch(/[۰-۹]/);
+    expect(hero.textContent ?? "").not.toMatch(/\d{3,}/);
   });
 
   it("shows empty deposit message when member has no credit deposit", () => {
@@ -111,8 +166,8 @@ describe("DailyLedgerSharePanel", () => {
     ).toBe(true);
     expect(screen.getByText("اقلام فردی").closest("details")?.open).toBe(true);
 
-    fireEvent.click(screen.getByRole("option", { name: /داوود/ }));
-    fireEvent.click(screen.getByRole("option", { name: /مهدی/ }));
+    fireEvent.click(screen.getByRole("button", { name: /داوود/ }));
+    fireEvent.click(screen.getByRole("button", { name: /مهدی/ }));
     expect(
       screen.getByLabelText("باز و بسته کردن جزئیات واریز").closest("details")?.open,
     ).toBe(false);

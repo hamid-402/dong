@@ -173,6 +173,48 @@ describe("DailyLedgerDayView", () => {
     );
   });
 
+  it("run28-outside-range-empty-day: shows outside-period empty UX and keeps back", () => {
+    const onBack = vi.fn();
+    const outsideDay: DailyLedgerDayRow = {
+      date: "2026-12-15",
+      weekday: 1,
+      isHoliday: false,
+      isRangeLocked: false,
+      members: {},
+      shared: { items: [], total: { amountMinor: "0", currency: "IRR" } },
+      dayTotal: { amountMinor: "0", currency: "IRR" },
+      fundDeposits: [],
+    };
+    render(
+      <DailyLedgerDayView
+        workspaceId="workspace-1"
+        ledger={ledger}
+        day={outsideDay}
+        members={[]}
+        catalogEnabled={false}
+        dateOutsidePeriod
+        rangeLabel="هفته"
+        onBack={onBack}
+        onOpenDraft={vi.fn()}
+        onDeleteItem={vi.fn()}
+        onEditNote={vi.fn()}
+        onToggleHoliday={vi.fn()}
+        onPosted={vi.fn()}
+        onError={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("outside-period-empty")).toBeTruthy();
+    expect(screen.getByText(/خارج از بازه/)).toBeTruthy();
+    expect(screen.getByLabelText(/جزئیات/)).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "بازگشت به خلاصه بازه از روز خارج از بازه",
+      }),
+    );
+    expect(onBack).toHaveBeenCalled();
+  });
+
   it("shows read-only related full expenses for the day", () => {
     const dayWithRelated: DailyLedgerDayRow = {
       ...day,

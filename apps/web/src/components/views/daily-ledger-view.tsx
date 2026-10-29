@@ -802,31 +802,33 @@ export function DailyLedgerView() {
     : 1;
   const selectedDay =
     ledger && selectedDate
-      ? (ledger.days.find((day) => day.date === selectedDate) ??
-        (selectedDate >= ledger.from && selectedDate <= ledger.to
-          ? {
-              date: selectedDate,
-              weekday: new Date(`${selectedDate}T00:00:00Z`).getUTCDay(),
-              isHoliday: false,
-              isRangeLocked: false,
-              members: Object.fromEntries(
-                ledger.members.map((m) => [
-                  m.userId,
-                  {
-                    items: [] as DailyLedgerItem[],
-                    total: { amountMinor: "0", currency: "IRR" as const },
-                  },
-                ]),
-              ),
-              shared: {
+      ? (ledger.days.find((day) => day.date === selectedDate) ?? {
+          date: selectedDate,
+          weekday: new Date(`${selectedDate}T00:00:00Z`).getUTCDay(),
+          isHoliday: false,
+          isRangeLocked: false,
+          members: Object.fromEntries(
+            ledger.members.map((m) => [
+              m.userId,
+              {
                 items: [] as DailyLedgerItem[],
                 total: { amountMinor: "0", currency: "IRR" as const },
               },
-              dayTotal: { amountMinor: "0", currency: "IRR" as const },
-              fundDeposits: [],
-            }
-          : null))
+            ]),
+          ),
+          shared: {
+            items: [] as DailyLedgerItem[],
+            total: { amountMinor: "0", currency: "IRR" as const },
+          },
+          dayTotal: { amountMinor: "0", currency: "IRR" as const },
+          fundDeposits: [],
+        })
       : null;
+  const dateOutsidePeriod = Boolean(
+    ledger &&
+      selectedDate &&
+      (selectedDate < ledger.from || selectedDate > ledger.to),
+  );
   const selectedWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
   const settlementsHref = canonicalHref("settlements", selectedWorkspace?.slug);
   const fundNameById = Object.fromEntries(pettyFunds.map((f) => [f.id, f.name]));
@@ -1080,6 +1082,7 @@ export function DailyLedgerView() {
               pending={pending}
               canDeposit={canDeposit}
               rangeLabel={rangeHeadline(ledger.from, ledger.to, preset)}
+              dateOutsidePeriod={dateOutsidePeriod}
               preferMemberUserId={myUserId}
               lastMemberUserId={lastMemberUserId}
               prevDay={prevDayMeta}
@@ -1251,6 +1254,7 @@ export function DailyLedgerView() {
                   setDraftCatalog(null);
                 }}
                 placeholder="مثلاً لیموناد بطری"
+                autoFocus
               />
               {workspaceId && chrome.capabilities?.providers?.catalog === "catalog_v1" ? (
                 <CatalogPicker
@@ -1300,7 +1304,7 @@ export function DailyLedgerView() {
                   );
                   syncLineTotalFromUnit(next, itemUnitToman);
                 }}
-                placeholder="1"
+                placeholder="۱"
               />
               <MoneyInput
                 label={moneyFieldLabel("مبلغ واحد", displayUnit)}
@@ -1317,7 +1321,7 @@ export function DailyLedgerView() {
                   }
                   syncLineTotalFromUnit(itemQuantity, next);
                 }}
-                placeholder="60000"
+                placeholder="۶۰۰۰۰"
               />
               {(() => {
                 const qty = parseDraftQuantity();
@@ -1436,7 +1440,7 @@ export function DailyLedgerView() {
                 label={moneyFieldLabel("مبلغ واریز", displayUnit)}
                 value={depositToman}
                 onValueChange={setDepositToman}
-                placeholder="500000"
+                placeholder="۵۰۰۰۰۰"
               />
               <TextField
                 label="یادداشت (اختیاری)"
