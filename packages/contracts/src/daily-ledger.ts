@@ -666,8 +666,8 @@ function addToCell(cell: DailyLedgerCell, item: DailyLedgerItem): void {
 
 /**
  * Build day×member matrix from posted/draft expenses + day meta.
- * - Member column: amount-split solely to one member (shared visibility, single split)
- * - Shared column («هزینه مشترک»): multi-member shared or legacy company visibility
+ * - Member column: amount/percent/shares (or legacy unspecified) sole participant
+ * - Shared column («هزینه مشترک»): equal-split shared (even 1 member), multi-split shared, or company
  */
 export function buildDailyLedgerMatrix(input: {
   workspaceId: string;
@@ -684,6 +684,7 @@ export function buildDailyLedgerMatrix(input: {
     | "total"
     | "splits"
     | "participantUserIds"
+    | "splitMethod"
     | "source"
     | "catalogItemId"
     | "unitCode"
@@ -749,13 +750,17 @@ export function buildDailyLedgerMatrix(input: {
       fundingRefId: expense.fundingRefId,
     };
 
-    const isSharedBucket =
-      expense.visibility === "company" ||
-      (expense.visibility === "shared" &&
-        expense.splits.length !== 1 &&
-        expense.participantUserIds.length !== 1);
+    // «+ مشترک» uses equal split (may be length 1 in solo workspaces).
+    // Member-column add uses amount (+ optional percent/shares) with one participant.
+    // Legacy rows without splitMethod keep prior single-split → member routing.
+    const isEqualShared =
+      expense.visibility === "shared" && expense.splitMethod === "equal";
+    const isMemberPersonalLine =
+      expense.visibility === "shared" &&
+      expense.splits.length === 1 &&
+      expense.splitMethod !== "equal";
 
-    if (expense.visibility === "company") {
+    if (expense.visibility === "company" || isEqualShared) {
       addToCell(target.shared, item);
     } else if (expense.visibility === "private") {
       const owner =
@@ -768,7 +773,7 @@ export function buildDailyLedgerMatrix(input: {
           amount: expense.splits[0]?.amount ?? expense.total,
         });
       }
-    } else if (expense.visibility === "shared" && expense.splits.length === 1) {
+    } else if (isMemberPersonalLine) {
       const only = expense.splits[0]!;
       if (target.members[only.userId]) {
         addToCell(target.members[only.userId]!, {
@@ -778,7 +783,7 @@ export function buildDailyLedgerMatrix(input: {
       } else {
         addToCell(target.shared, item);
       }
-    } else if (isSharedBucket || expense.visibility === "shared") {
+    } else if (expense.visibility === "shared") {
       addToCell(target.shared, item);
     }
 

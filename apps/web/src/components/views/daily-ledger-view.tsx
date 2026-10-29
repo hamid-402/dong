@@ -143,12 +143,18 @@ export function DailyLedgerView() {
   const selectedDate =
     dateFromUrl && /^\d{4}-\d{2}-\d{2}$/.test(dateFromUrl) ? dateFromUrl : null;
 
+  /** Navigational date changes use push so browser/phone Back is one step. Clearing date uses replace (modal is React state only — never writes URL). */
   function setDateQuery(next: string | null) {
     const params = new URLSearchParams(searchParams.toString());
     if (next) params.set("date", next);
     else params.delete("date");
     const q = params.toString();
-    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+    const href = q ? `${pathname}?${q}` : pathname;
+    if (next) {
+      router.push(href, { scroll: false });
+    } else {
+      router.replace(href, { scroll: false });
+    }
   }
 
   useEffect(() => {
@@ -441,33 +447,33 @@ export function DailyLedgerView() {
     startTransition(() => {
       void (async () => {
         try {
-          if (draft.expenseId) {
-            await api.updateDailyLedgerEntry(workspaceId, draft.expenseId, {
-              itemName: itemName.trim(),
-              amount,
-              date: draftDate,
-              memberUserId,
-              idempotencyKey: newClientId(),
-              ...catalogFields,
-              ...fundingFields,
-            });
-          } else {
-            await api.createDailyLedgerEntry(workspaceId, {
-              date: draftDate,
-              itemName: itemName.trim(),
-              amount,
-              memberUserId,
-              idempotencyKey: newClientId(),
-              ...catalogFields,
-              ...fundingFields,
-            });
-          }
+          const updated = draft.expenseId
+            ? await api.updateDailyLedgerEntry(workspaceId, draft.expenseId, {
+                itemName: itemName.trim(),
+                amount,
+                date: draftDate,
+                memberUserId,
+                idempotencyKey: newClientId(),
+                ...catalogFields,
+                ...fundingFields,
+              })
+            : await api.createDailyLedgerEntry(workspaceId, {
+                date: draftDate,
+                itemName: itemName.trim(),
+                amount,
+                memberUserId,
+                idempotencyKey: newClientId(),
+                ...catalogFields,
+                ...fundingFields,
+              });
+          setLedger(updated);
           setDraft(null);
           setDraftCatalog(null);
           setItemQuantity("1");
           setItemUnitToman("");
           setError(null);
-          load();
+          // Response is the full ledger — apply immediately. Do not call load()
+          // here: a slower/stale GET would wipe the just-posted row from the UI.
         } catch (err: unknown) {
           setError(friendlyErrorMessage(err, draft.expenseId ? "ویرایش قلم ناموفق" : "ثبت قلم ناموفق"));
         }
@@ -796,7 +802,30 @@ export function DailyLedgerView() {
     : 1;
   const selectedDay =
     ledger && selectedDate
-      ? (ledger.days.find((day) => day.date === selectedDate) ?? null)
+      ? (ledger.days.find((day) => day.date === selectedDate) ??
+        (selectedDate >= ledger.from && selectedDate <= ledger.to
+          ? {
+              date: selectedDate,
+              weekday: new Date(`${selectedDate}T00:00:00Z`).getUTCDay(),
+              isHoliday: false,
+              isRangeLocked: false,
+              members: Object.fromEntries(
+                ledger.members.map((m) => [
+                  m.userId,
+                  {
+                    items: [] as DailyLedgerItem[],
+                    total: { amountMinor: "0", currency: "IRR" as const },
+                  },
+                ]),
+              ),
+              shared: {
+                items: [] as DailyLedgerItem[],
+                total: { amountMinor: "0", currency: "IRR" as const },
+              },
+              dayTotal: { amountMinor: "0", currency: "IRR" as const },
+              fundDeposits: [],
+            }
+          : null))
       : null;
   const selectedWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
   const settlementsHref = canonicalHref("settlements", selectedWorkspace?.slug);
@@ -897,12 +926,9 @@ export function DailyLedgerView() {
       )
     : selectedFund?.balanceMinor ?? "0";
 
-  useEffect(() => {
-    if (!ledger || !selectedDate) return;
-    if (!ledger.days.some((d) => d.date === selectedDate)) {
-      setDateQuery(null);
-    }
-  }, [ledger, selectedDate]);
+  // Do not auto-clear ?date= when the day has zero expenses (or a missing row
+  // inside the loaded range). Empty day view must stay open so the user can add
+  // the first expense. Escape only closes the draft modal (React state), not the date.
 
   return (
     <WorkspacePageFrame
@@ -1020,36 +1046,60 @@ export function DailyLedgerView() {
         ) : null}
 
         {ledger && selectedDay && workspaceId ? (
-          <DailyLedgerDayView
-            workspaceId={workspaceId}
-            ledger={ledger}
-            day={selectedDay}
-            members={ledger.members}
-            fundNameById={fundNameById}
-            catalogEnabled={chrome.capabilities?.providers?.catalog === "catalog_v1"}
-            readOnly={readOnly}
-            pending={pending}
-            canDeposit={canDeposit}
-            rangeLabel={rangeHeadline(ledger.from, ledger.to, preset)}
-            preferMemberUserId={myUserId}
-            lastMemberUserId={lastMemberUserId}
-            prevDay={prevDayMeta}
-            nextDay={nextDayMeta}
-            onBack={closeDay}
-            onGoDate={openDay}
-            onOpenDraft={openDraft}
-            onOpenDeposit={canDeposit ? () => openDeposit(selectedDay.date) : undefined}
-            onDeleteItem={deleteItem}
-            onEditNote={() => setDayNote({ date: selectedDay.date, note: selectedDay.note ?? "" })}
-            onToggleHoliday={() => toggleHoliday(selectedDay.date, selectedDay.isHoliday)}
-            onPosted={() => {
-              setInfo("مصرف روزانه ثبت شد");
-              setError(null);
-              load();
-            }}
-            onError={(message) => setError(message)}
-            expensesHref={expensesHref}
-          />
+          <>
+            <div
+              style={{
+                position: "sticky",
+                top: 0,
+                zIndex: 6,
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                padding: "8px 0",
+                background: "var(--surface, #fff)",
+              }}
+            >
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={closeDay}
+                aria-label="بازگشت به خلاصه بازه"
+              >
+                بازگشت به خلاصه بازه
+              </Button>
+            </div>
+            <DailyLedgerDayView
+              workspaceId={workspaceId}
+              ledger={ledger}
+              day={selectedDay}
+              members={ledger.members}
+              fundNameById={fundNameById}
+              catalogEnabled={chrome.capabilities?.providers?.catalog === "catalog_v1"}
+              readOnly={readOnly}
+              pending={pending}
+              canDeposit={canDeposit}
+              rangeLabel={rangeHeadline(ledger.from, ledger.to, preset)}
+              preferMemberUserId={myUserId}
+              lastMemberUserId={lastMemberUserId}
+              prevDay={prevDayMeta}
+              nextDay={nextDayMeta}
+              onBack={closeDay}
+              onGoDate={openDay}
+              onOpenDraft={openDraft}
+              onOpenDeposit={canDeposit ? () => openDeposit(selectedDay.date) : undefined}
+              onDeleteItem={deleteItem}
+              onEditNote={() => setDayNote({ date: selectedDay.date, note: selectedDay.note ?? "" })}
+              onToggleHoliday={() => toggleHoliday(selectedDay.date, selectedDay.isHoliday)}
+              onPosted={() => {
+                setInfo("مصرف روزانه ثبت شد");
+                setError(null);
+                load();
+              }}
+              onError={(message) => setError(message)}
+              expensesHref={expensesHref}
+            />
+          </>
         ) : null}
 
         {ledger && !selectedDay ? (

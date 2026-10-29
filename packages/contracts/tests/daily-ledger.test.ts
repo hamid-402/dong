@@ -51,7 +51,7 @@ test("shiftDailyLedgerRange moves Jalali week and month", () => {
   assert.equal(nextMonth.to, "2026-10-22");
 });
 
-test("buildDailyLedgerMatrix puts single-split shared into member column", () => {
+test("buildDailyLedgerMatrix puts single-split amount shared into member column", () => {
   const matrix = buildDailyLedgerMatrix({
     workspaceId: "w1",
     from: "2026-09-12",
@@ -70,6 +70,7 @@ test("buildDailyLedgerMatrix puts single-split shared into member column", () =>
         total: { amountMinor: "600000", currency: "IRR" },
         splits: [{ userId: "u1", amount: { amountMinor: "600000", currency: "IRR" } }],
         participantUserIds: ["u1"],
+        splitMethod: "amount",
         source: "daily_ledger",
       },
       {
@@ -95,6 +96,35 @@ test("buildDailyLedgerMatrix puts single-split shared into member column", () =>
   assert.equal(matrix.days[0]?.members.u1?.items[0]?.title, "لیموناد بطری");
   assert.equal(matrix.days[0]?.shared.items[0]?.title, "آب معدنی");
   assert.equal(matrix.totals.grand.amountMinor, "700000");
+});
+
+test("T1 shared equal-split (+ مشترک) in 1-member workspace stays in shared bucket", () => {
+  const matrix = buildDailyLedgerMatrix({
+    workspaceId: "w1",
+    from: "2026-10-29",
+    to: "2026-10-29",
+    members: [{ userId: "u1", displayName: "حمید" }],
+    expenses: [
+      {
+        id: "e-shared-solo",
+        title: "نان مشترک",
+        status: "posted",
+        visibility: "shared",
+        occurredOn: "2026-10-29",
+        total: { amountMinor: "880000", currency: "IRR" },
+        splits: [{ userId: "u1", amount: { amountMinor: "880000", currency: "IRR" } }],
+        participantUserIds: ["u1"],
+        splitMethod: "equal",
+        source: "daily_ledger",
+      },
+    ],
+    dayMeta: [],
+    expensePersistence: "memory",
+    dayMetaPersistence: "memory",
+  });
+  assert.equal(matrix.days[0]?.shared.items.length, 1);
+  assert.equal(matrix.days[0]?.shared.items[0]?.title, "نان مشترک");
+  assert.equal(matrix.days[0]?.members.u1?.items.length, 0);
 });
 
 test("formatJalaliIso converts known Gregorian date", () => {

@@ -670,6 +670,9 @@ export class DailyLedgerService {
         ...funding,
       };
     }
+    // Shared column («+ مشترک»): equal split across active members.
+    // Must stay in the shared bucket even when allMemberIds.length === 1
+    // (matrix routes equal-split shared → shared, amount single → member).
     return {
       workspaceId,
       title: body.itemName.trim(),
