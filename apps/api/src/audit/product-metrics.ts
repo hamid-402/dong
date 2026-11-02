@@ -9,7 +9,9 @@ const ACTIONS = {
   workspaceCreate: "workspace.create",
   inviteCreate: "invite.create",
   inviteAccept: "invite.accept",
+  expenseDraft: "expense.draft.create",
   expensePost: "expense.post",
+  pettyCashDeposit: "petty_cash.deposit_credit",
   settlementConfirm: "settlement.claim.confirm",
 } as const;
 
@@ -29,6 +31,21 @@ function milestone(events: AuditRecord[], action: string): ProductMetricMileston
   };
 }
 
+function conversion(
+  events: AuditRecord[],
+  fromAction: string,
+  toAction: string,
+): WorkspaceProductMetricsResponse["conversions"]["inviteAcceptPerCreate"] {
+  const fromCount = successEvents(events, fromAction).length;
+  if (fromCount <= 0) return null;
+  return {
+    fromAction,
+    toAction,
+    fromCount,
+    toCount: successEvents(events, toAction).length,
+  };
+}
+
 /** Pure aggregation — unit-tested; no invented rates. */
 export function aggregateWorkspaceProductMetrics(
   workspaceId: string,
@@ -40,6 +57,8 @@ export function aggregateWorkspaceProductMetrics(
     inviteCreates: successEvents(events, ACTIONS.inviteCreate).length,
     inviteAccepts: successEvents(events, ACTIONS.inviteAccept).length,
     expensePosts: successEvents(events, ACTIONS.expensePost).length,
+    expenseDrafts: successEvents(events, ACTIONS.expenseDraft).length,
+    pettyCashDeposits: successEvents(events, ACTIONS.pettyCashDeposit).length,
     settlementConfirms: successEvents(events, ACTIONS.settlementConfirm).length,
   };
 
@@ -52,8 +71,14 @@ export function aggregateWorkspaceProductMetrics(
       onboardingWorkspaceCreated: milestone(events, ACTIONS.workspaceCreate),
       inviteCreated: milestone(events, ACTIONS.inviteCreate),
       inviteAccepted: milestone(events, ACTIONS.inviteAccept),
+      expenseDraftCreated: milestone(events, ACTIONS.expenseDraft),
       firstExpensePosted: milestone(events, ACTIONS.expensePost),
+      pettyCashDeposited: milestone(events, ACTIONS.pettyCashDeposit),
       settlementCompleted: milestone(events, ACTIONS.settlementConfirm),
+    },
+    conversions: {
+      inviteAcceptPerCreate: conversion(events, ACTIONS.inviteCreate, ACTIONS.inviteAccept),
+      expensePostPerDraft: conversion(events, ACTIONS.expenseDraft, ACTIONS.expensePost),
     },
   };
 }

@@ -191,10 +191,22 @@ export function ProductMetricsView() {
           count: metrics.counts.inviteAccepts,
         },
         {
+          key: "expenseDraft",
+          label: "پیش‌نویس خرج",
+          milestone: metrics.milestones.expenseDraftCreated,
+          count: metrics.counts.expenseDrafts,
+        },
+        {
           key: "expense",
           label: "خرج ثبت‌شده روی مانده",
           milestone: metrics.milestones.firstExpensePosted,
           count: metrics.counts.expensePosts,
+        },
+        {
+          key: "petty",
+          label: "واریز تنخواه",
+          milestone: metrics.milestones.pettyCashDeposited,
+          count: metrics.counts.pettyCashDeposits,
         },
         {
           key: "settlement",
@@ -235,6 +247,20 @@ export function ProductMetricsView() {
           <StatusLine>
             منبع: audit ({metrics.auditPersistence === "postgres" ? "Postgres" : "حافظه"}) ·{" "}
             {new Intl.NumberFormat("fa-IR").format(metrics.eventCount)} رویداد قابل‌خواندن
+            {metrics.conversions.inviteAcceptPerCreate ? (
+              <>
+                {" "}
+                · پذیرش دعوت {metrics.conversions.inviteAcceptPerCreate.toCount.toLocaleString("fa-IR")} از{" "}
+                {metrics.conversions.inviteAcceptPerCreate.fromCount.toLocaleString("fa-IR")}
+              </>
+            ) : null}
+            {metrics.conversions.expensePostPerDraft ? (
+              <>
+                {" "}
+                · ثبت روی مانده {metrics.conversions.expensePostPerDraft.toCount.toLocaleString("fa-IR")} از{" "}
+                {metrics.conversions.expensePostPerDraft.fromCount.toLocaleString("fa-IR")} پیش‌نویس
+              </>
+            ) : null}
           </StatusLine>
 
           {metrics.eventCount === 0 ? (

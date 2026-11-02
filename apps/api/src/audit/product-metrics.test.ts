@@ -45,6 +45,8 @@ test("aggregateWorkspaceProductMetrics counts only success actions", () => {
     "2026-01-02T00:00:00.000Z",
   );
   assert.equal(metrics.milestones.inviteAccepted.reached, false);
+  assert.equal(metrics.conversions.inviteAcceptPerCreate, null);
+  assert.equal(metrics.conversions.expensePostPerDraft, null);
   assert.equal(metrics.eventCount, 4);
   assert.equal(metrics.auditPersistence, "memory");
 });
@@ -54,4 +56,40 @@ test("empty audit yields honest empty milestones", () => {
   assert.equal(metrics.eventCount, 0);
   assert.equal(metrics.milestones.onboardingWorkspaceCreated.reached, false);
   assert.equal(metrics.milestones.settlementCompleted.firstAt, null);
+  assert.equal(metrics.conversions.expensePostPerDraft, null);
+});
+
+test("conversion counts drafts, posts, and deposits without copying metadata", () => {
+  const events: AuditRecord[] = [
+    ev({
+      action: "expense.draft.create",
+      occurredAt: "2026-02-01T00:00:00.000Z",
+      metadata: { amountMinor: "900000", note: "secret" },
+    }),
+    ev({ action: "expense.draft.create", occurredAt: "2026-02-02T00:00:00.000Z" }),
+    ev({ action: "expense.post", occurredAt: "2026-02-03T00:00:00.000Z" }),
+    ev({ action: "petty_cash.deposit_credit", occurredAt: "2026-02-04T00:00:00.000Z" }),
+    ev({ action: "invite.create", occurredAt: "2026-02-05T00:00:00.000Z" }),
+    ev({ action: "invite.accept", occurredAt: "2026-02-06T00:00:00.000Z" }),
+  ];
+  const metrics = aggregateWorkspaceProductMetrics("ws-1", events, "postgres");
+  assert.equal(metrics.counts.expenseDrafts, 2);
+  assert.equal(metrics.counts.expensePosts, 1);
+  assert.equal(metrics.counts.pettyCashDeposits, 1);
+  assert.deepEqual(metrics.conversions.expensePostPerDraft, {
+    fromAction: "expense.draft.create",
+    toAction: "expense.post",
+    fromCount: 2,
+    toCount: 1,
+  });
+  assert.deepEqual(metrics.conversions.inviteAcceptPerCreate, {
+    fromAction: "invite.create",
+    toAction: "invite.accept",
+    fromCount: 1,
+    toCount: 1,
+  });
+  const serialized = JSON.stringify(metrics);
+  assert.equal(serialized.includes("900000"), false);
+  assert.equal(serialized.includes("secret"), false);
+  assert.equal(serialized.includes("amountMinor"), false);
 });

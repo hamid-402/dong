@@ -9,8 +9,20 @@ export type ProductMetricCounts = {
   inviteAccepts: number;
   /** `expense.post` successes (ledger-applied expenses) */
   expensePosts: number;
+  /** `expense.draft.create` successes */
+  expenseDrafts: number;
+  /** `petty_cash.deposit_credit` successes */
+  pettyCashDeposits: number;
   /** `settlement.claim.confirm` successes */
   settlementConfirms: number;
+};
+
+/** A step pair taken only from success counts. Absent when the earlier step is zero. */
+export type ProductMetricConversion = {
+  fromAction: string;
+  toAction: string;
+  fromCount: number;
+  toCount: number;
 };
 
 export type ProductMetricMilestone = {
@@ -34,6 +46,12 @@ export type WorkspaceProductMetricsResponse = {
     inviteCreated: ProductMetricMilestone;
     inviteAccepted: ProductMetricMilestone;
     firstExpensePosted: ProductMetricMilestone;
+    expenseDraftCreated: ProductMetricMilestone;
+    pettyCashDeposited: ProductMetricMilestone;
     settlementCompleted: ProductMetricMilestone;
+  };
+  conversions: {
+    inviteAcceptPerCreate: ProductMetricConversion | null;
+    expensePostPerDraft: ProductMetricConversion | null;
   };
 };
