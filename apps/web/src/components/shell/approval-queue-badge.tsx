@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { isExpenseApproverRole } from "@dang/contracts";
 import { ShellIconSvg } from "@/components/shell/shell-icons";
-import { api } from "@/lib/api";
+import { approvalQueueApi } from "@/lib/api/approval-queue";
 import { useLiveInvalidation } from "@/lib/live-invalidation";
 import { useOptionalAppChrome } from "@/lib/use-app-chrome";
 import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
@@ -49,7 +49,7 @@ export function ApprovalQueueBadge({ workspaceId }: { workspaceId?: string }) {
 
     async function refresh() {
       try {
-        const res = await api.approvalQueueCount(effectiveWorkspaceId);
+        const res = await approvalQueueApi.approvalQueueCount(effectiveWorkspaceId);
         if (!cancelled) setCount(res.count);
       } catch {
         if (!cancelled) setCount(null);

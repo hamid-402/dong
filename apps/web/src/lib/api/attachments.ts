@@ -1,4 +1,4 @@
-import type { AttachmentSummary, CommentSummary, CreateAttachmentRequest, CreateCommentRequest, NotificationSummary, OcrReceiptResult } from "@dang/contracts";
+import type { AttachmentSummary, CommentSummary, CreateAttachmentRequest, CreateCommentRequest, OcrReceiptResult } from "@dang/contracts";
 import {
   API_BASE,
   ApiError,
@@ -8,6 +8,7 @@ import {
   getDevIdentity,
 } from "./client";
 import { postWithOfflineQueue } from "./offline-post";
+import { notificationsApi } from "./notifications";
 
 /** Comment, attachment and notification endpoints — domain slice (dong-50 #30). */
 export const attachmentsApi = {
@@ -94,15 +95,5 @@ export const attachmentsApi = {
       `/workspaces/${workspaceId}/attachments/${attachmentId}/ocr`,
       { method: "POST", body: "{}" },
     ),
-  listNotifications: (workspaceId: string) =>
-    apiFetch<NotificationSummary[]>(`/workspaces/${workspaceId}/notifications`),
-  /** SSE path for fetch-stream client (R10-18). */
-  notificationsStreamPath: (workspaceId: string) =>
-    `/workspaces/${workspaceId}/notifications/stream`,
-  markNotificationRead: (workspaceId: string, notificationId: string) =>
-    postWithOfflineQueue<NotificationSummary>({
-      path: `/workspaces/${workspaceId}/notifications/${notificationId}/read`,
-      body: "{}",
-      label: "خواندن اعلان",
-    }),
+  ...notificationsApi,
 };

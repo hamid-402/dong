@@ -1,6 +1,6 @@
 /* App-shell cache for production offline. Never cache /_next/ assets. */
-const CACHE = "dang-shell-v4";
-const SHELL = ["/", "/home", "/login", "/manifest.webmanifest", "/icon.svg"];
+const CACHE = "dang-shell-v5";
+const SHELL = ["/", "/home", "/login", "/offline.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
@@ -23,7 +23,7 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   // Always network for Next bundles — hashed/chunk paths go stale after rebuild.
-  if (url.pathname.startsWith("/_next/")) {
+  if (url.pathname.startsWith("/_next/") || url.pathname.startsWith("/api/")) {
     event.respondWith(fetch(request));
     return;
   }
@@ -40,7 +40,16 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => caches.match(request)),
+        .catch(async () => {
+          const cached = await caches.match(request);
+          if (cached) return cached;
+          const offline = await caches.match("/offline.html");
+          if (offline) return offline;
+          return new Response("offline", {
+            status: 503,
+            headers: { "content-type": "text/plain; charset=utf-8" },
+          });
+        }),
     );
     return;
   }

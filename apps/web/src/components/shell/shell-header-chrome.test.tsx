@@ -32,6 +32,11 @@ vi.mock("@/lib/api", () => ({
   clearClientSession,
 }));
 
+vi.mock("@/lib/api/client", () => ({
+  authApi: { logout },
+  clearClientSession,
+}));
+
 vi.mock("@/lib/use-app-chrome", () => ({
   useAppChrome: () => ({
     ready: true,

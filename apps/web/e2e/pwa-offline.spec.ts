@@ -22,7 +22,9 @@ test.describe("PWA offline app-shell", () => {
     expect(body).toMatch(/install|fetch/);
     expect(body).toContain("caches");
     expect(body).toContain('"/home"');
-    expect(body).toContain("dang-shell-v4");
+    expect(body).toContain("dang-shell-v5");
+    expect(body).toContain('startsWith("/api/")');
+    expect(body).toContain("/offline.html");
   });
 
   test("web manifest starts at the canonical home", async ({ request }) => {

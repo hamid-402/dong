@@ -3,9 +3,9 @@
 import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SHELL_APPEARANCE_DIALOG_ID } from "@/components/theme-toggle";
+import { SHELL_APPEARANCE_DIALOG_ID } from "@/components/appearance-dialog-id";
 import { useShellV2Api } from "@/components/shell/shell-v2-context";
-import { api, clearClientSession } from "@/lib/api";
+import { authApi, clearClientSession } from "@/lib/api/client";
 import { useAppChrome } from "@/lib/use-app-chrome";
 
 /** Avatar menu: notice, account, appearance, and logout. */
@@ -48,7 +48,7 @@ export function HeaderProfileButton({ notice = null }: { notice?: ReactNode }) {
     setOpen(false);
     startTransition(() => {
       void (async () => {
-        await api.logout();
+        await authApi.logout();
         clearClientSession();
         router.push("/login");
       })();

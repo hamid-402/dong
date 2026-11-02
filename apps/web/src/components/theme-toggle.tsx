@@ -5,13 +5,13 @@ import { createPortal } from "react-dom";
 import { APP_THEMES, useOptionalTheme } from "@/lib/theme";
 import { AppearanceFields } from "@/components/appearance-fields";
 import { useShellV2Api } from "@/components/shell/shell-v2-context";
+import { SHELL_APPEARANCE_DIALOG_ID } from "@/components/appearance-dialog-id";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
+
+export { SHELL_APPEARANCE_DIALOG_ID };
 
 const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
-
-/** Stable id so the profile menu can point at the shell-level dialog. */
-export const SHELL_APPEARANCE_DIALOG_ID = "shell-appearance-dialog";
 
 /**
  * Appearance dialog portal. Lives outside the profile menu so choosing a theme

@@ -20,7 +20,8 @@ import { KindAggregatePanel } from "@/components/shell/kind-aggregate-panel";
 import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { KindMoodBadge } from "@/components/visual/kind-mood-badge";
 import { t } from "@/lib/i18n";
-import { api } from "@/lib/api";
+import { systemApi } from "@/lib/api/system";
+import { personalFinanceApi } from "@/lib/api/personal-finance";
 import {
   filterLivePinnedWorkspaces,
   filterLiveRecentWorkspaces,
@@ -248,7 +249,7 @@ export function SpacesHubView({
     let cancelled = false;
     void (async () => {
       try {
-        const health = await api.healthReady();
+        const health = await systemApi.healthReady();
         if (cancelled) return;
         if (health.status === "ready") {
           const db = health.checks?.database === "ok" ? "دیتابیس آماده" : "بدون تأیید DB";
@@ -280,7 +281,7 @@ export function SpacesHubView({
     });
     void (async () => {
       try {
-        const dash = await api.personalDashboard();
+        const dash = await personalFinanceApi.personalDashboard();
         if (cancelled) return;
         const byId = new Map(
           dash.finance.workspaces.map((line) => [line.workspaceId, line] as const),

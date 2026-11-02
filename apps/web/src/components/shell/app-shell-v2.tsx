@@ -1,12 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { NotificationBell } from "@/components/notification-bell";
 import { ApprovalQueueBadge } from "@/components/shell/approval-queue-badge";
 import { HeaderProfileButton } from "@/components/header-profile-button";
-import { AppearanceDialog } from "@/components/theme-toggle";
 import { AppChromeProvider, useAppChrome } from "@/lib/use-app-chrome";
 import { SessionGate } from "@/components/session-gate";
 import { ShellLocationProvider, ShellV2Provider, useShellV2Api } from "@/components/shell/shell-v2-context";
@@ -18,7 +18,6 @@ import { ShellHeaderSearchField } from "@/components/shell/shell-header-search";
 import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { ShellSpaceSwitcher } from "@/components/shell/shell-space-switcher";
 import { ShellKindHeaderSwitcher } from "@/components/shell/shell-kind-header-switcher";
-import { CommandPalette } from "@/components/shell/command-palette";
 import { WorkspaceSectionTabs } from "@/components/shell/space-kind-header-tabs";
 import { bottomTabsV2, shellExpenseFabHref } from "@/lib/navigation-v2";
 import { canonicalHref, wPath } from "@/lib/workspace-paths";
@@ -30,6 +29,15 @@ import { spaceKindForTemplate, type SpaceKind } from "@dang/contracts";
 import { assignKindGems, shellKindStyle } from "@/lib/tile-gem-palettes";
 import { useWorkspaceMembershipRole } from "@/lib/use-workspace-membership-role";
 import { spaceNavFlagsFromCapabilities } from "@/lib/workspace-page-access";
+
+const CommandPalette = dynamic(
+  () => import("@/components/shell/command-palette").then((mod) => mod.CommandPalette),
+  { ssr: false },
+);
+const AppearanceDialog = dynamic(
+  () => import("@/components/theme-toggle").then((mod) => mod.AppearanceDialog),
+  { ssr: false },
+);
 
 function AppShellV2Inner({ children }: { children: ReactNode }) {
   const chrome = useAppChrome();

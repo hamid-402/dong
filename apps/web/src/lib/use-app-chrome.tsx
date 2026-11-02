@@ -17,7 +17,10 @@ import type {
   SessionSummary,
   WorkspaceSummary,
 } from "@dang/contracts";
-import { api, getDevIdentity, setDevIdentity, type SystemCapabilities } from "@/lib/api";
+import { authApi, getDevIdentity, setDevIdentity } from "@/lib/api/client";
+import { systemApi, type SystemCapabilities } from "@/lib/api/system";
+import { workspacesApi } from "@/lib/api/workspaces";
+import { notificationsApi } from "@/lib/api/notifications";
 import { DisplayUnitProvider } from "@/lib/display-unit";
 import { persistenceLabelFa } from "@/lib/status-labels";
 import { publishLiveInvalidation } from "@/lib/live-invalidation";
@@ -142,7 +145,7 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      const list = await api.listNotifications(workspaceId);
+      const list = await notificationsApi.listNotifications(workspaceId);
       setNotifications(list);
       setNotificationsError(null);
     } catch {
@@ -154,7 +157,7 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
   const markNotificationRead = useCallback(
     async (notificationId: string) => {
       if (!workspaceId) return;
-      const updated = await api.markNotificationRead(workspaceId, notificationId);
+      const updated = await notificationsApi.markNotificationRead(workspaceId, notificationId);
       setNotifications((prev) =>
         prev.map((item) => (item.id === notificationId ? updated : item)),
       );
@@ -170,15 +173,15 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
         setDevIdentity(identity.subject, identity.displayName);
         // SessionGate already verified auth — single bootstrap for product chrome.
         const [meSettled, capsSettled, list] = await Promise.all([
-          api.me().then(
+          authApi.me().then(
             (v) => ({ ok: true as const, value: v }),
             () => ({ ok: false as const, value: null }),
           ),
-          api.capabilities().then(
+          systemApi.capabilities().then(
             (v) => ({ ok: true as const, value: v }),
             () => ({ ok: false as const, value: null }),
           ),
-          api.listWorkspaces(),
+          workspacesApi.listWorkspaces(),
         ]);
         if (cancelled) return;
 
@@ -241,7 +244,7 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
     }
     void (async () => {
       try {
-        const list = await api.listNotifications(workspaceId);
+        const list = await notificationsApi.listNotifications(workspaceId);
         if (!cancelled) {
           setNotifications(list);
           setNotificationsError(null);

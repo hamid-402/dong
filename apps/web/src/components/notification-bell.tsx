@@ -9,7 +9,8 @@ import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { EmptyStateBlock } from "@/components/ui-blocks";
 import { ContentSkeleton } from "@/components/shell/content-skeleton";
 import { useShellV2Api } from "@/components/shell/shell-v2-context";
-import { api } from "@/lib/api";
+import { notificationsApi } from "@/lib/api/notifications";
+import { workspacesApi } from "@/lib/api/workspaces";
 import { friendlyErrorMessage } from "@/lib/api-errors";
 import { notificationActionLabel, notificationInboxActions, notificationTargetHref } from "@/lib/notification-routes";
 import { useOptionalAppChrome } from "@/lib/use-app-chrome";
@@ -91,7 +92,7 @@ export function NotificationBell({ workspaceId, initialUnreadCount = 0 }: Notifi
     setError(null);
     void (async () => {
       try {
-        const list = await api.listNotifications(effectiveWorkspaceId);
+        const list = await notificationsApi.listNotifications(effectiveWorkspaceId);
         setItems(list);
       } catch (err: unknown) {
         setError(friendlyErrorMessage(err, "بارگذاری اعلان‌ها ناموفق"));
@@ -125,7 +126,7 @@ export function NotificationBell({ workspaceId, initialUnreadCount = 0 }: Notifi
     }
     const ids = chrome.presenceUserIds;
     let cancelled = false;
-    void api
+    void workspacesApi
       .listMembers(effectiveWorkspaceId)
       .then((members: MembershipSummary[]) => {
         if (cancelled) return;
@@ -202,7 +203,7 @@ export function NotificationBell({ workspaceId, initialUnreadCount = 0 }: Notifi
               await chrome.markNotificationRead(notification.id);
               setItems(chrome.notifications);
             } else {
-              const updated = await api.markNotificationRead(
+              const updated = await notificationsApi.markNotificationRead(
                 effectiveWorkspaceId,
                 notification.id,
               );
@@ -386,7 +387,7 @@ export function NotificationBell({ workspaceId, initialUnreadCount = 0 }: Notifi
                                           await chrome.markNotificationRead(notification.id);
                                           setItems(chrome.notifications);
                                         } else {
-                                          const updated = await api.markNotificationRead(
+                                          const updated = await notificationsApi.markNotificationRead(
                                             effectiveWorkspaceId,
                                             notification.id,
                                           );
