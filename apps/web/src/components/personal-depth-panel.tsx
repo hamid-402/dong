@@ -427,7 +427,7 @@ export function PersonalDepthPanel({
                           marginTop: 4,
                           height: 6,
                           borderRadius: 3,
-                          background: "color-mix(in srgb, var(--line) 80%, transparent)",
+                          background: "color-mix(in srgb, var(--dang-line) 80%, transparent)",
                           overflow: "hidden",
                         }}
                       >
@@ -436,7 +436,7 @@ export function PersonalDepthPanel({
                             display: "block",
                             height: "100%",
                             width: `${Math.min(100, Math.max(0, g.progressPercent))}%`,
-                            background: "var(--primary)",
+                            background: "var(--dang-primary)",
                           }}
                         />
                       </span>

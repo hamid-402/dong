@@ -39,7 +39,7 @@
 
 .mainSticker {
   display: block;
-  filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--primary, #0d6b63) 18%, transparent));
+  filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--dang-primary, #0d6b63) 18%, transparent));
 }
 
 .alive .iconWell {
@@ -59,7 +59,7 @@
 .copy strong {
   font-size: 0.98rem;
   font-weight: 750;
-  color: var(--fg, var(--text));
+  color: var(--fg, var(--dang-text));
   letter-spacing: -0.015em;
   line-height: 1.25;
 }
@@ -71,7 +71,7 @@
 .copy span {
   font-size:0.875rem;
   line-height: 1.45;
-  color: var(--muted);
+  color: var(--dang-muted);
   max-width: 36rem;
 }
 

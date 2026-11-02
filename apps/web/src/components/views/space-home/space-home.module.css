@@ -64,7 +64,7 @@
   margin: 0;
   font-size: clamp(1.25rem, 2.4vw, 1.55rem);
   font-weight: 750;
-  color: var(--text);
+  color: var(--dang-text);
   line-height: 1.25;
 }
 
@@ -73,9 +73,9 @@
   align-items: center;
   padding: 0.15rem 0.55rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--line));
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
-  color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--dang-primary) 28%, var(--dang-line));
+  background: color-mix(in srgb, var(--dang-primary) 8%, var(--dang-surface));
+  color: var(--dang-primary);
   font-size: 0.75rem;
   font-weight: 650;
   line-height: 1.4;
@@ -92,8 +92,8 @@
   margin: 0;
   padding: 1rem 1.1rem;
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--line));
-  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--dang-primary) 22%, var(--dang-line));
+  background: var(--dang-surface);
   display: grid;
   gap: 0.35rem;
 }
@@ -102,7 +102,7 @@
   margin: 0;
   font-size: 0.8125rem;
   font-weight: 650;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .keyAmount {
@@ -110,26 +110,26 @@
   font-size: clamp(1.45rem, 3vw, 1.85rem);
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--text);
+  color: var(--dang-text);
   line-height: 1.15;
 }
 
 .keyAmount[data-tone="credit"] {
-  color: var(--primary);
+  color: var(--dang-primary);
 }
 
 .keyAmount[data-tone="debt"] {
-  color: var(--danger);
+  color: var(--dang-danger);
 }
 
 .keyAmount[data-tone="settled"] {
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .keyMeta {
   margin: 0;
   font-size: 0.8125rem;
-  color: var(--muted);
+  color: var(--dang-muted);
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem 0.75rem;
@@ -146,13 +146,13 @@
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .calmEmpty {
   margin: 0;
   font-size: 0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
   line-height: 1.5;
 }
 
@@ -172,8 +172,8 @@
   gap: 0.5rem 0.75rem;
   padding: 0.65rem 0.75rem;
   border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--surface);
+  border: 1px solid var(--dang-line);
+  background: var(--dang-surface);
 }
 
 .listCopy {
@@ -185,12 +185,12 @@
 .listCopy strong {
   font-size: 0.9rem;
   font-weight: 650;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .listCopy small {
   font-size: 0.8rem;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .listAction {
@@ -201,8 +201,8 @@
   margin: 0;
   padding: 0.85rem 1rem 1rem;
   border-radius: 14px;
-  border: 1px solid var(--line);
-  background: var(--surface);
+  border: 1px solid var(--dang-line);
+  background: var(--dang-surface);
   display: grid;
   gap: 0.5rem;
 }
@@ -210,7 +210,7 @@
 .chartLink {
   font-size: 0.8125rem;
   font-weight: 650;
-  color: var(--primary);
+  color: var(--dang-primary);
   text-decoration: none;
 }
 
@@ -224,9 +224,9 @@
 }
 
 .collapsedExtra {
-  border: 1px solid var(--line);
+  border: 1px solid var(--dang-line);
   border-radius: 12px;
-  background: var(--surface);
+  background: var(--dang-surface);
   padding: 0 0.75rem;
 }
 
@@ -236,7 +236,7 @@
   padding: 0.7rem 0;
   font-size: 0.875rem;
   font-weight: 650;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .collapsedExtra > summary::-webkit-details-marker {
@@ -244,8 +244,8 @@
 }
 
 .collapsedExtra[open] > summary {
-  color: var(--text);
-  border-bottom: 1px solid var(--line);
+  color: var(--dang-text);
+  border-bottom: 1px solid var(--dang-line);
   margin-bottom: 0.65rem;
 }
 
@@ -255,7 +255,7 @@
   gap: 0.25rem;
   font-size: 0.8125rem;
   font-weight: 650;
-  color: var(--primary);
+  color: var(--dang-primary);
   text-decoration: none;
   width: fit-content;
 }
@@ -270,12 +270,12 @@
 }
 
 .destLink {
-  color: var(--text);
+  color: var(--dang-text);
   text-decoration: none;
 }
 
 .destLink:hover {
-  color: var(--primary);
+  color: var(--dang-primary);
   text-decoration: underline;
 }
 
@@ -294,7 +294,7 @@
 }
 
 .outingList a {
-  color: var(--primary);
+  color: var(--dang-primary);
   font-weight: 650;
   text-decoration: none;
   font-size: 0.875rem;

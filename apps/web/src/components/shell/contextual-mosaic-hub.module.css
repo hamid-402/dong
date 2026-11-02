@@ -11,19 +11,19 @@
 .hub:not(.compact){
   margin-block: 8px;
   padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 72%, transparent);
   border-radius: 18px;
   background:
-    radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 40%),
-    var(--surface);
+    radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--dang-primary) 12%, transparent), transparent 40%),
+    var(--dang-surface);
 }
 
 /* Demoted mosaic — quieter chrome, same tiles/links */
 .hub.secondary:not(.compact){
   margin-block: 2px 6px;
   padding: 10px 12px;
-  border-color: color-mix(in srgb, var(--line) 88%, transparent);
-  background: color-mix(in srgb, var(--surface) 97%, transparent);
+  border-color: color-mix(in srgb, var(--dang-line) 88%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 97%, transparent);
   box-shadow: none;
 }
 
@@ -35,11 +35,11 @@
 .hub.secondary .header h2{
   font-size: 1rem;
   font-weight: 650;
-  color: color-mix(in srgb, var(--text) 82%, var(--muted));
+  color: color-mix(in srgb, var(--dang-text) 82%, var(--dang-muted));
 }
 
 .hub.secondary .header > div > span{
-  color: var(--muted);
+  color: var(--dang-muted);
   letter-spacing: 0.06em;
 }
 
@@ -61,7 +61,7 @@
 }
 
 .header > div > span{
-  color: var(--primary);
+  color: var(--dang-primary);
   font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -75,7 +75,7 @@
 
 .header p{
   margin: 4px 0 0;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size: 0.95rem;
   line-height: 1.5;
 }
@@ -83,8 +83,8 @@
 .header > small{
   padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid var(--line);
-  color: var(--muted);
+  border: 1px solid var(--dang-line);
+  color: var(--dang-muted);
   font-size:0.875rem;
 }
 
@@ -103,14 +103,14 @@
 
 .sectionHead h3{
   margin: 0;
-  color: var(--text);
+  color: var(--dang-text);
   font-size: 1.05rem;
   font-weight: 750;
 }
 
 .sectionHead p{
   margin: 0;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size: 0.9rem;
   flex: 0 1 auto;
   text-align: start;
@@ -215,7 +215,7 @@
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.45;
-  color: color-mix(in srgb, var(--mosaic-ink) 88%, transparent);
+  color: var(--dang-text);
 }
 
 .body .intent{
@@ -250,12 +250,12 @@
 .tile .fact b{
   font-size:0.875rem;
   font-weight: 800;
-  color: var(--mosaic-ink);
+  color: var(--dang-text);
 }
 
 .tile .fact small{
   font-size:0.875rem;
-  color: color-mix(in srgb, var(--mosaic-ink) 70%, transparent);
+  color: var(--dang-muted);
 }
 
 .tile .fact_attention{
@@ -269,7 +269,7 @@
   position: absolute;
   border-radius: 50%;
   pointer-events: none;
-  border: 1px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 35%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tile-gem-mid, var(--dang-primary)) 35%, transparent);
 }
 
 .tile::before{
@@ -289,7 +289,7 @@
 }
 
 .tile:focus-visible{
-  outline: 3px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 70%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--tile-gem-mid, var(--dang-primary)) 70%, transparent);
   outline-offset: 3px;
 }
 
@@ -324,24 +324,23 @@
   top: 8px;
   inset-inline-end: 8px;
   z-index: 2;
-  width: 24px;
-  height: 24px;
+  width: var(--dang-touch);
+  height: var(--dang-touch);
   display: grid;
   place-items: center;
   border: none;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--chip-highlight) 55%, transparent);
-  color: color-mix(in srgb, var(--mosaic-ink) 70%, transparent);
+  background: var(--dang-surface);
+  color: var(--dang-text);
   cursor: pointer;
   font-size:0.875rem;
-  opacity: 0.85;
 }
 
 .pin:hover,
 .pinActive{
   opacity: 1;
   background: var(--chip-highlight);
-  color: var(--gold);
+  color: var(--dang-gold);
 }
 
 .compact{
@@ -450,7 +449,7 @@
 /* Theme text and chips. */
 :global(html[data-scheme="dark"]) .tile::before,
 :global(html[data-scheme="dark"]) .tile::after{
-  border-color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 55%, transparent);
+  border-color: color-mix(in srgb, var(--tile-gem-center, var(--dang-primary)) 55%, transparent);
   opacity: 0.65;
 }
 
@@ -462,7 +461,7 @@
 
 :global(html[data-scheme="dark"]) .tile .fact{
   background: color-mix(in srgb, var(--mosaic-fact-shade) 70%, var(--tile-gem-edge, var(--mosaic-edge-ink)) 12%);
-  border: 1px solid color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 35%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tile-gem-mid, var(--dang-primary)) 35%, transparent);
 }
 
 :global(html[data-scheme="dark"]) .tile .fact b,
@@ -471,9 +470,9 @@
 }
 
 :global(html[data-scheme="dark"]) .pin{
-  background: color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 28%, transparent);
+  background: color-mix(in srgb, var(--tile-gem-mid, var(--dang-primary)) 28%, transparent);
   color: var(--mosaic-pin-ink);
-  border-color: color-mix(in srgb, var(--tile-gem-center, var(--primary)) 40%, transparent);
+  border-color: color-mix(in srgb, var(--tile-gem-center, var(--dang-primary)) 40%, transparent);
 }
 
 

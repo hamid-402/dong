@@ -1,13 +1,13 @@
 .command {
-  --ls-ink: var(--text);
+  --ls-ink: var(--dang-text);
   /* Prefer finance-scoped AA ink when ancestor sets --finance-muted-ink. */
-  --ls-muted: var(--finance-muted-ink, var(--muted));
-  --ls-line: var(--line);
-  --ls-teal: var(--primary);
-  --ls-amber: var(--warning);
-  --ls-slate: var(--muted);
-  --ls-forest: var(--success);
-  --ls-copper: var(--warning);
+  --ls-muted: var(--finance-muted-ink, var(--dang-muted));
+  --ls-line: var(--dang-line);
+  --ls-teal: var(--dang-primary);
+  --ls-amber: var(--dang-warning);
+  --ls-slate: var(--dang-muted);
+  --ls-forest: var(--dang-success);
+  --ls-copper: var(--dang-warning);
 
   position: relative;
   isolation: isolate;
@@ -31,13 +31,13 @@
     ),
     linear-gradient(
       155deg,
-      color-mix(in srgb, var(--surface) 86%, var(--ls-teal) 14%) 0%,
-      var(--surface) 42%,
-      color-mix(in srgb, var(--surface) 94%, var(--ls-amber) 6%) 100%
+      color-mix(in srgb, var(--dang-surface) 86%, var(--ls-teal) 14%) 0%,
+      var(--dang-surface) 42%,
+      color-mix(in srgb, var(--dang-surface) 94%, var(--ls-amber) 6%) 100%
     );
   box-shadow:
-    0 1px 0 color-mix(in srgb, var(--surface) 35%, transparent) inset,
-    0 22px 48px -32px color-mix(in srgb, var(--text) 20%, transparent);
+    0 1px 0 color-mix(in srgb, var(--dang-surface) 35%, transparent) inset,
+    0 22px 48px -32px color-mix(in srgb, var(--dang-text) 20%, transparent);
   animation: lsEnter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -105,7 +105,7 @@
   gap: 0.15rem;
   padding: 0.2rem;
   border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 55%, transparent);
   border: 1px solid var(--ls-line);
   backdrop-filter: blur(8px);
 }
@@ -150,7 +150,7 @@
   gap: 0.85rem;
   padding: 1rem 1.05rem 1.1rem;
   border-radius: 0.95rem;
-  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 72%, transparent);
   border: 1px solid var(--ls-line);
   animation: lsFade 380ms ease both;
   animation-delay: 80ms;
@@ -216,16 +216,16 @@
   height: 0.55rem;
   border-radius: 999px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--text) 8%, transparent);
+  background: color-mix(in srgb, var(--dang-text) 8%, transparent);
 }
 
 .flowSave {
-  background: linear-gradient(90deg, var(--warning), color-mix(in srgb, var(--warning) 72%, var(--danger)));
+  background: linear-gradient(90deg, var(--dang-warning), color-mix(in srgb, var(--dang-warning) 72%, var(--dang-danger)));
   transition: flex-basis 320ms ease;
 }
 
 .flowSpend {
-  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 70%, var(--text)));
+  background: linear-gradient(90deg, var(--dang-primary), color-mix(in srgb, var(--dang-primary) 70%, var(--dang-text)));
 }
 
 .stageMeta {
@@ -250,7 +250,7 @@
 
 .statusOk {
   background: var(--dang-success-soft);
-  color: var(--success);
+  color: var(--dang-success);
   border-color: var(--dang-success-line);
 }
 
@@ -261,7 +261,7 @@
 }
 
 .statusEmpty {
-  background: color-mix(in srgb, var(--text) 7%, transparent);
+  background: color-mix(in srgb, var(--dang-text) 7%, transparent);
   color: var(--ls-muted);
 }
 
@@ -344,7 +344,7 @@
   border-radius: 0.7rem;
   text-decoration: none;
   color: inherit;
-  background: color-mix(in srgb, var(--surface) 58%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 58%, transparent);
   border: 1px solid color-mix(in srgb, var(--ls-line) 80%, var(--d-accent) 20%);
   border-inline-start: 3px solid var(--d-accent);
   transition:
@@ -355,20 +355,20 @@
 
 .domain:hover {
   transform: translateY(-2px);
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 78%, transparent);
   border-color: color-mix(in srgb, var(--d-accent) 45%, var(--ls-line));
 }
 
 .domain:focus-visible {
   outline: none;
-  box-shadow: var(--focus-ring, 0 0 0 3px color-mix(in srgb, var(--ls-teal) 40%, transparent));
+  box-shadow: var(--dang-focus-ring, 0 0 0 3px color-mix(in srgb, var(--ls-teal) 40%, transparent));
 }
 
 .domainSolo {
   --d-accent: var(--ls-teal);
 }
 .domainGroup {
-  --d-accent: var(--gold);
+  --d-accent: var(--dang-gold);
 }
 .domainBuilding {
   --d-accent: var(--ls-slate);
@@ -399,7 +399,7 @@
 .bar {
   height: 0.38rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 9%, transparent);
+  background: color-mix(in srgb, var(--dang-text) 9%, transparent);
   overflow: hidden;
 }
 
@@ -409,13 +409,13 @@
   background: linear-gradient(
     90deg,
     var(--d-accent),
-    color-mix(in srgb, var(--d-accent) 55%, var(--surface))
+    color-mix(in srgb, var(--d-accent) 55%, var(--dang-surface))
   );
   transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .barFillOver {
-  background: linear-gradient(90deg, var(--danger), color-mix(in srgb, var(--danger) 70%, var(--warning)));
+  background: linear-gradient(90deg, var(--dang-danger), color-mix(in srgb, var(--dang-danger) 70%, var(--dang-warning)));
 }
 
 .domainMeta {
@@ -434,7 +434,7 @@
 .panel {
   border-radius: 0.8rem;
   border: 1px solid var(--ls-line);
-  background: color-mix(in srgb, var(--surface) 65%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 65%, transparent);
   overflow: hidden;
 }
 
@@ -519,7 +519,7 @@
 }
 
 .percentSumOk {
-  color: var(--success);
+  color: var(--dang-success);
   font-weight: 650;
 }
 
@@ -534,13 +534,13 @@
 .flashError {
   background: var(--dang-danger-soft);
   border: 1px solid var(--dang-danger-line);
-  color: var(--danger);
+  color: var(--dang-danger);
 }
 
 .flashInfo {
   background: color-mix(in srgb, var(--ls-teal) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--ls-teal) 26%, transparent);
-  color: color-mix(in srgb, var(--ls-teal) 70%, var(--text));
+  color: color-mix(in srgb, var(--ls-teal) 70%, var(--dang-text));
 }
 
 .loadingPulse {
@@ -548,9 +548,9 @@
   border-radius: 0.85rem;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--text) 5%, transparent),
-    color-mix(in srgb, var(--text) 10%, transparent),
-    color-mix(in srgb, var(--text) 5%, transparent)
+    color-mix(in srgb, var(--dang-text) 5%, transparent),
+    color-mix(in srgb, var(--dang-text) 10%, transparent),
+    color-mix(in srgb, var(--dang-text) 5%, transparent)
   );
   background-size: 200% 100%;
   animation: lsShimmer 1.2s ease infinite;

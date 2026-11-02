@@ -371,13 +371,14 @@ export function WorkspaceInviteView() {
                         "fa",
                       );
                     return (
-                      <li key={m.userId} role="option" aria-selected={selectedRow}>
+                      <li key={m.userId} role="none">
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           className={styles.memberRow}
-                          aria-pressed={selectedRow}
+                          role="option"
+                          aria-selected={selectedRow}
                           onClick={() => setSelectedMemberId(m.userId)}
                         >
                           <span className={styles.avatar} aria-hidden>

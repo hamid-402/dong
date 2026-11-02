@@ -494,22 +494,22 @@ export function ExpenseListPanel({
                 {label}
               </button>
             ))}
-            <button
-              type="button"
-              className={
-                showReversed
-                  ? `${styles.filterChip} ${styles.filterChipActive}`
-                  : styles.filterChip
-              }
-              aria-pressed={showReversed}
-              onClick={() => setShowReversed((v) => !v)}
-            >
-              ابطال‌شده
-              {reversedHiddenCount > 0
-                ? ` (${reversedHiddenCount.toLocaleString("fa-IR")})`
-                : ""}
-            </button>
           </div>
+          <button
+            type="button"
+            className={
+              showReversed
+                ? `${styles.filterChip} ${styles.filterChipActive}`
+                : styles.filterChip
+            }
+            aria-pressed={showReversed}
+            onClick={() => setShowReversed((v) => !v)}
+          >
+            ابطال‌شده
+            {reversedHiddenCount > 0
+              ? ` (${reversedHiddenCount.toLocaleString("fa-IR")})`
+              : ""}
+          </button>
         </div>
 
         <div className={styles.filtersGrid}>

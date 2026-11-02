@@ -2,9 +2,9 @@
   display: grid;
   gap: 10px;
   padding: 12px 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--dang-line);
   border-radius: var(--m-r-md, 12px);
-  background: color-mix(in srgb, var(--surface) 92%, var(--primary) 4%);
+  background: color-mix(in srgb, var(--dang-surface) 92%, var(--dang-primary) 4%);
 }
 
 .head {
@@ -24,7 +24,7 @@
 }
 
 .head a {
-  color: var(--primary);
+  color: var(--dang-primary);
   font-size:0.875rem;
   font-weight: 650;
   text-decoration: none;
@@ -32,7 +32,7 @@
 
 .count,
 .meta {
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
   font-weight: 600;
 }
@@ -40,14 +40,14 @@
 .error,
 .empty {
   margin: 0;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
   line-height: 1.5;
 }
 
 .cta {
   justify-self: start;
-  color: var(--primary);
+  color: var(--dang-primary);
   font-weight: 650;
   text-decoration: none;
 }
@@ -78,7 +78,7 @@
 }
 
 .quickMain:hover {
-  background: var(--primary-soft);
+  background: var(--dang-primary-soft);
 }
 
 .quickMain b {
@@ -91,7 +91,7 @@
 
 .quickMain small,
 .list small {
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
 }
 
@@ -100,7 +100,7 @@
 .more {
   border: 0;
   background: transparent;
-  color: var(--muted);
+  color: var(--dang-muted);
   cursor: pointer;
   font: inherit;
 }
@@ -113,30 +113,30 @@
 
 .pinOn,
 .pin:hover {
-  color: var(--primary);
-  background: var(--primary-soft);
+  color: var(--dang-primary);
+  background: var(--dang-primary-soft);
 }
 
 .charge {
   padding: 6px 8px;
   border-radius: 8px;
-  color: var(--primary);
+  color: var(--dang-primary);
   font-size:0.875rem;
   font-weight: 650;
   text-decoration: none;
 }
 
 .charge:hover {
-  background: var(--primary-soft);
+  background: var(--dang-primary-soft);
 }
 
 .search input {
   width: 100%;
   box-sizing: border-box;
   padding: 8px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--dang-line);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--dang-surface);
   color: inherit;
   font: inherit;
   font-size:0.875rem;
@@ -163,7 +163,7 @@
 }
 
 .list a:hover {
-  background: var(--primary-soft);
+  background: var(--dang-primary-soft);
 }
 
 .list b {
@@ -174,7 +174,7 @@
 .more {
   justify-self: start;
   padding: 6px 0;
-  color: var(--primary);
+  color: var(--dang-primary);
   font-size:0.875rem;
   font-weight: 650;
 }

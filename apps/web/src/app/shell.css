@@ -1925,8 +1925,9 @@ html[data-scheme="dark"] .shell-tools__folder-tile--attention .shell-tools__fold
   min-width: 32px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: var(--dang-primary-soft);
-  color: var(--dang-primary);
+  background: var(--dang-surface);
+  color: var(--dang-text);
+  border: 1px solid var(--dang-line);
   font-size:0.875rem;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -2523,7 +2524,7 @@ html[data-density="compact"] .shell-page-trail__back{
 .spaces-hubPage__chrome .moduleChrome__desc{
   margin-top: 8px;
   font-size: 1.02rem;
-  color: var(--module-chrome-desc, var(--muted));
+  color: var(--dang-text);
   line-height: 1.6;
   max-width: 52rem;
 }
@@ -7206,4 +7207,18 @@ html[data-density="compact"] .shell-v2__header {
     border-radius: 16px 16px 0 0;
     padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
   }
+}
+
+.sectionCardDesc,
+.sectionCardHead > small,
+.sectionCardHeadMain > small,
+.sectionCardHead > b,
+.sectionCardHeadMain > b,
+.dang-label,
+.statusLine,
+.sectionCardBody > .statusLine,
+.moduleChrome__desc,
+.financeAaScope .moduleChrome__desc,
+.moduleChrome__title{
+  color: var(--dang-text);
 }

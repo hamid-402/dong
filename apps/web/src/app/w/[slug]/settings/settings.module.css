@@ -12,30 +12,30 @@
   margin: 0 0 16px;
   padding: 20px 20px 18px;
   border-radius: 18px;
-  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 82%, transparent);
   background:
     radial-gradient(
       90% 120% at 0% 0%,
-      color-mix(in srgb, var(--accent) 12%, transparent),
+      color-mix(in srgb, var(--dang-primary) 12%, transparent),
       transparent 55%
     ),
     linear-gradient(
       145deg,
       color-mix(in srgb, var(--surface-elevated) 88%, transparent),
-      var(--surface)
+      var(--dang-surface)
     );
   box-shadow: 0 18px 40px -32px color-mix(in srgb, #000 50%, transparent);
 }
 
 .lifecycleHero[data-state="archived"] {
-  border-color: color-mix(in srgb, #b54708 35%, var(--line));
+  border-color: color-mix(in srgb, #b54708 35%, var(--dang-line));
   background:
     radial-gradient(
       90% 120% at 0% 0%,
       color-mix(in srgb, #b54708 12%, transparent),
       transparent 55%
     ),
-    var(--surface);
+    var(--dang-surface);
 }
 
 .lifecycleKicker {
@@ -43,7 +43,7 @@
   font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 0.05em;
-  color: var(--accent);
+  color: var(--dang-primary);
 }
 
 .lifecycleTitle {
@@ -73,7 +73,7 @@
   display: grid;
   gap: 2px;
   padding: 10px 12px;
-  border-top: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--dang-line) 72%, transparent);
 }
 
 .lifecycleStats div:nth-child(1),
@@ -101,7 +101,7 @@
   gap: 8px;
   margin: 0 0 16px;
   padding: 8px 0;
-  background: color-mix(in srgb, var(--bg, var(--surface)) 88%, transparent);
+  background: color-mix(in srgb, var(--dang-bg, var(--dang-surface)) 88%, transparent);
   backdrop-filter: blur(8px);
 }
 
@@ -111,7 +111,7 @@
   min-height: 34px;
   padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 85%, transparent);
   background: color-mix(in srgb, var(--surface-elevated) 70%, transparent);
   color: inherit;
   text-decoration: none;
@@ -122,13 +122,13 @@
 
 .jumpNav a:hover,
 .jumpNav a:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  border-color: color-mix(in srgb, var(--dang-primary) 55%, var(--dang-line));
 }
 
 .jumpNav a[data-active] {
-  border-color: color-mix(in srgb, var(--accent) 65%, var(--line));
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--text);
+  border-color: color-mix(in srgb, var(--dang-primary) 65%, var(--dang-line));
+  background: color-mix(in srgb, var(--dang-primary) 12%, transparent);
+  color: var(--dang-text);
 }
 
 :global(#payout) {
@@ -148,7 +148,7 @@
   align-items: center;
   padding: 13px 14px;
   margin-bottom: 16px;
-  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 82%, transparent);
   border-radius: 14px;
   background: color-mix(in srgb, var(--surface-elevated) 76%, transparent);
 }
@@ -167,16 +167,16 @@
   position: sticky;
   top: 88px;
   padding: 20px;
-  border: 1px solid color-mix(in srgb, var(--line) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 86%, transparent);
   border-radius: 18px;
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 42%),
-    var(--surface);
+    linear-gradient(145deg, color-mix(in srgb, var(--dang-primary) 8%, transparent), transparent 42%),
+    var(--dang-surface);
   box-shadow: 0 16px 48px rgb(0 0 0 / 14%);
 }
 
 .inspector > span {
-  color: var(--accent);
+  color: var(--dang-primary);
   font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -192,7 +192,7 @@
   display: grid;
   gap: 3px;
   padding: 10px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--dang-line) 70%, transparent);
 }
 
 .inspector dt,
@@ -225,7 +225,7 @@
   gap: 6px;
   min-height: 104px;
   padding: 15px;
-  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 82%, transparent);
   border-radius: 14px;
   color: inherit;
   background: color-mix(in srgb, var(--surface-elevated) 68%, transparent);
@@ -235,8 +235,8 @@
 
 .routeGrid a:hover,
 .routeGrid a:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 58%, var(--line));
-  background: color-mix(in srgb, var(--accent) 7%, var(--surface-elevated));
+  border-color: color-mix(in srgb, var(--dang-primary) 58%, var(--dang-line));
+  background: color-mix(in srgb, var(--dang-primary) 7%, var(--surface-elevated));
   transform: translateY(-2px);
 }
 

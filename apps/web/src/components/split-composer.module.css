@@ -10,7 +10,7 @@ button.linkish:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--primary);
+  color: var(--dang-primary);
   font: inherit;
   font-weight: 650;
   text-decoration: underline;
@@ -19,5 +19,5 @@ button.linkish:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
 
 button.linkish:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
   background: transparent;
-  color: var(--primary);
+  color: var(--dang-primary);
 }

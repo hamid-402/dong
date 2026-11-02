@@ -146,9 +146,9 @@
 
 .tileActive {
   box-shadow:
-    inset 0 0 0 2px color-mix(in srgb, var(--tile-gem-center, var(--primary)) 55%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--tile-gem-mid, var(--primary)) 34%, transparent),
-    0 12px 30px color-mix(in srgb, var(--tile-gem-edge, var(--primary)) 26%, transparent);
+    inset 0 0 0 2px color-mix(in srgb, var(--tile-gem-center, var(--dang-primary)) 55%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--tile-gem-mid, var(--dang-primary)) 34%, transparent),
+    0 12px 30px color-mix(in srgb, var(--tile-gem-edge, var(--dang-primary)) 26%, transparent);
 }
 
 .tone_in,

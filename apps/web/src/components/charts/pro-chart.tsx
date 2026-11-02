@@ -483,7 +483,7 @@ function DonutChart({ series }: { series: ChartSeriesResponse }) {
           cy={cy}
           r={r}
           fill="none"
-          stroke="color-mix(in srgb, var(--line) 80%, transparent)"
+          stroke="color-mix(in srgb, var(--dang-line) 80%, transparent)"
           strokeWidth={stroke}
         />
         {arcs.map((arc, index) => (
@@ -509,7 +509,7 @@ function DonutChart({ series }: { series: ChartSeriesResponse }) {
           x={cx}
           y={cy - 4}
           textAnchor="middle"
-          fill="var(--text)"
+          fill="var(--dang-text)"
           fontSize="11"
           fontWeight="700"
         >
@@ -519,7 +519,7 @@ function DonutChart({ series }: { series: ChartSeriesResponse }) {
           x={cx}
           y={cy + 12}
           textAnchor="middle"
-          fill="var(--muted)"
+          fill="var(--dang-muted)"
           fontSize="9"
         >
           تومان

@@ -6,7 +6,7 @@
   border: none;
   box-shadow: none;
   line-height: 0;
-  filter: drop-shadow(0 2px 5px color-mix(in srgb, var(--primary) 14%, transparent));
+  filter: drop-shadow(0 2px 5px color-mix(in srgb, var(--dang-primary) 14%, transparent));
 }
 
 .badge[data-kind="personal"] {

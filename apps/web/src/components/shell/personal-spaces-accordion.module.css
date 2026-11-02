@@ -1,10 +1,10 @@
 .accordion {
-  --ps-line: var(--line);
-  --ps-muted: var(--muted);
-  --ps-teal: var(--primary);
-  --ps-amber: var(--warning);
-  --ps-slate: var(--muted);
-  --ps-forest: var(--success);
+  --ps-line: var(--dang-line);
+  --ps-muted: var(--dang-muted);
+  --ps-teal: var(--dang-primary);
+  --ps-amber: var(--dang-warning);
+  --ps-slate: var(--dang-muted);
+  --ps-forest: var(--dang-success);
 
   display: grid;
   gap: 0.55rem;
@@ -41,24 +41,24 @@
   background:
     linear-gradient(
       125deg,
-      color-mix(in srgb, var(--surface) 88%, var(--g-accent) 12%) 0%,
-      color-mix(in srgb, var(--surface) 96%, transparent) 55%
+      color-mix(in srgb, var(--dang-surface) 88%, var(--g-accent) 12%) 0%,
+      color-mix(in srgb, var(--dang-surface) 96%, transparent) 55%
     );
   overflow: hidden;
   transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 
 .group[data-kind="group"] {
-  --g-accent: var(--primary);
+  --g-accent: var(--dang-primary);
 }
 .group[data-kind="building"] {
-  --g-accent: var(--gold);
+  --g-accent: var(--dang-gold);
 }
 .group[data-kind="org"] {
-  --g-accent: var(--info);
+  --g-accent: var(--dang-info);
 }
 .group[data-kind="personal"] {
-  --g-accent: var(--primary);
+  --g-accent: var(--dang-primary);
 }
 
 .group[open] {
@@ -87,7 +87,7 @@
   display: grid;
   place-items: center;
   background: color-mix(in srgb, var(--g-accent) 12%, transparent);
-  color: color-mix(in srgb, var(--g-accent) 42%, var(--text));
+  color: color-mix(in srgb, var(--g-accent) 42%, var(--dang-text));
   transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -132,7 +132,7 @@
   padding: 0.2rem 0.55rem;
   border-radius: 0.4rem;
   background: color-mix(in srgb, var(--g-accent) 12%, transparent);
-  color: color-mix(in srgb, var(--g-accent) 48%, var(--text));
+  color: color-mix(in srgb, var(--g-accent) 48%, var(--dang-text));
   border: 1px solid color-mix(in srgb, var(--g-accent) 22%, transparent);
 }
 
@@ -142,7 +142,7 @@
   padding: 0.35rem 0.85rem;
   border-radius: 0.6rem;
   border: 1px solid var(--ps-line);
-  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 72%, transparent);
   font-size: 1.05rem;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
@@ -214,7 +214,7 @@
   padding: 0 0.7rem;
   border-radius: 0.55rem;
   border: 1px solid color-mix(in srgb, var(--g-accent) 28%, var(--ps-line));
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 88%, transparent);
   color: inherit;
   text-decoration: none;
   font-size:0.875rem;
@@ -228,7 +228,7 @@
 }
 
 .archivedTag {
-  color: var(--warning);
+  color: var(--dang-warning);
   font-weight: 700;
 }
 
@@ -284,9 +284,9 @@
   border-radius: 0.85rem;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--text) 5%, transparent),
-    color-mix(in srgb, var(--text) 9%, transparent),
-    color-mix(in srgb, var(--text) 5%, transparent)
+    color-mix(in srgb, var(--dang-text) 5%, transparent),
+    color-mix(in srgb, var(--dang-text) 9%, transparent),
+    color-mix(in srgb, var(--dang-text) 5%, transparent)
   );
   background-size: 200% 100%;
   animation: psShimmer 1.15s ease infinite;

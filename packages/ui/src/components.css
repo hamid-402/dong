@@ -144,7 +144,7 @@ fieldset.dang-field {
 }
 
 .dang-label {
-  color: var(--dang-muted);
+  color: var(--dang-text);
   font-size: var(--text-xs);
   font-weight: 500;
   line-height: var(--leading-body);
@@ -207,7 +207,7 @@ textarea.dang-control {
 }
 
 .dang-field__hint {
-  color: var(--dang-muted);
+  color: var(--dang-text);
 }
 
 .dang-field__error {

@@ -7,15 +7,15 @@
   background:
     linear-gradient(
       152deg,
-      color-mix(in srgb, var(--surface) 92%, var(--primary) 8%) 0%,
-      var(--surface) 55%
+      color-mix(in srgb, var(--dang-surface) 92%, var(--dang-primary) 8%) 0%,
+      var(--dang-surface) 55%
     ),
-    var(--surface);
-  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+    var(--dang-surface);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 88%, transparent);
   box-shadow:
-    0 1px 0 color-mix(in srgb, var(--surface) 70%, transparent) inset,
+    0 1px 0 color-mix(in srgb, var(--dang-surface) 70%, transparent) inset,
     0 14px 36px -22px color-mix(in srgb, var(--shadow-ink) 28%, transparent);
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .glow {
@@ -25,7 +25,7 @@
   height: 90%;
   background: radial-gradient(
     closest-side,
-    color-mix(in srgb, var(--primary) 22%, transparent),
+    color-mix(in srgb, var(--dang-primary) 22%, transparent),
     transparent 72%
   );
   pointer-events: none;
@@ -35,7 +35,7 @@
 .personal .glow {
   background: radial-gradient(
     closest-side,
-    color-mix(in srgb, var(--accent) 20%, transparent),
+    color-mix(in srgb, var(--dang-primary) 20%, transparent),
     transparent 72%
   );
 }
@@ -51,12 +51,12 @@
   margin: 0;
   font-size:0.875rem;
   letter-spacing: 0.06em;
-  color: var(--primary);
+  color: var(--dang-primary);
   font-weight: 650;
 }
 
 .personal .kicker {
-  color: var(--accent);
+  color: var(--dang-primary);
 }
 
 .title {
@@ -65,14 +65,14 @@
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.25;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .lede {
   margin: 0.35rem 0 0;
   font-size:0.875rem;
   line-height: 1.45;
-  color: var(--muted);
+  color: var(--dang-muted);
   max-width: 36rem;
 }
 
@@ -88,18 +88,18 @@
   font-weight: 750;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .unit {
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .emptyAmount {
   font-size: 1.6rem;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .actions {
@@ -118,7 +118,7 @@ a.ctaLink:visited {
   min-height: 2.35rem;
   padding: 0 1.05rem;
   border-radius: 0.55rem;
-  background: var(--primary-deep);
+  background: var(--dang-primary-deep);
   color: var(--dang-primary-ink);
   text-decoration: none;
   font-size: 0.88rem;
@@ -139,7 +139,7 @@ a.ctaLink:visited {
 
 .quietLink {
   font-size:0.875rem;
-  color: var(--primary);
+  color: var(--dang-primary);
   text-decoration: none;
 }
 
@@ -148,7 +148,7 @@ a.ctaLink:visited {
 }
 
 .personal .quietLink {
-  color: var(--accent);
+  color: var(--dang-primary);
 }
 
 .compact {

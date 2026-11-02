@@ -98,7 +98,7 @@ function RedirectInner({
   }, [page, pathname, router]);
 
   return (
-    <main id="main" className="app-viewport" style={{ alignItems: "center", color: "var(--muted)" }}>
+    <main id="main" className="app-viewport" style={{ alignItems: "center", color: "var(--dang-muted)" }}>
       <p>{message}</p>
     </main>
   );
@@ -116,7 +116,7 @@ export function ClassicToWorkspaceRedirect({
   return (
     <Suspense
       fallback={
-        <main id="main" className="app-viewport" style={{ alignItems: "center", color: "var(--muted)" }}>
+        <main id="main" className="app-viewport" style={{ alignItems: "center", color: "var(--dang-muted)" }}>
           <p>انتقال…</p>
         </main>
       }

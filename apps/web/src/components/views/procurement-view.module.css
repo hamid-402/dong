@@ -9,15 +9,15 @@
   position: sticky;
   top: 12px;
   padding: 15px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--dang-line);
   border-radius: 14px;
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--gold) 6%, transparent), transparent 55%),
-    var(--surface-2);
+    linear-gradient(145deg, color-mix(in srgb, var(--dang-gold) 6%, transparent), transparent 55%),
+    var(--dang-surface-2);
 }
 
 .inspector > span {
-  color: var(--primary);
+  color: var(--dang-primary);
   font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 0.09em;
@@ -25,7 +25,7 @@
 
 .inspector h3 {
   margin: 8px 0 6px;
-  color: var(--text);
+  color: var(--dang-text);
   font-size: 15px;
 }
 
@@ -38,17 +38,17 @@
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--dang-line);
   font-size:0.875rem;
 }
 
 .inspector dt {
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .inspector dd {
   margin: 0;
-  color: var(--text);
+  color: var(--dang-text);
   text-align: left;
 }
 

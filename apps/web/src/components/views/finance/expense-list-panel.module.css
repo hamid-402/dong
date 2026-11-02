@@ -191,8 +191,9 @@
   appearance: none;
   border: 1px solid color-mix(in srgb, var(--dang-line) 88%, transparent);
   background: var(--dang-surface);
-  color: var(--dang-muted);
+  color: var(--dang-text);
   border-radius: 9px;
+  min-height: var(--dang-touch);
   padding: 6px 12px;
   font: inherit;
   font-size:0.875rem;

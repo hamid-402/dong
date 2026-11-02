@@ -35,11 +35,11 @@
 }
 
 .barPrimary {
-  fill: color-mix(in srgb, var(--accent) 85%, var(--bar-primary-deep));
+  fill: color-mix(in srgb, var(--dang-primary) 85%, var(--bar-primary-deep));
 }
 
 .barSecondary {
-  fill: color-mix(in srgb, var(--accent) 35%, var(--bar-secondary-wash));
+  fill: color-mix(in srgb, var(--dang-primary) 35%, var(--bar-secondary-wash));
 }
 
 .table {

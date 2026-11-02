@@ -11,8 +11,8 @@
 }
 
 .selectedRow :global(.dataRow) {
-  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
-  background: color-mix(in srgb, var(--primary-soft) 36%, var(--surface));
+  border-color: color-mix(in srgb, var(--dang-primary) 42%, var(--dang-line));
+  background: color-mix(in srgb, var(--dang-primary-soft) 36%, var(--dang-surface));
 }
 
 .inspector {
@@ -20,15 +20,15 @@
   position: sticky;
   top: 14px;
   padding: 17px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--dang-line);
   border-radius: 15px;
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--gold) 7%, transparent), transparent 55%),
-    var(--surface-2);
+    linear-gradient(145deg, color-mix(in srgb, var(--dang-gold) 7%, transparent), transparent 55%),
+    var(--dang-surface-2);
 }
 
 .inspector > span {
-  color: var(--primary);
+  color: var(--dang-primary);
   font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 0.09em;
@@ -36,7 +36,7 @@
 
 .inspector h3 {
   margin: 8px 0 6px;
-  color: var(--text);
+  color: var(--dang-text);
   font-size: 17px;
 }
 
@@ -49,17 +49,17 @@
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--dang-line);
   font-size:0.875rem;
 }
 
 .inspector dt {
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .inspector dd {
   margin: 0;
-  color: var(--text);
+  color: var(--dang-text);
   text-align: left;
 }
 

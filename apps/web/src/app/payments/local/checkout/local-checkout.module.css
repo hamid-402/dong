@@ -5,10 +5,10 @@
   padding: 1.5rem;
   position: relative;
   background:
-    radial-gradient(120% 80% at 10% 0%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 55%),
-    radial-gradient(90% 70% at 90% 100%, color-mix(in srgb, var(--gold) 12%, transparent), transparent 50%),
-    var(--bg);
-  color: var(--text);
+    radial-gradient(120% 80% at 10% 0%, color-mix(in srgb, var(--dang-primary) 18%, transparent), transparent 55%),
+    radial-gradient(90% 70% at 90% 100%, color-mix(in srgb, var(--dang-gold) 12%, transparent), transparent 50%),
+    var(--dang-bg);
+  color: var(--dang-text);
 }
 
 .ambient {
@@ -18,7 +18,7 @@
   background-image: linear-gradient(
     120deg,
     transparent 40%,
-    color-mix(in srgb, var(--primary) 6%, transparent) 50%,
+    color-mix(in srgb, var(--dang-primary) 6%, transparent) 50%,
     transparent 60%
   );
   opacity: 0.7;
@@ -28,10 +28,10 @@
   position: relative;
   width: min(100%, 28rem);
   padding: 1.75rem 1.5rem 1.5rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--dang-line);
   border-radius: 16px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  box-shadow: var(--shadow);
+  background: color-mix(in srgb, var(--dang-surface) 92%, transparent);
+  box-shadow: var(--dang-shadow);
   backdrop-filter: blur(8px);
 }
 
@@ -41,9 +41,9 @@
   gap: 10px;
   margin: 0 0 1rem;
   padding: 8px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--dang-line);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+  background: color-mix(in srgb, var(--dang-surface-2) 88%, transparent);
 }
 
 .back {
@@ -53,22 +53,22 @@
   display: inline-flex;
   align-items: center;
   border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--fill-subtle);
-  color: var(--text);
+  border: 1px solid var(--dang-line);
+  background: var(--dang-fill-subtle);
+  color: var(--dang-text);
   text-decoration: none;
   font-size:0.875rem;
   font-weight: 650;
 }
 
 .back:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--dang-primary);
+  color: var(--dang-primary);
 }
 
 .crumb {
   min-width: 0;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
   font-weight: 600;
   overflow: hidden;
@@ -80,7 +80,7 @@
   margin: 0 0 0.35rem;
   font-size:0.875rem;
   letter-spacing: 0.04em;
-  color: var(--primary);
+  color: var(--dang-primary);
   font-weight: 700;
 }
 
@@ -93,7 +93,7 @@
 
 .lead {
   margin: 0 0 1.25rem;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size: 0.95rem;
   line-height: 1.55;
 }
@@ -113,7 +113,7 @@
 .unit {
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .desc {
@@ -124,18 +124,18 @@
 .meta {
   margin: 0;
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .error {
   margin: 0 0 1rem;
-  color: var(--danger);
+  color: var(--dang-danger);
   font-size: 0.95rem;
 }
 
 .success {
   display: grid;
   gap: 0.5rem;
-  color: var(--success);
+  color: var(--dang-success);
   font-weight: 600;
 }

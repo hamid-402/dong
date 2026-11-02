@@ -8,15 +8,15 @@
   display: grid;
   gap: 14px;
   padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 82%, transparent);
   border-radius: 15px;
   background: color-mix(in srgb, var(--surface-elevated) 78%, transparent);
 }
 
 .sessions article.currentSession {
-  border-color: color-mix(in srgb, var(--accent) 62%, var(--line));
+  border-color: color-mix(in srgb, var(--dang-primary) 62%, var(--dang-line));
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 52%),
+    linear-gradient(145deg, color-mix(in srgb, var(--dang-primary) 9%, transparent), transparent 52%),
     color-mix(in srgb, var(--surface-elevated) 78%, transparent);
 }
 
@@ -79,10 +79,10 @@
   gap: 8px;
   min-height: 132px;
   padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 82%, transparent);
   border-radius: 15px;
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 50%),
+    linear-gradient(145deg, color-mix(in srgb, var(--dang-primary) 7%, transparent), transparent 50%),
     color-mix(in srgb, var(--surface-elevated) 78%, transparent);
 }
 

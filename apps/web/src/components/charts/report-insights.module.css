@@ -23,13 +23,13 @@
   gap: 4px;
   padding: 12px 14px;
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 75%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 94%, transparent);
   min-width: 0;
 }
 
 .label {
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
   font-weight: 650;
 }
@@ -43,26 +43,26 @@
 }
 
 .hint {
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
   line-height: 1.35;
 }
 
 .tone_up .value {
-  color: color-mix(in srgb, var(--danger) 88%, var(--text));
+  color: color-mix(in srgb, var(--dang-danger) 88%, var(--dang-text));
 }
 
 .tone_down .value {
-  color: color-mix(in srgb, var(--success) 88%, var(--text));
+  color: color-mix(in srgb, var(--dang-success) 88%, var(--dang-text));
 }
 
 .tone_attention {
-  border-color: color-mix(in srgb, var(--gold) 40%, var(--line));
+  border-color: color-mix(in srgb, var(--dang-gold) 40%, var(--dang-line));
   background:
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--gold) 10%, transparent),
+      color-mix(in srgb, var(--dang-gold) 10%, transparent),
       transparent 55%
     ),
-    color-mix(in srgb, var(--surface) 94%, transparent);
+    color-mix(in srgb, var(--dang-surface) 94%, transparent);
 }

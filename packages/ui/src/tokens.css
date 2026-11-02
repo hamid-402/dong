@@ -93,10 +93,10 @@
   --dang-info-line: #7539d0;
   --dang-placeholder: #625b53;
 
-  /* Module chrome only — not shared body/text tokens (WCAG AA on light wash). */
-  --module-chrome-title: #6a6560;
-  --module-chrome-desc: #6e6967;
-  --ux-secondary-action-link: #6e6967;
+  /* Module chrome — same ink as body text so titles stay AA on the tinted card. */
+  --module-chrome-title: var(--dang-text);
+  --module-chrome-desc: var(--dang-muted);
+  --ux-secondary-action-link: var(--dang-text);
 
   --dang-fill-subtle: color-mix(in srgb, var(--dang-text) 4%, transparent);
   --dang-fill-soft: color-mix(in srgb, var(--dang-text) 6%, transparent);
@@ -158,10 +158,10 @@
   --dang-info-line: #8a6dba;
   --dang-placeholder: #5a5a60;
 
-  /* Module chrome only — not shared body/text tokens (WCAG AA on light wash). */
-  --module-chrome-title: #6a6560;
-  --module-chrome-desc: #6e6967;
-  --ux-secondary-action-link: #6e6967;
+  /* Module chrome — same ink as body text so titles stay AA on the tinted card. */
+  --module-chrome-title: var(--dang-text);
+  --module-chrome-desc: var(--dang-muted);
+  --ux-secondary-action-link: var(--dang-text);
 
   --dang-fill-subtle: color-mix(in srgb, var(--dang-text) 4%, transparent);
   --dang-fill-soft: color-mix(in srgb, var(--dang-text) 6%, transparent);

@@ -18,14 +18,14 @@
   align-items: center;
   gap: 8px;
   font-size: 0.9rem;
-  color: var(--muted);
+  color: var(--dang-muted);
   padding-bottom: 8px;
 }
 
 .addForm {
   margin-bottom: 16px;
   padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 80%, transparent);
   border-radius: 14px;
   background: color-mix(in srgb, var(--surface-elevated) 75%, transparent);
 }
@@ -34,7 +34,7 @@
   appearance: none;
   border: 0;
   background: transparent;
-  color: var(--accent);
+  color: var(--dang-primary);
   text-align: start;
   padding: 0;
   cursor: pointer;
@@ -66,7 +66,7 @@
   list-style: none;
   margin: 0 0 8px;
   padding: 8px 12px;
-  border-inline-start: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-inline-start: 3px solid color-mix(in srgb, var(--dang-primary) 45%, transparent);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -74,6 +74,6 @@
 }
 
 .priceMeta {
-  color: var(--muted);
+  color: var(--dang-muted);
   margin-inline-start: 8px;
 }

@@ -264,8 +264,8 @@ export function SubunitsView() {
                     boxSizing: "border-box",
                     padding: "8px 10px",
                     borderRadius: 8,
-                    border: "1px solid var(--line)",
-                    background: "var(--surface)",
+                    border: "1px solid var(--dang-line)",
+                    background: "var(--dang-surface)",
                     color: "inherit",
                     font: "inherit",
                   }}

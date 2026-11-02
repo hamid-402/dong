@@ -25,13 +25,13 @@
   gap: 12px;
   align-items: center;
   padding: 4px;
-  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 82%, transparent);
   border-radius: 14px;
   background: color-mix(in srgb, var(--surface-elevated) 70%, transparent);
 }
 
 .list article.selected {
-  border-color: color-mix(in srgb, var(--accent) 62%, var(--line));
+  border-color: color-mix(in srgb, var(--dang-primary) 62%, var(--dang-line));
 }
 
 .rowButton {
@@ -48,7 +48,7 @@
 }
 
 .rowButton span {
-  color: var(--accent);
+  color: var(--dang-primary);
   font-size:0.875rem;
   font-weight: 800;
 }
@@ -62,9 +62,9 @@
   position: sticky;
   top: 88px;
   padding: 18px;
-  border: 1px solid color-mix(in srgb, var(--line) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 86%, transparent);
   border-radius: 17px;
-  background: var(--surface);
+  background: var(--dang-surface);
 }
 
 .inspector header {
@@ -108,7 +108,7 @@
   display: grid;
   gap: 4px;
   padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 82%, transparent);
   border-radius: 14px;
 }
 

@@ -5,14 +5,14 @@
   gap: 10px 14px;
   padding: 12px 14px;
   border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 78%, transparent);
   background:
     linear-gradient(
       120deg,
-      color-mix(in srgb, var(--primary) 6%, transparent),
+      color-mix(in srgb, var(--dang-primary) 6%, transparent),
       transparent 42%
     ),
-    color-mix(in srgb, var(--surface) 94%, transparent);
+    color-mix(in srgb, var(--dang-surface) 94%, transparent);
 }
 
 .lead {
@@ -22,13 +22,13 @@
 }
 
 .label {
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
   font-weight: 700;
 }
 
 .rangeHint {
-  color: var(--text);
+  color: var(--dang-text);
   font-size:0.875rem;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
@@ -42,9 +42,9 @@
 
 .chip {
   appearance: none;
-  border: 1px solid var(--line);
-  background: var(--bg);
-  color: var(--muted);
+  border: 1px solid var(--dang-line);
+  background: var(--dang-bg);
+  color: var(--dang-muted);
   border-radius: 999px;
   padding: 5px 12px;
   font: inherit;
@@ -54,8 +54,8 @@
 }
 
 .chip:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
-  color: var(--text);
+  border-color: color-mix(in srgb, var(--dang-primary) 35%, var(--dang-line));
+  color: var(--dang-text);
 }
 
 .chip:disabled {
@@ -64,9 +64,9 @@
 }
 
 .active {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
-  background: color-mix(in srgb, var(--surface) 82%, var(--primary) 12%);
+  color: var(--dang-text);
+  border-color: color-mix(in srgb, var(--dang-primary) 42%, var(--dang-line));
+  background: color-mix(in srgb, var(--dang-surface) 82%, var(--dang-primary) 12%);
 }
 
 .actions {
@@ -78,9 +78,9 @@
 
 .ghost {
   appearance: none;
-  border: 1px solid var(--line);
+  border: 1px solid var(--dang-line);
   background: transparent;
-  color: var(--text);
+  color: var(--dang-text);
   border-radius: 10px;
   padding: 5px 10px;
   font: inherit;
@@ -90,7 +90,7 @@
 }
 
 .ghost:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
+  border-color: color-mix(in srgb, var(--dang-primary) 35%, var(--dang-line));
 }
 
 .ghost:disabled {

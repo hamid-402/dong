@@ -3,10 +3,10 @@
   gap: 10px;
   padding: 14px 14px 16px;
   border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 78%, transparent);
   background:
-    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 45%),
-    color-mix(in srgb, var(--surface) 96%, transparent);
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--dang-primary) 10%, transparent), transparent 45%),
+    color-mix(in srgb, var(--dang-surface) 96%, transparent);
   min-width: 0;
 }
 
@@ -32,9 +32,9 @@
 .exportBtn {
   appearance: none;
   flex-shrink: 0;
-  border: 1px solid var(--line);
+  border: 1px solid var(--dang-line);
   background: transparent;
-  color: var(--muted);
+  color: var(--dang-muted);
   border-radius: 8px;
   padding: 3px 8px;
   font: inherit;
@@ -44,8 +44,8 @@
 }
 
 .exportBtn:hover {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
+  color: var(--dang-text);
+  border-color: color-mix(in srgb, var(--dang-primary) 35%, var(--dang-line));
 }
 
 @media print {
@@ -59,13 +59,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px 12px;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
 }
 
 .stat {
   font-weight: 700;
-  color: var(--text);
+  color: var(--dang-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -77,13 +77,13 @@
 }
 
 .gridLine {
-  stroke: color-mix(in srgb, var(--line) 70%, transparent);
+  stroke: color-mix(in srgb, var(--dang-line) 70%, transparent);
   stroke-width: 1;
   stroke-dasharray: 3 4;
 }
 
 .axisLabel {
-  fill: var(--muted);
+  fill: var(--dang-muted);
   font-size:0.875rem;
 }
 
@@ -96,12 +96,12 @@
 }
 
 .barMuted {
-  fill: color-mix(in srgb, var(--muted) 45%, transparent);
+  fill: color-mix(in srgb, var(--dang-muted) 45%, transparent);
 }
 
 .linePrimary {
   fill: none;
-  stroke: color-mix(in srgb, var(--primary) 88%, var(--dang-success));
+  stroke: color-mix(in srgb, var(--dang-primary) 88%, var(--dang-success));
   stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -113,14 +113,14 @@
 }
 
 .dot {
-  fill: color-mix(in srgb, var(--primary) 90%, light-dark(var(--dang-surface), var(--dang-text)));
-  stroke: var(--surface);
+  fill: color-mix(in srgb, var(--dang-primary) 90%, light-dark(var(--dang-surface), var(--dang-text)));
+  stroke: var(--dang-surface);
   stroke-width: 1.5;
 }
 
 .dotHot {
-  fill: color-mix(in srgb, var(--gold) 80%, light-dark(var(--dang-surface), var(--dang-text)));
-  stroke: var(--surface);
+  fill: color-mix(in srgb, var(--dang-gold) 80%, light-dark(var(--dang-surface), var(--dang-text)));
+  stroke: var(--dang-surface);
   stroke-width: 1.5;
 }
 
@@ -138,9 +138,9 @@
   border-radius: 8px 8px 4px 4px;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--line) 55%, transparent),
-    color-mix(in srgb, var(--muted) 22%, transparent),
-    color-mix(in srgb, var(--line) 55%, transparent)
+    color-mix(in srgb, var(--dang-line) 55%, transparent),
+    color-mix(in srgb, var(--dang-muted) 22%, transparent),
+    color-mix(in srgb, var(--dang-line) 55%, transparent)
   );
   background-size: 200% 100%;
   animation: chartSkel 1.2s ease-in-out infinite;
@@ -170,7 +170,7 @@
 }
 
 .valueTag {
-  fill: var(--text);
+  fill: var(--dang-text);
   font-size:0.875rem;
   font-weight: 700;
 }
@@ -183,7 +183,7 @@
   padding: 0;
   list-style: none;
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .legend i {
@@ -196,11 +196,11 @@
 }
 
 .legendPrimary {
-  background: color-mix(in srgb, var(--primary) 80%, var(--dang-success));
+  background: color-mix(in srgb, var(--dang-primary) 80%, var(--dang-success));
 }
 
 .legendSecondary {
-  background: color-mix(in srgb, var(--gold) 75%, var(--dang-gold));
+  background: color-mix(in srgb, var(--dang-gold) 75%, var(--dang-gold));
 }
 
 .table {
@@ -213,11 +213,11 @@
 .table td {
   text-align: start;
   padding: 6px 8px;
-  border-block-end: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+  border-block-end: 1px solid color-mix(in srgb, var(--dang-line) 65%, transparent);
 }
 
 .table th {
-  color: var(--muted);
+  color: var(--dang-muted);
   font-weight: 650;
 }
 
@@ -245,7 +245,7 @@
 .hbarTrack {
   height: 10px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--line) 65%, transparent);
+  background: color-mix(in srgb, var(--dang-line) 65%, transparent);
   overflow: hidden;
 }
 
@@ -255,15 +255,15 @@
   border-radius: inherit;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--primary) 70%, var(--dang-success-line)),
-    color-mix(in srgb, var(--primary) 45%, var(--dang-success))
+    color-mix(in srgb, var(--dang-primary) 70%, var(--dang-success-line)),
+    color-mix(in srgb, var(--dang-primary) 45%, var(--dang-success))
   );
 }
 
 .hbarVal {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-  color: var(--text);
+  color: var(--dang-text);
   white-space: nowrap;
 }
 
@@ -306,7 +306,7 @@
 
 .hint {
   margin: 0;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
 }
 
@@ -325,7 +325,7 @@
 .progressTrack {
   height: 12px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--line) 70%, transparent);
+  background: color-mix(in srgb, var(--dang-line) 70%, transparent);
   overflow: hidden;
 }
 
@@ -334,7 +334,7 @@
   border-radius: inherit;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--primary) 85%, var(--dang-success-line)),
-    color-mix(in srgb, var(--gold) 55%, var(--primary))
+    color-mix(in srgb, var(--dang-primary) 85%, var(--dang-success-line)),
+    color-mix(in srgb, var(--dang-gold) 55%, var(--dang-primary))
   );
 }

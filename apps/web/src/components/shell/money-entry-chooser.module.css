@@ -19,7 +19,7 @@
 
 .hint {
   margin: 0;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size: 0.92rem;
   line-height: 1.45;
 }
@@ -46,17 +46,17 @@
   gap: 4px;
   min-height: 64px;
   padding: 12px 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--dang-line);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 90%, var(--primary) 4%);
+  background: color-mix(in srgb, var(--dang-surface) 90%, var(--dang-primary) 4%);
   text-decoration: none;
   color: inherit;
-  transition: border-color 140ms var(--ease, ease), background 140ms var(--ease, ease);
+  transition: border-color 140ms var(--dang-ease, ease), background 140ms var(--dang-ease, ease);
 }
 
 .card:hover {
-  border-color: color-mix(in srgb, var(--primary) 40%, var(--line));
-  background: var(--primary-soft);
+  border-color: color-mix(in srgb, var(--dang-primary) 40%, var(--dang-line));
+  background: var(--dang-primary-soft);
 }
 
 .card strong {
@@ -65,7 +65,7 @@
 }
 
 .card span {
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size: 0.9rem;
   line-height: 1.45;
 }
@@ -102,8 +102,8 @@
   min-height: 7.5rem;
   padding: 16px 18px;
   border-radius: 14px;
-  border: 1px solid var(--line);
-  background: var(--surface);
+  border: 1px solid var(--dang-line);
+  background: var(--dang-surface);
   text-decoration: none;
   color: inherit;
 }
@@ -111,19 +111,20 @@
 .recordCard strong {
   font-size: 1.05rem;
   font-weight: 750;
+  color: var(--dang-text);
 }
 
 .recordCard span {
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size: 0.92rem;
   line-height: 1.5;
 }
 
 .recordCardJob {
-  border: 2px solid color-mix(in srgb, var(--primary) 45%, var(--line));
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  border: 2px solid color-mix(in srgb, var(--dang-primary) 45%, var(--dang-line));
+  background: color-mix(in srgb, var(--dang-primary) 8%, var(--dang-surface));
 }
 
 .recordCard:hover {
-  border-color: color-mix(in srgb, var(--primary) 40%, var(--line));
+  border-color: color-mix(in srgb, var(--dang-primary) 40%, var(--dang-line));
 }

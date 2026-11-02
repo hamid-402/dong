@@ -365,7 +365,7 @@ button.presetActive:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
 .tableScrollHint {
   display: none;
   margin: 6px 0 0;
-  color: var(--dang-muted, var(--muted));
+  color: var(--dang-muted);
   font-size: 0.875rem;
 }
 

@@ -3,7 +3,7 @@
   padding: 8px 12px;
   border-radius: 12px;
   border: 1px solid var(--dang-warning-line);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 92%, transparent);
   display: grid;
   gap: 8px;
   width: fit-content;
@@ -18,7 +18,7 @@
   margin: 0;
   font-size:0.875rem;
   line-height: 1.45;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-weight: 650;
   cursor: pointer;
   list-style: none;
@@ -30,7 +30,7 @@
 
 .lead::before {
   content: "▸ ";
-  color: var(--warning, #b45309);
+  color: var(--dang-warning, #b45309);
 }
 
 .stubs[open] .lead::before {
@@ -54,8 +54,8 @@
   margin: 0;
   padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid var(--line);
-  color: var(--text);
+  border: 1px solid var(--dang-line);
+  color: var(--dang-text);
   font-size:0.875rem;
   font-weight: 650;
   line-height: 1.35;
@@ -67,7 +67,7 @@
 }
 
 .mode {
-  background: color-mix(in srgb, var(--muted) 12%, var(--surface));
+  background: color-mix(in srgb, var(--dang-muted) 12%, var(--dang-surface));
 }
 
 .devAuth {
@@ -80,7 +80,7 @@
   cursor: pointer;
   font-size:0.875rem;
   font-weight: 700;
-  color: var(--warning);
+  color: var(--dang-warning);
   line-height: 1.4;
   list-style: none;
 }
@@ -91,7 +91,7 @@
 
 .devAuth summary::before {
   content: "▸ ";
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .devAuth[open] summary::before {
@@ -103,7 +103,7 @@
   padding: 8px 10px;
   border-radius: 8px;
   background: var(--dang-warning-soft);
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
   line-height: 1.45;
 }
@@ -112,5 +112,5 @@
   font-size:0.875rem;
   padding: 1px 4px;
   border-radius: 4px;
-  background: color-mix(in srgb, var(--text) 6%, transparent);
+  background: color-mix(in srgb, var(--dang-text) 6%, transparent);
 }

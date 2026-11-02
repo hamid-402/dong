@@ -1913,7 +1913,7 @@ html[data-motion="off"] .dang-motion-feedback *{
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--dang-line) 78%, transparent);
   border-radius: var(--dang-radius-lg);
-  background: color-mix(in srgb, var(--dang-surface) 94%, var(--dang-primary));
+  background: var(--dang-surface);
   box-shadow: 0 6px 16px color-mix(in srgb, var(--dang-bg) 24%, transparent);
   overflow: hidden;
 }
@@ -1955,7 +1955,11 @@ html[data-motion="off"] .dang-motion-feedback *{
   flex: 0 0 auto;
 }
 .moduleChrome__actions > :first-child:not(.uxSecondaryActions),
-.productHeaderActions > :first-child:not(.uxSecondaryActions){
+.productHeaderActions > :first-child:not(.uxSecondaryActions),
+.moduleChrome__actions > a:first-child:not(.uxSecondaryActions):link,
+.moduleChrome__actions > a:first-child:not(.uxSecondaryActions):visited,
+.productHeaderActions > a:first-child:not(.uxSecondaryActions):link,
+.productHeaderActions > a:first-child:not(.uxSecondaryActions):visited{
   color: var(--dang-primary-ink);
   background: var(--dang-primary);
   border-color: transparent;
@@ -2103,8 +2107,12 @@ html[data-scheme="light"] .sectionCard:hover{
   font-size: 0.92rem;
   font-weight: 650;
   letter-spacing: -0.01em;
+  color: var(--dang-text);
   border-bottom: 1px solid color-mix(in srgb, var(--dang-line) 75%, transparent);
   position: relative;
+}
+.sectionCardDesc{
+  color: var(--dang-muted);
 }
 .sectionCardHead::before{
   content: "";
@@ -2449,17 +2457,13 @@ html[data-scheme="light"] .sectionCard:hover{
   color: var(--dang-muted);
 }
 
-/* Finance workspace routes — scoped AA muted (light only; dark themes untouched). */
-:root .financeAaScope,
-html[data-theme="paper"] .financeAaScope,
-html[data-theme="white"] .financeAaScope{
-  --finance-muted-ink: #6e6967; /* ≥4.5:1 on #f5f1ea / #f7f4ee (~4.7); not shared --muted */
+/* Finance chrome ink follows the active theme so light and dark both stay AA. */
+.financeAaScope{
+  --finance-muted-ink: var(--dang-text);
 }
-.financeAaScope .financeContextFold__hint{
-  color: var(--finance-muted-ink, var(--dang-muted));
-}
+.financeAaScope .financeContextFold__hint,
 .financeAaScope .moduleChrome__desc{
-  color: var(--finance-muted-ink, var(--module-chrome-desc, var(--dang-muted)));
+  color: var(--dang-text);
 }
 
 .financeContextFold > .scrollDisclosure__body{
@@ -2855,7 +2859,7 @@ html[data-theme="white"] .financeAaScope{
   margin: 0;
   padding: 0;
   border: none;
-  color: var(--dang-muted);
+  color: var(--dang-text);
   font-size: 0.9rem;
   line-height: 1.55;
 }
@@ -2869,7 +2873,7 @@ html[data-theme="white"] .financeAaScope{
   gap: 8px;
 }
 .workspaceChip{
-  min-height: 40px;
+  min-height: var(--dang-touch);
   padding: 0 14px;
   border: 1px solid var(--dang-line);
   border-radius: var(--dang-radius-md);
@@ -2949,13 +2953,7 @@ html[data-theme="white"] .financeAaScope{
   top: 0;
   z-index: 40;
   border-bottom: 1px solid color-mix(in srgb, var(--dang-line) 85%, transparent);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--dang-primary) 8%, var(--dang-surface)),
-      color-mix(in srgb, var(--dang-surface) 94%, transparent)
-    );
-  backdrop-filter: blur(16px) saturate(1.06);
+  background: color-mix(in srgb, var(--dang-primary) 8%, var(--dang-surface));
   color: var(--dang-text);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--dang-surface) 65%, transparent);
 }
@@ -2983,10 +2981,15 @@ html[data-theme="white"] .financeAaScope{
   }
 }
 
-.authLayout__headerNav a{
+.authLayout__headerNav a,
+.authLayout__headerNav a:link,
+.authLayout__headerNav a:visited{
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--dang-touch);
   padding: 8px 14px;
   border-radius: 999px;
-  color: var(--dang-muted);
+  color: var(--dang-text);
   font-size:0.875rem;
   font-weight: 550;
   text-decoration: none;
@@ -3448,8 +3451,8 @@ html[data-scheme="light"] .siteHero__plane{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: var(--dang-touch);
+  height: var(--dang-touch);
   border: 1px solid var(--dang-line);
   border-radius: 10px;
   background: var(--dang-surface);
@@ -3903,14 +3906,14 @@ html[data-scheme="light"] .siteHero__plane{
 }
 
 .authLayout__headerBtn{
-  min-height: 38px;
+  min-height: var(--dang-touch);
   padding: 0 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   border: 1px solid var(--dang-line);
-  background: color-mix(in srgb, var(--dang-surface) 88%, transparent);
+  background: var(--dang-surface);
   color: var(--dang-text);
   font-size:0.875rem;
   font-weight: 650;
@@ -3923,6 +3926,11 @@ html[data-scheme="light"] .siteHero__plane{
   background: var(--dang-fill-hover);
 }
 
+a.authLayout__headerBtn:link,
+a.authLayout__headerBtn:visited{
+  color: var(--dang-text);
+}
+
 .authLayout__headerBtn--primary{
   border-color: transparent;
   background: var(--dang-primary);
@@ -3933,6 +3941,7 @@ a.authLayout__headerBtn--primary,
 a.authLayout__headerBtn--primary:link,
 a.authLayout__headerBtn--primary:visited,
 a.authLayout__headerBtn--primary:hover{
+  background: var(--dang-primary);
   color: var(--dang-primary-ink);
 }
 
@@ -3991,8 +4000,14 @@ a.authLayout__headerBtn--primary:hover{
   align-items: center;
   gap: var(--dang-space-3);
   text-decoration: none;
-  color: inherit;
+  color: var(--dang-text);
+  min-height: var(--dang-touch);
   width: fit-content;
+}
+
+a.authLayout__brand:link,
+a.authLayout__brand:visited{
+  color: var(--dang-text);
 }
 
 .authLayout__brand:hover .authLayout__brandText b{

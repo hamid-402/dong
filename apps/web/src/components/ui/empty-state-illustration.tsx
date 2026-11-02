@@ -58,7 +58,7 @@ function NoExpenseGlyph() {
         strokeLinecap="round"
         opacity="0.55"
       />
-      <circle cx="62" cy="22" r="10" fill="var(--surface, #101816)" stroke="currentColor" strokeWidth="2" />
+      <circle cx="62" cy="22" r="10" fill="var(--dang-surface, #101816)" stroke="currentColor" strokeWidth="2" />
       <path
         d="M58 22h8M62 18v8"
         stroke="currentColor"

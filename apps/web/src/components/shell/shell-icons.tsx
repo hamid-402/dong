@@ -41,7 +41,7 @@ export function ShellIconSvg({
     "aria-hidden": true,
     className: dualTone ? "shell-icon shell-icon--dual" : "shell-icon",
   };
-  const accent = dualTone ? { stroke: "var(--gold)" } : {};
+  const accent = dualTone ? { stroke: "var(--dang-gold)" } : {};
   switch (name) {
     case "home":
       return (

@@ -6,14 +6,14 @@
   margin: 0 0 12px;
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 75%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 92%, transparent);
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .toolbar strong {
-  color: var(--text);
+  color: var(--dang-text);
   font-weight: 650;
 }
 
@@ -24,7 +24,7 @@
 }
 
 .toolbarNav a {
-  color: var(--primary);
+  color: var(--dang-primary);
   text-decoration: none;
   font-weight: 600;
 }
@@ -52,7 +52,7 @@
 .presenceHint {
   margin: 0;
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-text);
   line-height: 1.4;
 }
 
@@ -68,8 +68,8 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
-  background: color-mix(in srgb, var(--surface-2, var(--surface)) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 70%, transparent);
+  background: color-mix(in srgb, var(--dang-surface-2, var(--dang-surface)) 55%, transparent);
 }
 
 button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm),
@@ -86,10 +86,10 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm),
   padding: 8px 10px;
   margin: 0;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--dang-line) 55%, transparent);
   border-radius: 0;
   background: transparent;
-  color: inherit;
+  color: var(--dang-text);
   font: inherit;
   text-align: start;
   cursor: pointer;
@@ -104,14 +104,14 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm),
 
 .memberRow:hover,
 button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
-  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  background: color-mix(in srgb, var(--dang-primary) 8%, transparent);
   color: inherit;
 }
 
 .memberRow[aria-pressed="true"],
 button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--primary) 14%, transparent);
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--primary) 70%, transparent);
+  background: color-mix(in srgb, var(--dang-primary) 14%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--dang-primary) 70%, transparent);
 }
 
 .avatar {
@@ -122,9 +122,9 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="tr
   place-items: center;
   font-size:0.875rem;
   font-weight: 750;
-  color: var(--text);
-  background: color-mix(in srgb, var(--primary) 18%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--line));
+  color: var(--dang-text);
+  background: color-mix(in srgb, var(--dang-primary) 18%, var(--dang-surface));
+  border: 1px solid color-mix(in srgb, var(--dang-primary) 28%, var(--dang-line));
   flex-shrink: 0;
 }
 
@@ -138,7 +138,7 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="tr
 .memberMain strong {
   font-size: 0.92rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--dang-text);
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -147,7 +147,7 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="tr
 
 .memberMain small {
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
   line-height: 1.3;
 }
 
@@ -163,7 +163,7 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="tr
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--muted) 70%, transparent);
+  background: color-mix(in srgb, var(--dang-muted) 70%, transparent);
   flex-shrink: 0;
 }
 
@@ -180,21 +180,21 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="tr
   flex-direction: column;
   gap: 10px;
   padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 80%, transparent);
   border-radius: 14px;
   background:
     linear-gradient(
       160deg,
-      color-mix(in srgb, var(--primary) 7%, transparent),
+      color-mix(in srgb, var(--dang-primary) 7%, transparent),
       transparent 42%
     ),
-    color-mix(in srgb, var(--surface-2, var(--surface)) 88%, transparent);
+    color-mix(in srgb, var(--dang-surface-2, var(--dang-surface)) 88%, transparent);
   min-height: 12rem;
 }
 
 .inspectorEyebrow {
   margin: 0;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
   font-weight: 750;
   letter-spacing: 0.04em;
@@ -210,7 +210,7 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="tr
 .inspectorHead h3 {
   margin: 0;
   flex: 1 1 auto;
-  color: var(--text);
+  color: var(--dang-text);
   font-size: 1.05rem;
   font-weight: 750;
   line-height: 1.25;
@@ -227,9 +227,9 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="tr
   display: grid;
   gap: 0;
   border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 65%, transparent);
   overflow: hidden;
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 70%, transparent);
 }
 
 .inspector dl > div {
@@ -238,7 +238,7 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="tr
   grid-template-columns: 6.5rem 1fr;
   gap: 8px;
   align-items: baseline;
-  border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--dang-line) 55%, transparent);
   font-size:0.875rem;
 }
 
@@ -248,13 +248,13 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="tr
 
 .inspector dt {
   margin: 0;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-weight: 600;
 }
 
 .inspector dd {
   margin: 0;
-  color: var(--text);
+  color: var(--dang-text);
   text-align: start;
   word-break: break-word;
 }
@@ -271,7 +271,7 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="tr
   gap: 8px;
   margin-top: 2px;
   padding-top: 8px;
-  border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--dang-line) 60%, transparent);
 }
 
 .opsGrid {
@@ -289,7 +289,7 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="tr
 .spaceSummary {
   margin: 8px 0 0;
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 @media (max-width: 960px) {
@@ -351,7 +351,7 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="tr
   display: block;
   padding: 12px;
   border-radius: 12px;
-  background: var(--surface-2);
+  background: var(--dang-surface-2);
   word-break: break-all;
 }
 
@@ -373,12 +373,12 @@ button.headerAction:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--primary);
+  color: var(--dang-primary);
   font-size: 14px;
   font-weight: 600;
 }
 
 button.headerAction:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
   background: transparent;
-  color: var(--primary);
+  color: var(--dang-primary);
 }
