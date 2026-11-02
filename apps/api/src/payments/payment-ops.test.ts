@@ -1,10 +1,17 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  NotFoundException,
 } from "@nestjs/common";
+import {
+  createPaymentReceiptRequestSchema,
+  settlePayRequestSchema,
+} from "@dang/contracts";
 import type { IamStore } from "../iam/iam.types.js";
 import type { ExpensesService } from "../expenses/expenses.service.js";
 import { MemoryLedgerStore } from "../ledger/memory-ledger.store.js";
@@ -19,6 +26,8 @@ import type { SettlementsService } from "../settlements/settlements.service.js";
 import { InvoiceEventsService } from "../billing/invoice-events.service.js";
 import { MemoryOutboxStore } from "../outbox/memory-outbox.store.js";
 import { MemoryAttachmentStore } from "../attachments/attachment.store.js";
+import { UuidParamPipe } from "../common/uuid-param.pipe.js";
+import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { MemoryPaymentOpsStore } from "./memory-payment-ops.store.js";
 import { WorkspacePaymentsService } from "./workspace-payments.service.js";
 import { confirmSettlementFromGateway } from "./gateway-settlement-confirm.js";
@@ -1834,4 +1843,144 @@ test("createReceipt gates attachment hasBlob + mime + 5MB", async () => {
     idempotencyKey: "rcpt-with-blob",
   });
   assert.equal(receipt.attachmentId, paymentAtt.id);
+});
+
+const INVALID_FID = "not-a-uuid-fund";
+const VALIDATION_PROBLEM_TYPE = "https://dang.local/problems/validation";
+
+function assertUuidParamPipeRejectsInvalidFid(routeLabel: string): void {
+  const pipe = new UuidParamPipe();
+  assert.throws(
+    () => pipe.transform(`${INVALID_FID}:${routeLabel}`),
+    (err: unknown) => {
+      assert.ok(err instanceof BadRequestException);
+      const body = err.getResponse() as {
+        type?: string;
+        title?: string;
+        status?: number;
+        errors?: unknown;
+      };
+      assert.equal(body.type, VALIDATION_PROBLEM_TYPE);
+      assert.equal(body.title, "Invalid request payload");
+      assert.equal(body.status, 400);
+      assert.ok(body.errors);
+      return true;
+    },
+  );
+}
+
+test("controller wires UuidParamPipe on all 7 petty-cash :fid params", () => {
+  const controllerPath = join(__dirname, "workspace-payments.controller.ts");
+  const src = readFileSync(controllerPath, "utf8");
+  const fidPipeMatches = src.match(/@Param\("fid", UuidParamPipe\)/g) ?? [];
+  assert.equal(fidPipeMatches.length, 7);
+  for (const route of [
+    "petty-cash/:fid/ledger",
+    "petty-cash/:fid/close",
+    "petty-cash/:fid/reopen",
+    "petty-cash/:fid/movements",
+    "petty-cash/:fid/topup-from-members",
+    "petty-cash/:fid/gift",
+    "petty-cash/:fid/spend-as-expense",
+  ]) {
+    assert.ok(src.includes(route), `missing route ${route}`);
+  }
+});
+
+test("invalid fid UuidParamPipe — ledger", () => {
+  assertUuidParamPipeRejectsInvalidFid("ledger");
+});
+
+test("invalid fid UuidParamPipe — close", () => {
+  assertUuidParamPipeRejectsInvalidFid("close");
+});
+
+test("invalid fid UuidParamPipe — reopen", () => {
+  assertUuidParamPipeRejectsInvalidFid("reopen");
+});
+
+test("invalid fid UuidParamPipe — movements", () => {
+  assertUuidParamPipeRejectsInvalidFid("movements");
+});
+
+test("invalid fid UuidParamPipe — topup-from-members", () => {
+  assertUuidParamPipeRejectsInvalidFid("topup-from-members");
+});
+
+test("invalid fid UuidParamPipe — gift", () => {
+  assertUuidParamPipeRejectsInvalidFid("gift");
+});
+
+test("invalid fid UuidParamPipe — spend-as-expense", () => {
+  assertUuidParamPipeRejectsInvalidFid("spend-as-expense");
+});
+
+test("body invalid fundId → 400 validation problem shape", () => {
+  const pipe = new ZodValidationPipe(settlePayRequestSchema);
+  assert.throws(
+    () =>
+      pipe.transform({
+        counterpartyUserId: creditor.userId,
+        amountMinor: "1000",
+        intent: "fund_gift_only",
+        fundId: "not-a-uuid",
+        idempotencyKey: "bad-fund-id-1",
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BadRequestException);
+      const body = err.getResponse() as {
+        type?: string;
+        title?: string;
+        status?: number;
+        errors?: { fieldErrors?: { fundId?: string[] } };
+      };
+      assert.equal(body.type, VALIDATION_PROBLEM_TYPE);
+      assert.equal(body.title, "Invalid request payload");
+      assert.equal(body.status, 400);
+      assert.ok(body.errors?.fieldErrors?.fundId);
+      return true;
+    },
+  );
+});
+
+test("body invalid payeeFundId → 400 validation problem shape", () => {
+  const pipe = new ZodValidationPipe(createPaymentReceiptRequestSchema);
+  assert.throws(
+    () =>
+      pipe.transform({
+        payeeFundId: "not-a-uuid",
+        method: "cash",
+        amountMinor: "1000",
+        paidAt: new Date().toISOString(),
+        idempotencyKey: "bad-payee-fund-1",
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BadRequestException);
+      const body = err.getResponse() as {
+        type?: string;
+        title?: string;
+        status?: number;
+        errors?: { fieldErrors?: { payeeFundId?: string[] } };
+      };
+      assert.equal(body.type, VALIDATION_PROBLEM_TYPE);
+      assert.equal(body.title, "Invalid request payload");
+      assert.equal(body.status, 400);
+      assert.ok(body.errors?.fieldErrors?.payeeFundId);
+      return true;
+    },
+  );
+});
+
+test("valid nonexistent fund uuid → 404 NotFoundException", async () => {
+  const { service } = buildService();
+  const missingFundId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  await assert.rejects(
+    () => service.getPettyCashLedger(payer, workspaceId, missingFundId),
+    (err: unknown) => {
+      assert.ok(err instanceof NotFoundException);
+      const body = err.getResponse() as { status?: number; title?: string };
+      assert.equal(body.status, 404);
+      return true;
+    },
+  );
 });

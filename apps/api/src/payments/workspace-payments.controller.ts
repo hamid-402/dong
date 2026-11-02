@@ -42,6 +42,7 @@ import {
   topupPettyCashFromMembersRequestSchema,
 } from "@dang/contracts";
 import { AuthGuard, CurrentActor } from "../auth/auth.guard.js";
+import { UuidParamPipe } from "../common/uuid-param.pipe.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 import { WorkspacePaymentsService } from "./workspace-payments.service.js";
 
@@ -131,7 +132,7 @@ export class WorkspacePaymentsController {
   getPettyCashLedger(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Param("fid") fid: string,
+    @Param("fid", UuidParamPipe) fid: string,
   ) {
     return this.payments.getPettyCashLedger(actor, workspaceId, fid);
   }
@@ -171,7 +172,7 @@ export class WorkspacePaymentsController {
   closePettyCash(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Param("fid") fid: string,
+    @Param("fid", UuidParamPipe) fid: string,
   ) {
     return this.payments.closePettyCashFund(actor, workspaceId, fid);
   }
@@ -184,7 +185,7 @@ export class WorkspacePaymentsController {
   reopenPettyCash(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Param("fid") fid: string,
+    @Param("fid", UuidParamPipe) fid: string,
   ) {
     return this.payments.reopenPettyCashFund(actor, workspaceId, fid);
   }
@@ -195,7 +196,7 @@ export class WorkspacePaymentsController {
   createMovement(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Param("fid") fid: string,
+    @Param("fid", UuidParamPipe) fid: string,
     @Body(new ZodValidationPipe(createPettyCashMovementRequestSchema))
     body: CreatePettyCashMovementRequest,
   ) {
@@ -211,7 +212,7 @@ export class WorkspacePaymentsController {
   topupFromMembers(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Param("fid") fid: string,
+    @Param("fid", UuidParamPipe) fid: string,
     @Body(new ZodValidationPipe(topupPettyCashFromMembersRequestSchema))
     body: TopupPettyCashFromMembersRequest,
   ) {
@@ -227,7 +228,7 @@ export class WorkspacePaymentsController {
   giftPettyCash(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Param("fid") fid: string,
+    @Param("fid", UuidParamPipe) fid: string,
     @Body(new ZodValidationPipe(giftPettyCashRequestSchema))
     body: GiftPettyCashRequest,
   ) {
@@ -258,7 +259,7 @@ export class WorkspacePaymentsController {
   spendAsExpense(
     @CurrentActor() actor: AuthActor,
     @Param("workspaceId") workspaceId: string,
-    @Param("fid") fid: string,
+    @Param("fid", UuidParamPipe) fid: string,
     @Body(new ZodValidationPipe(spendPettyCashAsExpenseRequestSchema))
     body: SpendPettyCashAsExpenseRequest,
   ) {

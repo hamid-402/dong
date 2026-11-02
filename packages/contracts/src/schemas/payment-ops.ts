@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { entityIdSchema, idempotencyKeySchema, moneySchema } from "./money.js";
+import {
+  entityIdSchema,
+  idempotencyKeySchema,
+  moneySchema,
+  uuidSchema,
+} from "./money.js";
 
 const amountMinorPositive = z
   .string()
@@ -17,7 +22,7 @@ export const createPaymentReceiptRequestSchema = z
     settlementId: entityIdSchema.optional(),
     memberInvoiceId: entityIdSchema.optional(),
     payeeUserId: entityIdSchema.optional(),
-    payeeFundId: entityIdSchema.optional(),
+    payeeFundId: uuidSchema.optional(),
     method: z.enum(["card_to_card", "cash", "bank_transfer", "gateway"]),
     amountMinor: amountMinorPositive,
     paidAt: z.string().trim().datetime({ offset: true }),
@@ -274,7 +279,7 @@ export const settlePayRequestSchema = z
     counterpartyUserId: entityIdSchema,
     amountMinor: amountMinorPositive,
     intent: z.enum(["settle_only", "settle_and_fund_gift", "fund_gift_only"]),
-    fundId: entityIdSchema.optional(),
+    fundId: uuidSchema.optional(),
     /** Optional balance cut-off for suggestion context (YYYY-MM-DD). */
     asOf: z
       .string()

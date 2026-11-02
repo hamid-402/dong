@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { entityIdSchema, idempotencyKeySchema, isoDateSchema, moneySchema } from "./money.js";
+import {
+  entityIdSchema,
+  idempotencyKeySchema,
+  isoDateSchema,
+  moneySchema,
+  uuidSchema,
+} from "./money.js";
 
 const catalogLineFieldsSchema = {
   catalogItemId: entityIdSchema.optional(),
@@ -110,7 +116,7 @@ export const createDailyLedgerDepositRequestSchema = z
       .string()
       .trim()
       .regex(/^[1-9]\d*$/, "AMOUNT_POSITIVE"),
-    fundId: entityIdSchema,
+    fundId: uuidSchema,
     cashInByUserId: entityIdSchema.optional(),
     /**
      * balance (default): credit depositor via shared topup expense.
