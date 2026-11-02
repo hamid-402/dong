@@ -4,7 +4,7 @@
   gap: 16px;
   margin-block: 12px 18px;
   padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 75%, transparent);
   border-radius: 14px;
   background: color-mix(in srgb, var(--surface-elevated) 70%, transparent);
 }
@@ -89,7 +89,7 @@
   appearance: none;
   border: 0;
   background: transparent;
-  color: color-mix(in srgb, var(--danger) 85%, var(--fg));
+  color: color-mix(in srgb, var(--dang-danger) 85%, var(--fg));
   font: inherit;
   font-size:0.875rem;
   cursor: pointer;
@@ -100,7 +100,7 @@
 
 .removeBtn:hover:not(:disabled) {
   opacity: 1;
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  background: color-mix(in srgb, var(--dang-danger) 12%, transparent);
 }
 
 .removeBtn:disabled {
@@ -110,7 +110,7 @@
 
 .quietBtn {
   appearance: none;
-  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 70%, transparent);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -132,7 +132,7 @@
 
 .qty {
   appearance: none;
-  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 70%, transparent);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -156,7 +156,7 @@
 .qtyInput {
   width: 3.5rem;
   padding: 4px 6px;
-  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 70%, transparent);
   border-radius: 8px;
   background: transparent;
   color: inherit;
@@ -170,7 +170,7 @@
 
 .unitHint {
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
   margin-inline-start: 2px;
 }
 
@@ -182,7 +182,7 @@
 .matrixHint {
   margin: 0 0 8px;
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .matrix {
@@ -193,7 +193,7 @@
 
 .matrix th,
 .matrix td {
-  border: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 60%, transparent);
   padding: 6px 8px;
   text-align: center;
 }
@@ -204,7 +204,7 @@
 }
 
 .freeText {
-  border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--dang-line) 55%, transparent);
   padding-top: 10px;
 }
 
@@ -219,8 +219,8 @@
   font: inherit;
   padding: 6px 8px;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
-  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 70%, transparent);
+  background: var(--dang-surface);
   color: inherit;
 }
 
@@ -242,7 +242,7 @@ button.quietBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm),
 button.qty:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
   min-width: 0;
   appearance: none;
-  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 70%, transparent);
   background: transparent;
   color: inherit;
   font: inherit;

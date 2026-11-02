@@ -1,16 +1,16 @@
 .filtersFold {
   margin: 2px 0 0;
   padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
-  border-radius: var(--r-md, 10px);
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 82%, transparent);
+  border-radius: var(--dang-radius-md, 10px);
+  background: color-mix(in srgb, var(--dang-surface) 88%, transparent);
 }
 
 .filtersFold summary {
   cursor: pointer;
   font-size:0.875rem;
   font-weight: 650;
-  color: var(--muted);
+  color: var(--dang-muted);
   list-style: none;
 }
 
@@ -20,7 +20,7 @@
 
 .filtersFold[open] summary {
   margin-bottom: 10px;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .filtersGrid {
@@ -42,8 +42,8 @@
   margin: 2px 0 12px;
   padding: 10px 12px;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
-  background: color-mix(in srgb, var(--surface-2, var(--surface)) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 80%, transparent);
+  background: color-mix(in srgb, var(--dang-surface-2, var(--dang-surface)) 70%, transparent);
 }
 
 .searchBar {
@@ -65,7 +65,7 @@
 .searchLabel {
   font-size:0.875rem;
   font-weight: 700;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .searchField input {
@@ -73,24 +73,24 @@
   min-height: 2.5rem;
   padding: 0 12px;
   border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
-  background: var(--surface);
-  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 85%, transparent);
+  background: var(--dang-surface);
+  color: var(--dang-text);
   font: inherit;
   font-size: 0.9rem;
 }
 
 .searchField input:focus {
-  outline: 2px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--dang-primary) 35%, transparent);
   outline-offset: 1px;
-  border-color: color-mix(in srgb, var(--primary) 40%, var(--line));
+  border-color: color-mix(in srgb, var(--dang-primary) 40%, var(--dang-line));
 }
 
 .searchClear {
   appearance: none;
   border: 0;
   background: none;
-  color: var(--muted);
+  color: var(--dang-muted);
   font: inherit;
   font-size:0.875rem;
   font-weight: 600;
@@ -123,9 +123,9 @@
   gap: 6px;
   padding: 5px 10px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--line));
-  background: color-mix(in srgb, var(--primary-soft, var(--primary)) 35%, var(--surface));
-  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--dang-primary) 28%, var(--dang-line));
+  background: color-mix(in srgb, var(--dang-primary-soft, var(--dang-primary)) 35%, var(--dang-surface));
+  color: var(--dang-text);
   font: inherit;
   font-size:0.875rem;
   font-weight: 600;
@@ -146,15 +146,15 @@
 }
 
 .rowAudienceShared {
-  color: color-mix(in srgb, var(--primary) 72%, var(--text));
+  color: color-mix(in srgb, var(--dang-primary) 72%, var(--dang-text));
 }
 
 .rowAudiencePrivate {
-  color: color-mix(in srgb, var(--audience-private) 78%, var(--text));
+  color: color-mix(in srgb, var(--audience-private) 78%, var(--dang-text));
 }
 
 .rowAudienceCompany {
-  color: color-mix(in srgb, var(--gold) 80%, var(--text));
+  color: color-mix(in srgb, var(--dang-gold) 80%, var(--dang-text));
 }
 
 .inspectorAudience {
@@ -176,7 +176,7 @@
   min-width: 2.5rem;
   font-size:0.875rem;
   font-weight: 700;
-  color: var(--muted);
+  color: var(--dang-muted);
   letter-spacing: 0.02em;
 }
 
@@ -189,9 +189,9 @@
 
 .filterChip {
   appearance: none;
-  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
-  background: var(--surface);
-  color: var(--muted);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 88%, transparent);
+  background: var(--dang-surface);
+  color: var(--dang-muted);
   border-radius: 9px;
   padding: 6px 12px;
   font: inherit;
@@ -202,14 +202,14 @@
 }
 
 .filterChip:hover {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--primary) 28%, var(--line));
+  color: var(--dang-text);
+  border-color: color-mix(in srgb, var(--dang-primary) 28%, var(--dang-line));
 }
 
 .filterChipActive {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
-  background: color-mix(in srgb, var(--primary-soft, var(--primary)) 42%, var(--surface));
+  color: var(--dang-text);
+  border-color: color-mix(in srgb, var(--dang-primary) 42%, var(--dang-line));
+  background: color-mix(in srgb, var(--dang-primary-soft, var(--dang-primary)) 42%, var(--dang-surface));
   font-weight: 700;
 }
 
@@ -222,7 +222,7 @@
   margin: 4px 0 10px;
   padding: 0 2px;
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .listLegend span {
@@ -244,26 +244,26 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 92%, transparent);
   backdrop-filter: blur(6px);
 }
 
 .dayLabel {
   font-size:0.875rem;
   font-weight: 750;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .dayCount {
   font-weight: 550;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .dayTotal {
   font-size:0.875rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--muted);
+  color: var(--dang-muted);
   white-space: nowrap;
 }
 
@@ -314,7 +314,7 @@
   display: block;
   font-size:0.875rem;
   font-weight: 500;
-  color: var(--muted);
+  color: var(--dang-muted);
   line-height: 1.4;
 }
 
@@ -331,11 +331,11 @@
   font-weight: 750;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .expenseRow {
-  border-radius: var(--r-md, 12px);
+  border-radius: var(--dang-radius-md, 12px);
 }
 
 .rowReversed {
@@ -370,9 +370,9 @@
 }
 
 .selectedRow :global(.dataRow) {
-  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
-  background: color-mix(in srgb, var(--primary-soft) 38%, var(--surface));
-  box-shadow: inset 3px 0 0 var(--primary);
+  border-color: color-mix(in srgb, var(--dang-primary) 42%, var(--dang-line));
+  background: color-mix(in srgb, var(--dang-primary-soft) 38%, var(--dang-surface));
+  box-shadow: inset 3px 0 0 var(--dang-primary);
 }
 
 .inspector {
@@ -380,12 +380,12 @@
   position: sticky;
   top: var(--shell-chrome-offset, 60px);
   padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-md, 12px);
+  border: 1px solid var(--dang-line);
+  border-radius: var(--dang-radius-md, 12px);
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--primary) 5%, transparent), transparent 52%),
-    var(--surface);
-  box-shadow: var(--elev-1, 0 1px 2px color-mix(in srgb, var(--text) 6%, transparent));
+    linear-gradient(145deg, color-mix(in srgb, var(--dang-primary) 5%, transparent), transparent 52%),
+    var(--dang-surface);
+  box-shadow: var(--dang-elev-1, 0 1px 2px color-mix(in srgb, var(--dang-text) 6%, transparent));
 }
 
 @media (max-width: 900px) {
@@ -396,7 +396,7 @@
 }
 
 .inspectorLabel {
-  color: var(--primary);
+  color: var(--dang-primary);
   font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -418,7 +418,7 @@
 
 .inspectorHero h3 {
   margin: 0;
-  color: var(--text);
+  color: var(--dang-text);
   font-size: 1.05rem;
   font-weight: 750;
   line-height: 1.35;
@@ -426,7 +426,7 @@
 
 .inspectorHeroMeta {
   margin: 0;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
   line-height: 1.45;
 }
@@ -445,7 +445,7 @@
     z-index: 20;
     max-height: min(52vh, 420px);
     overflow: auto;
-    box-shadow: var(--elev-2);
+    box-shadow: var(--dang-elev-2);
   }
 }
 
@@ -458,23 +458,23 @@
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--dang-line) 70%, transparent);
   font-size:0.875rem;
 }
 
 .inspector dt {
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .inspector dd {
   margin: 0;
-  color: var(--text);
+  color: var(--dang-text);
   text-align: left;
 }
 
 .inspector p {
   margin: 6px 0 0;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
   line-height: 1.55;
 }
@@ -489,8 +489,8 @@
   margin: 12px 0 10px;
   padding: 12px;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
-  background: color-mix(in srgb, var(--surface-2, var(--surface)) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 78%, transparent);
+  background: color-mix(in srgb, var(--dang-surface-2, var(--dang-surface)) 92%, transparent);
 }
 
 .actionStatus {
@@ -514,7 +514,7 @@
 
 .actionRowSecondary {
   padding-top: 8px;
-  border-top: 1px dashed color-mix(in srgb, var(--line) 75%, transparent);
+  border-top: 1px dashed color-mix(in srgb, var(--dang-line) 75%, transparent);
 }
 
 .actionLinks {
@@ -528,22 +528,22 @@
   margin: 0;
   font-size:0.875rem;
   line-height: 1.5;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .receiptBlock {
   margin: 4px 0 12px;
   padding: 12px;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
-  background: color-mix(in srgb, var(--surface-2, var(--surface)) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 78%, transparent);
+  background: color-mix(in srgb, var(--dang-surface-2, var(--dang-surface)) 92%, transparent);
 }
 
 .receiptTitle {
   margin: 0 0 8px;
   font-size:0.875rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .metaList {
@@ -555,10 +555,10 @@
   position: sticky;
   top: var(--shell-chrome-offset, 60px);
   padding: 20px 16px;
-  border: 1px dashed color-mix(in srgb, var(--line) 85%, transparent);
-  border-radius: var(--r-md, 12px);
-  background: color-mix(in srgb, var(--surface-2, var(--surface)) 70%, transparent);
-  color: var(--muted);
+  border: 1px dashed color-mix(in srgb, var(--dang-line) 85%, transparent);
+  border-radius: var(--dang-radius-md, 12px);
+  background: color-mix(in srgb, var(--dang-surface-2, var(--dang-surface)) 70%, transparent);
+  color: var(--dang-muted);
   font-size:0.875rem;
   line-height: 1.6;
   text-align: center;
@@ -586,7 +586,7 @@
 .splitBlock h4 {
   margin: 0 0 6px;
   font-size:0.875rem;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .splitList {
@@ -602,6 +602,6 @@
   justify-content: space-between;
   gap: 12px;
   padding: 5px 0;
-  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--dang-line) 70%, transparent);
   font-size:0.875rem;
 }

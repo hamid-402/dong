@@ -9,11 +9,11 @@
   position: sticky;
   top: var(--shell-chrome-offset, 60px);
   padding: 16px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--dang-line);
   border-radius: 14px;
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--gold) 6%, transparent), transparent 55%),
-    var(--surface-2);
+    linear-gradient(145deg, color-mix(in srgb, var(--dang-gold) 6%, transparent), transparent 55%),
+    var(--dang-surface-2);
 }
 
 @media (max-width: 900px) {
@@ -24,7 +24,7 @@
 }
 
 .inspector > span {
-  color: var(--primary);
+  color: var(--dang-primary);
   font-size:0.875rem;
   font-weight: 800;
   letter-spacing: 0.09em;
@@ -32,7 +32,7 @@
 
 .inspector h3 {
   margin: 8px 0 6px;
-  color: var(--text);
+  color: var(--dang-text);
   font-size: 16px;
 }
 
@@ -46,17 +46,17 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--dang-line);
   font-size:0.875rem;
 }
 
 .inspector dt {
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .inspector dd {
   margin: 0;
-  color: var(--text);
+  color: var(--dang-text);
   text-align: left;
 }
 
@@ -64,8 +64,8 @@
   margin: 12px 0 0;
   padding: 10px;
   border-radius: 9px;
-  background: color-mix(in srgb, var(--danger) 7%, transparent);
-  color: var(--muted);
+  background: color-mix(in srgb, var(--dang-danger) 7%, transparent);
+  color: var(--dang-muted);
   font-size:0.875rem;
   line-height: 1.7;
 }
@@ -73,7 +73,7 @@
 .inspector p b {
   display: block;
   margin-bottom: 4px;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .fundingList {
@@ -89,14 +89,14 @@
   gap: 2px;
   padding: 8px 10px;
   border-radius: 9px;
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border: 1px solid var(--dang-line);
+  background: color-mix(in srgb, var(--dang-surface) 70%, transparent);
   font-size:0.875rem;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .fundingList__meta {
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
 }
 
@@ -104,8 +104,8 @@
   margin: 10px 0 0;
   padding: 8px 10px;
   border-radius: 9px;
-  background: color-mix(in srgb, var(--primary) 7%, transparent);
-  color: var(--muted);
+  background: color-mix(in srgb, var(--dang-primary) 7%, transparent);
+  color: var(--dang-muted);
   font-size:0.875rem;
   line-height: 1.65;
 }
@@ -117,12 +117,12 @@
 }
 
 .metaLine {
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size: 0.875rem;
 }
 
 .metaBlock {
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size: 0.875rem;
   display: block;
 }

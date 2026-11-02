@@ -3,9 +3,9 @@
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlAdd) {
   min-width: 44px;
   min-height: 44px;
-  border: 1px dashed color-mix(in srgb, var(--line) 90%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--dang-line) 90%, transparent);
   background: transparent;
-  color: var(--text);
+  color: var(--dang-text);
   border-radius: 6px;
   padding: 8px 12px;
   font-size: 0.875rem;
@@ -16,7 +16,7 @@ button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlAdd) {
 }
 
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlAdd):hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--dang-primary) 60%, var(--line));
+  border-color: color-mix(in srgb, var(--dang-primary) 60%, var(--dang-line));
   color: var(--ink);
   background: transparent;
 }
@@ -25,15 +25,15 @@ button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlAdd):hover:not(:disabled)
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlAdd.dlDepositAdd) {
   font-weight: 500;
   border-style: dashed;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlItemBtn) {
   min-width: 44px;
   min-height: 44px;
-  border: 1px solid var(--line);
-  background: var(--panel, var(--surface));
-  color: var(--text);
+  border: 1px solid var(--dang-line);
+  background: var(--dang-surface);
+  color: var(--dang-text);
   font-size: 0.875rem;
   font-weight: 500;
   padding: 8px 12px;
@@ -42,13 +42,13 @@ button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlItemBtn) {
 }
 
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlItemBtn):hover:not(:disabled) {
-  background: var(--fill-hover, color-mix(in srgb, var(--primary) 10%, transparent));
-  color: var(--text);
+  background: var(--dang-fill-hover, color-mix(in srgb, var(--dang-primary) 10%, transparent));
+  color: var(--dang-text);
 }
 
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlItemBtn.isDanger) {
-  color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+  color: var(--dang-danger);
+  border-color: color-mix(in srgb, var(--dang-danger) 35%, var(--dang-line));
 }
 
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlNoteBtn),
@@ -79,26 +79,26 @@ button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlNavBtn) {
   min-height: 44px;
   padding: 0;
   border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--text);
+  border: 1px solid var(--dang-line);
+  background: var(--dang-surface);
+  color: var(--dang-text);
   font-size: 20px;
   font-weight: 500;
   box-sizing: border-box;
 }
 
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.dlNavBtn):hover:not(:disabled) {
-  background: var(--fill-hover, color-mix(in srgb, var(--primary) 10%, transparent));
-  color: var(--text);
+  background: var(--dang-fill-hover, color-mix(in srgb, var(--dang-primary) 10%, transparent));
+  color: var(--dang-text);
 }
 
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.focusChip),
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.pfFocusChip) {
   min-width: 44px;
   min-height: 44px;
-  border: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  color: var(--text, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--dang-line) 90%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 92%, transparent);
+  color: var(--dang-text, var(--ink));
   border-radius: var(--r-pill, 999px);
   padding: 8px 14px;
   font-size: 0.875rem;
@@ -108,24 +108,24 @@ button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.pfFocusChip) {
 
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.focusChip):hover:not(:disabled),
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.pfFocusChip):hover:not(:disabled) {
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  color: var(--text, var(--ink));
+  background: color-mix(in srgb, var(--dang-surface) 92%, transparent);
+  color: var(--dang-text, var(--ink));
 }
 
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.focusChip.isActive),
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.pfFocusChip.isActive) {
-  border-color: color-mix(in srgb, var(--primary, var(--dang-primary)) 70%, var(--line));
-  background: color-mix(in srgb, var(--primary, var(--dang-primary)) 16%, transparent);
+  border-color: color-mix(in srgb, var(--dang-primary) 70%, var(--dang-line));
+  background: color-mix(in srgb, var(--dang-primary) 16%, transparent);
 }
 
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.textButton) {
   min-width: 44px;
   min-height: 44px;
-  margin-top: var(--space-3);
+  margin-top: var(--dang-space-3);
   padding: 8px 10px;
   border: 0;
   background: transparent;
-  color: var(--primary);
+  color: var(--dang-primary);
   font-size: 14px;
   font-weight: 600;
   box-sizing: border-box;
@@ -133,7 +133,7 @@ button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.textButton) {
 
 button:global(.dang-btn.dang-btn--ghost.dang-btn--sm.textButton):hover:not(:disabled) {
   background: transparent;
-  color: var(--primary);
+  color: var(--dang-primary);
 }
 
 @media (max-width: 720px) {

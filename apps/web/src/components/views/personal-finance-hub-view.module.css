@@ -12,13 +12,13 @@
   margin: 0.15rem 0 0.85rem;
   padding: 0.25rem;
   border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
-  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 85%, transparent);
 }
 
 .subnavLink {
   text-decoration: none;
-  color: var(--finance-muted-ink, var(--muted));
+  color: var(--finance-muted-ink, var(--dang-muted));
   font-size:0.875rem;
   font-weight: 600;
   padding: 0.4rem 0.75rem;
@@ -27,11 +27,11 @@
 }
 
 .subnavLink:hover {
-  color: var(--text);
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--dang-text);
+  background: color-mix(in srgb, var(--dang-primary) 12%, transparent);
 }
 
 .subnavLink:focus-visible {
   outline: none;
-  box-shadow: var(--focus-ring);
+  box-shadow: var(--dang-focus-ring);
 }

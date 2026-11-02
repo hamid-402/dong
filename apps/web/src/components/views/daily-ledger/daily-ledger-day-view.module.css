@@ -12,7 +12,7 @@
   align-items: center;
   gap: 4px 6px;
   font-size:clamp(0.875rem, 2vw, 0.875rem);
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .crumbLink {
@@ -22,7 +22,7 @@
   min-width: 44px;
   border: 0;
   background: none;
-  color: var(--text);
+  color: var(--dang-text);
   font: inherit;
   font-weight: 650;
   cursor: pointer;
@@ -32,7 +32,7 @@
 }
 
 .crumbLink:hover {
-  color: var(--primary);
+  color: var(--dang-primary);
 }
 
 .crumbSep {
@@ -41,7 +41,7 @@
 }
 
 .crumbCurrent {
-  color: var(--text);
+  color: var(--dang-text);
   font-weight: 700;
 }
 
@@ -52,10 +52,10 @@
   display: grid;
   gap: clamp(6px, 1.2vw, 10px);
   padding: clamp(8px, 1.5vw, 12px) clamp(10px, 2vw, 14px);
-  border: 1px solid color-mix(in srgb, var(--line) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 86%, transparent);
   border-radius: clamp(10px, 1.5vw, 14px);
-  background: var(--surface);
-  color: var(--text);
+  background: var(--dang-surface);
+  color: var(--dang-text);
   backdrop-filter: blur(8px);
   box-shadow: 0 8px 24px color-mix(in srgb, var(--shadow-ink) 8%, transparent);
 }
@@ -74,7 +74,7 @@
   min-width: 44px;
   border: 0;
   background: none;
-  color: var(--text);
+  color: var(--dang-text);
   font: inherit;
   font-size:clamp(0.875rem, 2.2vw, 0.875rem);
   font-weight: 650;
@@ -86,7 +86,7 @@
 }
 
 .back:hover {
-  color: var(--primary);
+  color: var(--dang-primary);
 }
 
 .titleBlock {
@@ -120,10 +120,10 @@
   min-height: 44px;
   min-width: 44px;
   max-width: min(11rem, 42vw);
-  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 88%, transparent);
   border-radius: 8px;
   background: transparent;
-  color: var(--text);
+  color: var(--dang-text);
   font: inherit;
   font-size:clamp(0.875rem, 1.9vw, 0.875rem);
   font-weight: 600;
@@ -148,9 +148,9 @@
   margin: 0;
   padding: 4px;
   list-style: none;
-  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 88%, transparent);
   border-radius: 10px;
-  background: var(--panel, var(--surface));
+  background: var(--dang-surface);
   box-shadow: 0 12px 28px color-mix(in srgb, var(--shadow-ink) 16%, transparent);
 }
 
@@ -166,7 +166,7 @@
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--text);
+  color: var(--dang-text);
   font: inherit;
   font-size:0.875rem;
   text-align: start;
@@ -175,12 +175,12 @@
 }
 
 .memberMenuItem:hover {
-  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  background: color-mix(in srgb, var(--dang-primary) 8%, transparent);
 }
 
 .memberHint {
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-weight: 650;
 }
 
@@ -196,8 +196,8 @@
 }
 
 .navBtn:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--primary) 40%, var(--line));
-  color: var(--primary);
+  border-color: color-mix(in srgb, var(--dang-primary) 40%, var(--dang-line));
+  color: var(--dang-primary);
 }
 
 .navBtn:disabled {
@@ -210,7 +210,7 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   padding-block: 4px;
-  border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--dang-line) 55%, transparent);
 }
 
 .metric {
@@ -219,12 +219,12 @@
   min-width: 0;
   padding: 6px 8px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-2, var(--surface)) 70%, transparent);
+  background: color-mix(in srgb, var(--dang-surface-2, var(--dang-surface)) 70%, transparent);
   font-size:clamp(0.875rem, 2vw, 0.875rem);
 }
 
 .metric span {
-  color: var(--text);
+  color: var(--dang-text);
   font-weight: 650;
   opacity: 0.85;
 }
@@ -254,7 +254,7 @@
   min-width: 44px;
   border: 0;
   background: none;
-  color: var(--text);
+  color: var(--dang-text);
   font: inherit;
   font-size:clamp(0.875rem, 2vw, 0.875rem);
   font-weight: 500;
@@ -265,9 +265,9 @@
 /* run29 (V3): keep «+ مشترک» primary weight; lighten secondary/FAB-adjacent (+ فردی / + واریز). */
 .barActions :global(button.dang-btn.dang-btn--secondary) {
   font-weight: 500;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  border: 1px dashed color-mix(in srgb, var(--line) 90%, transparent);
-  color: var(--text);
+  background: color-mix(in srgb, var(--dang-surface) 88%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--dang-line) 90%, transparent);
+  color: var(--dang-text);
   min-height: 44px;
   box-sizing: border-box;
 }
@@ -281,8 +281,8 @@
 .emptyActions :global(button.dang-btn.dang-btn--secondary) {
   font-weight: 500;
   background: transparent;
-  border: 1px dashed color-mix(in srgb, var(--line) 90%, transparent);
-  color: var(--text);
+  border: 1px dashed color-mix(in srgb, var(--dang-line) 90%, transparent);
+  color: var(--dang-text);
   min-height: 44px;
   box-sizing: border-box;
 }
@@ -294,7 +294,7 @@
 }
 
 .quietLink:hover:not(:disabled) {
-  color: var(--primary);
+  color: var(--dang-primary);
 }
 
 .quietLink:disabled {
@@ -304,7 +304,7 @@
 
 .note {
   margin: 0;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:clamp(0.875rem, 2vw, 0.875rem);
   line-height: 1.4;
 }
@@ -343,9 +343,9 @@
   gap: 6px;
   min-width: 0;
   padding: clamp(8px, 1.5vw, 12px);
-  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 80%, transparent);
   border-radius: 12px;
-  background: var(--surface);
+  background: var(--dang-surface);
   box-sizing: border-box;
   overflow-x: clip;
 }
@@ -367,7 +367,7 @@
 .panelHint {
   margin: 0;
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
   line-height: 1.35;
 }
 
@@ -414,8 +414,8 @@
   height: 1.15rem;
   flex-shrink: 0;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--line) 55%, transparent);
-  color: var(--muted);
+  background: color-mix(in srgb, var(--dang-line) 55%, transparent);
+  color: var(--dang-muted);
   transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
@@ -427,8 +427,8 @@
 }
 
 .shareFold[open] .shareChevron {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--dang-primary) 16%, transparent);
+  color: var(--dang-primary);
 }
 
 .shareFold[open] .shareChevron svg {
@@ -438,19 +438,19 @@
 .shareSummaryTitle {
   font-size: 0.92rem;
   font-weight: 750;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .shareSummaryMeta {
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-variant-numeric: tabular-nums;
 }
 
 .shareFold[open] .shareSummary {
   margin-bottom: 8px;
   padding-bottom: 8px;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--dang-line) 55%, transparent);
 }
 
 .shareList {
@@ -465,7 +465,7 @@
   display: grid;
   gap: 5px;
   padding: 8px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--dang-line) 50%, transparent);
 }
 
 .shareList .shareRow:last-child {
@@ -481,7 +481,7 @@
 }
 
 .shareName {
-  color: var(--text);
+  color: var(--dang-text);
   font-size: 0.92rem;
   font-weight: 650;
   min-width: 0;
@@ -492,14 +492,14 @@
   font-size: 0.95rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  color: var(--text);
+  color: var(--dang-text);
   white-space: nowrap;
 }
 
 .shareBar {
   height: 6px;
   border-radius: 99px;
-  background: color-mix(in srgb, var(--surface-2, var(--line)) 70%, transparent);
+  background: color-mix(in srgb, var(--dang-surface-2, var(--dang-line)) 70%, transparent);
   overflow: hidden;
 }
 
@@ -511,8 +511,8 @@
   border-radius: inherit;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--primary) 75%, transparent),
-    var(--primary)
+    color-mix(in srgb, var(--dang-primary) 75%, transparent),
+    var(--dang-primary)
   );
 }
 
@@ -522,7 +522,7 @@
   justify-content: space-between;
   gap: 4px 12px;
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -533,13 +533,13 @@
   gap: 10px;
   margin-top: 4px;
   padding-top: 10px;
-  border-top: 1px dashed color-mix(in srgb, var(--line) 75%, transparent);
+  border-top: 1px dashed color-mix(in srgb, var(--dang-line) 75%, transparent);
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .shareFooter strong {
-  color: var(--text);
+  color: var(--dang-text);
   font-weight: 750;
   font-variant-numeric: tabular-nums;
 }
@@ -558,7 +558,7 @@
   gap: 10px;
   font-size:clamp(0.875rem, 2vw, 0.875rem);
   padding: 4px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 45%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--dang-line) 45%, transparent);
 }
 
 .memberList li:last-child {
@@ -580,7 +580,7 @@
 }
 
 .memberShareMeta {
-  color: var(--muted);
+  color: var(--dang-muted);
   font-size:0.875rem;
   line-height: 1.35;
 }
@@ -588,12 +588,12 @@
 .memberShareShared {
   margin-top: 2px;
   padding-top: 6px !important;
-  border-top: 1px dashed color-mix(in srgb, var(--line) 70%, transparent);
-  color: var(--muted);
+  border-top: 1px dashed color-mix(in srgb, var(--dang-line) 70%, transparent);
+  color: var(--dang-muted);
 }
 
 .memberList span {
-  color: var(--muted);
+  color: var(--dang-muted);
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -611,7 +611,7 @@
 .railEmpty {
   margin: 0;
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .relatedList {
@@ -627,15 +627,15 @@
   gap: 4px;
   padding: 8px 10px;
   border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
-  background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--dang-line) 78%, transparent);
+  background: color-mix(in srgb, var(--dang-surface) 92%, var(--dang-bg));
   text-decoration: none;
   color: inherit;
   min-width: 0;
 }
 
 a.relatedLink:hover {
-  border-color: color-mix(in srgb, var(--primary) 40%, var(--line));
+  border-color: color-mix(in srgb, var(--dang-primary) 40%, var(--dang-line));
 }
 
 .relatedTitle {
@@ -653,13 +653,13 @@ a.relatedLink:hover {
   justify-content: space-between;
   gap: 6px;
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .tableWrap {
-  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 88%, transparent);
   border-radius: 12px;
-  background: var(--surface);
+  background: var(--dang-surface);
   max-width: 100%;
 }
 
@@ -674,15 +674,15 @@ a.relatedLink:hover {
 .table td {
   padding: clamp(6px, 1.2vw, 10px) clamp(8px, 1.4vw, 12px);
   text-align: start;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--dang-line) 70%, transparent);
   vertical-align: middle;
 }
 
 .table thead th {
   font-size:0.875rem;
   font-weight: 700;
-  color: var(--muted);
-  background: color-mix(in srgb, var(--surface-2, var(--surface)) 90%, transparent);
+  color: var(--dang-muted);
+  background: color-mix(in srgb, var(--dang-surface-2, var(--dang-surface)) 90%, transparent);
 }
 
 .table tbody tr:last-child td {
@@ -690,7 +690,7 @@ a.relatedLink:hover {
 }
 
 .table tbody tr:hover {
-  background: color-mix(in srgb, var(--primary) 4%, transparent);
+  background: color-mix(in srgb, var(--dang-primary) 4%, transparent);
 }
 
 .num {
@@ -708,7 +708,7 @@ a.relatedLink:hover {
 
 .statusText {
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .actionsCol {
@@ -724,7 +724,7 @@ a.relatedLink:hover {
 }
 
 .rowSelected {
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  background: color-mix(in srgb, var(--dang-primary) 7%, transparent);
 }
 
 .rowActions {
@@ -739,7 +739,7 @@ a.relatedLink:hover {
   min-width: 44px;
   border: 0;
   background: none;
-  color: var(--primary);
+  color: var(--dang-primary);
   font: inherit;
   font-size:0.875rem;
   font-weight: 650;
@@ -752,18 +752,18 @@ a.relatedLink:hover {
 }
 
 .linkBtn.danger {
-  color: color-mix(in srgb, var(--danger) 80%, var(--text));
+  color: color-mix(in srgb, var(--dang-danger) 80%, var(--dang-text));
 }
 
 .muted {
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .tickFold {
-  border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 75%, transparent);
   border-radius: 12px;
   padding: 0 clamp(8px, 1.5vw, 12px);
-  background: color-mix(in srgb, var(--surface-elevated, var(--surface)) 70%, transparent);
+  background: color-mix(in srgb, var(--surface-elevated, var(--dang-surface)) 70%, transparent);
 }
 
 .tickFold summary {
@@ -772,7 +772,7 @@ a.relatedLink:hover {
   font-weight: 700;
   padding: 10px 2px;
   list-style: none;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .tickFold summary::-webkit-details-marker {
@@ -780,7 +780,7 @@ a.relatedLink:hover {
 }
 
 .tickFold[open] summary {
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--dang-line) 55%, transparent);
   margin-bottom: 6px;
 }
 
@@ -793,8 +793,8 @@ a.relatedLink:hover {
 }
 
 .lineCard.rowSelected {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
-  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  border-color: color-mix(in srgb, var(--dang-primary) 40%, var(--dang-line));
+  background: color-mix(in srgb, var(--dang-primary) 6%, var(--dang-surface));
 }
 
 .lineCardTop {
@@ -825,14 +825,14 @@ a.relatedLink:hover {
   flex-wrap: wrap;
   gap: 6px 10px;
   font-size:0.875rem;
-  color: var(--muted);
+  color: var(--dang-muted);
 }
 
 .lineCardActions {
   display: flex;
   gap: 12px;
   padding-top: 2px;
-  border-top: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--dang-line) 50%, transparent);
 }
 
 /* Wide desktop */
@@ -918,7 +918,7 @@ a.relatedLink:hover {
 
   .quietLink {
     text-align: center;
-    border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+    border: 1px solid color-mix(in srgb, var(--dang-line) 80%, transparent);
     border-radius: 8px;
   }
 
@@ -962,7 +962,7 @@ button.linkBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
   padding: 6px 8px;
   border: 0;
   background: none;
-  color: var(--text);
+  color: var(--dang-text);
   font: inherit;
   font-weight: 650;
   justify-content: flex-start;
@@ -972,18 +972,18 @@ button.linkBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
 button.linkBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
   padding: 8px 6px;
   min-height: 44px;
-  color: var(--primary);
+  color: var(--dang-primary);
 }
 
 button.crumbLink:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled),
 button.back:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
   background: none;
-  color: var(--primary);
+  color: var(--dang-primary);
 }
 
 button.linkBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
   background: none;
-  color: var(--primary);
+  color: var(--dang-primary);
   text-decoration: underline;
 }
 
@@ -993,7 +993,7 @@ button.quietLink:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
   margin: 0;
   border: 0;
   background: none;
-  color: var(--text);
+  color: var(--dang-text);
   font: inherit;
   font-weight: 600;
   justify-content: flex-start;
@@ -1004,10 +1004,10 @@ button.navBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
   min-height: 44px;
   padding: 8px 12px;
   max-width: min(11rem, 42vw);
-  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 88%, transparent);
   border-radius: 8px;
   background: transparent;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 button.quietLink:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
@@ -1019,7 +1019,7 @@ button.quietLink:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
 button.navBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled),
 button.quietLink:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
   background: transparent;
-  color: var(--primary);
+  color: var(--dang-primary);
 }
 
 button.memberMenuItem:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
@@ -1035,7 +1035,7 @@ button.memberMenuItem:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--text);
+  color: var(--dang-text);
   font: inherit;
   font-weight: 500;
   text-align: start;
@@ -1043,6 +1043,6 @@ button.memberMenuItem:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
 }
 
 button.memberMenuItem:global(.dang-btn.dang-btn--ghost.dang-btn--sm):hover:not(:disabled) {
-  background: color-mix(in srgb, var(--primary) 8%, transparent);
-  color: var(--text);
+  background: color-mix(in srgb, var(--dang-primary) 8%, transparent);
+  color: var(--dang-text);
 }

@@ -9,12 +9,12 @@
 
 .formRule {
   border: 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--dang-line);
   margin: 8px 0;
 }
 
 .fieldError {
   margin: 0;
-  color: var(--dang-danger, var(--danger));
+  color: var(--dang-danger);
   font-size: var(--text-xs, 0.875rem);
 }

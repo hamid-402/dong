@@ -15,7 +15,7 @@ export type FinanceSectionChrome = {
 
 /** run29-contrast-token: secondary chrome links use ink token (≥ AA vs --muted). */
 export const FINANCE_CHROME_SECONDARY_LINK_STYLE: CSSProperties = {
-  color: "var(--text)",
+  color: "var(--dang-text)",
   minHeight: 44,
   minWidth: 44,
   display: "inline-flex",

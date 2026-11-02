@@ -55,7 +55,7 @@ describe("buildFinanceSectionChrome role awareness", () => {
   });
 
   it("run29-contrast-token secondary links use --text and ≥44px tap style", () => {
-    expect(FINANCE_CHROME_SECONDARY_LINK_STYLE.color).toBe("var(--text)");
+    expect(FINANCE_CHROME_SECONDARY_LINK_STYLE.color).toBe("var(--dang-text)");
     expect(FINANCE_CHROME_SECONDARY_LINK_STYLE.minHeight).toBe(44);
     const chrome = buildFinanceSectionChrome({
       section: "expenses",

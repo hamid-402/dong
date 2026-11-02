@@ -1,13 +1,13 @@
 /* run29: AA contrast for ledger chrome (tokens only; avoid --muted). */
 :global(.moduleChrome__desc) {
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 :global(.moduleChrome__actions .uxSecondaryActions a),
 :global(.moduleChrome__actions .uxSecondaryActions button),
 :global(.productHeaderActions .uxSecondaryActions a),
 :global(.productHeaderActions .uxSecondaryActions button) {
-  color: var(--text);
+  color: var(--dang-text);
   min-height: 44px;
   min-width: 44px;
   padding-block: 10px;
@@ -87,8 +87,8 @@
 /* run29 (V4): sticky «بازگشت به خلاصه بازه» — token surface (no #fff fallback), ≥44px tap. */
 .dayShell > :global(div[style*="sticky"]),
 .dayShell > :global(div[style*="Sticky"]) {
-  background: var(--surface) !important;
-  color: var(--text);
+  background: var(--dang-surface) !important;
+  color: var(--dang-text);
   min-height: 44px;
   box-sizing: border-box;
 }
@@ -99,9 +99,9 @@
   min-width: 44px;
   padding-block: 10px;
   padding-inline: 14px;
-  color: var(--text);
-  background: var(--panel, var(--surface));
-  border-color: var(--line);
+  color: var(--dang-text);
+  background: var(--dang-surface);
+  border-color: var(--dang-line);
   box-sizing: border-box;
 }
 
@@ -112,16 +112,16 @@
 .memberTotals {
   margin: 0;
   padding: clamp(10px, 2vw, 14px);
-  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-line) 80%, transparent);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-elevated, var(--surface)) 70%, transparent);
+  background: color-mix(in srgb, var(--surface-elevated, var(--dang-surface)) 70%, transparent);
 }
 
 .memberTotals summary {
   cursor: pointer;
   font-size:clamp(0.875rem, 2.2vw, 0.88rem);
   font-weight: 700;
-  color: var(--muted);
+  color: var(--dang-muted);
   list-style: none;
 }
 
@@ -131,7 +131,7 @@
 
 .memberTotals[open] summary {
   margin-bottom: 10px;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
 .memberTotals .pfTrendList {

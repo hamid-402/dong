@@ -1058,7 +1058,7 @@ export function DailyLedgerView() {
                 gap: 8,
                 alignItems: "center",
                 padding: "8px 0",
-                background: "var(--surface, #fff)",
+                background: "var(--dang-surface, #fff)",
               }}
             >
               <Button
