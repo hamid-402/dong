@@ -50,20 +50,20 @@
 }
 
 .app-viewport{
-  --m-1: var(--space-1, 4px);
-  --m-2: var(--space-2, 8px);
-  --m-3: var(--space-3, 12px);
-  --m-4: var(--space-4, 16px);
-  --m-5: var(--space-5, 24px);
-  --m-6: var(--space-6, 32px);
-  --m-r-sm: var(--r-sm, 8px);
-  --m-r-md: var(--r-md, 12px);
-  --m-r-lg: var(--r-lg, 16px);
-  --m-r-xl: var(--r-xl, 20px);
-  --m-elev-1: var(--elev-1);
-  --m-elev-2: var(--elev-2);
-  --m-ease: var(--ease);
-  --m-dur: var(--motion-duration-base, var(--dang-dur, 160ms));
+  --m-1: var(--dang-space-1);
+  --m-2: var(--dang-space-2);
+  --m-3: var(--dang-space-3);
+  --m-4: var(--dang-space-4);
+  --m-5: var(--dang-space-5);
+  --m-6: var(--dang-space-6);
+  --m-r-sm: var(--dang-radius-sm);
+  --m-r-md: var(--dang-radius-md);
+  --m-r-lg: var(--dang-radius-lg);
+  --m-r-xl: var(--dang-radius-xl);
+  --m-elev-1: var(--dang-elev-1);
+  --m-elev-2: var(--dang-elev-2);
+  --m-ease: var(--dang-ease);
+  --m-dur: var(--dang-dur);
   --shell-chrome-offset: 60px;
 
   position: relative;
@@ -282,12 +282,13 @@ button.header-profileMenu__item:disabled{
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
-  border: 1px solid var(--line);
+  background: var(--dang-bg);
+  border: 1px solid var(--dang-line);
   direction: rtl;
-  color: var(--text);
+  color: var(--dang-text);
 }
 
+/* Paint, height, and padding live in the single header contract near the end of this file. */
 .shell-v2__header{
   position: sticky;
   top: 0;
@@ -296,11 +297,6 @@ button.header-profileMenu__item:disabled{
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  min-height: 46px;
-  padding: 6px 14px;
-  border-bottom: 1px solid var(--line);
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  backdrop-filter: blur(14px) saturate(1.08);
 }
 
 .shell-v2__bar{
@@ -359,16 +355,11 @@ button.header-profileMenu__item:disabled{
 }
 
 .shell-v2__mark{
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--primary) 14%, transparent);
-  color: var(--primary);
   flex-shrink: 0;
   text-decoration: none;
-  transition: background 160ms var(--ease), transform 160ms var(--ease);
+  transition: background var(--dang-dur) var(--dang-ease), transform var(--dang-dur) var(--dang-ease);
 }
 
 a.shell-v2__mark:hover{
@@ -393,7 +384,7 @@ a.shell-v2__mark:focus-visible{
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  color: var(--text);
+  color: var(--dang-text);
   font-size: 0.98rem;
   font-weight: 800;
   letter-spacing: -0.04em;
@@ -402,7 +393,7 @@ a.shell-v2__mark:focus-visible{
 }
 
 .shell-v2__wordmark:hover{
-  color: var(--primary);
+  color: var(--dang-primary);
 }
 
 .shell-v2__wordmark:focus-visible{
@@ -416,7 +407,7 @@ a.shell-v2__mark:focus-visible{
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text);
+  color: var(--dang-text);
   font-size:0.875rem;
   font-weight: 600;
   line-height: 1.2;
@@ -424,12 +415,12 @@ a.shell-v2__mark:focus-visible{
 }
 
 .shell-v2__contextLink--muted{
-  color: var(--muted);
+  color: var(--dang-muted);
   font-weight: 550;
 }
 
 .shell-v2__contextLink:hover{
-  color: var(--primary);
+  color: var(--dang-primary);
 }
 
 .shell-v2__header-end{
@@ -1513,11 +1504,11 @@ a.shell-navMenu__leaveLink:hover{
 .shell-v2__rail-link{
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 36px;
+  gap: var(--dang-space-2);
+  min-height: var(--dang-touch);
   padding: 6px 10px;
-  border-radius: 10px;
-  color: var(--muted);
+  border-radius: var(--dang-radius-md);
+  color: var(--dang-muted);
   text-decoration: none;
   font-size:0.875rem;
   font-weight: 600;
@@ -1608,10 +1599,7 @@ a.shell-navMenu__leaveLink:hover{
   bottom: 0;
   z-index: 30;
   width: 100%;
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  border-top: 1px solid var(--line);
-  backdrop-filter: blur(10px);
+  padding: var(--dang-space-2) var(--dang-space-3) calc(var(--dang-space-2) + env(safe-area-inset-bottom, 0px));
 }
 
 /* —— Tabs —— */
@@ -5299,27 +5287,18 @@ html[data-scheme="light"] .shell-tabs__tab.is-active{
   box-shadow: var(--m-elev-2);
 }
 
-.shell-v2__header{
-  min-height: 48px;
-  padding-block: 5px;
-  border-bottom-color: color-mix(in srgb, var(--line) 78%, transparent);
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--surface) 70%, transparent);
-  backdrop-filter: blur(18px) saturate(1.15);
-}
-
 .shell-v2__mark{
   width: 34px;
   height: 34px;
-  border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dang-primary) 28%, transparent);
   border-radius: 11px;
   background:
-    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--primary-ink) 34%, transparent), transparent 35%),
-    linear-gradient(145deg, var(--primary), var(--primary-deep));
-  color: var(--primary-ink);
+    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--dang-primary-ink) 34%, transparent), transparent 35%),
+    linear-gradient(145deg, var(--dang-primary), var(--dang-primary-deep));
+  color: var(--dang-primary-ink);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--primary-ink) 25%, transparent),
-    0 5px 14px color-mix(in srgb, var(--primary) 16%, transparent);
+    inset 0 1px 0 color-mix(in srgb, var(--dang-primary-ink) 25%, transparent),
+    0 5px 14px color-mix(in srgb, var(--dang-primary) 16%, transparent);
 }
 
 .shell-v2__brand-text{
@@ -5333,16 +5312,6 @@ html[data-scheme="light"] .shell-tabs__tab.is-active{
 
 .shell-v2__main{
   background: transparent;
-}
-
-html[data-scheme="light"] .shell-v2__header{
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface) 94%, transparent),
-      color-mix(in srgb, var(--surface) 86%, transparent)
-    );
-  border-bottom-color: color-mix(in srgb, var(--line) 80%, transparent);
 }
 
 .shell-v2__search,
@@ -5361,13 +5330,8 @@ html[data-scheme="light"] .shell-v2__header{
 }
 
 .shell-v2__cta{
-  min-height: 40px;
-  padding-inline: 16px;
-  border: 1px solid color-mix(in srgb, var(--primary) 76%, transparent);
-  border-radius: 12px;
-  background: var(--primary);
-  color: var(--primary-ink);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 18%, transparent);
+  padding-inline: var(--dang-space-4);
+  border-radius: var(--dang-radius-md);
 }
 
 .shell-tabs--header{
@@ -5564,13 +5528,6 @@ html[data-scheme="dark"] .groupOpsRail{
   background: var(--surface);
 }
 
-.shell-v2__dock{
-  border-top-color: color-mix(in srgb, var(--line) 76%, transparent);
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  box-shadow: 0 -12px 32px color-mix(in srgb, var(--text) 7%, transparent);
-  backdrop-filter: blur(18px) saturate(1.12);
-}
-
 .shell-tabs--dock .shell-tabs__tab.is-active{
   background: var(--primary-soft);
 }
@@ -5689,16 +5646,16 @@ a.shell-v2__cta,
 a.shell-v2__cta:link,
 a.shell-v2__cta:visited,
 .shell-v2__cta{
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 22%, transparent);
-  background: var(--primary);
-  color: var(--primary-ink);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--dang-primary) 22%, transparent);
+  background: var(--dang-primary);
+  color: var(--dang-primary-ink);
   border: none;
 }
 
 a.shell-v2__cta:hover,
 .shell-v2__cta:hover{
   background: var(--dang-primary-deep);
-  color: var(--primary-ink);
+  color: var(--dang-primary-ink);
 }
 
 /* Primary buttons whose inline style still fades into a dark stop. */
@@ -5766,12 +5723,12 @@ html[data-scheme="light"] .shell-tabs--dock .shell-tabs__tab.is-active{
   background:
     linear-gradient(
       0deg,
-      color-mix(in srgb, var(--primary) 5%, var(--dock-bg, var(--dock))),
-      color-mix(in srgb, var(--dock-bg, var(--dock)) 92%, transparent)
+      color-mix(in srgb, var(--dang-primary) 5%, var(--dang-dock-bg)),
+      color-mix(in srgb, var(--dang-dock-bg) 92%, transparent)
     );
-  border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--dang-line) 80%, transparent);
   backdrop-filter: blur(16px) saturate(1.08);
-  box-shadow: 0 -10px 28px color-mix(in srgb, var(--bg) 40%, transparent);
+  box-shadow: 0 -10px 28px color-mix(in srgb, var(--dang-bg) 40%, transparent);
 }
 
 @media (min-width: 1024px) {
@@ -5788,7 +5745,7 @@ html[data-scheme="light"] .shell-tabs--dock .shell-tabs__tab.is-active{
     min-height: 100dvh;
     max-width: none;
     width: 100%;
-    background: var(--bg);
+    background: var(--dang-bg);
     backdrop-filter: none;
   }
 
@@ -5808,20 +5765,6 @@ html[data-scheme="light"] .shell-tabs--dock .shell-tabs__tab.is-active{
     max-width: none;
     margin-inline: 0;
     width: 100%;
-  }
-
-  .shell-v2__header,
-.shell-v2--desktop .shell-v2__header{
-    min-height: 4.25rem;
-    padding-block: 10px;
-    padding-inline: var(--page-frame-pad);
-    gap: 14px;
-  }
-
-  .shell-v2__header--workspace,
-.shell-v2--desktop .shell-v2__header--workspace{
-    min-height: 0;
-    gap: 0;
   }
 
   .shell-v2__mark,
@@ -6446,10 +6389,6 @@ a.shell-v2__cta,
   min-height: 44px;
 }
 
-.shell-v2__header {
-  min-height: 56px;
-}
-
 .jdfPop {
   width: min(100%, 22.5rem);
   max-width: calc(100vw - 16px);
@@ -6753,9 +6692,9 @@ html[data-density="compact"] .shell-v2__header {
   min-height: 44px;
   padding: 0 12px;
   border: 1px solid var(--dang-border, var(--dang-line));
-  border-radius: 8px;
+  border-radius: var(--dang-radius-sm);
   background: var(--dang-bg);
-  color: var(--text);
+  color: var(--dang-text);
   font-size: 0.875rem;
   font-weight: 650;
   line-height: 1.2;
@@ -6764,12 +6703,12 @@ html[data-density="compact"] .shell-v2__header {
 }
 
 .shell-v2__home:hover {
-  background: color-mix(in srgb, var(--text) 6%, transparent);
+  background: var(--dang-fill-soft);
 }
 
 .shell-v2__home[aria-current="page"] {
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
-  box-shadow: inset 0 -2px 0 var(--primary);
+  background: color-mix(in srgb, var(--dang-primary) 12%, transparent);
+  box-shadow: inset 0 -2px 0 var(--dang-primary);
 }
 
 .shell-v2__home:focus-visible {
@@ -6815,9 +6754,9 @@ html[data-density="compact"] .shell-v2__header {
   height: 44px;
   padding: 0 8px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--dang-radius-sm);
   background: transparent;
-  color: var(--muted);
+  color: var(--dang-muted);
   font: inherit;
   font-size: 0.875rem;
   font-weight: 650;
@@ -6828,14 +6767,14 @@ html[data-density="compact"] .shell-v2__header {
 
 .shell-kindSwitch__trigger:hover,
 .shell-kindSwitch__trigger[aria-expanded="true"] {
-  background: color-mix(in srgb, var(--text) 6%, transparent);
-  color: var(--text);
+  background: var(--dang-fill-soft);
+  color: var(--dang-text);
 }
 
 .shell-kindSwitch__trigger.is-active {
-  color: var(--text);
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
-  box-shadow: inset 0 -2px 0 var(--primary);
+  color: var(--dang-text);
+  background: color-mix(in srgb, var(--dang-primary) 12%, transparent);
+  box-shadow: inset 0 -2px 0 var(--dang-primary);
 }
 
 .shell-kindSwitch__trigger:disabled {
