@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { assignKindGems, KIND_GEM_FAMILY } from "./tile-gem-palettes";
+import {
+  assignKindGems,
+  gemCssVars,
+  KIND_GEM_FAMILY,
+  shellKindStyle,
+  TILE_GEM_PALETTES,
+  TILE_GEM_PALETTES_BY_THEME,
+  type DangThemeId,
+} from "./tile-gem-palettes";
+
+const THEMES: DangThemeId[] = ["white", "black", "paper", "midnight"];
 
 describe("assignKindGems", () => {
   it("keeps each space inside its kind family and distinct until the family is full", () => {
@@ -17,5 +27,31 @@ describe("assignKindGems", () => {
     const second = assignKindGems("org", [...ids].reverse());
     expect(second.get("org-1")).toBe(first.get("org-1"));
     expect(second.get("org-2")).toBe(first.get("org-2"));
+  });
+});
+
+describe("per-theme gem scaffolding", () => {
+  it("exposes white/black/paper/midnight maps with identical current values", () => {
+    for (const theme of THEMES) {
+      expect(TILE_GEM_PALETTES_BY_THEME[theme]).toEqual(TILE_GEM_PALETTES);
+    }
+  });
+
+  it("keeps flat TILE_GEM_PALETTES as the paper shim", () => {
+    expect(TILE_GEM_PALETTES).toBe(TILE_GEM_PALETTES_BY_THEME.paper);
+  });
+
+  it("gemCssVars and shellKindStyle still emit edge/mid/center from the flat map", () => {
+    const gem = TILE_GEM_PALETTES.teal!;
+    expect(gemCssVars("teal")).toEqual({
+      "--tile-gem-edge": gem.edge,
+      "--tile-gem-mid": gem.mid,
+      "--tile-gem-center": gem.center,
+    });
+    expect(shellKindStyle("teal")).toEqual({
+      "--tile-gem-edge": gem.edge,
+      "--tile-gem-mid": gem.mid,
+      "--tile-gem-center": gem.center,
+    });
   });
 });

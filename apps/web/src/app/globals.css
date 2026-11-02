@@ -87,6 +87,30 @@
   --chart-rule: #c8c2b8;
 }
 
+/* White — explicit component tokens (same values as :root light/paper defaults). */
+html[data-theme="white"]{
+  --shadow-ink: #000000;
+  --chip-highlight: #ffffff;
+  --mosaic-attention: #fbbf24;
+  --mosaic-fact-shade: #0f0f12;
+  --mosaic-pin-ink: #e4e4e7;
+  --mosaic-ink: #0f172a;
+  --mosaic-edge-ink: #000000;
+  --selection-danger: #b42318;
+  --bar-primary-deep: #1a3d34;
+  --bar-secondary-wash: #c4b59a;
+  --ledger-shadow-ink: #020617;
+  --audience-private: #b54708;
+  --treasury-personal-cta-bg: #b45309;
+  --treasury-personal-cta-fg: #fffbeb;
+  --kind-mood-personal: #2bb89a;
+  --kind-mood-group: #a78bfa;
+  --kind-mood-building: #4b8fe8;
+  --kind-mood-org: #8f78e6;
+  --persona-banner-border: #c9c2b8;
+  --chart-rule: #c8c2b8;
+}
+
 /* Dark theme overrides for اجرای ۱۲ component tokens (black + midnight/navy). WCAG AA on dark surfaces. */
 html[data-theme="black"]{
   --shadow-ink: #000000;

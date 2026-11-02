@@ -1,14 +1,18 @@
 /**
  * Mosaic gem palettes — solid rim + pastel wash (فضای کار موزاییکی).
  * Used by `.dang-gem` as --tile-gem-edge / mid / center.
+ *
+ * Phase 1 scaffolding: per-theme maps exist for white/black/paper/midnight
+ * with identical current values. Flat `TILE_GEM_PALETTES` remains the public shim.
  */
 import type { CSSProperties } from "react";
 import type { SpaceKind } from "@dang/contracts";
 
-export const TILE_GEM_PALETTES: Record<
-  string,
-  { edge: string; mid: string; center: string; ink: string }
-> = {
+export type DangThemeId = "white" | "black" | "paper" | "midnight";
+
+export type GemPalette = { edge: string; mid: string; center: string; ink: string };
+
+const SHARED_TILE_GEM_PALETTES: Record<string, GemPalette> = {
   teal: { edge: "#0f766e", mid: "#2dd4bf", center: "#ccfbf1", ink: "#134e4a" },
   emerald: { edge: "#15803d", mid: "#4ade80", center: "#dcfce7", ink: "#14532d" },
   cyan: { edge: "#0e7490", mid: "#22d3ee", center: "#cffafe", ink: "#164e63" },
@@ -61,6 +65,21 @@ export const TILE_GEM_PALETTES: Record<
   sky: { edge: "#1d4ed8", mid: "#3b82f6", center: "#dbeafe", ink: "#1e3a8a" },
   "coral-deep": { edge: "#b91c1c", mid: "#f87171", center: "#fee2e2", ink: "#7f1d1d" },
 };
+
+/** Per-theme scaffolding — identical values across all four themes in this phase. */
+export const TILE_GEM_PALETTES_BY_THEME: Record<
+  DangThemeId,
+  Record<string, GemPalette>
+> = {
+  white: SHARED_TILE_GEM_PALETTES,
+  black: SHARED_TILE_GEM_PALETTES,
+  paper: SHARED_TILE_GEM_PALETTES,
+  midnight: SHARED_TILE_GEM_PALETTES,
+};
+
+/** Public flat map (shim) — same current palettes; consumers keep importing this. */
+export const TILE_GEM_PALETTES: Record<string, GemPalette> =
+  TILE_GEM_PALETTES_BY_THEME.paper;
 
 /** Semantic roles (folders / intents) — happier spread like دانش‌بان */
 export const GEM_ROLE = {

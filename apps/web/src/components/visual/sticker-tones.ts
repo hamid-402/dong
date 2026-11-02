@@ -1,4 +1,10 @@
-/** Cheerful dual-tone palettes — bright soft fills, clear mid edges (fintech-chic). */
+/** Cheerful dual-tone palettes — bright soft fills, clear mid edges (fintech-chic).
+ *
+ * Phase 1 scaffolding: per-theme maps for white/black/paper/midnight with
+ * identical current values. Flat `STICKER_TONES` remains the public shim.
+ */
+
+export type DangThemeId = "white" | "black" | "paper" | "midnight";
 
 export type IconTone = {
   edge: string;
@@ -7,7 +13,7 @@ export type IconTone = {
   accent: string;
 };
 
-export const STICKER_TONES: Record<string, IconTone> = {
+const SHARED_STICKER_TONES: Record<string, IconTone> = {
   wallet: { edge: "#0b6b5c", mid: "#2bb89a", soft: "#e4faf4", accent: "#7ee0c8" },
   ring: { edge: "#0c6e66", mid: "#2ecfc0", soft: "#e2fbf8", accent: "#a78bfa" },
   tower: { edge: "#5a3bb8", mid: "#8f78e6", soft: "#efeaff", accent: "#c9b8ff" },
@@ -37,6 +43,17 @@ export const STICKER_TONES: Record<string, IconTone> = {
   cart: { edge: "#157a45", mid: "#34c77a", soft: "#e6fbef", accent: "#7ae0a8" },
   plant: { edge: "#4f6b18", mid: "#92b842", soft: "#f1f7dc", accent: "#c8e070" },
 };
+
+/** Per-theme scaffolding — identical values across all four themes in this phase. */
+export const STICKER_TONES_BY_THEME: Record<DangThemeId, Record<string, IconTone>> = {
+  white: SHARED_STICKER_TONES,
+  black: SHARED_STICKER_TONES,
+  paper: SHARED_STICKER_TONES,
+  midnight: SHARED_STICKER_TONES,
+};
+
+/** Public flat map (shim) — same current tones; consumers keep importing this. */
+export const STICKER_TONES: Record<string, IconTone> = STICKER_TONES_BY_THEME.paper;
 
 export const SPACE_KIND_TONES: Record<
   "personal" | "group" | "building" | "org",
