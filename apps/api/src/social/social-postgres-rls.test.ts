@@ -5,8 +5,8 @@
  * Negative: B must not SELECT A's full user_directory_setting row.
  * GUC: directory_public_settings restores prior app.user_id (اجرای ۷).
  *
- * Skips when DATABASE_URL is unset. Does not load .env — set DATABASE_URL
- * in the process environment (NOBYPASSRLS role, preferably dang_runtime).
+ * Does not load .env — set DATABASE_URL in the process environment
+ * (NOBYPASSRLS role, preferably dang_runtime). Required by pnpm test setup.
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -33,12 +33,7 @@ function actorOf(user: { userId: string; externalSubject: string; displayName: s
 }
 
 test("postgres B finds A by username and requests friendship under RLS", async (t) => {
-  if (!databaseUrl) {
-    t.skip("DATABASE_URL not set — skip social postgres B→A (no .env load)");
-    return;
-  }
-
-  const { db, pool, close } = createDatabase(databaseUrl);
+  const { db, pool, close } = createDatabase(databaseUrl!);
   t.after(async () => {
     await close();
   });
@@ -110,12 +105,7 @@ test("postgres B finds A by username and requests friendship under RLS", async (
 });
 
 test("postgres B cannot SELECT A's full user_directory_setting row", async (t) => {
-  if (!databaseUrl) {
-    t.skip("DATABASE_URL not set — skip social postgres negative SELECT (no .env load)");
-    return;
-  }
-
-  const { db, pool, close } = createDatabase(databaseUrl);
+  const { db, pool, close } = createDatabase(databaseUrl!);
   t.after(async () => {
     await close();
   });
@@ -183,12 +173,7 @@ test("postgres B cannot SELECT A's full user_directory_setting row", async (t) =
 });
 
 test("postgres directory_public_settings restores prior app.user_id", async (t) => {
-  if (!databaseUrl) {
-    t.skip("DATABASE_URL not set — skip app.user_id restore (no .env load)");
-    return;
-  }
-
-  const { pool, close } = createDatabase(databaseUrl);
+  const { pool, close } = createDatabase(databaseUrl!);
   t.after(async () => {
     await close();
   });

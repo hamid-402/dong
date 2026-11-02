@@ -8,7 +8,8 @@
     "start": "node dist/main.js",
     "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "tsx --test --test-force-exit src/**/*.test.ts"
+    "test": "tsx --import ./src/test/setup/require-database-url.ts --test --test-force-exit src/**/*.test.ts",
+    "test:unit": "node -e \"const {globSync}=require('node:fs');const {spawnSync}=require('node:child_process');const path=require('node:path');const deny=new Set(['key-vault.test.ts','social-postgres-rls.test.ts','testcontainer.smoke.test.ts']);const files=globSync('src/**/*.test.ts').filter(f=>!deny.has(path.basename(f)));const r=spawnSync(process.execPath,['--import','tsx','--test','--test-force-exit',...files],{stdio:'inherit'});process.exit(r.status??1)\""
   },
   "dependencies": {
     "@dang/config": "workspace:*",

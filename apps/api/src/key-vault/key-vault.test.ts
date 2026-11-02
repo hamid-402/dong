@@ -201,14 +201,10 @@ test("non-prod generates .dang/master.key once", () => {
 
 test("postgres vault store put/get when DATABASE_URL set", async (t) => {
   const url = process.env.DATABASE_URL?.trim();
-  if (!url) {
-    t.skip("DATABASE_URL not set");
-    return;
-  }
   const key = generateMasterKey();
   let store: PostgresVaultStore;
   try {
-    store = PostgresVaultStore.fromConnectionString(url);
+    store = PostgresVaultStore.fromConnectionString(url!);
   } catch (err) {
     t.skip(`postgres vault unavailable: ${err instanceof Error ? err.message : err}`);
     return;
