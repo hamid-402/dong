@@ -46,4 +46,29 @@ describe("0099 pending PSP migrator policies file checks", () => {
     assert.match(journal, /0098_pending_psp_rls/);
     assert.match(journal, /0099_pending_psp_migrator_policies/);
   });
+
+  it("orders 0099 after 0098 by tag in _journal.json", () => {
+    const journal = JSON.parse(
+      readFileSync(
+        resolve(process.cwd(), "migrations/meta/_journal.json"),
+        "utf8",
+      ),
+    );
+    const entries = Array.isArray(journal?.entries) ? journal.entries : [];
+    const tag0098 = "0098_pending_psp_rls";
+    const tag0099 = "0099_pending_psp_migrator_policies";
+    const index0098 = entries.findIndex((e) => e?.tag === tag0098);
+    const index0099 = entries.findIndex((e) => e?.tag === tag0099);
+    assert.ok(index0098 >= 0, `missing journal tag ${tag0098}`);
+    assert.ok(index0099 >= 0, `missing journal tag ${tag0099}`);
+    assert.ok(
+      index0099 > index0098,
+      `${tag0099} must appear after ${tag0098} in journal entries`,
+    );
+    const idx0098 = entries[index0098].idx;
+    const idx0099 = entries[index0099].idx;
+    if (typeof idx0098 === "number" && typeof idx0099 === "number") {
+      assert.ok(idx0099 > idx0098, `${tag0099} idx must be greater than ${tag0098}`);
+    }
+  });
 });

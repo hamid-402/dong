@@ -18,7 +18,7 @@
     "lint": "eslint src drizzle.config.ts --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "node ./scripts/assert-0098-0099-pair.mjs && drizzle-kit migrate",
     "db:check": "drizzle-kit check",
     "db:bootstrap-runtime": "node ./scripts/ci-bootstrap-runtime.mjs",
     "test": "tsx --test tests/**/*.test.ts"

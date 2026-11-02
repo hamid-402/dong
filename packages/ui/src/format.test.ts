@@ -42,6 +42,8 @@ test("formatMoney uses Persian digits past the safe integer range", () => {
   assert.doesNotMatch(huge, /[0-9]/);
   assert.match(huge, /٬/);
 });
+
+test("formatMoneyWithUnit appends currency unit labels", () => {
   assert.match(formatMoneyWithUnit(1000, "rial"), /ریال/);
   assert.match(formatMoneyWithUnit(1000, "toman"), /تومان/);
 });
