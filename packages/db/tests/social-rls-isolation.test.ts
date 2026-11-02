@@ -21,12 +21,7 @@ const databaseUrl = process.env.DATABASE_URL;
 
 describe("social RLS isolation", () => {
   it("keeps directory, friendship, and sync rows private across users", async (t) => {
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set — skip social RLS isolation (no .env load)");
-      return;
-    }
-
-    const { db, pool, close } = createDatabase(databaseUrl);
+    const { db, pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });

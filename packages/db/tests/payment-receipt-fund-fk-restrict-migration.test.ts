@@ -70,14 +70,8 @@ test("0097 is registered in the Drizzle migration journal", () => {
 
 test("0097 payee_fund FK RESTRICT blocks fund delete (as table owner)", async (t) => {
   const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    t.skip(
-      "DATABASE_URL not set — skip payee_fund FK RESTRICT (no .env load)",
-    );
-    return;
-  }
 
-  const { db, pool, close } = createDatabase(databaseUrl);
+  const { db, pool, close } = createDatabase(databaseUrl!);
   t.after(async () => {
     await close();
   });

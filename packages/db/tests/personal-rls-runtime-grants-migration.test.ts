@@ -162,12 +162,8 @@ async function personal0102Applied(
 describe("0102 personal RLS live invariants + parity", () => {
   it("RLS+FORCE, dual policies, grants; owner CRUD under current app role", async (t) => {
     const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set — skip 0102 live invariants (no .env load)");
-      return;
-    }
 
-    const { db, pool, close } = createDatabase(databaseUrl);
+    const { db, pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });
@@ -316,12 +312,8 @@ describe("0102 personal RLS live invariants + parity", () => {
 describe("0102 personal RLS isolation", () => {
   it("keeps money_intent, allocation_plan, paycheck private across users", async (t) => {
     const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set — skip personal RLS isolation (no .env load)");
-      return;
-    }
 
-    const { db, pool, close } = createDatabase(databaseUrl);
+    const { db, pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });

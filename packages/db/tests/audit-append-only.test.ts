@@ -46,12 +46,7 @@ const databaseUrl = process.env.DATABASE_URL;
 
 describe("audit append-only (R10-04)", () => {
   it("keeps audit.event immutable for runtime role", async (t) => {
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set");
-      return;
-    }
-
-    const { db, pool, close } = createDatabase(databaseUrl);
+    const { db, pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });

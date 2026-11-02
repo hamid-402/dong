@@ -21,7 +21,8 @@
     "db:migrate": "node ./scripts/assert-0098-0099-pair.mjs && drizzle-kit migrate",
     "db:check": "drizzle-kit check",
     "db:bootstrap-runtime": "node ./scripts/ci-bootstrap-runtime.mjs",
-    "test": "tsx --test tests/**/*.test.ts"
+    "test": "tsx --import ./tests/setup/require-database-url.ts --test tests/**/*.test.ts",
+    "test:unit": "tsx --test tests/pending-psp-migrator-policies-migration.test.ts tests/s12-settle-pay-migration.test.ts tests/wave-f-finish-migration-invariants.test.ts tests/wave-f-migration-invariants.test.ts tests/wave6-migration-invariants.test.ts"
   },
   "dependencies": {
     "@dang/config": "workspace:*",

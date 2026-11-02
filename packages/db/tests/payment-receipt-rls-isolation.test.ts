@@ -20,14 +20,7 @@ const databaseUrl = process.env.DATABASE_URL;
 
 describe("payment_receipt RLS isolation", () => {
   it("keeps select/update of receipts private across workspaces", async (t) => {
-    if (!databaseUrl) {
-      t.skip(
-        "DATABASE_URL not set — skip payment_receipt RLS isolation (no .env load)",
-      );
-      return;
-    }
-
-    const { db, pool, close } = createDatabase(databaseUrl);
+    const { db, pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });
@@ -157,14 +150,7 @@ describe("payment_receipt RLS isolation", () => {
   });
 
   it("حذف صندوق با dang_runtime با خطای permission رد می‌شه", async (t) => {
-    if (!databaseUrl) {
-      t.skip(
-        "DATABASE_URL not set — skip dang_runtime DELETE permission (no .env load)",
-      );
-      return;
-    }
-
-    const { pool, close } = createDatabase(databaseUrl);
+    const { pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });

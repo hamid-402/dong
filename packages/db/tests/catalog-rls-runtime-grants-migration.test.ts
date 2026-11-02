@@ -224,12 +224,8 @@ async function catalog0103Applied(
 describe("0103 catalog RLS live invariants + parity CRUD", () => {
   it("RLS+FORCE, dual policies, grants; short CRUD under current app role", async (t) => {
     const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set — skip 0103 live invariants (no .env load)");
-      return;
-    }
 
-    const { db, pool, close } = createDatabase(databaseUrl);
+    const { db, pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });
@@ -513,12 +509,8 @@ describe("0103 catalog RLS live invariants + parity CRUD", () => {
 describe("0103 catalog RLS isolation + unset workspace deny", () => {
   it("isolates workspace rows and user-owned items; denies when workspace GUC unset", async (t) => {
     const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set — skip catalog RLS isolation (no .env load)");
-      return;
-    }
 
-    const { db, pool, close } = createDatabase(databaseUrl);
+    const { db, pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });

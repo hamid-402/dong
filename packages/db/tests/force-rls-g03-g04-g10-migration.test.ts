@@ -65,12 +65,8 @@ describe("0101 FORCE RLS file checks", () => {
 describe("0101 FORCE RLS live app-role paths", () => {
   it("app role can use expense tags, split presets, guest, agreed price", async (t) => {
     const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set — skip 0101 live FORCE RLS (no .env load)");
-      return;
-    }
 
-    const { db, pool, close } = createDatabase(databaseUrl);
+    const { db, pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });

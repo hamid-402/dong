@@ -54,14 +54,8 @@ describe("0098 pending PSP RLS file checks", () => {
 describe("pending PSP RLS isolation (dang_runtime)", () => {
   it("allows capability GUC lookup and blocks cross-tenant select", async (t) => {
     const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) {
-      t.skip(
-        "DATABASE_URL not set — skip pending PSP RLS isolation (no .env load)",
-      );
-      return;
-    }
 
-    const { db, pool, close } = createDatabase(databaseUrl);
+    const { db, pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });

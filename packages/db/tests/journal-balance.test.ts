@@ -74,12 +74,7 @@ async function seedWorkspace(db: ReturnType<typeof createDatabase>["db"], prefix
 
 describe("journal balance constraint", () => {
   it("rejects unbalanced journal lines at commit", async (t) => {
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set");
-      return;
-    }
-
-    const { db, close } = createDatabase(databaseUrl);
+    const { db, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });
@@ -131,12 +126,7 @@ describe("journal balance constraint", () => {
   });
 
   it("accepts balanced debit/credit pair", async (t) => {
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set");
-      return;
-    }
-
-    const { db, close } = createDatabase(databaseUrl);
+    const { db, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });

@@ -60,12 +60,7 @@ const databaseUrl = process.env.DATABASE_URL;
 
 describe("cross-tenant RLS", () => {
   it("isolates workspace rows between tenants", async (t) => {
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set");
-      return;
-    }
-
-    const { db, pool, close } = createDatabase(databaseUrl);
+    const { db, pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });
@@ -156,12 +151,7 @@ describe("cross-tenant RLS", () => {
   });
 
   it("isolates workspace_day and workspace_range_lock", async (t) => {
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set");
-      return;
-    }
-
-    const { db, close } = createDatabase(databaseUrl);
+    const { db, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });
@@ -267,12 +257,7 @@ describe("cross-tenant RLS", () => {
   });
 
   it("isolates ops.outbox_event between tenants", async (t) => {
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set");
-      return;
-    }
-
-    const { db, pool, close } = createDatabase(databaseUrl);
+    const { db, pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });
@@ -375,12 +360,7 @@ describe("cross-tenant RLS", () => {
   });
 
   it("isolates finance.expense, accounting.journal_entry, finance.settlement", async (t) => {
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set");
-      return;
-    }
-
-    const { db, pool, close } = createDatabase(databaseUrl);
+    const { db, pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });
@@ -528,12 +508,7 @@ describe("cross-tenant RLS", () => {
   });
 
   it("isolates finance.workspace_payout_profile and finance.statement_export", async (t) => {
-    if (!databaseUrl) {
-      t.skip("DATABASE_URL not set");
-      return;
-    }
-
-    const { db, pool, close } = createDatabase(databaseUrl);
+    const { db, pool, close } = createDatabase(databaseUrl!);
     t.after(async () => {
       await close();
     });

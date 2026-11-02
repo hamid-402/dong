@@ -50,14 +50,8 @@ test("0100 is registered in the Drizzle migration journal", () => {
 
 test("0100 payee_user FK RESTRICT blocks user delete (23001)", async (t) => {
   const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    t.skip(
-      "DATABASE_URL not set — skip payee_user FK RESTRICT (no .env load)",
-    );
-    return;
-  }
 
-  const { db, pool, close } = createDatabase(databaseUrl);
+  const { db, pool, close } = createDatabase(databaseUrl!);
   t.after(async () => {
     await close();
   });
