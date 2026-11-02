@@ -1,6 +1,6 @@
 /* App-shell cache for production offline. Never cache /_next/ assets. */
-const CACHE = "dang-shell-v3";
-const SHELL = ["/", "/hub", "/manifest.webmanifest", "/icon.svg", "/whats-new"];
+const CACHE = "dang-shell-v4";
+const SHELL = ["/", "/home", "/login", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));

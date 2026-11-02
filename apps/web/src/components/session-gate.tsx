@@ -32,6 +32,24 @@ function sessionCheckTimeout(ms: number): { promise: Promise<never>; cancel: () 
   };
 }
 
+function GateFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="app-viewport">
+      <div className="shell-v2 shell-v2--gate" aria-busy="true">
+        <header className="shell-v2__header">
+          <div className="shell-v2__bar" />
+        </header>
+        <main id="main" className="shell-v2__main" tabIndex={-1}>
+          <div className="page-frame">{children}</div>
+        </main>
+        <div className="shell-v2__dock" aria-hidden="true">
+          <div className="shell-tabs shell-tabs--dock" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Client-side session verification (additive to middleware cookie check).
  * Middleware requires HttpOnly dang_session; this verifies the actor.
@@ -103,21 +121,21 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
 
   if (phase === "slow") {
     return (
-      <div className="app-viewport" style={{ padding: "1.25rem 1rem", width: "100%" }}>
+      <GateFrame>
         <p role="status">{t("sessionGate.slow")}</p>
         <button type="button" onClick={() => setAttempt((n) => n + 1)}>
           {t("sessionGate.retry")}
         </button>
-      </div>
+      </GateFrame>
     );
   }
 
   if (phase !== "ready") {
     return (
-      <div className="app-viewport" style={{ padding: "1.25rem 1rem", width: "100%" }}>
+      <GateFrame>
         {pathname === "/home" ? <h1>خانه</h1> : null}
         <p role="status">{t("sessionGate.checking")}</p>
-      </div>
+      </GateFrame>
     );
   }
 

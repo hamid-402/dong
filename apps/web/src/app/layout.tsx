@@ -9,9 +9,11 @@ import { ConfirmProvider, PromptProvider } from "@dang/ui";
 
 const vazirmatn = Vazirmatn({
   subsets: ["arabic"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "700"],
   display: "swap",
   variable: "--font-vazirmatn",
+  adjustFontFallback: true,
+  preload: true,
 });
 
 export const metadata: Metadata = {

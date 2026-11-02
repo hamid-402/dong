@@ -363,7 +363,8 @@ export function SpacesHubView({
       <section className="homeDay" aria-labelledby="home-day-title">
         <h1 id="home-day-title">خانه</h1>
         {!chrome.ready ? (
-          chrome.error ? (
+          <div className="homeDay__lead">
+          {chrome.error ? (
             <ErrorState
               title={chrome.error}
               action={
@@ -373,10 +374,11 @@ export function SpacesHubView({
               }
             />
           ) : (
-            <LoadingState label="در حال بارگذاری خانه…" rows={3} />
-          )
+            <LoadingState label="در حال بارگذاری خانه…" rows={2} />
+          )}
+          </div>
         ) : (
-          <>
+          <div className="homeDay__lead">
             {createdGroup ? <GroupCreatedNext workspace={createdGroup} /> : null}
             {chrome.workspaces.length === 0 && !createdGroup ? (
               <>
@@ -397,7 +399,7 @@ export function SpacesHubView({
             {balanceRow ? <p className="homeBalance__meta">{balanceRow.name}</p> : null}
           </div>
             )}
-          </>
+          </div>
         )}
         <div className="homeDay__actions">
           <Link className="dang-btn dang-btn--primary dang-btn--md" href={expenseHref}>

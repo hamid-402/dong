@@ -2,7 +2,7 @@
   "name": "دنگ همکاری",
   "short_name": "دنگ",
   "description": "دفتر عملیات مشترک برای هزینه، خرید، تجهیزات و حساب شرکا",
-  "start_url": "/hub",
+  "start_url": "/home",
   "display": "standalone",
   "dir": "rtl",
   "lang": "fa",

@@ -7222,3 +7222,7 @@ html[data-density="compact"] .shell-v2__header {
 .moduleChrome__title{
   color: var(--dang-text);
 }
+
+.shell-v2--gate .shell-tabs--dock{
+  min-height: 48px;
+}

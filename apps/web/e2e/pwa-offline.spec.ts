@@ -21,11 +21,15 @@ test.describe("PWA offline app-shell", () => {
     expect(body).toContain("addEventListener");
     expect(body).toMatch(/install|fetch/);
     expect(body).toContain("caches");
+    expect(body).toContain('"/home"');
+    expect(body).toContain("dang-shell-v4");
   });
 
-  test("web manifest is served", async ({ request }) => {
+  test("web manifest starts at the canonical home", async ({ request }) => {
     const res = await request.get("/manifest.webmanifest");
     expect([200, 304]).toContain(res.status());
+    const body = await res.json();
+    expect(body.start_url).toBe("/home");
   });
 
   test("service worker API is available in the page", async ({ page }) => {

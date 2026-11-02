@@ -6509,6 +6509,10 @@ textarea::placeholder{
   font-variant-numeric: tabular-nums;
 }
 
+.homeDay__lead {
+  min-height: 7.5rem;
+}
+
 .homeDay__actions {
   display: flex;
   flex-wrap: wrap;
