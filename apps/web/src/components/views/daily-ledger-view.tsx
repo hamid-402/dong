@@ -870,9 +870,22 @@ export function DailyLedgerView() {
       );
     }
     if (!selectedDay && selectedWorkspace && todayInRange) {
+      const todayRow = ledger?.days.find((day) => day.date === todayIso);
+      const todayClosed = Boolean(todayRow && (todayRow.isHoliday || todayRow.isRangeLocked));
       return (
-        <Button type="button" onClick={() => openDay(todayIso)} disabled={pending}>
-          امروز را باز کن
+        <Button
+          type="button"
+          onClick={() => {
+            if (todayClosed) {
+              openDay(todayIso);
+              return;
+            }
+            setDateQuery(todayIso);
+            openDraft({ kind: "shared", date: todayIso });
+          }}
+          disabled={pending}
+        >
+          {todayClosed ? "امروز را باز کن" : "ثبت قلم امروز"}
         </Button>
       );
     }

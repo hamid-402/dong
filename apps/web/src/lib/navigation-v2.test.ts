@@ -136,10 +136,17 @@ describe("navigation-v2", () => {
     expect(expenseFabHref("friends_family", "g1")).toBe("/w/g1/record");
   });
 
-  it("shell expense FAB follows expenseFabHref and hides for read-only roles", () => {
-    expect(shellExpenseFabHref("friends_family", "g1", "member")).toBe("/w/g1/record");
-    expect(shellExpenseFabHref("friends_family", "g1", "owner")).toBe("/w/g1/record");
-    expect(shellExpenseFabHref("personal", "me", "owner")).toBe("/w/me/record");
+  it("shell plus opens the full expense form in one hop; the خرج tab stays on the chooser", () => {
+    expect(expenseFabHref("friends_family", "g1")).toBe("/w/g1/record");
+    expect(shellExpenseFabHref("friends_family", "g1", "member")).toBe(
+      "/w/g1/expenses#quick-expense",
+    );
+    expect(shellExpenseFabHref("friends_family", "g1", "owner")).toBe(
+      "/w/g1/expenses#quick-expense",
+    );
+    expect(shellExpenseFabHref("personal", "me", "owner")).toBe(
+      "/w/me/expenses#quick-expense",
+    );
     expect(shellExpenseFabHref("friends_family", "g1", "auditor")).toBeNull();
     expect(shellExpenseFabHref("friends_family", "g1", "guest")).toBeNull();
     expect(shellExpenseFabHref("friends_family", null, "member")).toBe(

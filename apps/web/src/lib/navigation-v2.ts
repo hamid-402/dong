@@ -1375,14 +1375,16 @@ export function expenseFabHref(
   return `${scoped(slug, "record", hubPathFor("/workspaces"))}`;
 }
 
-/** Mobile dock FAB: record expense when the role can mutate finance. */
+/** Mobile plus: one hop to the full expense form. The خرج tab stays on /record. */
 export function shellExpenseFabHref(
   template: WorkspaceTemplate | undefined,
   slug: string | null,
   membershipRole: string | null | undefined,
 ): string | null {
   if (isReadOnlyRole(membershipRole)) return null;
-  return expenseFabHref(template, slug);
+  const chooser = expenseFabHref(template, slug);
+  if (!chooser || !slug) return chooser;
+  return `${wPath(slug, "expenses")}#quick-expense`;
 }
 
 export function isNavHrefActive(pathname: string, href: string, _search = ""): boolean {
