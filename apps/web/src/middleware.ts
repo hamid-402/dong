@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { API_SESSION_COOKIE } from "@dang/contracts/session-cookies";
+import { sluglessClassicRedirect } from "@/lib/workspace-paths";
 
 const PUBLIC_PREFIXES = [
   "/login",
@@ -33,12 +34,6 @@ const PROTECTED_PREFIXES = [
   "/home",
 ];
 
-/** Classic entries that map without a workspace slug (middleware can rewrite). */
-const SLUGLESS_CLASSIC_REDIRECTS: Record<string, string> = {
-  "/onboarding": "/spaces/new",
-  "/profile": "/account",
-};
-
 /**
  * Exact segment boundary match — `/hub` matches `/hub` and `/hub/x`,
  * but not `/hub-fake` (unlike a raw `startsWith(prefix)` check).
@@ -68,7 +63,7 @@ export function middleware(request: NextRequest) {
   }
 
   const normalized = pathname.replace(/\/$/, "") || "/";
-  const sluglessDest = SLUGLESS_CLASSIC_REDIRECTS[normalized];
+  const sluglessDest = sluglessClassicRedirect(normalized);
   if (sluglessDest) {
     const dest = request.nextUrl.clone();
     dest.pathname = sluglessDest;
@@ -80,6 +75,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/hub",
     "/hub/:path*",
     "/profile",
     "/profile/:path*",

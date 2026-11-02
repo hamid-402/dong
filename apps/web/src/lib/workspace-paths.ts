@@ -198,6 +198,38 @@ export function canonicalHref(
   return absoluteForPage(page, slug ?? null);
 }
 
+/**
+ * Server redirect when the classic URL does not need a workspace slug.
+ * `/` stays the marketing site. `/workspaces` stays on the client so a
+ * finance-panel hash can still choose the section.
+ */
+export function sluglessClassicRedirect(pathname: string): string | null {
+  const normalized = normalizePathname(pathname);
+  if (normalized === "/" || normalized === "/workspaces" || normalized === "/invite") return null;
+  if (normalized === "/hub") return "/home";
+  const page = CLASSIC_PATH_TARGETS[normalized];
+  if (page === "home") return "/home";
+  if (page === "spaces") return "/spaces";
+  if (page === "account") return "/account";
+  if (page === "spaces-new") return "/spaces/new";
+  return null;
+}
+
+/** Canonical URL for a classic bookmark, including hash panels when a slug is known. */
+export function classicCanonicalHref(
+  pathname: string,
+  options?: { slug?: string | null; hash?: string | null; search?: string },
+): string {
+  const slugless = sluglessClassicRedirect(pathname);
+  if (slugless === "/home" && options?.search) {
+    const list = homeListAlias(options.search);
+    if (list) return list;
+  }
+  if (slugless) return slugless;
+  const page = classicPathToWorkspacePage(pathname, options?.hash);
+  return absoluteForPage(page, options?.slug ?? null);
+}
+
 /** Space-list href, preserving a kind filter (`/spaces` or `/spaces?kind=`). */
 export function spacesListHref(kind?: string | null): string {
   if (!kind || !SPACE_KINDS.has(kind)) return "/spaces";

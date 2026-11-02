@@ -1332,9 +1332,12 @@ export function contextualAccountNav(
 }
 
 /**
- * Dock: four different destinations. Org and building stay off this row.
+ * Dock: four different destinations, and never more than five with the record FAB.
+ * Org and building stay off this row.
  * Expense recording uses the workspace record route when a slug is known.
  */
+export const MOBILE_DOCK_MAX_DESTINATIONS = 5;
+
 export function bottomTabsV2(
   template: WorkspaceTemplate | undefined,
   slug: string | null = null,

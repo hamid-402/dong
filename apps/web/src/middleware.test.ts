@@ -72,6 +72,26 @@ describe("middleware session gate", () => {
     expect(res.headers.get("location")).toContain("/account");
   });
 
+  it("redirects authenticated classic list and home aliases", () => {
+    for (const [path, dest] of [
+      ["/overview", "/home"],
+      ["/groups", "/spaces"],
+      ["/hub", "/home"],
+      ["/profile", "/account"],
+      ["/onboarding", "/spaces/new"],
+    ] as const) {
+      const res = run(path, "dang_session=opaque-token");
+      expect(res.status, path).toBe(307);
+      expect(res.headers.get("location"), path).toContain(dest);
+    }
+  });
+
+  it("keeps /workspaces on the client so a finance hash can choose the section", () => {
+    const res = run("/workspaces", "dang_session=opaque-token");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+  });
+
   it("does not treat /hub-fake as a protected /hub path", () => {
     const res = run("/hub-fake");
     expect(res.status).toBe(200);

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   accountNav,
   bottomTabsV2,
+  MOBILE_DOCK_MAX_DESTINATIONS,
   contextualMosaicSections,
   domainDrillMosaicSections,
   domainGroupedNav,
@@ -22,7 +23,9 @@ import { NAV_LABELS } from "@/lib/nav-labels";
 import {
   CLASSIC_PATH_TARGETS,
   CLASSIC_REDIRECT_PATHS,
+  classicCanonicalHref,
   classicPathToWorkspacePage,
+  sluglessClassicRedirect,
   wPath,
 } from "@/lib/workspace-paths";
 
@@ -38,6 +41,8 @@ describe("navigation-v2", () => {
     expect(group.find((t) => t.key === "spaces")?.href).toBe("/spaces");
     expect(group.find((t) => t.key === "expenses")?.href).toBe("/w/demo/record");
     expect(group.find((t) => t.key === "more")?.href).toBe("/account");
+    expect(group.length).toBeLessThanOrEqual(MOBILE_DOCK_MAX_DESTINATIONS);
+    expect(group.length + 1).toBeLessThanOrEqual(MOBILE_DOCK_MAX_DESTINATIONS);
   });
 
   it("keeps app home at /home even when a workspace slug is known", () => {
@@ -685,5 +690,48 @@ describe("workspace-paths", () => {
       expect(classicPathToWorkspacePage(path)).not.toBeNull();
       expect(CLASSIC_PATH_TARGETS[path] ?? classicPathToWorkspacePage(path)).toBeTruthy();
     }
+  });
+
+  it("resolves a canonical href for every classic bookmark", () => {
+    const slug = "acme";
+    const expected: Record<string, string> = {
+      "/": "/home",
+      "/overview": "/home",
+      "/workspaces": "/spaces",
+      "/workspaces/invite": `/w/${slug}/members`,
+      "/workspaces/procurement": `/w/${slug}/procurement`,
+      "/workspaces/assets": `/w/${slug}/assets`,
+      "/workspaces/partnership": `/w/${slug}/partners`,
+      "/daily-ledger": `/w/${slug}/ledger`,
+      "/proposals": `/w/${slug}/proposals`,
+      "/me": `/w/${slug}/space`,
+      "/group": `/w/${slug}/space`,
+      "/groups": "/spaces",
+      "/orgs": `/w/${slug}/space`,
+      "/profile": "/account",
+      "/onboarding": "/spaces/new",
+      "/invite": "/invite",
+    };
+    for (const path of CLASSIC_REDIRECT_PATHS) {
+      expect(classicCanonicalHref(path, { slug }), path).toBe(expected[path]);
+    }
+    expect(classicCanonicalHref("/workspaces", { slug, hash: "#settlement-panel" })).toBe(
+      `/w/${slug}/settlements`,
+    );
+    expect(classicCanonicalHref("/workspaces", { slug, hash: "#period-invoice-panel" })).toBe(
+      `/w/${slug}/invoices`,
+    );
+    expect(classicCanonicalHref("/workspaces", { slug, hash: "#reports-panel" })).toBe(
+      `/w/${slug}/recurring`,
+    );
+    expect(classicCanonicalHref("/workspaces", { slug, hash: "#expense-panel" })).toBe(
+      `/w/${slug}/expenses`,
+    );
+    expect(classicCanonicalHref("/hub")).toBe("/home");
+    expect(sluglessClassicRedirect("/")).toBeNull();
+    expect(sluglessClassicRedirect("/workspaces")).toBeNull();
+    expect(sluglessClassicRedirect("/daily-ledger")).toBeNull();
+    expect(sluglessClassicRedirect("/overview")).toBe("/home");
+    expect(sluglessClassicRedirect("/groups")).toBe("/spaces");
   });
 });
