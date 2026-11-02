@@ -27,7 +27,13 @@ const members = [
   },
 ];
 
-function Harness({ onCreateExpense }: { onCreateExpense: () => void }) {
+function Harness({
+  onCreateExpense,
+  onAmountTomanChange,
+}: {
+  onCreateExpense: (amountToman: string) => void;
+  onAmountTomanChange?: (amountToman: string) => void;
+}) {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [split, setSplit] = useState<SplitComposerValue>(() => {
@@ -42,7 +48,10 @@ function Harness({ onCreateExpense }: { onCreateExpense: () => void }) {
         title={title}
         onTitleChange={setTitle}
         amountToman={amount}
-        onAmountTomanChange={setAmount}
+        onAmountTomanChange={(next) => {
+          setAmount(next);
+          onAmountTomanChange?.(next);
+        }}
         expenseDate="2026-10-13"
         onExpenseDateChange={() => undefined}
         split={split}
@@ -56,7 +65,7 @@ function Harness({ onCreateExpense }: { onCreateExpense: () => void }) {
         offlineDrafts={[]}
         lastDraftSavedAt={null}
         pending={false}
-        onCreateExpense={onCreateExpense}
+        onCreateExpense={() => onCreateExpense(amount)}
         onSaveOfflineDraft={() => undefined}
         onSyncOfflineDraft={() => undefined}
         onRemoveOfflineDraft={() => undefined}
@@ -82,13 +91,25 @@ describe("ExpenseFormPanel short flow", () => {
     expect(alerts.some((text) => text.includes("مبلغ"))).toBe(true);
   });
 
-  it("accepts Persian digits and submits an equal expense", () => {
+  it("run29b-persian-display-latin-callback: display Persian; onValueChange + submit Latin", () => {
     const onCreate = vi.fn();
-    render(<Harness onCreateExpense={onCreate} />);
+    const onAmount = vi.fn();
+    render(<Harness onCreateExpense={onCreate} onAmountTomanChange={onAmount} />);
     fireEvent.change(screen.getByLabelText(/شرح/), { target: { value: "ناهار" } });
     fireEvent.change(screen.getByLabelText(/مبلغ/), { target: { value: "۲۵۰۰۰۰" } });
-    expect((screen.getByLabelText(/مبلغ/) as HTMLInputElement).value).toBe("250000");
+
+    const amountInput = screen.getByLabelText(/مبلغ/) as HTMLInputElement;
+    // 1) visible field uses Persian digit glyphs
+    expect(amountInput.value).toMatch(/[۰-۹]/);
+    expect(amountInput.value).toBe("۲۵۰۰۰۰");
+    // 2) callback / form state stays Latin digits
+    expect(onAmount).toHaveBeenCalledWith("250000");
+    expect(onAmount.mock.calls.at(-1)?.[0]).toMatch(/^\d+$/);
+    expect(onAmount.mock.calls.at(-1)?.[0]).not.toMatch(/[۰-۹]/);
+
     fireEvent.click(screen.getByRole("button", { name: "ثبت خرج" }));
+    // 3) create/submit payload amount is Latin
     expect(onCreate).toHaveBeenCalledOnce();
+    expect(onCreate).toHaveBeenCalledWith("250000");
   });
 });

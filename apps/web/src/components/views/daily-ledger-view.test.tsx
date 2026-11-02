@@ -423,8 +423,9 @@ describe("DailyLedgerView run27 bugs", () => {
     expect(navState.searchParams.get("date")).toBe("2026-12-15");
   });
 
-  it("run28-persian-digits: money placeholders use Persian glyphs; typed value stays Latin", async () => {
+  it("run29b-persian-display-latin-callback: MoneyInput shows Persian; submit payload stays Latin", async () => {
     navState.searchParams = new URLSearchParams("date=2026-10-29");
+    vi.mocked(api.createDailyLedgerEntry).mockResolvedValue(ledgerState.current);
 
     render(
       <ConfirmProvider>
@@ -439,11 +440,33 @@ describe("DailyLedgerView run27 bugs", () => {
     expect(unit.getAttribute("placeholder")).toBe("۶۰۰۰۰");
     expect(unit.getAttribute("placeholder") ?? "").toMatch(/[۰-۹]/);
 
+    fireEvent.change(screen.getByLabelText("نام کالا"), { target: { value: "تست مبلغ" } });
     fireEvent.change(unit, { target: { value: "123" } });
-    expect((unit as HTMLInputElement).value).toBe("123");
-    expect((unit as HTMLInputElement).value).not.toMatch(/[۰-۹]/);
+
+    // 1) visible field uses Persian digit glyphs
+    expect((unit as HTMLInputElement).value).toMatch(/[۰-۹]/);
+    expect((unit as HTMLInputElement).value).toBe("۱۲۳");
 
     const qty = screen.getByLabelText("تعداد");
     expect(qty.getAttribute("placeholder")).toBe("۱");
+
+    fireEvent.click(screen.getByRole("button", { name: "ثبت" }));
+
+    await waitFor(() => {
+      expect(api.createDailyLedgerEntry).toHaveBeenCalled();
+    });
+
+    const payload = vi.mocked(api.createDailyLedgerEntry).mock.calls[0]?.[1] as {
+      amount: { amountMinor: string };
+      unitPriceMinor?: string;
+    };
+    // 2+3) form→API path keeps Latin digits (123 toman → 1230 IRR minor)
+    expect(payload.amount.amountMinor).toBe("1230");
+    expect(payload.amount.amountMinor).toMatch(/^\d+$/);
+    expect(payload.amount.amountMinor).not.toMatch(/[۰-۹]/);
+    if (payload.unitPriceMinor != null) {
+      expect(payload.unitPriceMinor).toBe("1230");
+      expect(payload.unitPriceMinor).toMatch(/^\d+$/);
+    }
   });
 });
