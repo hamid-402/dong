@@ -14,13 +14,11 @@ import { CreateGroupForm, GroupCreatedNext } from "@/components/create-group-for
 import {
   SectionCard,
   StatusLine,
-  StatusPill,
 } from "@/components/ui-blocks";
 import { KindAggregatePanel } from "@/components/shell/kind-aggregate-panel";
 import { ShellIconSvg } from "@/components/shell/shell-icons";
 import { KindMoodBadge } from "@/components/visual/kind-mood-badge";
 import { t } from "@/lib/i18n";
-import { systemApi } from "@/lib/api/system";
 import { personalFinanceApi } from "@/lib/api/personal-finance";
 import {
   filterLivePinnedWorkspaces,
@@ -133,7 +131,6 @@ export function SpacesHubView({
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [createdGroup, setCreatedGroup] = useState<WorkspaceSummary | null>(null);
-  const [readyHint, setReadyHint] = useState<string | null>(null);
   const [pinTick, setPinTick] = useState(0);
   const [expandedKinds, setExpandedKinds] = useState<
     Partial<Record<(typeof KIND_ORDER)[number], boolean>>
@@ -246,28 +243,6 @@ export function SpacesHubView({
       .filter((ws) => spaceKindForTemplate(ws.template) === kindFilter)
       .map((ws) => ({ id: ws.id, slug: ws.slug, name: ws.name }));
   }, [chrome.workspaces, kindFilter]);
-
-  useEffect(() => {
-    if (!chrome.ready) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const health = await systemApi.healthReady();
-        if (cancelled) return;
-        if (health.status === "ready") {
-          const db = health.checks?.database === "ok" ? "دیتابیس آماده" : "بدون تأیید DB";
-          setReadyHint(`${db} · ${chrome.persistenceLabel}`);
-        } else {
-          setReadyHint("سرویس هنوز آماده نیست — عدد جعلی نشان داده نمی‌شود");
-        }
-      } catch {
-        if (!cancelled) setReadyHint(chrome.persistenceLabel);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [chrome.ready, chrome.persistenceLabel]);
 
   useEffect(() => {
     if (!chrome.ready || chrome.workspaces.length === 0) return;
@@ -453,13 +428,12 @@ export function SpacesHubView({
         )}
         <div className="homeDay__actions">
           <Link className="dang-btn dang-btn--primary dang-btn--md" href={expenseHref}>
-            خرج
+            ثبت خرج
           </Link>
-          <Link className="dang-btn dang-btn--secondary dang-btn--md" href={settleHref}>
-            تسویه
-          </Link>
+        </div>
+        <p className="homeDay__quiet">
+          <Link href={settleHref}>تسویه</Link>
           <Link
-            className="dang-btn dang-btn--secondary dang-btn--md"
             href={
               chrome.ready && chrome.workspaces.length === 0 && !createdGroup
                 ? "#create-group"
@@ -468,17 +442,10 @@ export function SpacesHubView({
           >
             گروه
           </Link>
-        </div>
-        <p className="homeDay__quiet">
           <Link href="/join">پیوستن با شناسه</Link>
           <Link href="/spaces/new?kind=personal">دفتر شخصی</Link>
           <Link href="/me/finance">{NAV_LABELS.personalFinance}</Link>
         </p>
-        {readyHint && chrome.ready ? (
-          <StatusLine>
-            <StatusPill tone="ok">زیرساخت</StatusPill> {readyHint}
-          </StatusLine>
-        ) : null}
       </section>
       )}
 

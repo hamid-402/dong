@@ -1,6 +1,6 @@
 /**
- * Remaining roadmap checks: four themes on the home and money routes,
- * and one-hop expense / ledger / settlement entry.
+ * Remaining roadmap checks: four themes on home, money, and high-traffic
+ * workspace routes, plus one-hop expense / ledger / settlement entry.
  */
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
@@ -25,6 +25,11 @@ test("four themes stay serious-clean and the money flows open in one hop", async
           `/w/${slug}/ledger`,
           `/w/${slug}/settlements`,
           `/w/${slug}/payments`,
+          `/w/${slug}/members`,
+          `/w/${slug}/settings`,
+          `/w/${slug}/invoices`,
+          `/w/${slug}/approvals`,
+          `/w/${slug}/catalog`,
         ]
       : []),
   ];
@@ -54,7 +59,9 @@ test("four themes stay serious-clean and the money flows open in one hop", async
 
   const expenseStart = Date.now();
   await page.goto("/home", { waitUntil: "domcontentloaded" });
-  await page.getByRole("link", { name: "خرج", exact: true }).click();
+  const expenseLink = page.getByRole("link", { name: "ثبت خرج", exact: true });
+  await expect(expenseLink).toHaveAttribute("href", /\/expenses/, { timeout: 20_000 });
+  await expenseLink.click();
   await expect(page).toHaveURL(/\/expenses/, { timeout: 20_000 });
   await expect(page.getByLabel("شرح")).toBeVisible({ timeout: 20_000 });
   const expenseMs = Date.now() - expenseStart;
