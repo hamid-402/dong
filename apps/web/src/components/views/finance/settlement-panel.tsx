@@ -44,7 +44,7 @@ import { membershipRoleLabel, paymentLinkStatusLabel, settlementStatusLabel } fr
 import { useOptionalAppChrome } from "@/lib/use-app-chrome";
 import { formatNetBalanceLabel } from "@/lib/net-amount-display";
 import { ConfirmSettlementDialog } from "@/components/views/finance/confirm-settlement-dialog";
-import { settleConfirmRequest, settleHumanSentence } from "@/components/views/finance/settle-sentence";
+import { settleHumanSentence } from "@/components/views/finance/settle-sentence";
 import {
   RowSelectCheckbox,
   SelectionActionBar,
@@ -204,6 +204,13 @@ export function SettlementPanel({
   }, [selectedSettlementId, settlements]);
 
   useEffect(() => {
+    if (!currentUserId || members.length < 2) return;
+    if (settleToUserId && settleToUserId !== currentUserId) return;
+    const other = members.find((member) => member.userId !== currentUserId);
+    if (other) onSettleToUserIdChange(other.userId);
+  }, [currentUserId, members, settleToUserId, onSettleToUserIdChange]);
+
+  useEffect(() => {
     if (!workspaceId || !currentUserId || !settleToUserId || readOnly) {
       setApiPreview(null);
       setSettlePlan(null);
@@ -351,19 +358,10 @@ export function SettlementPanel({
       return;
     }
     if (missingFund) return;
-    void confirm(
-      settleConfirmRequest({
-        counterpartyName,
-        intent,
-        amountLabel,
-      }),
-    ).then((accepted) => {
-      if (!accepted) return;
-      onSettlePay({
-        intent,
-        fundId: needsFund ? fundId || undefined : undefined,
-        asOf: asOf.trim() || undefined,
-      });
+    onSettlePay({
+      intent,
+      fundId: needsFund ? fundId || undefined : undefined,
+      asOf: asOf.trim() || undefined,
     });
   }
 
@@ -402,6 +400,11 @@ export function SettlementPanel({
             onValueChange={(next) => {
               setAmountError(null);
               onSettleAmountTomanChange(next);
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              askSettle();
             }}
           />
           {balances && settleToUserId && settleToUserId !== currentUserId ? (

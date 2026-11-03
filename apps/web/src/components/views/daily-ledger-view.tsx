@@ -1334,6 +1334,11 @@ export function DailyLedgerView() {
                   }
                   syncLineTotalFromUnit(itemQuantity, next);
                 }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  submitEntry();
+                }}
                 placeholder="۶۰۰۰۰"
               />
               {(() => {

@@ -249,12 +249,16 @@ export function FinanceView({
       };
     });
     setSettleToUserId((prev) => {
-      if (prev && data.members.some((member) => member.userId === prev)) return prev;
-      return (
-        data.members.find((member) => member.userId !== data.members[0]?.userId)?.userId ??
-        data.members[0]?.userId ??
-        ""
-      );
+      const selfId = session?.actor?.userId;
+      const others = data.members.filter((member) => member.userId !== selfId);
+      if (
+        prev &&
+        prev !== selfId &&
+        data.members.some((member) => member.userId === prev)
+      ) {
+        return prev;
+      }
+      return others[0]?.userId ?? "";
     });
   }
   function refresh() {

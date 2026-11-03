@@ -260,6 +260,11 @@ export function ExpenseFormPanel({
               setAmountError(null);
               onAmountTomanChange(next);
             }}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              submitExpense();
+            }}
             error={amountError ?? undefined}
           />
         ) : (
