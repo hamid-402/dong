@@ -80,7 +80,7 @@
   padding: 0 5px;
   border-radius: 999px;
   background: var(--dang-primary);
-  color: var(--on-primary, #fff);
+  color: var(--dang-on-accent);
   font-size:0.875rem;
   font-weight: 750;
 }

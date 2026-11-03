@@ -130,7 +130,7 @@ export function PlatformSloView() {
                     key={sig.id}
                     style={{
                       padding: "0.5rem 0",
-                      borderBottom: "1px solid var(--border, #ddd)",
+                      borderBottom: "1px solid var(--dang-line)",
                     }}
                   >
                     <div>

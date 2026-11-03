@@ -5,14 +5,14 @@
 
 .line {
   fill: none;
-  stroke: color-mix(in srgb, var(--dang-primary) 85%, #1a5c4a);
+  stroke: var(--dang-primary);
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .dot {
-  fill: color-mix(in srgb, var(--dang-primary) 90%, #fff);
+  fill: var(--dang-primary);
 }
 
 .empty {

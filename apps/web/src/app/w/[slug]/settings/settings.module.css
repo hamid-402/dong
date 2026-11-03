@@ -24,15 +24,15 @@
       color-mix(in srgb, var(--surface-elevated) 88%, transparent),
       var(--dang-surface)
     );
-  box-shadow: 0 18px 40px -32px color-mix(in srgb, #000 50%, transparent);
+  box-shadow: 0 18px 40px -32px color-mix(in srgb, var(--dang-text) 50%, transparent);
 }
 
 .lifecycleHero[data-state="archived"] {
-  border-color: color-mix(in srgb, #b54708 35%, var(--dang-line));
+  border-color: color-mix(in srgb, var(--dang-warning) 35%, var(--dang-line));
   background:
     radial-gradient(
       90% 120% at 0% 0%,
-      color-mix(in srgb, #b54708 12%, transparent),
+      color-mix(in srgb, var(--dang-warning) 12%, transparent),
       transparent 55%
     ),
     var(--dang-surface);

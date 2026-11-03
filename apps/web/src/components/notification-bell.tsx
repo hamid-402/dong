@@ -295,7 +295,7 @@ export function NotificationBell({ workspaceId, initialUnreadCount = 0 }: Notifi
               {chrome &&
               chrome.capabilities?.providers?.offlineSync === "mutation_queue_v1" &&
               offlineItems.length > 0 ? (
-                <div style={{ padding: "0.35rem 0.75rem", borderBottom: "1px solid var(--border, #ddd)" }}>
+                <div style={{ padding: "0.35rem 0.75rem", borderBottom: "1px solid var(--dang-line)" }}>
                   <b>{t("offline.queueTitle")}</b>
                   <ul className="stackList" style={{ margin: "0.35rem 0" }}>
                     {offlineItems.map((m) => (

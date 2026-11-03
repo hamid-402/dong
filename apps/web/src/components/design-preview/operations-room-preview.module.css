@@ -1,21 +1,21 @@
 .previewPage {
-  --ops-bg: #07100f;
-  --ops-panel: #0b1614;
-  --ops-panel-2: #101e1b;
-  --ops-panel-3: #152521;
-  --ops-line: rgba(183, 224, 215, 0.14);
-  --ops-line-strong: rgba(183, 224, 215, 0.24);
-  --ops-text: #edf7f4;
-  --ops-muted: #9ab2ac;
-  --ops-faint: #839a95;
-  --ops-accent: #58d7c3;
-  --ops-accent-ink: #032f29;
-  --ops-success: #69d49f;
-  --ops-warning: #eac66b;
-  --ops-danger: #f18484;
+  --ops-bg: var(--dang-bg);
+  --ops-panel: var(--dang-surface);
+  --ops-panel-2: var(--dang-surface-2);
+  --ops-panel-3: var(--dang-surface-3);
+  --ops-line: color-mix(in srgb, var(--dang-line) 35%, transparent);
+  --ops-line-strong: var(--dang-line);
+  --ops-text: var(--dang-text);
+  --ops-muted: var(--dang-muted);
+  --ops-faint: var(--dang-muted);
+  --ops-accent: var(--dang-primary);
+  --ops-accent-ink: var(--dang-primary-ink);
+  --ops-success: var(--dang-success);
+  --ops-warning: var(--dang-warning);
+  --ops-danger: var(--dang-danger);
   min-height: 100vh;
   padding: 18px;
-  background: #020706;
+  background: var(--dang-bg);
   color: var(--ops-text);
   font-family: var(--font-vazirmatn), Tahoma, sans-serif;
 }
@@ -657,8 +657,8 @@
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: var(--ops-warning);
-  color: #372b07;
+  background: var(--dang-warning-soft);
+  color: var(--dang-warning);
   font-size:0.875rem;
   font-weight: 900;
 }
@@ -1294,7 +1294,7 @@
   display: grid;
   place-items: start center;
   border-radius: 24px;
-  background: #000;
+  background: var(--dang-surface-3);
 }
 
 .mobileStage .shell {

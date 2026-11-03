@@ -168,8 +168,8 @@ button.memberRow:global(.dang-btn.dang-btn--ghost.dang-btn--sm)[aria-pressed="tr
 }
 
 .presenceDotOnline {
-  background: color-mix(in srgb, #22c55e 85%, white);
-  box-shadow: 0 0 0 2px color-mix(in srgb, #22c55e 25%, transparent);
+  background: var(--dang-success);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dang-success) 25%, transparent);
 }
 
 .inspector {
