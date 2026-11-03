@@ -64,8 +64,10 @@ It audits a URL that comes from either:
 2. the `LIGHTHOUSE_URL` repository secret.
 
 If neither is set, the job emits a `::notice::` and **skips** the audit rather than
-pretending to pass. When a URL *is* provided, the Lighthouse step is a real gate (no
-`continue-on-error`) so a genuine regression fails the run.
+pretending to pass. A loopback or private host is refused: `127.0.0.1` and `localhost`
+stay lab numbers and are not a field run. When a public URL is provided, Lighthouse
+uses its mobile defaults and `node scripts/perf/lighthouse-budget.mjs` fails the job
+when LCP ≥ 2.5s, CLS ≥ 0.1, or script transfer ≥ 600 KiB.
 
 ## PWA / offline
 

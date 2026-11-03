@@ -46,38 +46,24 @@ jobs:
         with:
           node-version: 24
 
-      # Real gate: when a URL exists this step must pass (no continue-on-error).
+      # Mobile lab settings (Lighthouse default). A loopback URL is refused:
+      # that number stays a lab number and is not reported as field.
+      - name: refuse a lab host
+        if: steps.target.outputs.has_url == 'true'
+        env:
+          TARGET_URL: ${{ steps.target.outputs.url }}
+        run: node scripts/perf/field-url.mjs
+
       - name: run lighthouse
         if: steps.target.outputs.has_url == 'true'
         env:
           TARGET_URL: ${{ steps.target.outputs.url }}
         run: |
           npx --yes lighthouse "$TARGET_URL" \
-            --preset=desktop \
             --output=json --output=html \
             --output-path=./lighthouse-report \
             --chrome-flags="--headless --no-sandbox --disable-gpu"
-          node -e '
-            const r = require("./lighthouse-report.report.json");
-            const perf = r.categories.performance.score;
-            console.log("Lighthouse performance score:", perf);
-            const min = Number(process.env.LH_MIN_PERF || "0.8");
-            if (perf < min) {
-              console.error(`::error::Lighthouse performance ${perf} below minimum ${min}`);
-              process.exit(1);
-            }
-            // INP (interaction-to-next-paint) is not produced by navigation-mode Lighthouse.
-            // Placeholder for a future user-flow gate:
-            //   "interaction-to-next-paint": ["error", { maxNumericValue: 200 }]
-            // See docs/PERF-CWV.md. Proxy: Total Blocking Time ≤ 200ms.
-            const tbt = r.audits?.["total-blocking-time"]?.numericValue;
-            const maxTbt = Number(process.env.LH_MAX_TBT_MS || "200");
-            console.log("Lighthouse total-blocking-time (ms):", tbt);
-            if (typeof tbt === "number" && tbt > maxTbt) {
-              console.error(`::error::TBT ${tbt}ms above max ${maxTbt}ms (INP lab proxy)`);
-              process.exit(1);
-            }
-          '
+          node scripts/perf/lighthouse-budget.mjs ./lighthouse-report.report.json
 
       - name: upload lighthouse report
         if: steps.target.outputs.has_url == 'true'

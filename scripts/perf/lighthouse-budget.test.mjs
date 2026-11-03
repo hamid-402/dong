@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluateLighthouse } from "./lighthouse-budget.mjs";
+import { fieldUrlProblem } from "./field-url.mjs";
 
 function report({ lcp = 1200, cls = 0.02, js = 400_000 } = {}) {
   return {
@@ -37,4 +38,15 @@ test("CLS at the 0.1 line fails", () => {
 test("script transfer at 600 KiB fails", () => {
   const result = evaluateLighthouse(report({ js: 600 * 1024 }));
   assert.ok(result.failures.some((line) => line.startsWith("JS")));
+});
+
+test("a public host can be a field run", () => {
+  assert.equal(fieldUrlProblem("https://app.example.com/login"), null);
+});
+
+test("loopback and private hosts are lab runs", () => {
+  assert.match(fieldUrlProblem("http://127.0.0.1:3010/home") ?? "", /lab|private/);
+  assert.match(fieldUrlProblem("http://localhost:3005/login") ?? "", /lab/);
+  assert.match(fieldUrlProblem("http://192.168.1.8/") ?? "", /private/);
+  assert.match(fieldUrlProblem("http://10.0.0.4/") ?? "", /private/);
 });
