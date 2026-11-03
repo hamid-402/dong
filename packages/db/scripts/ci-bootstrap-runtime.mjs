@@ -30,6 +30,23 @@ try {
     throw new Error("dang_runtime must not be superuser or BYPASSRLS");
   }
   console.log("ci-bootstrap-runtime: ok", row);
+  const me = await client.query(
+    `select rolsuper from pg_roles where rolname = current_user`,
+  );
+  if (me.rows[0]?.rolsuper) {
+    const probe = await client.query(
+      `select rolcanlogin, rolsuper, rolbypassrls
+       from pg_roles where rolname = 'dang_rls_probe'`,
+    );
+    const probeRow = probe.rows[0];
+    if (!probeRow) {
+      throw new Error("dang_rls_probe role missing after superuser bootstrap");
+    }
+    if (probeRow.rolcanlogin || probeRow.rolsuper || probeRow.rolbypassrls) {
+      throw new Error("dang_rls_probe must be NOLOGIN, not superuser, and NOBYPASSRLS");
+    }
+    console.log("ci-bootstrap-runtime: probe ok");
+  }
 } finally {
   await client.end();
 }

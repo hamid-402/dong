@@ -59,3 +59,50 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ops GRANT SELECT, INSERT, UPDATE, DELETE ON T
 
 REVOKE UPDATE, DELETE ON audit.event FROM dang_runtime;
 REVOKE UPDATE, DELETE ON accounting.journal_entry, accounting.journal_line FROM dang_runtime;
+
+-- NOLOGIN probe for tests that must SET ROLE dang_runtime.
+-- INHERIT FALSE: membership does not add runtime DML to the grantee.
+-- Connections without CREATEROLE (local dang_migrator) skip creation.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dang_rls_probe')
+     AND EXISTS (
+       SELECT 1
+       FROM pg_roles
+       WHERE rolname = current_user
+         AND (rolsuper OR rolcreaterole)
+     )
+  THEN
+    CREATE ROLE dang_rls_probe
+      NOLOGIN
+      NOSUPERUSER
+      NOCREATEDB
+      NOCREATEROLE
+      NOINHERIT
+      NOBYPASSRLS;
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dang_rls_probe')
+     AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dang_runtime')
+     AND EXISTS (
+       SELECT 1 FROM pg_roles WHERE rolname = current_user AND rolsuper
+     )
+  THEN
+    EXECUTE 'GRANT dang_runtime TO dang_rls_probe WITH INHERIT FALSE, SET TRUE';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dang_rls_probe')
+     AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dang_migrator')
+     AND EXISTS (
+       SELECT 1 FROM pg_roles WHERE rolname = current_user AND rolsuper
+     )
+  THEN
+    EXECUTE 'GRANT dang_rls_probe TO dang_migrator WITH INHERIT FALSE, SET TRUE';
+    EXECUTE 'GRANT dang_runtime TO dang_migrator WITH INHERIT FALSE, SET TRUE';
+  END IF;
+END
+$$;

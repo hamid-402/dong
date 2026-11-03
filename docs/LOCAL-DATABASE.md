@@ -30,6 +30,18 @@ CREATE ROLE dang_runtime
 CREATE DATABASE dang OWNER dang_migrator;
 ```
 
+نقش `dang_rls_probe` ورود ندارد و فقط برای `SET ROLE dang_runtime` است.
+عضویت با `INHERIT FALSE` است تا مجوزهای اجرا به مهاجرت به ارث نرسد.
+این دستورها را با اتصال مدیریتی اجرا کنید؛ `dang_migrator` حق ساخت نقش ندارد:
+
+```sql
+CREATE ROLE dang_rls_probe
+  NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+GRANT dang_runtime TO dang_rls_probe WITH INHERIT FALSE, SET TRUE;
+GRANT dang_rls_probe TO dang_migrator WITH INHERIT FALSE, SET TRUE;
+GRANT dang_runtime TO dang_migrator WITH INHERIT FALSE, SET TRUE;
+```
+
 ## 2. فایل محیط محلی
 
 از `.env.example` یک `.env` محلی بسازید. این فایل توسط Git نادیده گرفته می‌شود.
