@@ -209,6 +209,12 @@ export function ProductMetricsView() {
           count: metrics.counts.pettyCashDeposits,
         },
         {
+          key: "settlementClaim",
+          label: "ادعای تسویه",
+          milestone: metrics.milestones.settlementClaimed,
+          count: metrics.counts.settlementClaims,
+        },
+        {
           key: "settlement",
           label: "تسویه تأییدشده",
           milestone: metrics.milestones.settlementCompleted,
@@ -259,6 +265,13 @@ export function ProductMetricsView() {
                 {" "}
                 · ثبت روی مانده {metrics.conversions.expensePostPerDraft.toCount.toLocaleString("fa-IR")} از{" "}
                 {metrics.conversions.expensePostPerDraft.fromCount.toLocaleString("fa-IR")} پیش‌نویس
+              </>
+            ) : null}
+            {metrics.conversions.settlementConfirmPerClaim ? (
+              <>
+                {" "}
+                · تأیید تسویه {metrics.conversions.settlementConfirmPerClaim.toCount.toLocaleString("fa-IR")} از{" "}
+                {metrics.conversions.settlementConfirmPerClaim.fromCount.toLocaleString("fa-IR")} ادعا
               </>
             ) : null}
           </StatusLine>

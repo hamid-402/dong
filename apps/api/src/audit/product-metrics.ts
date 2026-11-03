@@ -12,6 +12,7 @@ const ACTIONS = {
   expenseDraft: "expense.draft.create",
   expensePost: "expense.post",
   pettyCashDeposit: "petty_cash.deposit_credit",
+  settlementClaim: "settlement.claim.create",
   settlementConfirm: "settlement.claim.confirm",
 } as const;
 
@@ -59,6 +60,7 @@ export function aggregateWorkspaceProductMetrics(
     expensePosts: successEvents(events, ACTIONS.expensePost).length,
     expenseDrafts: successEvents(events, ACTIONS.expenseDraft).length,
     pettyCashDeposits: successEvents(events, ACTIONS.pettyCashDeposit).length,
+    settlementClaims: successEvents(events, ACTIONS.settlementClaim).length,
     settlementConfirms: successEvents(events, ACTIONS.settlementConfirm).length,
   };
 
@@ -74,11 +76,17 @@ export function aggregateWorkspaceProductMetrics(
       expenseDraftCreated: milestone(events, ACTIONS.expenseDraft),
       firstExpensePosted: milestone(events, ACTIONS.expensePost),
       pettyCashDeposited: milestone(events, ACTIONS.pettyCashDeposit),
+      settlementClaimed: milestone(events, ACTIONS.settlementClaim),
       settlementCompleted: milestone(events, ACTIONS.settlementConfirm),
     },
     conversions: {
       inviteAcceptPerCreate: conversion(events, ACTIONS.inviteCreate, ACTIONS.inviteAccept),
       expensePostPerDraft: conversion(events, ACTIONS.expenseDraft, ACTIONS.expensePost),
+      settlementConfirmPerClaim: conversion(
+        events,
+        ACTIONS.settlementClaim,
+        ACTIONS.settlementConfirm,
+      ),
     },
   };
 }

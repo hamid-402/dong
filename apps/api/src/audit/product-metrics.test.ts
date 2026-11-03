@@ -71,6 +71,19 @@ test("conversion counts drafts, posts, and deposits without copying metadata", (
     ev({ action: "petty_cash.deposit_credit", occurredAt: "2026-02-04T00:00:00.000Z" }),
     ev({ action: "invite.create", occurredAt: "2026-02-05T00:00:00.000Z" }),
     ev({ action: "invite.accept", occurredAt: "2026-02-06T00:00:00.000Z" }),
+    ev({
+      action: "settlement.claim.create",
+      occurredAt: "2026-02-07T00:00:00.000Z",
+      metadata: { amountMinor: "1000", fromUserId: "u1", toUserId: "u2" },
+    }),
+    ev({
+      action: "settlement.claim.create",
+      occurredAt: "2026-02-08T00:00:00.000Z",
+    }),
+    ev({
+      action: "settlement.claim.confirm",
+      occurredAt: "2026-02-09T00:00:00.000Z",
+    }),
   ];
   const metrics = aggregateWorkspaceProductMetrics("ws-1", events, "postgres");
   assert.equal(metrics.counts.expenseDrafts, 2);
@@ -88,8 +101,18 @@ test("conversion counts drafts, posts, and deposits without copying metadata", (
     fromCount: 1,
     toCount: 1,
   });
+  assert.equal(metrics.counts.settlementClaims, 2);
+  assert.equal(metrics.counts.settlementConfirms, 1);
+  assert.deepEqual(metrics.conversions.settlementConfirmPerClaim, {
+    fromAction: "settlement.claim.create",
+    toAction: "settlement.claim.confirm",
+    fromCount: 2,
+    toCount: 1,
+  });
   const serialized = JSON.stringify(metrics);
   assert.equal(serialized.includes("900000"), false);
   assert.equal(serialized.includes("secret"), false);
   assert.equal(serialized.includes("amountMinor"), false);
+  assert.equal(serialized.includes("fromUserId"), false);
+  assert.equal(serialized.includes("u2"), false);
 });

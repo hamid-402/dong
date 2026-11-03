@@ -13,6 +13,8 @@ export type ProductMetricCounts = {
   expenseDrafts: number;
   /** `petty_cash.deposit_credit` successes */
   pettyCashDeposits: number;
+  /** `settlement.claim.create` successes, including claims opened by settle-pay */
+  settlementClaims: number;
   /** `settlement.claim.confirm` successes */
   settlementConfirms: number;
 };
@@ -48,10 +50,12 @@ export type WorkspaceProductMetricsResponse = {
     firstExpensePosted: ProductMetricMilestone;
     expenseDraftCreated: ProductMetricMilestone;
     pettyCashDeposited: ProductMetricMilestone;
+    settlementClaimed: ProductMetricMilestone;
     settlementCompleted: ProductMetricMilestone;
   };
   conversions: {
     inviteAcceptPerCreate: ProductMetricConversion | null;
     expensePostPerDraft: ProductMetricConversion | null;
+    settlementConfirmPerClaim: ProductMetricConversion | null;
   };
 };
