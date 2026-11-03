@@ -10,7 +10,7 @@ const PaymentsView = dynamic(
       default: mod.PaymentsView,
     })),
   {
-    ssr: false,
+    ssr: true,
     loading: () => <RouteLoadingHint label="در حال بارگذاری پرداخت‌ها…" />,
   },
 );

@@ -7,7 +7,7 @@ const FinanceView = dynamic(
   () =>
     import("@/components/views/finance-view").then((mod) => ({ default: mod.FinanceView })),
   {
-    ssr: false,
+    ssr: true,
     loading: () => <RouteLoadingHint label="در حال بارگذاری تسویه…" />,
   },
 );

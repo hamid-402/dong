@@ -22,12 +22,11 @@ async function expectNoCriticalAxe(page: Page) {
   ).toEqual([]);
 }
 
-async function setTheme(page: Page, theme: (typeof THEMES)[number]) {
-  await page.evaluate((t) => {
-    const scheme = t === "black" || t === "midnight" ? "dark" : "light";
-    document.documentElement.setAttribute("data-theme", t);
-    document.documentElement.setAttribute("data-scheme", scheme);
+async function openThemed(page: Page, theme: (typeof THEMES)[number], path: string) {
+  await page.addInitScript((t) => {
+    localStorage.setItem("dang-theme", t);
   }, theme);
+  await page.goto(path);
   await expect
     .poll(async () =>
       page.evaluate(() => document.documentElement.getAttribute("data-theme")),
@@ -38,11 +37,10 @@ async function setTheme(page: Page, theme: (typeof THEMES)[number]) {
 test.describe("a11y ledger themes", () => {
   for (const theme of THEMES) {
     test(`login has no critical axe on theme=${theme}`, async ({ page }) => {
-      await page.goto("/login");
+      await openThemed(page, theme, "/login");
       await expect(page.getByRole("heading", { name: /ورود|Sign in/i })).toBeVisible({
         timeout: 20_000,
       });
-      await setTheme(page, theme);
       await expectNoCriticalAxe(page);
     });
   }

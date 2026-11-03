@@ -102,6 +102,7 @@ export function LoginView() {
 
   return (
     <AuthShell
+      embedded
       title={loginTitle}
       description={loginDescription}
       footer={

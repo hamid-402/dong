@@ -10,7 +10,7 @@ const DailyLedgerView = dynamic(
       default: mod.DailyLedgerView,
     })),
   {
-    ssr: false,
+    ssr: true,
     loading: () => <RouteLoadingHint label="در حال بارگذاری دفتر روزانه…" />,
   },
 );

@@ -1,23 +1,17 @@
-"use client";
-
 import { Suspense } from "react";
+import { AuthGateHeader } from "@/components/auth-shell";
 import { LoginView } from "@/components/views/login-view";
-
-function LoginFallback() {
-  return (
-    <div className="authGate">
-      <main id="main" className="authGate__main" tabIndex={-1}>
-        <h1>ورود به حساب</h1>
-        <p role="status">در حال بارگذاری…</p>
-      </main>
-    </div>
-  );
-}
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<LoginFallback />}>
-      <LoginView />
-    </Suspense>
+    <div className="authGate">
+      <AuthGateHeader />
+      <main id="main" className="authGate__main" tabIndex={-1}>
+        <h1>ورود به حساب</h1>
+        <Suspense fallback={<p role="status">در حال بارگذاری…</p>}>
+          <LoginView />
+        </Suspense>
+      </main>
+    </div>
   );
 }

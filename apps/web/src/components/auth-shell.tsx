@@ -36,34 +36,49 @@ function AuthThemeSwitch() {
   );
 }
 
+export function AuthGateHeader() {
+  return (
+    <header className="authGate__bar">
+      <Link href="/" className="authGate__brand">
+        <AuthMark size="sm" />
+        <span>دنگ</span>
+      </Link>
+      <AuthThemeSwitch />
+    </header>
+  );
+}
+
 function AuthShellFrame({
   title,
   description,
   children,
   footer,
+  embedded,
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
+  /** Form only. The server page owns the gate, header, and h1. */
+  embedded?: boolean;
 }) {
+  const body = (
+    <>
+      {description ? <p className="authGate__lead">{description}</p> : null}
+      {children}
+      {footer}
+      <p className="authGate__back">
+        <Link href="/">بازگشت به سایت</Link>
+      </p>
+    </>
+  );
+  if (embedded) return body;
   return (
     <div className="authGate">
-      <header className="authGate__bar">
-        <Link href="/" className="authGate__brand">
-          <AuthMark size="sm" />
-          <span>دنگ</span>
-        </Link>
-        <AuthThemeSwitch />
-      </header>
+      <AuthGateHeader />
       <main id="main" className="authGate__main" tabIndex={-1}>
         <h1>{title}</h1>
-        {description ? <p className="authGate__lead">{description}</p> : null}
-        {children}
-        {footer}
-        <p className="authGate__back">
-          <Link href="/">بازگشت به سایت</Link>
-        </p>
+        {body}
       </main>
     </div>
   );
@@ -71,6 +86,7 @@ function AuthShellFrame({
 
 export function AuthShell({
   eyebrow: _eyebrow,
+  embedded,
   ...props
 }: {
   eyebrow?: string;
@@ -78,10 +94,11 @@ export function AuthShell({
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
+  embedded?: boolean;
 }) {
   return (
     <SiteStatusProvider>
-      <AuthShellFrame {...props} />
+      <AuthShellFrame {...props} embedded={embedded} />
     </SiteStatusProvider>
   );
 }
