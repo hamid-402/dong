@@ -722,6 +722,13 @@
       "when": 1789007300000,
       "tag": "0103_catalog_rls_runtime_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1789007400000,
+      "tag": "0104_expense_purge_delete",
+      "breakpoints": true
     }
   ]
 }

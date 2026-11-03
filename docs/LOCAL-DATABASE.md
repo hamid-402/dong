@@ -66,7 +66,9 @@ GRANT SELECT, INSERT, UPDATE ON iam.user_account, iam.workspace, iam.membership,
 TO dang_runtime;
 GRANT INSERT, SELECT ON audit.event TO dang_runtime;
 GRANT INSERT, SELECT ON accounting.journal_entry, accounting.journal_line TO dang_runtime;
-GRANT SELECT, INSERT, UPDATE ON finance.expense, finance.expense_split_line, finance.expense_payment_line, finance.settlement
+GRANT SELECT, INSERT, UPDATE, DELETE ON finance.expense, finance.expense_split_line, finance.expense_payment_line
+TO dang_runtime;
+GRANT SELECT, INSERT, UPDATE ON finance.settlement
 TO dang_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON finance.expense_period, finance.member_invoice, finance.member_invoice_line
 TO dang_runtime;
