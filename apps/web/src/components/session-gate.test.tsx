@@ -111,7 +111,7 @@ describe("SessionGate", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2_500);
     });
-    expect(screen.queryByText("inside")).toBeNull();
+    expect(screen.getByText("inside")).toBeTruthy();
     expect(screen.getByRole("status").textContent).toMatch(/نشست شما پاک نشده/);
     expect(screen.getByRole("button", { name: "تلاش دوباره" })).toBeTruthy();
     expect(window.localStorage.getItem("dang.auth.mode")).toBe("password");

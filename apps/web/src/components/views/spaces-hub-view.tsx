@@ -120,9 +120,12 @@ type NetCell =
  */
 export function SpacesHubView({
   directoryOnly = false,
+  serverLead = false,
 }: {
   /** Space list only — home keeps the day summary above the same directory. */
   directoryOnly?: boolean;
+  /** Home heading and balance are server-rendered for LCP. */
+  serverLead?: boolean;
 } = {}) {
   const chrome = useAppChrome();
   const displayUnit = useDisplayUnit();
@@ -330,7 +333,9 @@ export function SpacesHubView({
     chrome.workspaces.find((w) => w.id === chrome.workspaceId) ??
     chrome.workspaces.find((w) => spaceKindForTemplate(w.template) === "personal") ??
     chrome.workspaces[0];
-  const expenseHref = activeWs ? wPath(activeWs.slug, "record") : "/me/finance#txn";
+  const expenseHref = activeWs
+    ? `${wPath(activeWs.slug, "expenses")}#quick-expense`
+    : "/me/finance#txn";
   const settleHref = activeWs ? wPath(activeWs.slug, "settlements") : "/spaces";
   const balancePool =
     kindFilter === "all"
@@ -342,6 +347,29 @@ export function SpacesHubView({
     return kind === kindFilter;
   });
   const shownCount = listKinds.reduce((sum, kind) => sum + grouped[kind].length, 0);
+
+  useEffect(() => {
+    if (directoryOnly || !serverLead) return;
+    const amount = document.getElementById("home-balance-amount");
+    const meta = document.getElementById("home-balance-meta");
+    if (!amount) return;
+    if (!chrome.ready || (chrome.workspaces.length === 0 && !createdGroup)) {
+      amount.textContent = chrome.ready ? "هنوز مانده‌ای نیست" : "در حال جمع…";
+      if (meta) meta.textContent = "";
+      return;
+    }
+    amount.textContent =
+      netsLoading && !balanceRow ? "…" : (balanceRow?.net.label ?? "هنوز مانده‌ای نیست");
+    if (meta) meta.textContent = balanceRow?.name ?? "";
+  }, [
+    directoryOnly,
+    serverLead,
+    chrome.ready,
+    chrome.workspaces.length,
+    createdGroup,
+    netsLoading,
+    balanceRow,
+  ]);
 
   useEffect(() => {
     if (searchParams.get("view") !== "spaces") return;
@@ -362,8 +390,29 @@ export function SpacesHubView({
         </header>
       ) : (
       <section className="homeDay" aria-labelledby="home-day-title">
-        <h1 id="home-day-title">خانه</h1>
-        {!chrome.ready ? (
+        {serverLead ? null : <h1 id="home-day-title">خانه</h1>}
+        {serverLead ? (
+          chrome.error ? (
+            <ErrorState
+              title={chrome.error}
+              action={
+                <button type="button" className="textButton" onClick={() => chrome.refreshChrome()}>
+                  تلاش دوباره
+                </button>
+              }
+            />
+          ) : chrome.ready && createdGroup ? (
+            <GroupCreatedNext workspace={createdGroup} />
+          ) : chrome.ready && chrome.workspaces.length === 0 ? (
+            <div className="homeDay__lead">
+              <EmptyState
+                title="هنوز مانده‌ای نیست"
+                description="نام گروه را بنویسید. شناسهٔ عمومی بعد از ساخت برای دعوت می‌آید."
+              />
+              <CreateGroupForm onCreated={setCreatedGroup} />
+            </div>
+          ) : null
+        ) : !chrome.ready ? (
           <div className="homeDay__lead">
           {chrome.error ? (
             <ErrorState

@@ -1,28 +1,28 @@
-"use client";
+import { Suspense } from "react";
+import { HomeClient } from "./home-client";
 
-import { Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { AppHomeView } from "@/components/views/app-home-view";
-import { homeListAlias } from "@/lib/workspace-paths";
-
-function HomeInner() {
-  const router = useRouter();
-  const search = useSearchParams();
-  const target = homeListAlias(search.toString());
-
-  useEffect(() => {
-    if (target) router.replace(target);
-  }, [router, target]);
-
-  if (target) return <p className="liveHint">در حال انتقال به فضاها…</p>;
-  return <AppHomeView />;
-}
-
-/** Canonical home. `/hub` and `/overview` redirect here; list queries go to `/spaces`. */
+/**
+ * The balance line is the home LCP element. It stays in the server HTML so
+ * the first paint does not wait for the spaces-hub client bundle.
+ */
 export default function AppHomePage() {
   return (
-    <Suspense fallback={<p className="liveHint">در حال بارگذاری خانه…</p>}>
-      <HomeInner />
-    </Suspense>
+    <>
+      <section className="homeDay" aria-labelledby="home-day-title">
+        <h1 id="home-day-title">خانه</h1>
+        <div className="homeDay__lead">
+          <div className="homeBalance">
+            <p className="homeBalance__label">مانده</p>
+            <p className="homeBalance__amount" id="home-balance-amount">
+              در حال جمع…
+            </p>
+            <p className="homeBalance__meta" id="home-balance-meta" />
+          </div>
+        </div>
+      </section>
+      <Suspense fallback={<p className="liveHint">در حال بارگذاری خانه…</p>}>
+        <HomeClient />
+      </Suspense>
+    </>
   );
 }
