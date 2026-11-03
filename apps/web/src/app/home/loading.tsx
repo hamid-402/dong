@@ -1,3 +1,5 @@
+import "../shell.css";
+
 export default function HomeLoading() {
   return (
     <div className="app-viewport">

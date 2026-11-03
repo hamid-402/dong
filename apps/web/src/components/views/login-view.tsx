@@ -8,7 +8,7 @@ import { AuthAlert, AuthDevLink, AuthDivider, AuthLinkRow, AuthShell } from "@/c
 import { FormStack } from "@/components/ui-blocks";
 import { normalizeEmail, validateLoginIdentifier } from "@/lib/auth-validation";
 import { authErrorMessage } from "@/lib/api-errors";
-import { api, api as apiClient, markClientSession } from "@/lib/api";
+import { authApi, markClientSession } from "@/lib/api/client";
 import { completeClientAuth, safeAppPath } from "@/lib/auth-session";
 import { t } from "@/lib/i18n";
 
@@ -34,7 +34,7 @@ export function LoginView() {
     : t("login.description");
 
   useEffect(() => {
-    void api
+    void authApi
       .oidcStatus()
       .then((s) => setOidcReady(s.configured))
       .catch(() => setOidcReady(false));
@@ -52,7 +52,7 @@ export function LoginView() {
       startTransition(() => {
         void (async () => {
           try {
-            const result = await api.mfaVerify({ challengeId, code });
+            const result = await authApi.mfaVerify({ challengeId, code });
             completeClientAuth("password", result.actor);
             setFormError(null);
             router.replace(nextPath);
@@ -80,7 +80,7 @@ export function LoginView() {
             identifier.includes("@")
               ? { email: normalizeEmail(identifier), password }
               : { identifier, password };
-          const result = await api.login(body);
+          const result = await authApi.login(body);
           if ("mfaRequired" in result && result.mfaRequired) {
             setChallengeId(result.challengeId);
             setFormError(null);
@@ -200,7 +200,7 @@ export function LoginView() {
             onClick={() => {
               // Cookie gate only — real actor arrives after OIDC callback.
               markClientSession("oidc");
-              window.location.href = apiClient.oidcLoginUrl();
+              window.location.href = authApi.oidcLoginUrl();
             }}
           >
             <span className="authLayout__ssoIcon" aria-hidden>

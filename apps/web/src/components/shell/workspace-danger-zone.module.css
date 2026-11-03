@@ -325,7 +325,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 40px;
+  min-height: var(--dang-touch);
   padding: 0 14px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--dang-primary) 40%, var(--dz-line));

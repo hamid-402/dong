@@ -718,7 +718,7 @@ a.relatedLink:hover {
 }
 
 .selectCol {
-  width: 2rem;
+  width: var(--dang-touch);
   text-align: center !important;
   vertical-align: middle;
 }

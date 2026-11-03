@@ -115,7 +115,7 @@ a.ctaLink:link,
 a.ctaLink:visited {
   display: inline-flex;
   align-items: center;
-  min-height: 2.35rem;
+  min-height: var(--dang-touch);
   padding: 0 1.05rem;
   border-radius: 0.55rem;
   background: var(--dang-primary-deep);

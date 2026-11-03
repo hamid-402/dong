@@ -99,7 +99,7 @@
 }
 
 .commandRow nav a {
-  min-height: 31px;
+  min-height: var(--dang-touch);
   padding: 6px 10px;
   display: grid;
   place-items: center;
@@ -165,7 +165,7 @@
 }
 
 .surfaceCompact .commandRow nav a {
-  min-height: 34px;
+  min-height: var(--dang-touch);
   padding: 6px 12px;
   font-size:0.875rem;
   font-weight: 600;
@@ -175,7 +175,7 @@
 }
 
 .surfaceCompact .commandRow nav a.navItemRich {
-  min-height: 34px;
+  min-height: var(--dang-touch);
   padding: 4px 8px;
   border-radius: 0;
   border-bottom: 2px solid transparent;
@@ -257,7 +257,7 @@
 }
 
 .context button {
-  min-height: 32px;
+  min-height: var(--dang-touch);
   padding: 6px 10px;
   border: 1px solid var(--dang-line);
   border-radius: 8px;
@@ -294,7 +294,7 @@
 }
 
 .metricsSummary {
-  min-height: 40px;
+  min-height: var(--dang-touch);
   padding: 8px 14px;
   cursor: pointer;
   color: var(--dang-muted);

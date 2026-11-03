@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Vazirmatn } from "next/font/google";
 import "@dang/ui/tokens.css";
 import "./globals.css";
-import "./shell.css";
 import { PwaRegister } from "../components/pwa-register";
 import { ThemeProvider } from "../lib/theme";
 import { ConfirmProvider, PromptProvider } from "@dang/ui";

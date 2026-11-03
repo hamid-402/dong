@@ -7,6 +7,7 @@ function LoginFallback() {
   return (
     <div className="authGate">
       <main id="main" className="authGate__main" tabIndex={-1}>
+        <h1>ورود به حساب</h1>
         <p role="status">در حال بارگذاری…</p>
       </main>
     </div>

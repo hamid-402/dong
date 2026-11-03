@@ -258,7 +258,7 @@ button.quietBtn:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
 
 button.qty:global(.dang-btn.dang-btn--ghost.dang-btn--sm) {
   min-height: 0;
-  min-width: 2rem;
+  min-width: var(--dang-touch);
   border-radius: 8px;
   padding: 4px 10px;
 }

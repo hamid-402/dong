@@ -70,7 +70,7 @@
 
 .searchField input {
   width: 100%;
-  min-height: 2.5rem;
+  min-height: var(--dang-touch);
   padding: 0 12px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--dang-line) 85%, transparent);

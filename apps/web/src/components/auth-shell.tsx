@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode } from "react";
 import { Alert } from "@dang/ui";
-import { markClientSession, bootstrapDevSession } from "@/lib/api";
+import { markClientSession, bootstrapDevSession } from "@/lib/api/client";
 import { AuthMark } from "@/components/site/auth-mark";
 import { SiteStatusProvider, useSiteStatus } from "@/components/site/marketing-shell";
 import { APP_THEMES, useOptionalTheme } from "@/lib/theme";

@@ -1,5 +1,6 @@
 "use client";
 
+import "@/app/shell.css";
 import dynamic from "next/dynamic";
 import { useEffect, Suspense, type ReactNode } from "react";
 import Link from "next/link";
