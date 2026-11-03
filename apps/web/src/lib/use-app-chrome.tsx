@@ -47,7 +47,7 @@ export type AppChromeState = {
   allowDevAuth: boolean;
   /** S11-14 — demo seed button; never true in production capabilities. */
   demoSeedAllowed: boolean;
-  /** Full capabilities from one bootstrap — views must not re-fetch. */
+  /** Capabilities from bootstrap, refreshed so the worker heartbeat stays current. Views must not re-fetch. */
   capabilities: SystemCapabilities | null;
   /** Actor from /auth/me (preferred) — views must not re-fetch session/me for identity. */
   actor: AuthActor | null;
@@ -233,6 +233,39 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [tick]);
+
+  // The jobs provider is a Redis heartbeat with a short TTL. Chrome re-reads
+  // capabilities so a dead worker shows degraded without a full reload.
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    async function refreshCapabilities() {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const caps = await systemApi.capabilities();
+        if (cancelled) return;
+        setCapabilities(caps);
+        setCapabilitiesUnavailable(false);
+        setPersistenceLabel(
+          persistenceLabelFa(caps.persistence, caps.databaseConfigured),
+        );
+        setAllowDevAuth(Boolean(caps.allowDevAuth));
+        setDemoSeedAllowed(caps.demoSeedAllowed === true);
+      } catch {
+        // Keep the last successful snapshot. A blip is not an outage.
+      }
+    }
+    const timer = window.setInterval(() => void refreshCapabilities(), 15_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refreshCapabilities();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [ready]);
 
   useEffect(() => {
     let cancelled = false;

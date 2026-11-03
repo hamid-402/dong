@@ -451,34 +451,43 @@ export type ConsumerSignal = {
  */
 export async function runConsumerLoop(signal: ConsumerSignal): Promise<void> {
   logger.info("Worker consumer loop starting");
-  while (!signal.stopped) {
-    try {
-      const touched = await touchHeartbeat();
-      if (!touched) {
-        logger.warn("Redis unavailable — retrying consumer in 3s");
-        await new Promise((r) => setTimeout(r, 3000));
-        continue;
-      }
-      if (signal.stopped) break;
-      const job = await blpopJob(5);
-      if (!job) continue;
-      // Finish this job even if stop arrived during BLPOP — work was already claimed.
-      signal.inFlight = true;
+  // Refresh during a long job too. BLPOP only returns every few seconds, and a
+  // job longer than the key TTL would otherwise look dead.
+  const beat = setInterval(() => {
+    void touchHeartbeat();
+  }, 15_000);
+  try {
+    while (!signal.stopped) {
       try {
-        await processQueuedJobWithRetries(job);
-      } finally {
+        const touched = await touchHeartbeat();
+        if (!touched) {
+          logger.warn("Redis unavailable — retrying consumer in 3s");
+          await new Promise((r) => setTimeout(r, 3000));
+          continue;
+        }
+        if (signal.stopped) break;
+        const job = await blpopJob(5);
+        if (!job) continue;
+        // Finish this job even if stop arrived during BLPOP — work was already claimed.
+        signal.inFlight = true;
+        try {
+          await processQueuedJobWithRetries(job);
+        } finally {
+          signal.inFlight = false;
+        }
+      } catch (err: unknown) {
         signal.inFlight = false;
+        logger.error("Consumer iteration failed", {
+          detail: err instanceof Error ? err.message || err.name : String(err),
+        });
+        await new Promise((r) => setTimeout(r, 3000));
       }
-    } catch (err: unknown) {
-      signal.inFlight = false;
-      logger.error("Consumer iteration failed", {
-        detail: err instanceof Error ? err.message || err.name : String(err),
-      });
-      await new Promise((r) => setTimeout(r, 3000));
     }
+    while (signal.inFlight) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    logger.info("Worker consumer loop stopped");
+  } finally {
+    clearInterval(beat);
   }
-  while (signal.inFlight) {
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  logger.info("Worker consumer loop stopped");
 }
