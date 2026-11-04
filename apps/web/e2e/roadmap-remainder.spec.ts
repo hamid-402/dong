@@ -68,14 +68,26 @@ test("four themes stay serious-clean and the money flows open in one hop", async
   request,
   context,
 }) => {
-  test.setTimeout(360_000);
+  test.setTimeout(600_000);
   await installDevSession(context, page);
   const resolved = await resolveWorkspace(request);
   const slug = resolved?.slug;
   const paths = [
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/join",
+    "/about",
+    "/contact",
     "/home",
+    "/account",
+    "/account/privacy",
+    "/account/friends",
+    "/me/finance",
     ...(slug
       ? [
+          `/w/${slug}`,
+          `/w/${slug}/space`,
           `/w/${slug}/expenses`,
           `/w/${slug}/ledger`,
           `/w/${slug}/settlements`,
@@ -85,6 +97,10 @@ test("four themes stay serious-clean and the money flows open in one hop", async
           `/w/${slug}/invoices`,
           `/w/${slug}/approvals`,
           `/w/${slug}/catalog`,
+          `/w/${slug}/recurring`,
+          `/w/${slug}/statements`,
+          `/w/${slug}/charts`,
+          `/w/${slug}/more`,
         ]
       : []),
   ];
@@ -97,8 +113,19 @@ test("four themes stay serious-clean and the money flows open in one hop", async
     for (const path of paths) {
       await page.goto(path, { waitUntil: "domcontentloaded", timeout: 30_000 });
       await expect
-        .poll(() => page.evaluate(() => document.documentElement.getAttribute("data-theme")))
-        .toBe(theme);
+        .poll(() =>
+          page.evaluate((expected) => {
+            const root = document.documentElement;
+            const primary = getComputedStyle(root)
+              .getPropertyValue("--dang-primary")
+              .trim()
+              .toLowerCase();
+            return root.getAttribute("data-theme") === expected && primary.startsWith("#");
+          }, theme),
+        )
+        .toBe(true);
+      // Theme variables are painted; give one frame so axe does not sample the entrance.
+      await page.waitForTimeout(50);
       const results = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
         .analyze();

@@ -1884,6 +1884,14 @@ html[data-motion="off"] .dang-motion-feedback *{
   }
 }
 
+html[data-motion="off"] .workspacePageFrame,
+html[data-motion="off"] .productShowcase .appShell,
+html[data-motion="off"] .productShowcaseSolo .appShell,
+html[data-motion="off"] .animated,
+html[data-motion="off"] .enter{
+  animation: none;
+}
+
 .workspacePageFrame__body{
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -2041,7 +2049,19 @@ html[data-motion="off"] .dang-motion-feedback *{
   font: inherit;
   font-size: 0.95rem;
   font-weight: 650;
-  transition: border-color 160ms var(--dang-ease), color 160ms var(--dang-ease), background 160ms var(--dang-ease), filter 160ms var(--dang-ease);
+  transition: border-color 160ms var(--dang-ease), filter 160ms var(--dang-ease);
+}
+.moduleChrome__actions > a:first-child:not(.uxSecondaryActions),
+.moduleChrome__actions > a:first-child:not(.uxSecondaryActions):link,
+.moduleChrome__actions > a:first-child:not(.uxSecondaryActions):visited,
+.moduleChrome__actions > a:first-child:not(.uxSecondaryActions):any-link,
+.productHeaderActions > a:first-child:not(.uxSecondaryActions),
+.productHeaderActions > a:first-child:not(.uxSecondaryActions):link,
+.productHeaderActions > a:first-child:not(.uxSecondaryActions):visited,
+.productHeaderActions > a:first-child:not(.uxSecondaryActions):any-link{
+  color: var(--dang-primary-ink);
+  background: var(--dang-primary);
+  border-color: transparent;
 }
 .productHeaderActions a:hover,
 .productHeaderActions button:hover{
