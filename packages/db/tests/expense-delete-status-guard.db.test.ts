@@ -20,7 +20,7 @@ import {
 const databaseUrl = process.env.DATABASE_URL?.trim();
 
 describe("0105 expense delete status guard (dang_runtime)", () => {
-  it("blocks posted deletes; allows draft/reversed; rejects other workspace", async (t) => {
+  it("blocks posted expense/line deletes; allows draft/reversed; rejects other workspace", async (t) => {
     if (!databaseUrl) {
       t.skip("DATABASE_URL unset");
       return;
@@ -71,10 +71,6 @@ describe("0105 expense delete status guard (dang_runtime)", () => {
     const postedId = crypto.randomUUID();
     const reversedId = crypto.randomUUID();
     const otherWsExpenseId = crypto.randomUUID();
-
-    const createdUserIds = [userA, userB];
-    const createdWorkspaceIds = [workspaceA, workspaceB];
-    const createdExpenseIds = [draftId, postedId, reversedId, otherWsExpenseId];
 
     t.after(async () => {
       try {
@@ -248,6 +244,67 @@ describe("0105 expense delete status guard (dang_runtime)", () => {
         createdByUserId: userB,
       });
     });
+
+    // Child-line DELETE must follow parent expense status (0105 condition).
+    const postedPaymentDeleted = await withTenantContext(
+      db,
+      { workspaceId: workspaceA, userId: userA },
+      async (tx) =>
+        tx
+          .delete(expensePaymentLine)
+          .where(eq(expensePaymentLine.expenseId, postedId))
+          .returning({ expenseId: expensePaymentLine.expenseId }),
+    );
+    assert.equal(
+      postedPaymentDeleted.length,
+      0,
+      "posted parent: expense_payment_line DELETE must be rejected (0 rows)",
+    );
+
+    const postedSplitDeleted = await withTenantContext(
+      db,
+      { workspaceId: workspaceA, userId: userA },
+      async (tx) =>
+        tx
+          .delete(expenseSplitLine)
+          .where(eq(expenseSplitLine.expenseId, postedId))
+          .returning({ expenseId: expenseSplitLine.expenseId }),
+    );
+    assert.equal(
+      postedSplitDeleted.length,
+      0,
+      "posted parent: expense_split_line DELETE must be rejected (0 rows)",
+    );
+
+    const draftPaymentDeleted = await withTenantContext(
+      db,
+      { workspaceId: workspaceA, userId: userA },
+      async (tx) =>
+        tx
+          .delete(expensePaymentLine)
+          .where(eq(expensePaymentLine.expenseId, draftId))
+          .returning({ expenseId: expensePaymentLine.expenseId }),
+    );
+    assert.equal(
+      draftPaymentDeleted.length,
+      1,
+      "draft parent: expense_payment_line DELETE must succeed",
+    );
+
+    const draftSplitDeleted = await withTenantContext(
+      db,
+      { workspaceId: workspaceA, userId: userA },
+      async (tx) =>
+        tx
+          .delete(expenseSplitLine)
+          .where(eq(expenseSplitLine.expenseId, draftId))
+          .returning({ expenseId: expenseSplitLine.expenseId }),
+    );
+    assert.equal(
+      draftSplitDeleted.length,
+      1,
+      "draft parent: expense_split_line DELETE must succeed",
+    );
 
     const postedDeleted = await withTenantContext(
       db,
