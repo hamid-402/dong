@@ -6,6 +6,7 @@ import { test, expect, request as playwrightRequest } from "@playwright/test";
 import type { APIRequestContext } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { devApiAuthHeaders, installDevSession, resolveWorkspace } from "./helpers/dev-session";
+import { waitForPageAnimations } from "./helpers/wait-for-animations";
 
 const PARTNER_SUBJECT = "playwright-e2e-partner";
 const PARTNER_NAME = "شریک آزمایش";
@@ -124,8 +125,8 @@ test("four themes stay serious-clean and the money flows open in one hop", async
           }, theme),
         )
         .toBe(true);
-      // Theme variables are painted; give one frame so axe does not sample the entrance.
-      await page.waitForTimeout(50);
+      // Theme variables are painted; wait for entrance animations before axe.
+      await waitForPageAnimations(page);
       const results = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
         .analyze();

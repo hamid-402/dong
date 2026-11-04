@@ -5,10 +5,12 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { waitForPageAnimations } from "./helpers/wait-for-animations";
 
 const THEMES = ["white", "black", "paper", "midnight"] as const;
 
 async function expectNoCriticalAxe(page: Page) {
+  await waitForPageAnimations(page);
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
     .analyze();

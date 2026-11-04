@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { installDevSession } from "./helpers/dev-session";
+import { waitForPageAnimations } from "./helpers/wait-for-animations";
 
 async function expectNoCriticalAxe(page: Page) {
   // Dev/turbopack can remount mid-analyze (HMR / concurrent compiles). Retry once
@@ -10,6 +11,7 @@ async function expectNoCriticalAxe(page: Page) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       await page.waitForLoadState("domcontentloaded");
+      await waitForPageAnimations(page);
       const results = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
         .analyze();

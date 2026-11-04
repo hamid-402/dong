@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { waitForPageAnimations } from "./helpers/wait-for-animations";
 
 /**
  * Honest a11y smoke: runs axe against the real login page (no mocked content).
@@ -10,6 +11,7 @@ test.describe("a11y login", () => {
     await page.goto("/login");
     await expect(page.getByRole("heading", { name: /ورود/ })).toBeVisible();
 
+    await waitForPageAnimations(page);
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa"])
       .analyze();
