@@ -125,7 +125,15 @@ test("four themes stay serious-clean and the money flows open in one hop", async
           }, theme),
         )
         .toBe(true);
-      // Theme variables are painted; wait for entrance animations before axe.
+      // Theme variables are painted; let finance chrome attach, then wait for
+      // entrance animations before axe (avoids sampling mid-opacity enter).
+      if (path === "/me/finance") {
+        await page
+          .locator("#money-input, .jdfTrigger")
+          .first()
+          .waitFor({ state: "attached", timeout: 20_000 })
+          .catch(() => undefined);
+      }
       await waitForPageAnimations(page);
       const results = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
